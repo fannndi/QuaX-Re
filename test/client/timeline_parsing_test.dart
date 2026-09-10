@@ -20,7 +20,7 @@ void main() {
 
   group('createTimelineChains', () {
     test('Should return an empty status instead of throwing when the home shape changed', () {
-      final status = Twitter.createTimelineChains(
+      final status = createTimelineChains(
         payload({'data': {'home': {}}}),
         'tweet',
         const [],
@@ -39,13 +39,13 @@ void main() {
 
   group('createTweets', () {
     test('Should skip an entry without an entryId', () {
-      final chains = Twitter.createTweets([payload({'content': {}})]);
+      final chains = createTweets([payload({'content': {}})]);
 
       expect(chains, isEmpty, reason: 'One malformed entry should be skipped, not kill the whole page');
     });
 
     test('Should skip a tweet entry whose tweet_results is missing (deleted tweet)', () {
-      final chains = Twitter.createTweets([
+      final chains = createTweets([
         payload({'entryId': 'tweet-1', 'content': {'itemContent': {}}}),
       ]);
 
@@ -53,7 +53,7 @@ void main() {
     });
 
     test('Should skip a tweet entry that carries no rest_id', () {
-      final chains = Twitter.createTweets([
+      final chains = createTweets([
         payload({
           'entryId': 'tweet-1',
           'content': {'itemContent': {'tweet_results': {'result': {'legacy': {}}}}},
@@ -64,7 +64,7 @@ void main() {
     });
 
     test('Should skip a tweet whose payload cannot be parsed, keeping the page alive', () {
-      final chains = Twitter.createTweets([
+      final chains = createTweets([
         payload({
           'entryId': 'tweet-1',
           'content': {
@@ -87,7 +87,7 @@ void main() {
     });
 
     test('Should keep a tweet whose quoted tweet is unavailable', () {
-      final chains = Twitter.createTweets([
+      final chains = createTweets([
         payload({
           'entryId': 'tweet-1',
           'content': {
@@ -113,7 +113,7 @@ void main() {
 
   group('createTweetChains', () {
     test('Should skip a tweet entry without tweet_results', () {
-      final chains = Twitter.createTweetChains([
+      final chains = createTweetChains([
         payload({'entryId': 'tweet-1', 'content': {'itemContent': {}}}),
       ]);
 
@@ -121,7 +121,7 @@ void main() {
     });
 
     test('Should fall back to a tombstone when a tweet result carries no rest_id', () {
-      final chains = Twitter.createTweetChains([
+      final chains = createTweetChains([
         payload({
           'entryId': 'tweet-123',
           'content': {'itemContent': {'tweet_results': {'result': {'legacy': null}}}},
@@ -135,4 +135,5 @@ void main() {
     });
   });
 }
+
 

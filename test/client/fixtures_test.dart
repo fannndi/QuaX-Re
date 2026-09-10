@@ -39,7 +39,7 @@ List<Fixture> fixturesOf(String operation) {
 
 int _counter = 0;
 
-TweetStatus profileTimeline(Fixture fixture) => Twitter.createUnconversationedChains(
+TweetStatus profileTimeline(Fixture fixture) => createUnconversationedChains(
       fixture.body,
       'tweet',
       const [],
@@ -83,7 +83,7 @@ void main() {
         Profile? profile;
         TwitterError? error;
         try {
-          profile = Twitter.parseProfile(fixture.body, fixture.sourceUrl);
+          profile = parseProfile(fixture.body, fixture.sourceUrl);
         } on TwitterError catch (thrown) {
           error = thrown;
         }
@@ -119,7 +119,7 @@ void main() {
   group('TweetDetail', () {
     for (final fixture in fixturesOf('TweetDetail')) {
       test(fixture.scenario, () {
-        final tweets = allTweets(Twitter.parseTweetDetail(fixture.body));
+        final tweets = allTweets(parseTweetDetail(fixture.body));
         expect(tweets, isNotEmpty,
             reason: 'Opening a tweet should yield at least the tweet itself');
         expectEveryTweetHasAnAuthor(tweets, fixture);
@@ -146,7 +146,7 @@ void main() {
       test(fixture.scenario, () {
         // The People tab answers under another root, and the parser returns an
         // empty status rather than throwing. That is the behaviour under test.
-        expectEveryTweetHasAnAuthor(allTweets(Twitter.parseSearchTimeline(fixture.body)), fixture);
+        expectEveryTweetHasAnAuthor(allTweets(parseSearchTimeline(fixture.body)), fixture);
       });
     }
   });
@@ -157,7 +157,7 @@ void main() {
         int counter = 0;
         // HomeLatestTimeline (the Following feed) answers with the same body
         // shape, so this also covers the parsing side of that timeline.
-        final status = Twitter.createTimelineChains(
+        final status = createTimelineChains(
           fixture.body,
           'tweet',
           const [],
@@ -180,7 +180,7 @@ void main() {
   group('NotificationsTimeline', () {
     for (final fixture in fixturesOf('NotificationsTimeline')) {
       test(fixture.scenario, () {
-        final page = Twitter.parseNotifications(fixture.body);
+        final page = parseNotifications(fixture.body);
         expect(page.entries, isNotEmpty,
             reason: 'The account received notifications, so parsing should yield some');
         expect(page.cursorBottom, isNotNull,
@@ -206,7 +206,7 @@ void main() {
     group(operation, () {
       for (final fixture in fixturesOf(operation)) {
         test(fixture.scenario, () {
-          final page = Twitter.parseFollows(fixture.body);
+          final page = parseFollows(fixture.body);
           expect(page.users, isNotNull,
               reason: 'A follow list should come back as a list, even an empty one');
 
@@ -219,3 +219,4 @@ void main() {
     });
   }
 }
+
