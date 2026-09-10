@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "Потрібно мати щонайменше 2 сторінки головного екрана",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "Ваш профіль має бути публічним, інакше імпорт не спрацює",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "Не вдалося завантажити",
+  "@download_failed": {},
+  "download_interrupted": "Завантаження перервано — повторіть, щоб продовжити",
+  "@download_interrupted": {}
 }

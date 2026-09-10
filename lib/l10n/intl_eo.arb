@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "Vi devas havi malpleje 2 paĝojn de hejmekrano",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "Via profilo devas esti publika, alie la importo ne funkcios",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "Elŝuto malsukcesis",
+  "@download_failed": {},
+  "download_interrupted": "Elŝuto interrompita — reprovu por daŭrigi",
+  "@download_interrupted": {}
 }

@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "आपके पास कम से कम 2 होम स्क्रीन पृष्ठ होने चाहिए",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "आपकी प्रोफ़ाइल सार्वजनिक होनी चाहिए, अन्यथा आयात काम नहीं करेगा",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "डाउनलोड विफल रहा",
+  "@download_failed": {},
+  "download_interrupted": "डाउनलोड बाधित — जारी रखने के लिए फिर से कोशिश करें",
+  "@download_interrupted": {}
 }

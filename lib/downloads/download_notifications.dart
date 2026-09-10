@@ -34,9 +34,9 @@ class DownloadNotifications {
 
   /// Mirrors a running download; throttled so the bar updates ~1×/s.
   static Future<void> update(DownloadQueueItem item) async {
-    if (!_ready) return;
+    if (!_ready || item.status != DownloadStatus.running) return;
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastNotifyAt < 900 && !item.done) return;
+    if (now - _lastNotifyAt < 900) return;
     _lastNotifyAt = now;
 
     final title = item.isVideo ? 'Downloading video…' : 'Downloading image…';
@@ -44,9 +44,9 @@ class DownloadNotifications {
         '${item.totalMb == null ? '' : ' / ${item.totalMb!.toStringAsFixed(1)} MB'}'
         '\u00b7 ${item.speedMbPerSec.toStringAsFixed(1)} MB/s';
 
-    final percent = (item.totalMb == null || item.totalMb == 0)
+    final percent = (item.totalBytes == null || item.totalBytes == 0)
         ? 0
-        : ((item.receivedMb / item.totalMb!) * 100).round().clamp(0, 100);
+        : ((item.receivedBytes / item.totalBytes!) * 100).round().clamp(0, 100);
 
     await _push(title, body, percent: percent);
   }
@@ -56,7 +56,7 @@ class DownloadNotifications {
     if (!_ready) return;
     _lastNotifyAt = 0;
 
-    final remaining = DownloadsModel().state.where((e) => !e.done).length;
+    final remaining = DownloadsModel().state.where((e) => e.status == DownloadStatus.running).length;
     if (remaining == 0) {
       await clear();
       return;

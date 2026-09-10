@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "Heu de tenir almenys 2 pàgines de pantalla d'inici",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "El teu perfil ha de ser públic, en cas contrari la importació no funcionarà",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "La descàrrega ha fallat",
+  "@download_failed": {},
+  "download_interrupted": "Descàrrega interrompuda — torna a provar per reprendre",
+  "@download_interrupted": {}
 }

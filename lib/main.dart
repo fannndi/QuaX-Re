@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/downloads/download_notifications.dart';
+import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/app/fritter_app.dart';
 import 'package:quax/app/startup.dart';
 import 'package:quax/group/feed_session_cache.dart';
@@ -127,8 +128,10 @@ Future<void> main() async {
     groupsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
     subscriptionsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
 
-    // Notification bar wired up for the Hentoid-style download queue.
+    // Notification bar wired up for the Hentoid-style download queue, and the
+    // persisted queue/history loaded so a restart keeps failures to retry.
     unawaited(DownloadNotifications.ensure());
+    unawaited(DownloadsModel().load());
 
     runApp(PrefService(        service: prefService,
         child: MultiProvider(

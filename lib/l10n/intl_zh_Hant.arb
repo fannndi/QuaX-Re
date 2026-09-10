@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "您必須至少有 2 個主畫面頁面",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "您的個人資料必須為公開，否則匯入將無法運作",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "下載失敗",
+  "@download_failed": {},
+  "download_interrupted": "下載已中斷 — 重試以繼續",
+  "@download_interrupted": {}
 }

@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "Du musst mindestens 2 Tabs auf der Startseite haben",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "Ein öffentliches Profil ist erforderlich, sonst funktioniert der Import nicht",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "Download fehlgeschlagen",
+  "@download_failed": {},
+  "download_interrupted": "Download unterbrochen – zum Fortsetzen erneut versuchen",
+  "@download_interrupted": {}
 }

@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "Debes tener al menos 2 páginas en la pantalla de inicio",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "Tu perfil debe ser público, de lo contrario la importación no funcionará",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "Error al descargar",
+  "@download_failed": {},
+  "download_interrupted": "Descarga interrumpida: reintenta para continuar",
+  "@download_interrupted": {}
 }

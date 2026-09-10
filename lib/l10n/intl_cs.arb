@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "Musíte mít alespoň 2 stránky domovské obrazovky",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "Váš profil musí být veřejný, jinak nebude import fungovat",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "Stahování se nezdařilo",
+  "@download_failed": {},
+  "download_interrupted": "Stahování přerušeno — zkuste to znovu pro pokračování",
+  "@download_interrupted": {}
 }

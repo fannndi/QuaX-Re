@@ -608,5 +608,9 @@
   "you_must_have_at_least_2_home_screen_pages": "ホーム画面にはページが少なくとも2つ必要です",
   "@you_must_have_at_least_2_home_screen_pages": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "公開アカウントである必要があります",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "download_failed": "ダウンロードに失敗しました",
+  "@download_failed": {},
+  "download_interrupted": "ダウンロードが中断されました — 再試行で再開",
+  "@download_interrupted": {}
 }

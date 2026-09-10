@@ -14,15 +14,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:share_plus/share_plus.dart';
 
-/// Live state of a running download: bytes moved, the byte total when the
-/// server answered one, and the smoothed transfer speed.
-class DownloadProgress {
-  final int receivedBytes;
-  final int? totalBytes;
-  final double speedBytesPerSecond;
-
-  const DownloadProgress(this.receivedBytes, this.totalBytes, this.speedBytesPerSecond);
-}
 
 /// Downloads [uri] under a live progress dialog (percent, transferred size and
 /// speed, cancellable), then saves the file — into the configured directory,
@@ -153,33 +144,86 @@ Future<String?> _saveToDestination(BuildContext context,
   return savedFile;
 }
 
+/// Retries a failed queue entry. When the server honours Range requests the
+/// download resumes from the bytes already on disk; otherwise it restarts.
+Future<void> retryDownload(BuildContext context, DownloadQueueItem item,
+    {required BasePrefService prefs}) async {
+  final queue = DownloadsModel();
+  queue.startResume(item.fileName);
+
+  try {
+    final tempPath = await _downloadToTemp(context, Uri.parse(item.url), item.fileName, resume: true);
+    if (tempPath == null) return;
+
+    try {
+      final savePath = await _saveToDestination(context,
+          file: tempPath, fileName: item.fileName, prefs: prefs);
+      if (savePath != null) {
+        _showSuccess(context, savePath);
+      }
+    } finally {
+      _deleteTemp(tempPath);
+    }
+  } catch (e) {
+    queue.fail(item.fileName, error: e.toString());
+    if (context.mounted) {
+      showSnackBar(context, icon: '🙊', message: e.toString());
+    }
+  }
+}
+
 /// Streams the response to a temporary file while feeding the downloads queue
 /// (visible on the Downloads navbar tab) — Hentoid-style: the reader stays
 /// usable while files download in the background. Cancels through the queue.
+/// Failed downloads keep their partial file so a retry can resume.
 /// Returns the temp path, or null when the download failed or was cancelled.
-Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName) async {
+Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
+    {bool resume = false}) async {
   final tempDir = await getTemporaryDirectory();
   final tempPath = p.join(tempDir.path, 'quax-download-$fileName');
   final queue = DownloadsModel();
   final client = http.Client();
   final isVideo = fileName.contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v)$', caseSensitive: false));
-  queue.register(fileName, uri.toString(), isVideo);
-  var cancelled = false;
+  if (!resume) {
+    queue.register(fileName, uri.toString(), isVideo);
+  }
 
   queue.attachCancel(fileName, () {
     client.close(); // the stream loop surfaces as a ClientException and cleans up
   });
 
   try {
-    final response = await client.send(http.Request('GET', uri));
-    if (response.statusCode != 200) {
+    // Resume only when the partial file still matches the recorded offset.
+    var offset = resume ? queue.resumeOffsetFor(fileName) : 0;
+    if (offset > 0) {
+      final partial = File(tempPath);
+      if (!await partial.exists() || await partial.length() != offset) {
+        offset = 0;
+      }
+    }
+
+    final request = http.Request('GET', uri);
+    if (offset > 0) {
+      request.headers['range'] = 'bytes=$offset-';
+    }
+
+    final response = await client.send(request);
+    final isPartial = response.statusCode == 206;
+    if (response.statusCode != 200 && !isPartial) {
+      final message = 'HTTP ${response.statusCode}';
+      queue.fail(fileName, error: message);
       _showStatusError(context, response.statusCode);
       return null;
     }
 
-    final totalBytes = response.contentLength;
-    final sink = File(tempPath).openWrite();
-    var received = 0;
+    final append = offset > 0 && isPartial;
+    final contentLength = response.contentLength;
+    final totalBytes = contentLength == null
+        ? null
+        : (append ? offset + contentLength : contentLength);
+
+    final sink = File(tempPath).openWrite(mode: append ? FileMode.append : FileMode.write);
+    var received = append ? offset : 0;
     var lastSample = DateTime.now();
     var lastReceived = 0;
     var speed = 0.0;
@@ -195,16 +239,19 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName) 
         lastSample = DateTime.now();
         lastReceived = received;
       }
-      queue.progress(fileName, received / 1048576, totalBytes == null ? null : totalBytes / 1048576,
-          speed / 1048576);
+      queue.progress(fileName, received, totalBytes, speed);
     }
 
     await sink.close();
     queue.markDone(fileName);
     return tempPath;
-  } catch (_) {
-    // A cancel hook's client.close() lands here as a ClientException.
-    _deleteTemp(tempPath);
+  } on Exception catch (e) {
+    if (queue.isCancelled(fileName)) {
+      // User aborted from the queue: drop the partial file with the entry.
+      _deleteTemp(tempPath);
+    } else {
+      queue.fail(fileName, error: e.toString());
+    }
     return null;
   }
 }
