@@ -13,6 +13,7 @@ import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/folder_picker.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
 import 'package:quax/tweet/_like_button.dart';
+import 'package:quax/tweet/_tweet_leading.dart';
 import 'package:quax/saved/saved_tweet_model.dart';
 import 'package:quax/status.dart';
 import 'package:quax/tweet/_ExpandableTweetText.dart';
@@ -477,7 +478,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     Widget retweetBanner = Container();
     Widget retweetSidebar = Container();
     if (this.tweet.retweetedStatusWithCard != null) {
-      retweetBanner = _TweetTileLeading(
+      retweetBanner = TweetTileLeading(
         icon: Icons.repeat,
         onTap: () => Navigator.pushNamed(context, routeProfile,
             arguments: ProfileScreenArguments.fromScreenName(this.tweet.user!.screenName!, null)),
@@ -495,7 +496,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     Widget replyToTile = Container();
     var replyTo = tweet.inReplyToScreenName;
     if (replyTo != null) {
-      replyToTile = _TweetTileLeading(
+      replyToTile = TweetTileLeading(
         onTap: () {
           var replyToId = tweet.inReplyToStatusIdStr;
           if (replyToId == null) {
@@ -731,12 +732,12 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
 
     final pinnedBadge = isPinned
-        ? _TweetTileLeading(icon: Icons.push_pin, children: [
+        ? TweetTileLeading(icon: Icons.push_pin, children: [
             TextSpan(text: L10n.of(context).pinned_tweet, style: theme.textTheme.bodySmall)
           ])
         : null;
     final threadBadge = isThread
-        ? _TweetTileLeading(icon: Icons.forum, children: [
+        ? TweetTileLeading(icon: Icons.forum, children: [
             TextSpan(text: L10n.of(context).thread, style: theme.textTheme.bodySmall)
           ])
         : null;
@@ -883,48 +884,6 @@ Color? tweetCardColor(BuildContext context) {
       : ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: theme.colorScheme.primary, brightness: theme.brightness),
         ).cardColor;
-}
-
-class TweetHasNoContentException {
-  final String? id;
-
-  TweetHasNoContentException(this.id);
-
-  @override
-  String toString() {
-    return 'The tweet has no content {id: $id}';
-  }
-}
-
-class _TweetTileLeading extends StatelessWidget {
-  final Function()? onTap;
-  final IconData icon;
-  final Iterable<InlineSpan> children;
-
-  const _TweetTileLeading({this.onTap, required this.icon, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.only(bottom: 0, left: 52, right: 16, top: 0),
-          child: RichText(
-            text: TextSpan(children: [
-              WidgetSpan(
-                  child: Icon(icon, size: 12, color: Theme.of(context).hintColor),
-                  alignment: PlaceholderAlignment.middle),
-              const WidgetSpan(child: SizedBox(width: 16)),
-              ...children
-            ]),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 enum TranslationStatus { original, translating, translationFailed, translated }
