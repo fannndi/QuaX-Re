@@ -105,12 +105,6 @@ Strings live in `lib/l10n/*.arb` files. The `L10n` class in `lib/generated/l10n.
 - Anytime when you are about to copy/paste code from somewhere, think about refactoring instead. Ask me first what to do in such cases.
 - Go easy on comments. Avoid comments that are obvious or redundant, or that simply describe the code you're about to write.
 
-## Custom Skills
-
-- `/parse-api` — guidance for safely parsing reverse-engineered X API responses
-- `/port-from-squawker` — port a bug fix or feature from the Squawker codebase
-- `/translate` — user asked anything about translation, or you tried to add/remove/edit a text that appears in the UI
-
 ## Writing tests
 
 When writing tests:
@@ -120,12 +114,18 @@ When writing tests:
 
 ## Fork notes (deviations from upstream)
 
+- This is a personal fork (fannndi/QuaX-Re), developed without the upstream CI/agent tooling:
+  `.github/`, `.claude/`, `docs/`, `fastlane/` and the release scripts are removed on purpose.
+  `master` stays close to upstream so future upstream commits can be inspected and adapted.
 - The feed's "Following" tab uses X's `HomeLatestTimeline` endpoint (`getHomeLatestTimeline` in
   `lib/client/client.dart`). Its queryId is community-tracked (fa0311/twitter-openapi): on 404s
   update that constant, or record a real response with `tool/record/` (open x.com/home and switch
   to the Following tab while recording).
-- The bottom navigation is Home / Notifications / Saved / Settings. The Trending page, the Discord
-  startup popup and the subscriptions home page are dropped; search lives in the feed's app bar.
+- The bottom navigation is Home / Notifications / Saved / Downloads / Settings. The Trending page,
+  the Discord startup popup and the subscriptions home page are dropped; search lives in the
+  feed's app bar.
+- Downloads stream under an Android progress notification into the hidden library (`.nomedia`),
+  browsable in Saved > Downloaded with a TikTok-style viewer.
 - The update checker defaults to off: upstream releases would overwrite these fork changes.
 - When (re)installing builds on the connected device, keep app data: use
   `adb install -r build/app/outputs/flutter-apk/app-debug.apk` (or `x -s <serial> install -r`),
