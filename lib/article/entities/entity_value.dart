@@ -2,7 +2,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
-import 'package:quax/tweet/_media.dart';
+import 'package:quax/tweet/media_viewer.dart';
 import 'package:quax/tweet/_video.dart';
 
 part 'markdown_entity.dart';
@@ -16,3 +16,4 @@ sealed class EntityValue {
 
   Widget toWidget(BuildContext context);
 }
+

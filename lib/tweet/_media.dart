@@ -1,17 +1,14 @@
 import 'dart:math' as math;
 
-import 'package:async_button_builder/async_button_builder.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile.dart';
-import 'package:quax/tweet/_photo.dart';
-import 'package:quax/tweet/_video.dart';
+import 'package:quax/tweet/media_actions.dart';
+import 'package:quax/tweet/media_viewer.dart';
 import 'package:quax/ui/errors.dart';
-import 'package:quax/utils/downloads.dart';
-import 'package:path/path.dart' as path;
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
 
@@ -82,7 +79,7 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
     var item = widget.media;
 
     if (_showMedia) {
-      media = _TweetMediaThing(
+      media = TweetMediaThing(
           item: item,
           username: widget.username,
           size: size,
@@ -220,210 +217,4 @@ class _TweetMediaState extends State<TweetMedia> {
   }
 }
 
-class TweetMediaView extends StatefulWidget {
-  final int initialIndex;
-  final List<Media> media;
-  final String username;
-  final bool tweetMedia;  // True if the media comes from a tweet
-  final String? tweetId;
 
-  const TweetMediaView(
-      {super.key,
-      required this.initialIndex,
-      required this.media,
-      required this.username,
-      this.tweetMedia = true,
-      this.tweetId});
-
-  @override
-  State<TweetMediaView> createState() => _TweetMediaViewState();
-}
-
-Media createMediaFromUrl(String? url, double? height) {
-  Media media = Media();
-  if (url != null) {
-    ExtendedImage.network(url, fit: BoxFit.fitWidth, height: height);
-    media.url = url;
-    media.mediaUrlHttps = url;
-    media.displayUrl = url;
-    media.expandedUrl = url;
-    media.type = 'photo';
-  }
-  return media;
-}
-
-class _TweetMediaViewState extends State<TweetMediaView> {
-  late Media _media;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _media = widget.media[widget.initialIndex];
-  }
-
-  String originalMediaUrl() {
-    return (widget.tweetMedia ? '${_media.mediaUrlHttps}:orig' : _media.mediaUrlHttps) ?? "";
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String? size;
-    var prefs = PrefService.of(context, listen: false);
-    if (widget.tweetMedia) {
-      var size = prefs.get(optionImageQuality);
-      if (size == 'disabled') {
-        size = 'medium';
-      }
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        actions: [
-          AsyncButtonBuilder(
-            child: const Icon(Icons.download),
-            builder: (context, child, callback, buttonState) {
-              return IconButton(onPressed: callback, icon: child);
-            },
-            onPressed: () async {
-              var url = path.basename(_media.mediaUrlHttps!);
-              var fileName = '${widget.username}-$url';
-              var uri = Uri.parse(originalMediaUrl());
-
-              await downloadUriToPickedFile(context, uri, fileName, prefs: prefs);
-            },
-          ),
-          AsyncButtonBuilder(
-            showSuccess: false,
-            builder: (context, child, callback, buttonState) {
-              return IconButton(onPressed: callback, icon: child);
-            },
-            onPressed: () async {
-              var url = path.basename(_media.mediaUrlHttps!);
-              var fileName = '${widget.username}-$url';
-              var uri = Uri.parse(originalMediaUrl());
-
-              await downloadAndShare(context, uri, fileName, prefs: prefs);
-            },
-            child: const Icon(Icons.share),
-          ),
-        ],
-      ),
-      body: ExtendedImageGesturePageView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: widget.media.length,
-        itemBuilder: (BuildContext context, int index) {
-          var item = widget.media[index];
-
-          return _TweetMediaThing(
-              item: item,
-              username: widget.username,
-              size: size,
-              pullToClose: true,
-              inPageView: true,
-              tweetId: widget.tweetId,
-              mediaIndex: index);
-        },
-        controller: ExtendedPageController(
-          initialPage: widget.initialIndex,
-        ),
-        onPageChanged: (index) => setState(() {
-          _media = widget.media[index];
-        }),
-      ),
-    );
-  }
-}
-
-class _TweetMediaThing extends StatelessWidget {
-  final Media item;
-  final String username;
-  final String? size;
-  final bool pullToClose;
-  final bool inPageView;
-  final String? tweetId;
-  final int mediaIndex;
-
-  const _TweetMediaThing(
-      {required this.item,
-      required this.username,
-      required this.size,
-      required this.pullToClose,
-      required this.inPageView,
-      this.tweetId,
-      this.mediaIndex = 0});
-
-  @override
-  Widget build(BuildContext context) {
-    Widget media;
-    if (item.type == 'animated_gif') {
-      media = TweetVideo(
-          metadata: TweetVideoMetadata.fromMedia(item),
-          loop: true,
-          username: username,
-          alwaysPlay: true,
-          disableControls: true,
-          tweetId: tweetId,
-          mediaIndex: mediaIndex);
-    } else if (item.type == 'video') {
-      media = TweetVideo(
-          metadata: TweetVideoMetadata.fromMedia(item),
-          loop: false,
-          username: username,
-          tweetId: tweetId,
-          mediaIndex: mediaIndex);
-    } else if (item.type == 'photo') {
-      media = TweetPhoto(
-          size: size, uri: item.mediaUrlHttps!, fit: BoxFit.contain, pullToClose: pullToClose, inPageView: inPageView);
-    } else {
-      media = Text(L10n.of(context).unknown);
-    }
-
-    return media;
-  }
-}
-
-/// Long-press actions for a single tweet-card media: download it under the
-/// streamed progress dialog, or open the share sheet right away.
-void showMediaActionsSheet(BuildContext context, Media item, String? username) {
-  final isVideoLike = item.type == 'video' || item.type == 'animated_gif';
-  final variantUrl = _largestVideoVariantUrl(item);
-  final mediaUrl = Uri.parse(isVideoLike ? variantUrl! : '${item.mediaUrlHttps}:orig');
-  final fileName = '$username-${path.basename(mediaUrl.path)}';
-
-  showModalBottomSheet(
-    context: context,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.download),
-            title: Text(L10n.of(sheetContext).download),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              downloadUriToPickedFile(context, mediaUrl, fileName, prefs: PrefService.of(context));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.share),
-            title: Text(L10n.of(sheetContext).share),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              downloadAndShare(context, mediaUrl, fileName, prefs: PrefService.of(context));
-            },
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-/// The highest-bitrate MP4 variant of a tweet video or GIF — the one worth
-/// keeping on disk (a GIF's variant is a silent MP4, which WhatsApp accepts).
-String? _largestVideoVariantUrl(Media item) {
-  final variants =
-      (item.videoInfo?.variants ?? const []).where((v) => v.contentType?.contains('mp4') ?? false).toList();
-  variants.sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
-  return variants.firstOrNull?.url;
-}

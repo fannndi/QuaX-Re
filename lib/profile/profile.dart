@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/entities.dart';
+import 'package:quax/tweet/media_viewer.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/_follows.dart';
 import 'package:quax/profile/_media_grid.dart';
@@ -11,7 +12,6 @@ import 'package:quax/profile/_saved.dart';
 import 'package:quax/profile/_tweets.dart';
 import 'package:quax/profile/profile_model.dart';
 import 'package:quax/search/search.dart';
-import 'package:quax/tweet/_media.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/urls.dart';
@@ -675,3 +675,4 @@ class TweetContextState extends ChangeNotifier {
     notifyListeners();
   }
 }
+
