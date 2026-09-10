@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:quax/client/accounts.dart';
 import 'package:quax/client/headers.dart';
 import 'dart:async';
 import 'package:quax/database/repository.dart';
@@ -29,5 +30,6 @@ class XRegularAccount extends ChangeNotifier {
   Future<void> deleteAccount(String username) async {
     var database = await Repository.writable();
     database.delete(tableAccounts, where: 'id = ?', whereArgs: [username]);
+    await promoteFirstAccountIfNoneActive();
   }
 }

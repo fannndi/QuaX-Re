@@ -299,13 +299,17 @@ class Account with ToMappable {
   final String? screenName;
   final DateTime? lastNotFoundAt;
   final int consecutiveNotFound;
+  // The account the app prefers for every request; health still wins when the
+  // active one is rate-limited or flagged.
+  final bool isActive;
 
   Account(
       {required this.id,
       required this.authHeader,
       required this.screenName,
       this.lastNotFoundAt,
-      this.consecutiveNotFound = 0});
+      this.consecutiveNotFound = 0,
+      this.isActive = false});
 
   static DateTime? _date(Object? value) => value == null ? null : DateTime.parse(value as String);
 
@@ -318,7 +322,8 @@ class Account with ToMappable {
         authHeader: map['auth_header'],
         screenName: map['screen_name'] as String?,
         lastNotFoundAt: _date(map['last_not_found_at']),
-        consecutiveNotFound: (map['consecutive_not_found'] as int?) ?? 0);
+        consecutiveNotFound: (map['consecutive_not_found'] as int?) ?? 0,
+        isActive: (map['is_active'] as int?) == 1);
   }
 
   @override
@@ -335,7 +340,8 @@ class Account with ToMappable {
       'auth_header': authHeader,
       'screen_name': screenName,
       'last_not_found_at': lastNotFoundAt?.toIso8601String(),
-      'consecutive_not_found': consecutiveNotFound
+      'consecutive_not_found': consecutiveNotFound,
+      'is_active': isActive ? 1 : 0
     };
   }
 }

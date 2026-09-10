@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/client/accounts.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/generated/l10n.dart';
@@ -89,6 +90,10 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
                   conflictAlgorithm: ConflictAlgorithm.replace,
                 );
                 database.close();
+
+                // A freshly added account becomes the one used everywhere, so
+                // the timelines immediately speak for the new login.
+                await setActiveAccount(csrfToken);
               }
               if (context.mounted) {
                 Navigator.pop(context);

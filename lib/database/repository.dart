@@ -257,11 +257,17 @@ class Repository {
         SqlMigration(
             'CREATE TABLE IF NOT EXISTS $tableLikedTweet (id VARCHAR PRIMARY KEY, content TEXT NOT NULL, user_id VARCHAR DEFAULT NULL, liked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
             reverseSql: 'DROP TABLE $tableLikedTweet'),
+      ],
+      27: [
+        // Which account the app should prefer for every request (null = the
+        // health-aware selector decides alone). One active account at a time.
+        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN is_active INTEGER DEFAULT 0',
+            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN is_active'),
       ]
     });
     await openDatabase(
       databaseName,
-      version: 26,
+      version: 27,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
       onDowngrade: myMigrationPlan.call,

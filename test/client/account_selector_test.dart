@@ -6,8 +6,8 @@ import 'package:quax/database/entities.dart';
 void main() {
   final now = DateTime(2026, 9, 4, 12);
 
-  Account account(String id, {DateTime? lastNotFoundAt}) =>
-      Account(id: id, authHeader: '{}', screenName: id, lastNotFoundAt: lastNotFoundAt);
+  Account account(String id, {DateTime? lastNotFoundAt, bool isActive = false}) =>
+      Account(id: id, authHeader: '{}', screenName: id, lastNotFoundAt: lastNotFoundAt, isActive: isActive);
 
   group('AccountSelector.pick()', () {
     test('Should prefer an account that is not rate limited on this endpoint', () {
@@ -64,6 +64,24 @@ void main() {
       expect(AccountSelector([], now).pick(exclude: {}), isNull,
           reason: 'With no account there is nothing to choose, so null should come back. That is '
               'what tells the caller to fall back to a guest request');
+    });
+
+    test('Should prefer the active account among healthy ones', () {
+      final selector = AccountSelector([account('a'), account('chosen', isActive: true)], now);
+
+      expect(selector.pick(exclude: {})?.id, 'chosen',
+          reason: 'The user picked an account in the settings: every request should go through it '
+              'while it is healthy, so timelines speak for the chosen login');
+    });
+
+    test('Should fall back past the active account when it is rate limited', () {
+      final selector = AccountSelector(
+          [account('limited', isActive: true), account('other')], now,
+          isRateLimited: (a) => a.id == 'limited');
+
+      expect(selector.pick(exclude: {})?.id, 'other',
+          reason: 'Health comes first: a rate-limited active account must not fail the request when '
+              'another account could serve it');
     });
   });
 }

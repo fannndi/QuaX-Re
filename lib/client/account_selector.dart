@@ -23,7 +23,9 @@ class AccountSelector {
 
   /// Picks an account not already tried this request, preferring healthy ones
   /// but falling back to flagged accounts so a request is always attempted while
-  /// any account remains. Returns null only when every account has been tried.
+  /// any account remains. Within the healthy pool the account marked active
+  /// wins, so a user-chosen account drives the app; returns null only when
+  /// every account has been tried.
   Account? pick({required Set<String> exclude}) {
     final remaining = accounts.where((a) => !exclude.contains(a.id)).toList();
     if (remaining.isEmpty) {
@@ -31,6 +33,10 @@ class AccountSelector {
     }
     final healthy = remaining.where(_healthy).toList();
     final pool = healthy.isNotEmpty ? healthy : remaining;
+    final active = pool.where((a) => a.isActive).toList();
+    if (active.isNotEmpty) {
+      return active.first;
+    }
     return pool[Random().nextInt(pool.length)];
   }
 }

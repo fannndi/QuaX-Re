@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
+import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/home/_following.dart';
 import 'package:quax/home/_for_you.dart';
@@ -45,7 +46,21 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   TabController? _tabController;
 
   @override
+  void initState() {
+    super.initState();
+    // Switching the active account speaks for a different timeline: reload the
+    // mounted feeds so the content follows the new login.
+    accountsRevision.addListener(_onAccountsChanged);
+  }
+
+  void _onAccountsChanged() {
+    if (_followingFeed.hasItems) _followingFeed.softRefresh();
+    if (_foryouFeed.hasItems) _foryouFeed.softRefresh();
+  }
+
+  @override
   void dispose() {
+    accountsRevision.removeListener(_onAccountsChanged);
     _tabController?.dispose();
     _followingFeed.dispose();
     _foryouFeed.dispose();
