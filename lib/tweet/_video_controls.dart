@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:path/path.dart' as path;
+import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/video_quality.dart';
@@ -805,24 +805,9 @@ Future<void> downloadTweetVideo(BuildContext context, String username, String? d
   }
 
   final videoUri = Uri.parse(downloadUrl);
-  final fileName = '$username-${path.basename(videoUri.path)}';
+  final fileName = '$username-${p.basename(videoUri.path)}';
 
-  await downloadUriToPickedFile(
-    context,
-    videoUri,
-    fileName,
-    prefs: PrefService.of(context),
-    onStart: () {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(L10n.of(context).downloading_media),
-      ));
-    },
-    onSuccess: () {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(L10n.of(context).successfully_saved_the_media),
-      ));
-    },
-  );
+  await downloadUriToPickedFile(context, videoUri, fileName, prefs: PrefService.of(context));
 }
 
 class _SpeedSheet extends StatelessWidget {

@@ -589,5 +589,6 @@
   "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
   "no_notifications_yet": "Nessuna notifica per ora!",
   "@no_notifications_yet": {},
-  "notifications": "Notifiche"
+  "notifications": "Notifiche",
+  "share": "Condividi"
 }
