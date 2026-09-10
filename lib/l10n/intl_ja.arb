@@ -601,5 +601,7 @@
   "downloads_empty": "このセッションのダウンロードはありません",
   "downloaded_in_library": "このセッションのダウンロードはありません",
   "library_storage_permission_needed": "ここに保存するには、QuaXに「すべてのファイルへのアクセス」権限が必要です。システム画面を開いたので、許可してからもう一度お試しください。",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "別のフォルダからメディアを移動",
+  "@library_import_existing": {}
 }

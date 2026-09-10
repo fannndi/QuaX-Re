@@ -601,5 +601,7 @@
   "downloads_empty": "Няма загрузак у гэтай сесіі.",
   "downloaded_in_library": "Няма загрузак у гэтай сесіі.",
   "library_storage_permission_needed": "QuaX патрабуе дазвол доступу да ўсіх файлаў. Адкрыўся сістэмны экран — дайце дазвол і паўтарыце.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Імпартаваць медыя зyoutube папкі",
+  "@library_import_existing": {}
 }

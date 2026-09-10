@@ -601,5 +601,7 @@
   "downloads_empty": "No downloads in this session.",
   "downloaded_in_library": "No downloads in this library.",
   "library_storage_permission_needed": "QuaX needs the all-files-access permission to save there. The system screen was opened: grant it, then try again.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Move media from another folder",
+  "@library_import_existing": {}
 }

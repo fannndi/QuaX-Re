@@ -601,5 +601,7 @@
   "downloads_empty": "Aucun téléchargement dans cette session.",
   "downloaded_in_library": "Aucun téléchargement dans cette library.",
   "library_storage_permission_needed": "QuaX a besoin de la permission « accéder à tous les fichiers » pour enregistrer ici. L’écran système a été ouvert : accordez-la puis réessayez.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Déplacer des médias depuis un autre dossier",
+  "@library_import_existing": {}
 }

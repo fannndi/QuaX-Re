@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
@@ -154,157 +153,59 @@ Future<String?> _saveToDestination(BuildContext context,
   return savedFile;
 }
 
-/// Streams the response to a temporary file while feeding a progress dialog,
-/// so large videos show real numbers instead of looking frozen. Returns the
-/// temp path, or null when the download failed or was cancelled.
+/// Streams the response to a temporary file while feeding the downloads queue
+/// (visible on the Downloads navbar tab) — Hentoid-style: the reader stays
+/// usable while files download in the background. Cancels through the queue.
+/// Returns the temp path, or null when the download failed or was cancelled.
 Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName) async {
   final tempDir = await getTemporaryDirectory();
   final tempPath = p.join(tempDir.path, 'quax-download-$fileName');
-  final progress = StreamController<DownloadProgress>.broadcast();
-  final finished = Completer<bool>(); // network has settled (success, error or cancel)
-  final client = http.Client();
   final queue = DownloadsModel();
+  final client = http.Client();
   final isVideo = fileName.contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v)$', caseSensitive: false));
   queue.register(fileName, uri.toString(), isVideo);
   var cancelled = false;
-  int? failedStatus;
 
-  run() async {
-    try {
-      final response = await client.send(http.Request('GET', uri));
-      if (response.statusCode != 200) {
-        failedStatus = response.statusCode;
-        return null;
-      }
-
-      final totalBytes = response.contentLength;
-      final sink = File(tempPath).openWrite();
-      var received = 0;
-      var lastSample = DateTime.now();
-      var lastReceived = 0;
-      var speed = 0.0;
-
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-
-        final elapsed = DateTime.now().difference(lastSample).inMilliseconds;
-        if (elapsed >= 250) {
-          final sample = (received - lastReceived) * 1000 / elapsed;
-          speed = speed == 0 ? sample : speed * 0.6 + sample * 0.4;
-          lastSample = DateTime.now();
-          lastReceived = received;
-        }
-        progress.add(DownloadProgress(received, totalBytes, speed));
-        queue.progress(
-            fileName, received / 1048576, totalBytes == null ? null : totalBytes / 1048576,
-            speed / 1048576);
-      }
-
-      await sink.close();
-      queue.markDone(fileName);
-      return tempPath;
-    } catch (_) {
-      // client.close() from the Cancel button lands here as a ClientException.
-      _deleteTemp(tempPath);
-      return null;
-    } finally {
-      if (!finished.isCompleted) {
-        finished.complete(true); // settled: the dialog closes itself now
-      }
-    }
-  }
-
-  final network = run();
-  final dialogFuture = showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) => _DownloadProgressDialog(
-      progressStream: progress.stream,
-      finished: finished.future,
-      onCancel: () {
-        cancelled = true;
-        client.close();
-      },
-    ),
-  );
-
-  final result = await network;
-  await progress.close();
-  await dialogFuture;
-
-  // Surface status errors once the dialog overlay is gone, so it is visible.
-  if (!cancelled && failedStatus != null && context.mounted) {
-    _showStatusError(context, failedStatus!);
-    return null;
-  }
-
-  return cancelled ? null : result;
-}
-
-class _DownloadProgressDialog extends StatelessWidget {
-  final Stream<DownloadProgress> progressStream;
-  final Future<bool> finished;
-  final VoidCallback onCancel;
-
-  const _DownloadProgressDialog({
-    required this.progressStream,
-    required this.finished,
-    required this.onCancel,
+  queue.attachCancel(fileName, () {
+    client.close(); // the stream loop surfaces as a ClientException and cleans up
   });
 
-  double? _percentOf(DownloadProgress? progress) {
-    if (progress == null || progress.totalBytes == null || progress.totalBytes == 0) return null;
-    return (progress.receivedBytes / progress.totalBytes!).clamp(0.0, 1.0);
-  }
+  try {
+    final response = await client.send(http.Request('GET', uri));
+    if (response.statusCode != 200) {
+      _showStatusError(context, response.statusCode);
+      return null;
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final totalBytes = response.contentLength;
+    final sink = File(tempPath).openWrite();
+    var received = 0;
+    var lastSample = DateTime.now();
+    var lastReceived = 0;
+    var speed = 0.0;
 
-    return FutureBuilder<bool>(
-      future: finished,
-      builder: (context, finishedSnapshot) {
-        // Either the network settled or the user cancelled: close the dialog so
-        // the flow continues, whatever the outcome was.
-        if (finishedSnapshot.connectionState == ConnectionState.done) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-          });
-        }
+    await for (final chunk in response.stream) {
+      sink.add(chunk);
+      received += chunk.length;
 
-        return AlertDialog(
-          title: Text(L10n.of(context).downloading_media),
-          content: StreamBuilder<DownloadProgress>(
-            stream: progressStream,
-            builder: (context, snapshot) {
-              final progress = snapshot.data;
-              final percent = _percentOf(progress);
-              final receivedMb = (progress?.receivedBytes ?? 0) / 1048576;
+      final elapsed = DateTime.now().difference(lastSample).inMilliseconds;
+      if (elapsed >= 250) {
+        final sample = (received - lastReceived) * 1000 / elapsed;
+        speed = speed == 0 ? sample : speed * 0.6 + sample * 0.4;
+        lastSample = DateTime.now();
+        lastReceived = received;
+      }
+      queue.progress(fileName, received / 1048576, totalBytes == null ? null : totalBytes / 1048576,
+          speed / 1048576);
+    }
 
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (percent != null) LinearProgressIndicator(value: percent) else LinearProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(
-                    receivedMb == 0
-                        ? '•'
-                        : '$receivedMb MB'
-                            '${progress?.totalBytes == null ? '' : ' / ${(progress!.totalBytes! / 1048576).toStringAsFixed(1)} MB'}'
-                            '${progress == null || progress.speedBytesPerSecond == 0 ? '' : ' · ${(progress.speedBytesPerSecond / 1048576).toStringAsFixed(1)} MB/s'}',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(onPressed: onCancel, child: Text(L10n.of(context).cancel)),
-          ],
-        );
-      },
-    );
+    await sink.close();
+    queue.markDone(fileName);
+    return tempPath;
+  } catch (_) {
+    // A cancel hook's client.close() lands here as a ClientException.
+    _deleteTemp(tempPath);
+    return null;
   }
 }
+

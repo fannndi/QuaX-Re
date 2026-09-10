@@ -601,5 +601,7 @@
   "downloads_empty": "Sem transferências nesta sessão.",
   "downloaded_in_library": "Sem transferências nesta library.",
   "library_storage_permission_needed": "O QuaX precisa da permissão de acesso a todos os ficheiros para guardar aí. O ecrã do sistema foi aberto: conceda-a e tente de novo.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Mover média de outra pasta",
+  "@library_import_existing": {}
 }

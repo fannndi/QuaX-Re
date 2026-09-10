@@ -2,6 +2,7 @@ import 'package:flutter_triple/flutter_triple.dart';
 
 /// One entry of the download queue. [done] flips once the file reached its
 /// destination; it is then browsable in the Saved screen's Downloaded tab.
+/// A cancelled download removes itself from the queue.
 class DownloadQueueItem {
   final String fileName;
   final String url;
@@ -33,8 +34,8 @@ class DownloadQueueItem {
       );
 }
 
-/// Hentoid-style queue: one process-wide store fed by the streamed downloads,
-/// so the queue screen shows live percent/speed without touching the disk.
+/// Hentoid-style queue: one process-wide store fed by the streamed downloads.
+/// The queue screen shows live percent/speed while the reader stays usable.
 class DownloadsModel extends Store<List<DownloadQueueItem>> {
   static final DownloadsModel _instance = DownloadsModel._();
 
@@ -42,9 +43,15 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   DownloadsModel._() : super([]);
 
+  // Each running download leaves its abort hook here; the queue screen is able
+  // to pull it without owning the HTTP machinery.
+  final Map<String, void Function()> _cancelHooks = {};
+  final Set<String> _cancelled = {};
+
   void register(String fileName, String url, bool isVideo) {
+    _cancelled.remove(fileName);
     final existing = List.of(state);
-    if (existing.any((item) => item.fileName == fileName)) return;
+    existing.removeWhere((item) => item.fileName == fileName);
     existing.insert(
         0,
         DownloadQueueItem(
@@ -58,7 +65,10 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     update(existing, force: true);
   }
 
+  void attachCancel(String fileName, void Function() abort) => _cancelHooks[fileName] = abort;
+
   void progress(String fileName, double receivedMb, double? totalMb, double speedMbPerSec) {
+    if (_cancelled.contains(fileName)) return;
     final updated = [
       for (final item in state)
         item.fileName == fileName
@@ -69,7 +79,25 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   }
 
   void markDone(String fileName) {
+    _cancelHooks.remove(fileName);
     final updated = [for (final item in state) item.fileName == fileName ? item.copyWith(done: true) : item];
+    update(updated, force: true);
+  }
+
+  /// User-initiated abort from the queue screen. Returns whether a running
+  /// download accepted it (drop the entry either way).
+  bool cancel(String fileName) {
+    _cancelled.add(fileName);
+    _cancelHooks.remove(fileName)?.call();
+    _cancelHooks.remove(fileName);
+    final updated = state.where((item) => item.fileName != fileName).toList();
+    update(updated, force: true);
+    return true;
+  }
+
+  void fail(String fileName) {
+    _cancelHooks.remove(fileName);
+    final updated = state.where((item) => item.fileName != fileName).toList();
     update(updated, force: true);
   }
 }

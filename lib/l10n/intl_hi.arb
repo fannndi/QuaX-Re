@@ -601,5 +601,7 @@
   "downloads_empty": "इस सत्र में कोई डाउनलोड नहीं।",
   "downloaded_in_library": "इस सत्र में कोई डाउनलोड नहीं।",
   "library_storage_permission_needed": "यहाँ सेव करने के लिए QuaX को all-files-access अनुमति चाहिए। सिस्टम स्क्रीन खुल गई है: अनुमति दें, फिर दोबारा कोशिश करें।",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "दूसरे फोल्डर से मीडिया लाएं",
+  "@library_import_existing": {}
 }

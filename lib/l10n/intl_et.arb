@@ -601,5 +601,7 @@
   "downloads_empty": "Selles sessioonis allalaadimisi pole.",
   "downloaded_in_library": "Selles sessioonis allalaadimisi pole.",
   "library_storage_permission_needed": "QuaX vajab failide salvestamiseks kõigi failide juurdepääsu luba. Süsteemi ekraan avati: anna luba ja proovi uuesti.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Tõstke meedia teisest kaustast",
+  "@library_import_existing": {}
 }

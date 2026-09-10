@@ -601,5 +601,7 @@
   "downloads_empty": "Bu oturumda indirme yok.",
   "downloaded_in_library": "Bu oturumda indirme yok.",
   "library_storage_permission_needed": "QuaX, buraya kaydedebilmek için tüm dosyalara erişim iznine ihtiyaç duyuyor. Sistem ekranı açıldı: izni ver, sonra tekrar dene.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Başka bir klasörden medya taşı",
+  "@library_import_existing": {}
 }

@@ -601,5 +601,7 @@
   "downloads_empty": "Ez dago deskargarik saio honetan.",
   "downloaded_in_library": "Ez dago deskargarik saio honetan.",
   "library_storage_permission_needed": "QuaX-ek fitxategi guztietarako sarbide-baimena behar du hemen gordetzeko. Sistemaren pantaila zabaldu da: eman baimena eta saiatu berriro.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Eraman euskarriak beste karpeta batetik",
+  "@library_import_existing": {}
 }

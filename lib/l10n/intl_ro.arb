@@ -601,5 +601,7 @@
   "downloads_empty": "Nicio descărcare în această sesiune.",
   "downloaded_in_library": "Nicio descărcare în această sesiune.",
   "library_storage_permission_needed": "QuaX are nevoie de permisiunea de acces la toate fișierele pentru a salva aici. Ecranul de sistem s-a deschis: acordați permisiunea, apoi încercați din nou.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Mută fișiere din alt folder",
+  "@library_import_existing": {}
 }

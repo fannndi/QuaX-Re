@@ -601,5 +601,7 @@
   "downloads_empty": "Brak pobrań w tej sesji.",
   "downloaded_in_library": "Brak pobrań w tej sesji.",
   "library_storage_permission_needed": "QuaX potrzebuje dostępu do wszystkich plików, aby zapisywać tutaj. Otwarto ekran systemowy: nadaj uprawnienie i spróbuj ponownie.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Przenieś pliki z innego folderu",
+  "@library_import_existing": {}
 }

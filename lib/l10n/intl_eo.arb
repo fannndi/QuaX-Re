@@ -601,5 +601,7 @@
   "downloads_empty": "Nenaj elŝutoj en tiu ĉi seanco.",
   "downloaded_in_library": "Nenaj elŝutoj en tiu ĉi seanco.",
   "library_storage_permission_needed": "QuaX bezonas la permeson aliri ĉiujn dosierojn por konservi tie. La sistema ekrano malfermiĝis: donu ĝin kaj reprovu.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Alportu amasaĵojn el alia dosierujo",
+  "@library_import_existing": {}
 }

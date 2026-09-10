@@ -601,5 +601,7 @@
   "downloads_empty": "本次会话暂无下载",
   "downloaded_in_library": "本次会话暂无下载",
   "library_storage_permission_needed": "QuaX 需要「所有文件访问权限」才能在此保存。已为你打开系统页面：请授权后重试。",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "从其他文件夹移入媒体",
+  "@library_import_existing": {}
 }

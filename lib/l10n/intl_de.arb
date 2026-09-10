@@ -601,5 +601,7 @@
   "downloads_empty": "Keine Downloads in dieser Sitzung.",
   "downloaded_in_library": "Keine Downloads in dieser Library.",
   "library_storage_permission_needed": "QuaX braucht die Berechtigung „Zugriff auf alle Dateien“, um hier zu speichern. Der Systembildschirm wurde geöffnet – erteile sie und versuche es erneut.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Medien aus einem anderen Ordner hinzufügen",
+  "@library_import_existing": {}
 }

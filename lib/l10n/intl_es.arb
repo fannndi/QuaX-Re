@@ -601,5 +601,7 @@
   "downloads_empty": "Sin descargas en esta sesión.",
   "downloaded_in_library": "Sin descargas en esta sesión.",
   "library_storage_permission_needed": "QuaX necesita el permiso de acceso a todos los archivos para guardar ahí. Se abrió la pantalla del sistema: concédelo e inténtalo de nuevo.",
-  "@library_storage_permission_needed": {}
+  "@library_storage_permission_needed": {},
+  "library_import_existing": "Mover medios de otra carpeta",
+  "@library_import_existing": {}
 }
