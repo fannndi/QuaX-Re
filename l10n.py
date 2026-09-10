@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,6 +22,16 @@ def run(cmd):
     return result
 
 
+def dart_cmd(*args):
+    # Windows hosts dispatch "dart" through a .bat shim that CreateProcess
+    # cannot launch bare, so resolve its full path first.
+    dart = shutil.which("dart")
+    if dart is None:
+        print("dart not found on PATH", file=sys.stderr)
+        sys.exit(1)
+    return [dart, *args]
+
+
 def get_arb_files():
     return sorted(L10N_DIR.glob("intl_*.arb"))
 
@@ -28,8 +39,8 @@ def get_arb_files():
 def sort_and_fix(files):
     for f in files:
         print(f"  {f.name}")
-        run(["fvm", "dart", "run", "arb_utils", "sort", str(f)])
-        run(["fvm", "dart", "run", "arb_utils", "generate-meta", str(f)])
+        run(dart_cmd("run", "arb_utils", "sort", str(f)))
+        run(dart_cmd("run", "arb_utils", "generate-meta", str(f)))
 
 
 def content_keys(arb_path):
