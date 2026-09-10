@@ -327,7 +327,22 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                             Icon(Icons.verified, size: 24, color: theme.colorScheme.primary),
                                           if (user.protected ?? false) const SizedBox(width: 6),
                                           if (user.protected ?? false)
-                                            Icon(Icons.lock, size: 24, color: theme.colorScheme.primary)
+                                            Icon(Icons.lock, size: 24, color: theme.colorScheme.primary),
+                                          if (user.followedByViewer ?? false) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(L10n.of(context).following,
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: theme.colorScheme.primary)),
+                                            ),
+                                          ]
                                         ],
                                       ),
                                       Container(

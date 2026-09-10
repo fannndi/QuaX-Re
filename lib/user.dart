@@ -209,6 +209,8 @@ class FollowButton extends StatelessWidget {
 class UserWithExtra extends User {
   Map<String, dynamic>? card;
   bool? possiblySensitive;
+  // True when the logged-in account follows this user (profile header badge).
+  bool? followedByViewer;
 
   UserWithExtra();
 
@@ -302,6 +304,7 @@ class UserWithExtra extends User {
       'profile_banner_url': _text(json['banner']?['image_url']),
       'profile_image_url_https': avatar,
       'possibly_sensitive': json['possibly_sensitive'],
+      'followed_by_viewer': json['legacy']?['relationship_perspectives']?['following'],
       'default_profile_image': avatar == null ? null : avatar.contains('default_profile_images'),
     };
     modern.removeWhere((_, value) => value == null);
@@ -329,6 +332,7 @@ class UserWithExtra extends User {
       ..entities = json['entities'] == null ? null : UserEntities.fromJson(json['entities'] as Map<String, dynamic>)
       ..description = json['description'] as String?
       ..protected = json['protected'] as bool?
+      ..followedByViewer = json['followed_by_viewer'] as bool?
       ..verified = json['verified_type'] == "Business"
           ? true
           : json['ext_is_blue_verified'] ?? json['verified'] ?? json['is_blue_verified'] as bool?
