@@ -203,6 +203,7 @@ class _TweetMediaState extends State<TweetMedia> {
                                 media: widget.media,
                                 username: widget.username,
                                 tweetId: widget.tweetId))),
+                onLongPress: () => showMediaActionsSheet(context, item, widget.username),
                 child: _TweetMediaItem(
                     media: item,
                     index: index + 1,
@@ -380,4 +381,49 @@ class _TweetMediaThing extends StatelessWidget {
 
     return media;
   }
+}
+
+/// Long-press actions for a single tweet-card media: download it under the
+/// streamed progress dialog, or open the share sheet right away.
+void showMediaActionsSheet(BuildContext context, Media item, String? username) {
+  final isVideoLike = item.type == 'video' || item.type == 'animated_gif';
+  final variantUrl = _largestVideoVariantUrl(item);
+  final mediaUrl = Uri.parse(isVideoLike ? variantUrl! : '${item.mediaUrlHttps}:orig');
+  final fileName = '$username-${path.basename(mediaUrl.path)}';
+
+  showModalBottomSheet(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.download),
+            title: Text(L10n.of(sheetContext).download),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              downloadUriToPickedFile(context, mediaUrl, fileName, prefs: PrefService.of(context));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.share),
+            title: Text(L10n.of(sheetContext).share),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              downloadAndShare(context, mediaUrl, fileName, prefs: PrefService.of(context));
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// The highest-bitrate MP4 variant of a tweet video or GIF — the one worth
+/// keeping on disk (a GIF's variant is a silent MP4, which WhatsApp accepts).
+String? _largestVideoVariantUrl(Media item) {
+  final variants =
+      (item.videoInfo?.variants ?? const []).where((v) => v.contentType?.contains('mp4') ?? false).toList();
+  variants.sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
+  return variants.firstOrNull?.url;
 }
