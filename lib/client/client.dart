@@ -3,19 +3,18 @@ import 'dart:convert';
 
 import 'package:dart_twitter_api/src/utils/date_utils.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
-import 'package:ffcache/ffcache.dart';
 import 'package:quax/catcher/exceptions.dart';
 import 'package:quax/client/account_selector.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/client_regular_account.dart';
 import 'package:quax/client/client_unauthenticated.dart';
+import 'package:quax/client/headers.dart';
 import 'package:quax/client/rate_limit_tracker.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile_model.dart';
 import 'package:quax/article/article.dart';
 import 'package:quax/user.dart';
-import 'package:quax/utils/cache.dart';
 import 'package:quax/utils/iterables.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
@@ -40,15 +39,18 @@ class _QuackerTwitterClient extends TwitterClient {
 
   /// Tries accounts (healthy ones first, then flagged ones as a fallback),
   /// retrying on another account when one returns a 429 (rate-limited for that
-  /// endpoint, tracked in memory) or a 404 (retried once, then surfaced). Rate
-  /// limits are per-endpoint, so a 429 on one endpoint never blocks another.
+  /// endpoint, tracked in memory), a 404 (retried once, then surfaced) or a 401
+  /// (session explicitly rejected: counted as broken auth). Rate limits are
+  /// per-endpoint, so a 429 on one endpoint never blocks another.
   ///
   /// A real request is always attempted before any error: with accounts, each is
   /// tried; with none, an unauthenticated (guest) request is sent. Errors surface
   /// only from actual responses: [RateLimitedException] when every account was
   /// rate-limited on the endpoint, [NoWorkingAccountException] when they all
   /// returned 404, and [NoAccountAvailableException] only when there is no account
-  /// and the guest request also failed.
+  /// and the guest request also failed. Network-level failures (socket, timeout,
+  /// TLS) are absorbed once per fetch with a short pause, since they never
+  /// reached X and are no account's fault; a second one is surfaced as-is.
   static Future<http.Response> fetch(Uri uri, {Map<String, String>? headers}) async {
     final endpoint = uri.path;
     final now = DateTime.now();
@@ -56,8 +58,11 @@ class _QuackerTwitterClient extends TwitterClient {
     final selector = AccountSelector(accounts, now,
         isRateLimited: (a) => RateLimitTracker.isLimited(a.id, endpoint, now));
     final tried = <String>{};
-    var notFoundAttempts = 0;
+    var authFailures = 0;
+    var networkFailures = 0;
     http.Response? lastError;
+    Object? lastNetworkError;
+    StackTrace? lastNetworkStackTrace;
 
     while (true) {
       final account = selector.pick(exclude: tried);
@@ -66,12 +71,31 @@ class _QuackerTwitterClient extends TwitterClient {
       }
       tried.add(account.id);
 
-      final response = await XRegularAccount()
-          .fetch(uri, headers: headers, log: log, authHeader: json.decode(account.authHeader));
+      final authHeader = json.decode(account.authHeader);
+      http.Response response;
+      try {
+        response =
+            await XRegularAccount().fetch(uri, headers: headers, log: log, authHeader: authHeader);
+      } on Exception catch (e, st) {
+        lastNetworkError = e;
+        lastNetworkStackTrace = st;
+        if (++networkFailures >= 2) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(seconds: 1));
+        tried.remove(account.id); // the network failed, not the account: it may be retried
+        continue;
+      }
       final code = response.statusCode;
 
       if (code >= 200 && code < 300) {
-        RateLimitTracker.clear(account.id, endpoint);
+        if (response.headers['x-rate-limit-remaining'] == '0') {
+          // That was the last call allowed on this endpoint for the window:
+          // flag now so the next request rotates instead of eating a 429.
+          RateLimitTracker.flag(account.id, endpoint, _resetFromHeaders(response));
+        } else {
+          RateLimitTracker.clear(account.id, endpoint);
+        }
         if (!account.isClean) {
           await recordAccountSuccess(account.id);
         }
@@ -82,16 +106,29 @@ class _QuackerTwitterClient extends TwitterClient {
         RateLimitTracker.flag(account.id, endpoint, _resetFromHeaders(response));
         continue;
       }
-      if (code == 404) {
-        await recordNotFound(account.id);
-        if (++notFoundAttempts >= 2) {
-          break; // tried enough accounts; surface the 404 outcome below
+      if (code == 404 || code == 401) {
+        // The keys behind x-client-transaction-id rotate with X's deploys, and
+        // a stale generator answers 404 — let the header cache self-heal.
+        TwitterHeaders.invalidateIfStale();
+        // A 404 on a queryId-pinned GraphQL path usually means X rotated the
+        // endpoint's queryId, not that this account's auth is broken — don't
+        // taint account health for it (see getHomeLatestTimeline). A 401 is X
+        // rejecting the session, so it counts as broken auth.
+        final staleQueryId = code == 404 && uri.path.endsWith('/HomeLatestTimeline');
+        if (!staleQueryId) {
+          await recordNotFound(account.id);
+        }
+        if (++authFailures >= 2) {
+          break; // tried enough accounts; surface the outcome below
         }
         continue;
       }
       return response; // other errors surfaced immediately
     }
 
+    if (lastError == null && lastNetworkError != null) {
+      Error.throwWithStackTrace(lastNetworkError, lastNetworkStackTrace!);
+    }
     if (tried.isEmpty) {
       // No account at all: still attempt an unauthenticated (guest) request so we
       // never error before sending one. Only invite to add an account if it fails.
@@ -146,43 +183,6 @@ class UnknownProfileUnavailableReason with SyntheticException implements Excepti
 
 class Twitter {
   static final TwitterApi _twitterApi = TwitterApi(client: _QuackerTwitterClient());
-
-  static final FFCache _cache = FFCache();
-
-  static Map<String, String> defaultParams = {
-    'include_profile_interstitial_type': '1',
-    'include_blocking': '1',
-    'include_blocked_by': '1',
-    'include_followed_by': '1',
-    'include_mute_edge': '1',
-    'include_can_dm': '1',
-    'include_can_media_tag': '1',
-    'include_ext_has_nft_avatar': '1',
-    'include_ext_is_blue_verified': '1',
-    'skip_status': '1',
-    'cards_platform': 'Web-12',
-    'include_cards': '1',
-    'include_ext_alt_text': 'true',
-    'include_ext_limited_action_results': 'false',
-    'include_quote_count': 'true',
-    'include_reply_count': '1',
-    'tweet_mode': 'extended',
-    'include_ext_collab_control': 'true',
-    'include_entities': 'true',
-    'include_user_entities': 'true',
-    'include_ext_media_color': 'true',
-    'include_ext_media_availability': 'true',
-    'include_ext_sensitive_media_warning': 'true',
-    'include_ext_trusted_friends_metadata': 'true',
-    'send_error_codes': 'true',
-    'simple_quoted_tweet': 'true',
-    'pc': '1',
-    'spelling_corrections': '1',
-    'include_ext_edit_control': 'true',
-    'ext':
-        'mediaStats,highlightedLabel,hasNftAvatar,voiceInfo,enrichments,superFollowMetadata,unmentionInfo,editControl,collab_control,vibe,',
-  };
-
 
   static const Map<String, bool> _timelineFeatures = {
     "articles_preview_enabled": true,
@@ -408,28 +408,44 @@ class Twitter {
     return !(entryIdContainsPromoted || hasPromotedMetadata);
   }
 
+  /// Parses one tweet result, isolating failures: a single unparseable tweet is
+  /// logged and skipped instead of taking the whole page down with it.
+  static TweetWithCard? _parseTweet(dynamic result) {
+    if (result is! Map<String, dynamic>) {
+      return null;
+    }
+    try {
+      return TweetWithCard.fromGraphqlJson(result);
+    } catch (e) {
+      _QuackerTwitterClient.log.warning('Skipping an unparseable tweet (${result['rest_id'] ?? '?'}): $e');
+      return null;
+    }
+  }
+
   static List<TweetChain> createTweetChains(List<dynamic> addEntries) {
     List<TweetChain> replies = [];
 
     for (var entry in addEntries) {
-      var entryId = entry['entryId'] as String;
+      final entryId = entry['entryId'];
+      if (entryId is! String) continue;
+
       if (entryId.startsWith('tweet-')) {
         dynamic result;
-        final tweetResults = entry['content']['itemContent']['tweet_results'];
+        final tweetResult = entry['content']?['itemContent']?['tweet_results']?['result'];
 
         // This may happen for tweets that x.com cannot open neither
-        if (!tweetResults.containsKey("result")) continue;
+        if (tweetResult is! Map<String, dynamic>) continue;
 
-        if (tweetResults['result']["__typename"] == "TweetWithVisibilityResults") {
-          result = tweetResults['result']['tweet'];
+        if (tweetResult['__typename'] == 'TweetWithVisibilityResults') {
+          result = tweetResult['tweet'];
         } else {
-          result = tweetResults['result'];
+          result = tweetResult;
         }
 
-        if (result != null && result.containsKey('rest_id')) {
-          replies.add(
-            TweetChain(id: result['rest_id'], tweets: [TweetWithCard.fromGraphqlJson(result)], isPinned: false),
-          );
+        if (result is Map<String, dynamic> && result['rest_id'] != null) {
+          final tweet = _parseTweet(result);
+          if (tweet == null) continue;
+          replies.add(TweetChain(id: result['rest_id'], tweets: [tweet], isPinned: false));
         } else {
           replies.add(TweetChain(id: entryId.substring(6), tweets: [TweetWithCard.tombstone({})], isPinned: false));
         }
@@ -443,12 +459,12 @@ class Twitter {
         List<TweetWithCard> tweets = [];
 
         // TODO: This is missing tombstone support
-        for (var item in entry['content']['items'].where((e) => isNotPromoted(e))) {
-          var itemType = item['item']?['itemContent']?['itemType'];
-          if (itemType == 'TimelineTweet') {
-            if (item['item']['itemContent']['tweet_results']?['result'] != null) {
-              tweets.add(TweetWithCard.fromGraphqlJson(item['item']['itemContent']['tweet_results']['result']));
-            }
+        for (var item in entry['content']?['items']?.where((e) => isNotPromoted(e)) ?? const []) {
+          final itemContent = item['item']?['itemContent'];
+          if (itemContent?['itemType'] != 'TimelineTweet') continue;
+          final tweet = _parseTweet(itemContent?['tweet_results']?['result']);
+          if (tweet != null) {
+            tweets.add(tweet);
           }
         }
 
@@ -464,22 +480,33 @@ class Twitter {
     List<TweetChain> replies = [];
 
     for (var entry in addEntries) {
-      var entryId = entry['entryId'] as String;
-      if (entryId.startsWith('tweet-')) {
-        var result = entry['content']['itemContent']['tweet_results']['result'];
-        TweetWithCard? tweet = TweetWithCard.fromGraphqlJson(result);
+      final entryId = entry['entryId'];
+      if (entryId is! String) continue;
 
-        replies.add(
-          TweetChain(id: result['rest_id'] ?? result['tweet']['rest_id'], tweets: [tweet], isPinned: isPinned),
-        );
+      if (entryId.startsWith('tweet-')) {
+        final result = entry['content']?['itemContent']?['tweet_results']?['result'];
+        if (result is! Map<String, dynamic>) continue;
+
+        final id = (result['rest_id'] ?? result['tweet']?['rest_id']) as String?;
+        if (id == null) continue;
+
+        final tweet = _parseTweet(result);
+        if (tweet == null) continue;
+
+        replies.add(TweetChain(id: id, tweets: [tweet], isPinned: isPinned));
       } else if (entryId.startsWith('profile-grid-')) {
         // We got a tweet queried from the media tab
-        for (var mediaTweet in entry['content']['items']) {
-          var result = mediaTweet['item']['itemContent']['tweet_results']['result'];
-          TweetWithCard? tweet = TweetWithCard.fromGraphqlJson(result);
-          replies.add(
-            TweetChain(id: result['rest_id'] ?? result['tweet']['rest_id'], tweets: [tweet], isPinned: isPinned),
-          );
+        for (var mediaTweet in entry['content']?['items'] ?? const []) {
+          final result = mediaTweet['item']?['itemContent']?['tweet_results']?['result'];
+          if (result is! Map<String, dynamic>) continue;
+
+          final id = (result['rest_id'] ?? result['tweet']?['rest_id']) as String?;
+          if (id == null) continue;
+
+          final tweet = _parseTweet(result);
+          if (tweet == null) continue;
+
+          replies.add(TweetChain(id: id, tweets: [tweet], isPinned: isPinned));
         }
       }
 
@@ -491,20 +518,12 @@ class Twitter {
         List<TweetWithCard> tweets = [];
 
         // TODO: This is missing tombstone support
-        for (var item in entry['content']['items']) {
-          var itemType = item['item']?['itemContent']?['itemType'];
-          if (itemType == 'TimelineTweet') {
-            if (item['item']['itemContent']['tweet_results']?['result'] != null) {
-              if (item['item']['itemContent']['tweet_results']['result']['tweet'] == null) {
-                var tweet = TweetWithCard.fromGraphqlJson(item['item']['itemContent']['tweet_results']['result']);
-                tweets.add(tweet);
-              } else {
-                var tweet = TweetWithCard.fromGraphqlJson(
-                  item['item']['itemContent']['tweet_results']['result']['tweet'],
-                );
-                tweets.add(tweet);
-              }
-            }
+        for (var item in entry['content']?['items'] ?? const []) {
+          final itemContent = item['item']?['itemContent'];
+          if (itemContent?['itemType'] != 'TimelineTweet') continue;
+          final tweet = _parseTweet(itemContent?['tweet_results']?['result']);
+          if (tweet != null) {
+            tweets.add(tweet);
           }
         }
 
@@ -653,8 +672,9 @@ class Twitter {
           item['item']?['content']?['tweet_results']?['result'];
       result = result?['rest_id'] != null ? result : result?['tweet'];
       if (result?['rest_id'] == null) continue;
-      chains.add(TweetChain(
-          id: result['rest_id'], tweets: [TweetWithCard.fromGraphqlJson(result)], isPinned: false));
+      final tweet = _parseTweet(result);
+      if (tweet == null) continue;
+      chains.add(TweetChain(id: result['rest_id'], tweets: [tweet], isPinned: false));
     }
 
     return TweetStatus(chains: chains, cursorBottom: cursorBottom, cursorTop: cursorTop);
@@ -713,26 +733,6 @@ class Twitter {
         .toList();
   }
 
-  static Future<List<TrendLocation>> getTrendLocations() async {
-    var result = await _cache.getOrCreateAsJSON('trends.locations', const Duration(days: 2), () async {
-      var locations = await _twitterApi.trendsService.available();
-
-      return jsonEncode(locations.map((e) => e.toJson()).toList());
-    });
-
-    return List.from(jsonDecode(result)).map((e) => TrendLocation.fromJson(e)).toList(growable: false);
-  }
-
-  static Future<List<Trends>> getTrends(int location) async {
-    var result = await _cache.getOrCreateAsJSON('trends.$location', const Duration(minutes: 2), () async {
-      var trends = await _twitterApi.trendsService.place(id: location);
-
-      return jsonEncode(trends.map((e) => e.toJson()).toList());
-    });
-
-    return List.from(jsonDecode(result)).map((e) => Trends.fromJson(e)).toList(growable: false);
-  }
-
   static Future<TweetStatus> getTimelineTweets(
     String id,
     String type, {
@@ -777,6 +777,154 @@ class Twitter {
     );
   }
 
+  /// Chronological "Following" home timeline, served by X's HomeLatestTimeline
+  /// endpoint. Its body has the same shape as HomeTimeline's
+  /// (data.home.home_timeline_urt.instructions), so the parsing is shared.
+  /// X rotates queryIds at each deploy: this one is tracked by the community at
+  /// https://github.com/fa0311/twitter-openapi — a 404 on this endpoint usually
+  /// means it changed and the id below needs updating (capture the new one from
+  /// the network tab of a x.com/home "Following" tab visit, or from that repo).
+  static Future<TweetStatus> getHomeLatestTimeline({
+    int count = 20,
+    String? cursor,
+    required int Function() getTweetsCounter,
+    required void Function() incrementTweetsCounter,
+  }) async {
+    var variables = {
+      "count": count,
+      "includePromotedContent": false,
+      "latestControlAvailable": true,
+      "withCommunity": true,
+      "withV2Timeline": true,
+    };
+    if (cursor != null) {
+      variables['cursor'] = cursor;
+    }
+
+    var response = await _twitterApi.client.get(
+      Uri.https('x.com', '/i/api/graphql/0dateTVgvXjpkf7kyBZy0g/HomeLatestTimeline', {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+      }),
+    );
+    return createTimelineChains(
+      json.decode(response.body) as Map<String, dynamic>,
+      'tweet',
+      const [],
+      true,
+      false,
+      false,
+      getTweetsCounter,
+      incrementTweetsCounter,
+    );
+  }
+
+  /// The account notifications timeline, served by X's NotificationsTimeline
+  /// endpoint (the x.com/web "Notifications" page). Each entry is either an
+  /// aggregated notification (likes, replies, bell-subscribed posts…) or a
+  /// plain embedded tweet, under
+  /// data.viewer_v2.user_results.result.notification_timeline. The queryId
+  /// below comes from the recorded fixture (see tool/record) — refresh the
+  /// fixture there when a 404 appears.
+  static Future<NotificationsPage> getNotificationsTimeline({int count = 20, String? cursor}) async {
+    var variables = {
+      "timeline_type": "All",
+      "count": count,
+      if (cursor != null) "cursor": cursor,
+    };
+
+    var response = await _twitterApi.client.get(
+      Uri.https('x.com', '/i/api/graphql/lXkwcYxJtGMm63D8jTPtSA/NotificationsTimeline', {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+      }),
+    );
+    return parseNotifications(json.decode(response.body) as Map<String, dynamic>);
+  }
+
+  /// Reads a NotificationsTimeline body. Notification aggregates and embedded
+  /// tweets share one list, ordered as X returns them.
+  static NotificationsPage parseNotifications(Map<String, dynamic> body) {
+    var instructions = List.from(
+      body["data"]?["viewer_v2"]?["user_results"]?["result"]?["notification_timeline"]?["timeline"]?["instructions"] ?? const [],
+    );
+    var addEntries = instructions.firstWhereOrNull((e) => e['type'] == 'TimelineAddEntries');
+
+    final entries = List.from(addEntries?['entries'] ?? const []);
+    final items = <Object>[];
+    String? cursorBottom;
+
+    for (final entry in entries) {
+      final entryId = entry['entryId'];
+      if (entryId is! String) continue;
+
+      if (entryId.startsWith('cursor-bottom-')) {
+        cursorBottom = entry['content']?['value'] as String?;
+        continue;
+      }
+      if (!entryId.startsWith('notification-')) continue;
+
+      final itemContent = entry['content']?['itemContent'];
+      if (itemContent is! Map<String, dynamic>) continue;
+
+      if (itemContent['__typename'] == 'TimelineNotification') {
+        final notification = _parseNotificationEntry(itemContent);
+        if (notification != null) {
+          items.add(notification);
+        }
+      } else if (itemContent['__typename'] == 'TimelineTweet') {
+        final tweet = _parseTweet(itemContent['tweet_results']?['result']);
+        if (tweet != null) {
+          items.add(TweetChain(id: tweet.idStr ?? '', tweets: [tweet], isPinned: false));
+        }
+      }
+    }
+
+    return NotificationsPage(entries: items, cursorBottom: cursorBottom);
+  }
+
+  static NotificationEntry? _parseNotificationEntry(Map<String, dynamic> item) {
+    if (item['__typename'] != 'TimelineNotification') return null;
+
+    String? senderName;
+    String? senderAvatarUrl;
+    final template = item['template'];
+    if (template is Map<String, dynamic>) {
+      for (final ref in List.from(template['from_users'] ?? const [])) {
+        final result = ref?['user_results']?['result'];
+        if (result is! Map<String, dynamic>) continue;
+        senderName = result['core']?['name'] as String?;
+        senderAvatarUrl = result['avatar']?['image_url'] as String?;
+        break;
+      }
+    }
+
+    final tweetText = _firstNotificationTweetText(item);
+
+    return NotificationEntry(
+      icon: item['notification_icon'] as String?,
+      message: item['rich_message']?['text'] as String? ?? tweetText,
+      senderName: senderName,
+      senderAvatarUrl: senderAvatarUrl,
+      url: item['notification_url']?['url'] as String?,
+      timestampMs: int.tryParse(item['timestamp_ms']?.toString() ?? ''),
+    );
+  }
+
+  /// The first post that the notification is about, if any (a like quotes the
+  /// liked post text, a mention quotes it…). Null when the entry carries none.
+  static String? _firstNotificationTweetText(Map<String, dynamic> item) {
+    final template = item['template'];
+    if (template is! Map<String, dynamic>) return null;
+    for (final ref in List.from(template['target_objects'] ?? const [])) {
+      final tweet = ref?['tweet_results']?['result'];
+      if (tweet is! Map<String, dynamic>) continue;
+      final text = tweet['legacy']?['full_text'] as String?;
+      if (text != null) return text;
+    }
+    return null;
+  }
+
   static Future<TweetStatus> getTweets(
     String id,
     String type,
@@ -789,7 +937,6 @@ class Twitter {
     required void Function() incrementTweetsCounter,
   }) async {
     bool showPinnedTweet = true;
-    var query = {...defaultParams, 'count': count.toString()};
 
     Map<String, Object> defaultUserTweetsParam = {
       "variables": jsonEncode({
@@ -821,10 +968,6 @@ class Twitter {
     }
 
     var response = await _twitterApi.client.get(Uri.https('x.com', path, defaultUserTweetsParam));
-
-    if (cursor != null) {
-      query['cursor'] = cursor;
-    }
 
     var result = json.decode(response.body);
 
@@ -960,8 +1103,8 @@ class Twitter {
     int Function() getTweetsCounter,
     void Function() increaseTweetCounter,
   ) {
-    final timeline = result["data"]["user"]["result"]["timeline_v2"] ?? result["data"]["user"]["result"]["timeline"];
-    var instructions = List.from(timeline['timeline']?['instructions'] ?? []);
+    final timeline = result["data"]?["user"]?["result"]?["timeline_v2"] ?? result["data"]?["user"]?["result"]?["timeline"];
+    var instructions = List.from(timeline?['timeline']?['instructions'] ?? []);
     var addEntriesInstructions = instructions.firstWhereOrNull((e) => e['type'] == 'TimelineAddEntries');
     var addModEntriesInstructions = instructions.firstWhereOrNull((e) => e['type'] == 'TimelineAddToModule');
     List addModEntries = List.from(addModEntriesInstructions?['moduleItems'] ?? []);
@@ -989,14 +1132,16 @@ class Twitter {
     for (final addModEntry in addModEntries) {
       final entryId = addModEntry['entryId'] as String? ?? addModEntry['entry_id'] as String? ?? '';
       if (entryId.startsWith('profile-grid-')) {
-        Map<String, dynamic>? result = addModEntry['item']?['content']?['tweetResult']?['result'];
-        result ??= addModEntry['item']?['itemContent']?['tweet_results']?['result'];
-        result ??= addModEntry['item']?['content']?['tweet_results']?['result'];
-        if (result != null) {
-          result = result['rest_id'] != null ? result : result['tweet'];
-          if (result != null) {
-            chains.add(TweetChain(id: result['rest_id'], tweets: [TweetWithCard.fromGraphqlJson(result)], isPinned: false));
-          }
+        Map<String, dynamic>? tweetResult = addModEntry['item']?['content']?['tweetResult']?['result'];
+        tweetResult ??= addModEntry['item']?['itemContent']?['tweet_results']?['result'];
+        tweetResult ??= addModEntry['item']?['content']?['tweet_results']?['result'];
+        // fromGraphqlJson handles the TweetWithVisibilityResults wrapper itself
+        final id = tweetResult == null
+            ? null
+            : (tweetResult['rest_id'] ?? tweetResult['tweet']?['rest_id']) as String?;
+        final tweet = _parseTweet(tweetResult);
+        if (id != null && tweet != null) {
+          chains.add(TweetChain(id: id, tweets: [tweet], isPinned: false));
         }
       }
     }
@@ -1028,7 +1173,9 @@ class Twitter {
     int Function() getTweetsCounter,
     void Function() increaseTweetCounter,
   ) {
-    var instructions = List.from(result["data"]["home"]["home_timeline_urt"]['instructions']);
+    var instructions = List.from(
+      result["data"]?["home"]?["home_timeline_urt"]?["instructions"] ?? const [],
+    );
     var addEntriesInstructions = instructions.firstWhereOrNull((e) => e['type'] == 'TimelineAddEntries');
     if (addEntriesInstructions == null) {
       return TweetStatus(chains: [], cursorBottom: null, cursorTop: null);
@@ -1092,7 +1239,7 @@ class Twitter {
     var globalTweets = List.from(
       filteredTweets.map((e) {
         var elm = e['content']['itemContent']['tweet_results']['result'];
-        if (elm['rest_id'] == null && elm['tweet'] != null) {
+        if (elm is Map<String, dynamic> && elm['rest_id'] == null && elm['tweet'] != null) {
           elm = elm['tweet'];
         }
 
@@ -1100,14 +1247,9 @@ class Twitter {
       }),
     );
 
-    var tweets = [];
-    try {
-      tweets = globalTweets.map((e) => TweetWithCard.fromGraphqlJson(e)).toList();
-    } catch (exc) {
-      rethrow;
-    }
+    final tweets = globalTweets.map(_parseTweet).whereType<TweetWithCard>().toList();
 
-    return {for (var e in tweets) e.idStr: e};
+    return {for (var e in tweets) if (e.idStr != null) e.idStr!: e};
   }
 
   static Future<Map<String, dynamic>> getBroadcastDetails(String key) async {
@@ -1215,7 +1357,7 @@ class TweetWithCard extends Tweet {
     if (result['tweet'] != null) {
       result = result['tweet']!;
     } else if (result['legacy']?['retweeted_status_result']?['result'] != null) {
-      retweetedStatus = TweetWithCard.fromGraphqlJson(result['legacy']['retweeted_status_result']['result']!);
+      retweetedStatus = Twitter._parseTweet(result['legacy']['retweeted_status_result']['result']);
     }
 
     if (result['quoted_status_result'] != null && result['quoted_status_result']['result'] != null) {
@@ -1223,7 +1365,9 @@ class TweetWithCard extends Tweet {
       var quotedTweetResult = result['quoted_status_result']['result']?['__typename'] == 'TweetWithVisibilityResults'
           ? result['quoted_status_result']['result']['tweet']
           : result['quoted_status_result']['result'];
-      quotedStatus = TweetWithCard.fromGraphqlJson(quotedTweetResult);
+      if (quotedTweetResult is Map<String, dynamic>) {
+        quotedStatus = Twitter._parseTweet(quotedTweetResult);
+      }
     }
 
     var resCore = result['core']?['user_results']?['result'];
@@ -1235,7 +1379,7 @@ class TweetWithCard extends Tweet {
     Entities? noteEntities;
 
     var noteResult = result['note_tweet']?['note_tweet_results']?['result'];
-    if (noteResult != null) {
+    if (noteResult is Map<String, dynamic>) {
       noteText = noteResult['text'];
       noteEntities = Entities.fromJson(noteResult['entity_set']);
     }
@@ -1437,6 +1581,28 @@ class Follows {
   final List<UserWithExtra> users;
 
   Follows({required this.cursorBottom, required this.cursorTop, required this.users});
+}
+
+/// One aggregated notification (likes, replies, bell-subscribed posts…). Its
+/// parts are optional: X fills what the notification supports.
+class NotificationEntry {
+  final String? icon;
+  final String? message;
+  final String? senderName;
+  final String? senderAvatarUrl;
+  final String? url;
+  final int? timestampMs;
+
+  NotificationEntry({this.icon, this.message, this.senderName, this.senderAvatarUrl, this.url, this.timestampMs});
+}
+
+/// One page of the notifications timeline: notification aggregates and embedded
+/// tweets (TweetChain) interleaved, plus the bottom cursor for pagination.
+class NotificationsPage {
+  final List<Object> entries;
+  final String? cursorBottom;
+
+  NotificationsPage({required this.entries, required this.cursorBottom});
 }
 
 class TweetStatus {

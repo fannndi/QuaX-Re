@@ -6,6 +6,7 @@ import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/subscriptions/_import.dart' show SubscriptionImportScreen;
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import 'package:webview_cookie_manager_plus/webview_cookie_manager_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -80,9 +81,12 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
                 };
 
                 final database = await Repository.writable();
+                // Re-logging into the same account must refresh its cookies
+                // (the id = csrfToken), not crash on the UNIQUE constraint.
                 database.insert(
                   tableAccounts,
                   Account(id: csrfToken, screenName: screenName, authHeader: json.encode(authHeader)).toMap(),
+                  conflictAlgorithm: ConflictAlgorithm.replace,
                 );
                 database.close();
               }
