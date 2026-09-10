@@ -590,5 +590,11 @@
   "no_notifications_yet": "Belum ada notifikasi!",
   "@no_notifications_yet": {},
   "notifications": "Notifikasi",
-  "share": "Bagikan"
+  "share": "Bagikan",
+  "library": "Perpustakaan",
+  "library_is_empty": "Belum ada apa-apa!",
+  "library_setup_title": "Siapkan media library kamu",
+  "library_setup_description": "Pilih folder di penyimpananmu untuk media yang diunduh. Foldernya tetap terlihat di file manager, tapi diberi tanda .nomedia agar tidak diindeks aplikasi galeri.",
+  "library_setup_pick": "Pilih folder",
+  "download_handling_type_library": "Library tersembunyi"
 }

@@ -12,6 +12,7 @@ import 'package:quax/home/_missing.dart';
 import 'package:quax/home/_notifs.dart';
 import 'package:quax/home/_saved.dart';
 import 'package:quax/home/home_model.dart';
+import 'package:quax/library/library_screen.dart';
 import 'package:quax/settings/settings.dart';
 import 'package:quax/subscriptions/subscriptions.dart';
 import 'package:quax/ui/errors.dart';
@@ -33,6 +34,8 @@ final List<NavigationPage> defaultHomePages = [
       'notifs', (c) => L10n.of(c).notifications, const Icon(Icons.notifications_none_outlined), const Icon(Icons.notifications)),
   NavigationPage(
       'saved', (c) => L10n.of(c).saved, const Icon(Icons.bookmark_border_outlined), const Icon(Icons.bookmark)),
+  NavigationPage('library', (c) => L10n.of(c).library,
+      const Icon(Icons.video_library_outlined), const Icon(Icons.video_library)),
   NavigationPage(
       'settings', (c) => L10n.of(c).settings, const Icon(Icons.settings_outlined), const Icon(Icons.settings)),
 ];
@@ -130,6 +133,8 @@ class _HomeScreenState extends State<_HomeScreen> {
                   return SavedScreen(
                     scrollController: scrollControllers[index]!,
                   );
+                case 'library':
+                  return LibraryScreen(prefs: widget.prefs);
                 case 'settings':
                   return const SettingsScreen();
                 default:

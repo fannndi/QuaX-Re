@@ -122,6 +122,18 @@ Future<String?> _saveToDestination(BuildContext context,
   final downloadType = prefs.get(optionDownloadType);
   final downloadPath = prefs.get(optionDownloadPath);
 
+  // Hentoid-style library: everything lands in the hidden folder.
+  if (downloadType == optionDownloadTypeLibrary && prefs.get(optionLibraryPath) is String) {
+    final library = Directory(prefs.get<String>(optionLibraryPath)!);
+    if (await library.exists()) {
+      final savedFile = p.join(library.path, fileName);
+      await File(file).copy(savedFile);
+      return savedFile;
+    }
+    // The picked folder disappeared (uninstalled folder, sdcard changed...):
+    // fall through to the system save dialog rather than losing the file.
+  }
+
   // The "ask" mode (default) opens the system save dialog from the already
   // downloaded file, so nothing is keep in memory twice.
   if (downloadType == optionDownloadTypeAsk || downloadPath == '') {

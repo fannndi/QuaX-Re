@@ -217,7 +217,7 @@ Future<void> main() async {
     optionDisableScreenshots: false,
     optionDownloadPath: '',
     optionDownloadType: optionDownloadTypeAsk,
-    optionHomePages: ['feed', 'notifs', 'saved', 'settings'],
+    optionHomePages: ['feed', 'notifs', 'saved', 'library', 'settings'],
     optionLocale: optionLocaleDefault,
     optionHomeInitialTab: 'feed',
     optionHomeDefaultFeedTab: feedTabs[0].id.name,

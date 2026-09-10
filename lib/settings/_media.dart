@@ -1,5 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:quax/library/library_model.dart';
+
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:pref/pref.dart';
@@ -130,6 +132,8 @@ class DownloadTypeSettingState extends State<DownloadTypeSetting> {
             DropdownMenuItem(value: optionDownloadTypeAsk, child: Text(L10n.current.download_handling_type_ask)),
             DropdownMenuItem(
                 value: optionDownloadTypeDirectory, child: Text(L10n.current.download_handling_type_directory)),
+            DropdownMenuItem(
+                value: optionDownloadTypeLibrary, child: Text(L10n.current.download_handling_type_library)),
           ],
         ),
         if (widget.prefs.get(optionDownloadType) == optionDownloadTypeDirectory)
@@ -149,6 +153,25 @@ class DownloadTypeSettingState extends State<DownloadTypeSetting> {
             subtitle: Text(
               downloadPath.isEmpty ? L10n.current.not_set : downloadPath,
             ),
+            child: Text(L10n.current.choose),
+          )
+        else if (widget.prefs.get(optionDownloadType) == optionDownloadTypeLibrary)
+          PrefButton(
+            onTap: () async {
+              String? directoryPath = await FilePicker.getDirectoryPath();
+
+              if (directoryPath == null) {
+                return;
+              }
+
+              final ok =
+                  await LibraryModel(widget.prefs).setupLibraryAt(directoryPath);
+              if (ok && mounted) {
+                setState(() {});
+              }
+            },
+            title: Text(L10n.current.library),
+            subtitle: Text(widget.prefs.get<String>(optionLibraryPath) ?? L10n.current.not_set),
             child: Text(L10n.current.choose),
           )
       ],

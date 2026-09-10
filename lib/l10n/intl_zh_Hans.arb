@@ -590,5 +590,11 @@
   "no_notifications_yet": "还没有通知！",
   "@no_notifications_yet": {},
   "notifications": "通知",
-  "share": "分享"
+  "share": "分享",
+  "library": "媒体库",
+  "library_is_empty": "还没有内容",
+  "library_setup_title": "Set up your media library",
+  "library_setup_description": "Pick a folder on your storage for downloaded media. It stays visible in file managers but gets a .nomedia marker so gallery apps never index it.",
+  "library_setup_pick": "Choose a folder",
+  "download_handling_type_library": "隐藏媒体库"
 }

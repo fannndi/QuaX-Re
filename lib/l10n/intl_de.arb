@@ -590,5 +590,11 @@
   "no_notifications_yet": "Noch keine Benachrichtigungen!",
   "@no_notifications_yet": {},
   "notifications": "Benachrichtigungen",
-  "share": "Teilen"
+  "share": "Teilen",
+  "library": "Bibliothek",
+  "library_is_empty": "Noch nichts gespeichert!",
+  "library_setup_title": "Set up your media library",
+  "library_setup_description": "Pick a folder on your storage for downloaded media. It stays visible in file managers but gets a .nomedia marker so gallery apps never index it.",
+  "library_setup_pick": "Choose a folder",
+  "download_handling_type_library": "Versteckte Bibliothek"
 }

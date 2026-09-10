@@ -42,7 +42,7 @@ class HomeModel extends Store<List<HomePage>> {
           .expand((id) => id == 'subscriptions' ? ['notifs'] : [id])
           .toSet()
           .toList();
-      saved = [...saved, if (!saved.contains('settings')) 'settings'];
+      saved = [...saved, for (final pageId in ['library', 'settings']) if (!saved.contains(pageId)) pageId];
 
       var available = [...defaultHomePages];
 

@@ -26,9 +26,13 @@ const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
 
 const optionDownloadType = 'download.type';
 const optionDownloadPath = 'download.path';
-
 const optionDownloadTypeDirectory = 'directory';
 const optionDownloadTypeAsk = 'ask';
+const optionDownloadTypeLibrary = 'library';
+
+// Hentoid-style hidden library: a picked folder (visible in file managers)
+// holding downloaded media with a .nomedia marker so gallery apps ignore it.
+const optionLibraryPath = 'library.path';
 
 const optionLocale = 'locale';
 const optionLocaleDefault = 'system';
