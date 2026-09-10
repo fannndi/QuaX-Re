@@ -1,19 +1,23 @@
 import 'dart:async';
 
 import 'package:better_player_plus/better_player_plus.dart';
-import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/_video_controls.dart';
 import 'package:quax/tweet/_video_overlays.dart';
+import 'package:quax/tweet/video_context.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
-import 'package:quax/tweet/video_quality.dart';
+import 'package:quax/tweet/video_metadata.dart';
 import 'package:quax/tweet/video_wakelock.dart';
-import 'package:quax/utils/iterables.dart';
 import 'package:provider/provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+
+// The pure models and the app-wide mute state are used across the app while
+// this file focuses on the video widget: keep exposing them from here.
+export 'package:quax/tweet/video_context.dart';
+export 'package:quax/tweet/video_metadata.dart';
 
 /// Disk cache so replaying a finished video, scrolling back to it, or a GIF
 /// looping reads from disk instead of re-downloading — the player keeps no
@@ -24,65 +28,6 @@ const _videoCacheConfiguration = BetterPlayerCacheConfiguration(
   maxCacheFileSize: 50 * 1024 * 1024,
 );
 
-class TweetVideoUrls {
-  final String streamUrl;
-  final String? downloadUrl;
-  final List<TweetVideoQuality> qualities;
-
-  TweetVideoUrls(this.streamUrl, this.downloadUrl, {this.qualities = const []});
-}
-
-class TweetVideoMetadata {
-  final double aspectRatio;
-  final String? imageUrl;
-  final Future<TweetVideoUrls> Function() streamUrlsBuilder;
-
-  TweetVideoMetadata(this.aspectRatio, this.imageUrl, this.streamUrlsBuilder);
-
-  static Future<TweetVideoUrls> Function() streamUrlsBuilderFromVariants(List<Variant> variants) {
-    // Use the progressive MP4 variants (highest bitrate first), not X's HLS
-    // master playlist (variants[0]): the MP4 list is what powers the in-player
-    // quality picker. Fall back to variants[0] only when no MP4 exists (e.g.
-    // live broadcasts), which the player handles over HLS natively.
-    var mp4Variants = variants
-        .where((e) => e.bitrate != null)
-        .where((e) => e.url != null)
-        .where((e) => e.contentType == 'video/mp4')
-        .sorted((a, b) => -(a.bitrate!.compareTo(b.bitrate!)))
-        .toList();
-
-    var qualities =
-        mp4Variants.map((e) => TweetVideoQuality(e.url!, _qualityLabel(e.url!, e.bitrate))).toList();
-
-    var mp4Url = qualities.isNotEmpty ? qualities.first.url : null;
-    var streamUrl = mp4Url ?? variants.firstWhereOrNull((e) => e.url != null)?.url ?? '';
-
-    return () async => TweetVideoUrls(streamUrl, mp4Url, qualities: qualities);
-  }
-
-  // Resolution tag from X's MP4 URL path (`.../1280x720/...`), else the bitrate.
-  static String _qualityLabel(String url, int? bitrate) {
-    var match = RegExp(r'/(\d+)x(\d+)/').firstMatch(url);
-    if (match != null) {
-      return '${match.group(2)}p';
-    }
-    if (bitrate != null) {
-      return '${(bitrate / 1000000).toStringAsFixed(1)} Mbps';
-    }
-    return '—';
-  }
-
-  factory TweetVideoMetadata.fromMedia(Media media) {
-    var aspectRatio = media.videoInfo?.aspectRatio == null
-        ? 1.0
-        : media.videoInfo!.aspectRatio![0] / media.videoInfo!.aspectRatio![1];
-
-    var variants = media.videoInfo?.variants ?? [];
-    var imageUrl = media.mediaUrlHttps!;
-
-    return TweetVideoMetadata(aspectRatio, imageUrl, streamUrlsBuilderFromVariants(variants));
-  }
-}
 
 class TweetVideo extends StatefulWidget {
   final String username;
@@ -557,40 +502,6 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
       }
     }
     super.dispose();
-  }
-}
-
-/// Mute is an app-wide toggle: muting one video keeps the next one muted, on
-/// every screen. Tweet tiles each sit under their own [VideoContextState]
-/// provider, so a single shared [ValueNotifier] is the source of truth and every
-/// per-scope instance forwards its changes — that way all scopes stay in sync and
-/// rebuild together (a plain static field only notified the one scope that fired).
-class VideoContextState extends ChangeNotifier {
-  static final ValueNotifier<bool> _muted = ValueNotifier(false);
-  static bool _initialised = false;
-
-  VideoContextState(bool initialMuted) {
-    // The pref is only the initial default; once set, mute is user-controlled.
-    if (!_initialised) {
-      _initialised = true;
-      _muted.value = initialMuted;
-    }
-    _muted.addListener(notifyListeners);
-  }
-
-  @override
-  void dispose() {
-    _muted.removeListener(notifyListeners);
-    super.dispose();
-  }
-
-  bool get isMuted => _muted.value;
-
-  void setIsMuted(double volume) {
-    final muted = _muted.value;
-    if (muted && volume > 0 || !muted && volume == 0) {
-      _muted.value = !muted;
-    }
   }
 }
 
