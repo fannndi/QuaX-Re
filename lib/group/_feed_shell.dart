@@ -13,6 +13,9 @@ class GroupFeedShell extends StatefulWidget {
   final WidgetBuilder titleBuilder;
   final WidgetBuilder bodyBuilder;
   final List<Widget> Function(BuildContext) actionsBuilder;
+  // Pushed feed routes keep their back button (default); home pages embedded in
+  // the navigation PageView hide it (their drawer is reached by edge swipe).
+  final bool automaticallyImplyLeading;
 
   const GroupFeedShell({
     super.key,
@@ -21,6 +24,7 @@ class GroupFeedShell extends StatefulWidget {
     required this.titleBuilder,
     required this.bodyBuilder,
     required this.actionsBuilder,
+    this.automaticallyImplyLeading = true,
   });
 
   @override
@@ -100,6 +104,7 @@ class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAlive
                   pinned: false,
                   snap: true,
                   floating: true,
+                  automaticallyImplyLeading: widget.automaticallyImplyLeading,
                   title: widget.titleBuilder(context),
                   actions: widget.actionsBuilder(context),
                 ),
@@ -125,6 +130,7 @@ List<Widget> defaultGroupActions(
   ScrollController? scrollToTopController,
   bool showMore = true,
   bool showRefresh = true,
+  bool showSettings = true,
   VoidCallback? onRefresh,
   List<Widget> extra = const [],
 }) {
@@ -144,8 +150,9 @@ List<Widget> defaultGroupActions(
       IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: onRefresh ?? () async => await context.read<FeedRefreshController>().refresh()),
-    IconButton(
-        icon: const Icon(Icons.settings), onPressed: () => Navigator.pushNamed(context, routeSettings)),
+    if (showSettings)
+      IconButton(
+          icon: const Icon(Icons.settings), onPressed: () => Navigator.pushNamed(context, routeSettings)),
     ...extra,
   ];
 }

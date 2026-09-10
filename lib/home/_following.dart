@@ -3,20 +3,17 @@ import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
-import 'package:quax/user.dart';
 
-final UserWithExtra user = UserWithExtra.fromArguments(idStr: "1", possiblySensitive: false, screenName: "ForYou");
-
-class ForYouTweets extends StatefulWidget {
+class FollowingTweets extends StatefulWidget {
   final TweetFeedController feed;
 
-  const ForYouTweets(this.feed, {super.key});
+  const FollowingTweets(this.feed, {super.key});
 
   @override
-  State<ForYouTweets> createState() => _ForYouTweetsState();
+  State<FollowingTweets> createState() => _FollowingTweetsState();
 }
 
-class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClientMixin<ForYouTweets> {
+class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAliveClientMixin<FollowingTweets> {
   static const int pageSize = 20;
   int loadTweetsCounter = 0;
   @override
@@ -31,12 +28,9 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
   }
 
   Future<TweetPageResult> _loadTweets(String? cursor) async {
-    final result = await Twitter.getTimelineTweets(
-      user.idStr!,
-      'profile',
+    final result = await Twitter.getHomeLatestTimeline(
       cursor: cursor,
       count: pageSize,
-      includeReplies: false,
       getTweetsCounter: getLoadTweetsCounter,
       incrementTweetsCounter: incrementLoadTweetsCounter,
     );
@@ -50,7 +44,7 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
       child: PaginatedTweetList(
         feed: widget.feed,
         loadPage: _loadTweets,
-        username: user.screenName,
+        username: null,
         onRefresh: () async {},
         firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
         newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,

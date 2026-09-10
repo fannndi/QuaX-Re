@@ -240,6 +240,9 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
         state: state,
         fetchNextPage: fetchNextPage,
         addAutomaticKeepAlives: false,
+        // Pre-build items further ahead of the viewport: heavy media cards need
+        // decode time, and the default ~250px cache causes visible stutter.
+        cacheExtent: 800,
         builderDelegate: PagedChildBuilderDelegate(
           itemBuilder: (context, chain, index) => _buildChain(context, chain),
           firstPageProgressIndicatorBuilder: (context) => const Center(child: CircularProgressIndicator()),
