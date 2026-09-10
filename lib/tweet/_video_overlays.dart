@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/tweet/_video_controls.dart';
+import 'package:quax/tweet/video_metadata.dart';
 
 /// A small "GIF" label, shown over a GIF that is displayed statically (not
 /// animating — e.g. a grid cell the playback gate didn't grant, or a GIF whose
@@ -71,6 +72,29 @@ class FritterCenterPlayButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+/// The small duration chip X shows in the corner of every video.
+class VideoDurationBadge extends StatelessWidget {
+  final int? durationMillis;
+
+  const VideoDurationBadge({super.key, required this.durationMillis});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = formatVideoDuration(durationMillis);
+    if (label.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(label,
+          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 }

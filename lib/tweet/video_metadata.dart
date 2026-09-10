@@ -60,3 +60,18 @@ class TweetVideoMetadata {
     return TweetVideoMetadata(aspectRatio, imageUrl, streamUrlsBuilderFromVariants(variants));
   }
 }
+/// X-style duration label for a video: `0:42`, `4:05`, `1:02:09`. Empty when
+/// the duration is unknown, so callers can hide their chip.
+String formatVideoDuration(int? millis) {
+  if (millis == null || millis <= 0) {
+    return '';
+  }
+  final totalSeconds = millis ~/ 1000;
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+  if (hours > 0) {
+    return '$hours:${minutes.toString().padLeft(2, '0')}:$seconds';
+  }
+  return '$minutes:$seconds';
+}

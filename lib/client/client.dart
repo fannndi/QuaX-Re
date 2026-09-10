@@ -568,6 +568,48 @@ class Twitter {
     return parseNotifications(json.decode(response.body) as Map<String, dynamic>);
   }
 
+  /// The posts an account liked, served by X's Likes endpoint — usable for the
+  /// account the request runs as (X keeps likes private otherwise). The body
+  /// has the usual user-timeline shape, so the shared parser reads it. The
+  /// queryId is community-tracked (fa0311/twitter-openapi); refresh it when a
+  /// 404 shows up.
+  static Future<TweetStatus> getLikes(
+    String userId, {
+    int count = 20,
+    String? cursor,
+    required int Function() getTweetsCounter,
+    required void Function() incrementTweetsCounter,
+  }) async {
+    var variables = {
+      "userId": userId,
+      "count": count,
+      "includePromotedContent": false,
+      "withClientEventToken": false,
+      "withBirdwatchNotes": false,
+      "withVoice": true,
+    };
+    if (cursor != null) {
+      variables['cursor'] = cursor;
+    }
+
+    var response = await _twitterApi.client.get(
+      Uri.https('x.com', '/i/api/graphql/rk2aeVVvKsyUdG3jf5uiLw/Likes', {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+      }),
+    );
+    return createUnconversationedChains(
+      json.decode(response.body) as Map<String, dynamic>,
+      'tweet',
+      const [],
+      true,
+      false,
+      false,
+      getTweetsCounter,
+      incrementTweetsCounter,
+    );
+  }
+
   static Future<TweetStatus> getTweets(
     String id,
     String type,

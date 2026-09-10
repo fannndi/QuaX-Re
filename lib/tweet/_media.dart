@@ -8,6 +8,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/tweet/media_actions.dart';
 import 'package:quax/tweet/media_viewer.dart';
+import 'package:quax/tweet/_video_overlays.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
@@ -201,13 +202,24 @@ class _TweetMediaState extends State<TweetMedia> {
                                 username: widget.username,
                                 tweetId: widget.tweetId))),
                 onLongPress: () => showMediaActionsSheet(context, item, widget.username),
-                child: _TweetMediaItem(
-                    media: item,
-                    index: index + 1,
-                    mediaIndex: index,
-                    total: widget.media.length,
-                    username: widget.username,
-                    tweetId: widget.tweetId),
+                child: Stack(
+                  children: [
+                    _TweetMediaItem(
+                        media: item,
+                        index: index + 1,
+                        mediaIndex: index,
+                        total: widget.media.length,
+                        username: widget.username,
+                        tweetId: widget.tweetId),
+                    // Every video carries its length, exactly like the X app.
+                    if (isVideo)
+                      Positioned(
+                        left: 6,
+                        bottom: 6,
+                        child: VideoDurationBadge(durationMillis: item.videoInfo?.durationMillis),
+                      ),
+                  ],
+                ),
               );
             },
           ),
