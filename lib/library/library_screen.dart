@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/library/library_viewer.dart';
@@ -35,11 +36,33 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   late final LibraryModel _model = LibraryModel(widget.prefs);
+  late final DownloadsModel _queue = DownloadsModel();
+  late final String _listenerKey = 'LibraryScreen-${identityHashCode(this)}';
+  DateTime _lastAutoRefresh = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
     super.initState();
     _configureOrLoad();
+    // Downloads that finish while this screen is mounted re-scan the folder
+    // (debounced), so the Downloaded tab shows fresh entries without a chip
+    // switch.
+    _queue.addDoneListener(_listenerKey, _onDownloadDone);
+  }
+
+  Future<void> _onDownloadDone() async {
+    final now = DateTime.now();
+    if (now.difference(_lastAutoRefresh).inMilliseconds < 1500) {
+      return;
+    }
+    _lastAutoRefresh = now;
+    await _model.refresh();
+  }
+
+  @override
+  void dispose() {
+    _queue.removeDoneListener(_listenerKey);
+    super.dispose();
   }
 
   Future<void> _configureOrLoad() async {

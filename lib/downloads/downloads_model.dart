@@ -48,6 +48,13 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   // to pull it without owning the HTTP machinery.
   final Map<String, void Function()> _cancelHooks = {};
   final Set<String> _cancelled = {};
+  // Hooks fired when a download lands at its destination: the Downloaded tab
+  // re-scans the library folder through these.
+  final Map<String, void Function()> _doneListeners = {};
+
+  void addDoneListener(String key, void Function() listener) => _doneListeners[key] = listener;
+
+  void removeDoneListener(String key) => _doneListeners.remove(key);
 
   void register(String fileName, String url, bool isVideo) {
     _cancelled.remove(fileName);
@@ -85,6 +92,11 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     final updated = [for (final item in state) item.fileName == fileName ? item.copyWith(done: true) : item];
     update(updated, force: true);
     DownloadNotifications.finalize(updated.firstWhere((e) => e.fileName == fileName));
+    for (final listener in List.of(_doneListeners.values)) {
+      try {
+        listener();
+      } catch (_) {}
+    }
   }
 
   /// User-initiated abort from the queue screen. Returns whether a running
