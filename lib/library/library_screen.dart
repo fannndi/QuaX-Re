@@ -76,7 +76,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   /// Runs the folder setup with the storage-permission safety net: when
   /// Android refuses a plain write (an SD card without all-files-access), the
   /// system screen was opened — explain, then retry right away upon return.
-  Future<void> _attemptSetup({bool initial = false}) async {
+  Future<void> _attemptSetup() async {
     final error = ValueNotifier<String?>(null);
     final ok = await _model.setupLibrary(error: error);
     if (ok && mounted) {

@@ -3,7 +3,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/library/library_model.dart';
 
 /// The queue screen: every image/GIF/video download this session started,
 /// with live percent/speed while running — the Hentoid-ish queue view. Landed
@@ -18,14 +17,7 @@ class DownloadsScreen extends StatefulWidget {
 }
 
 class _DownloadsScreenState extends State<DownloadsScreen> {
-  late final LibraryModel _library = LibraryModel(widget.prefs);
   late final DownloadsModel _queue = DownloadsModel();
-
-  @override
-  void initState() {
-    super.initState();
-    _library.refresh();
-  }
 
   @override
   Widget build(BuildContext context) {
