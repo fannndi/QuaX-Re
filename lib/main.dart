@@ -12,6 +12,7 @@ import 'package:quax/client/login_webview.dart';
 
 import 'package:quax/constants.dart';
 import 'package:quax/database/repository.dart';
+import 'package:quax/downloads/download_notifications.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/feed_session_cache.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
@@ -293,6 +294,9 @@ Future<void> main() async {
     // (before any shell exists) guarantees we win.
     groupsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
     subscriptionsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
+
+    // Notification bar wired up for the Hentoid-style download queue.
+    unawaited(DownloadNotifications.ensure());
 
     runApp(PrefService(        service: prefService,
         child: MultiProvider(

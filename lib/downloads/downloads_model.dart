@@ -1,4 +1,5 @@
 import 'package:flutter_triple/flutter_triple.dart';
+import 'package:quax/downloads/download_notifications.dart';
 
 /// One entry of the download queue. [done] flips once the file reached its
 /// destination; it is then browsable in the Saved screen's Downloaded tab.
@@ -76,12 +77,14 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
             : item
     ];
     update(updated, force: true);
+    DownloadNotifications.update(updated.firstWhere((e) => e.fileName == fileName));
   }
 
   void markDone(String fileName) {
     _cancelHooks.remove(fileName);
     final updated = [for (final item in state) item.fileName == fileName ? item.copyWith(done: true) : item];
     update(updated, force: true);
+    DownloadNotifications.finalize(updated.firstWhere((e) => e.fileName == fileName));
   }
 
   /// User-initiated abort from the queue screen. Returns whether a running
@@ -92,6 +95,9 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _cancelHooks.remove(fileName);
     final updated = state.where((item) => item.fileName != fileName).toList();
     update(updated, force: true);
+    if (updated.isEmpty) {
+      DownloadNotifications.clear();
+    }
     return true;
   }
 
@@ -99,5 +105,8 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _cancelHooks.remove(fileName);
     final updated = state.where((item) => item.fileName != fileName).toList();
     update(updated, force: true);
+    if (updated.isEmpty) {
+      DownloadNotifications.clear();
+    }
   }
 }

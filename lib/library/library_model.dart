@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -39,6 +40,40 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
 
   bool get isConfigured => libraryPath.isNotEmpty;
+
+  /// Last-read playback offset per library file (Hentoid's resume-reading
+  /// idea), bounded to the 200 most-recent names.
+  int? positionFor(LibraryEntry entry) {
+    final map = _positions();
+    return map[entry.name];
+  }
+
+  void savePosition(LibraryEntry entry, int millis) {
+    try {
+      final map = _positions();
+      map[entry.name] = millis;
+      // Bound the map so it never grows without reason.
+      final entries = map.entries.toList();
+      if (entries.length > 200) {
+        entries.removeRange(0, entries.length - 200);
+      }
+      final trimmed = {for (final e in entries) e.key: e.value};
+      prefs.set<String>(optionLibraryPositions, jsonEncode(trimmed));
+    } on Exception {
+      // positions are a nicety; losing them on a decode failure is harmless.
+    }
+  }
+
+  Map<String, int> _positions() {
+    final prefValue = prefs.get<String>(optionLibraryPositions);
+    if (prefValue == null) return {};
+    try {
+      final decoded = jsonDecode(prefValue) as Map<String, dynamic>? ?? const {};
+      return decoded.map((key, value) => MapEntry(key, (value as num?)?.toInt() ?? 0));
+    } on Exception {
+      return {};
+    }
+  }
 
   /// Configures [pickedPath] into the hidden library root, without running the
   /// system picker (the settings screen picks the folder itself).

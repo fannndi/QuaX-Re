@@ -3,15 +3,19 @@ import 'dart:io';
 import 'package:extended_image/extended_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/library/library_viewer.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:share_plus/share_plus.dart';
+
+const MethodChannel _storageChannel = MethodChannel('browser_resolver');
 
 /// Browses the hidden downloaded-media library. Without a configured folder it
 /// offers the one-time setup (the Hentoid-style folder + .nomedia flow); with
@@ -144,9 +148,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (entry.isVideo)
-                          Container(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              child: const Center(child: Icon(Icons.play_circle_outline)))
+                          FutureBuilder<String?>(
+                            future: _videoThumbFor(entry),
+                            builder: (context, snapshot) {
+                              const fallback = Center(child: Icon(Icons.play_circle_outline));
+                              final thumbPath = snapshot.data;
+                              if (thumbPath == null) {
+                                return Container(
+                                    color: theme.colorScheme.surfaceContainerHighest,
+                                    child: const Center(child: Icon(Icons.play_circle_outline)));
+                              }
+                              return ExtendedImage.file(
+                                File(thumbPath),
+                                fit: BoxFit.cover,
+                                loadStateChanged: (state) {
+                                  if (state.extendedImageLoadState == LoadState.failed) {
+                                    return const Center(child: Icon(Icons.play_circle_outline));
+                                  }
+                                  return null;
+                                },
+                              );
+                            },
+                          )
                         else
                           ExtendedImage.file(
                             entry.file,
@@ -196,6 +219,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: SizedBox(height: MediaQuery.of(context).size.height, child: body),
           )
         : body;
+  }
+
+  /// Cached video thumbnail via the dedicated android handler — generate once
+  /// into the app's thumbs directory, reuse forever.
+  Future<String?> _videoThumbFor(LibraryEntry entry) async {
+    try {
+      final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      final cached = File(p.join(cacheDir.path, '${p.basenameWithoutExtension(entry.file.path)}.jpg'));
+      if (await cached.exists()) {
+        return cached.path;
+      }
+
+      final generated = await _storageChannel.invokeMethod<String>('videoThumbnail',
+          {'path': entry.file.path, 'outPath': cached.path});
+      return generated;
+    } on Exception catch (_) {
+      return null;
+    }
   }
 
   Future<void> _importExisting() async {

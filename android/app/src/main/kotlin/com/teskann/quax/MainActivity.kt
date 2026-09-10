@@ -2,11 +2,17 @@ package com.teskann.quax
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Bitmap.CompressFormat.PNG
+import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -61,6 +67,32 @@ class MainActivity : FlutterActivity() {
                         }
                     } else {
                         result.success(true) // pre-R: manifest runtime permission governs this
+                    }
+                } else if (call.method == "videoThumbnail") {
+                    val videoPath = call.argument<String>("path")
+                    val outPath = call.argument<String>("outPath")
+                    if (videoPath != null && outPath != null) {
+                        var success: String? = null
+                        try {
+                            val retriever = MediaMetadataRetriever()
+                            retriever.setDataSource(videoPath)
+                            val frame = retriever.getFrameAtTime(1_000_000L) // one second in
+                            retriever.release()
+                            if (frame != null) {
+                                FileOutputStream(outPath).use { stream ->
+                                    frame.compress(Bitmap.CompressFormat.JPEG, 70, stream)
+                                }
+                                frame.recycle()
+                                success = outPath
+                            }
+                            result.success(success)
+                        } catch (e: IOException) {
+                            result.error("THUMBNAIL_FAILED", e.message, null)
+                        } catch (e: RuntimeException) {
+                            result.error("THUMBNAIL_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "path is null", null)
                     }
                 }
             }

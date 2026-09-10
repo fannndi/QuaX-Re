@@ -33,6 +33,8 @@ const optionDownloadTypeLibrary = 'library';
 // Hentoid-style hidden library: a picked folder (visible in file managers)
 // holding downloaded media with a .nomedia marker so gallery apps ignore it.
 const optionLibraryPath = 'library.path';
+// JSON map {fileName: lastReadMillis} — the library's resume-last-position map.
+const optionLibraryPositions = 'library.positions';
 
 const optionLocale = 'locale';
 const optionLocaleDefault = 'system';

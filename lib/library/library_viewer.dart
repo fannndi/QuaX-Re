@@ -4,8 +4,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:quax/library/library_model.dart';
 
 /// TikTok-style reading of the downloaded library: one full-screen media per
-/// vertical page, videos auto-playing while they are on screen and paused the
-/// moment they leave, images pinch-to-zoom. All file types share one feed.
+/// vertical page, videos auto-playing while they are on screen and paused,
+/// seeking to the saved position (Hentoid's resume-reading), and advancing to
+/// the next page on playback end. Images pinch-to-zoom.
 class LibraryViewer extends StatefulWidget {
   final LibraryModel model;
   final int initialIndex;
@@ -19,6 +20,13 @@ class LibraryViewer extends StatefulWidget {
 class _LibraryViewerState extends State<LibraryViewer> {
   late final PageController _pageController = PageController(initialPage: widget.initialIndex);
   late int _currentPage = widget.initialIndex;
+
+  void _advance() {
+    if (!mounted) return;
+    final next = _currentPage + 1;
+    if (next >= widget.model.state.length) return;
+    _pageController.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+  }
 
   @override
   void dispose() {
@@ -39,11 +47,23 @@ class _LibraryViewerState extends State<LibraryViewer> {
           setState(() {
             _currentPage = index;
           });
+          for (final entry in entries) {
+            // Positions of pages that left the screen save themselves; a page
+            // that just became current re-reads its saved offset through the
+            // events listener.
+          }
         },
         itemBuilder: (context, index) {
           final entry = entries[index];
           if (entry.isVideo) {
-            return _VideoPage(entry: entry, active: index == _currentPage);
+            return _VideoPage(
+                model: widget.model,
+                entry: entry,
+                active: index == _currentPage,
+                onEnded: () async {
+                  widget.model.savePosition(entry, 0);
+                  _advance();
+                });
           }
           return _ImagePage(entry: entry);
         },
@@ -53,32 +73,92 @@ class _LibraryViewerState extends State<LibraryViewer> {
 }
 
 class _VideoPage extends StatefulWidget {
+  final LibraryModel model;
   final LibraryEntry entry;
   final bool active;
+  final Future<void> Function()? onEnded;
 
-  const _VideoPage({required this.entry, required this.active});
+  const _VideoPage({required this.model, required this.entry, required this.active, this.onEnded});
 
   @override
   State<_VideoPage> createState() => _VideoPageState();
 }
 
 class _VideoPageState extends State<_VideoPage> {
-  late final BetterPlayerController _controller = BetterPlayerController(
-    const BetterPlayerConfiguration(
-      fit: BoxFit.contain,
-      autoPlay: true,
-      looping: true,
-      autoDispose: false,
-      // The page decides play/pause on visibility; the library must not fight it.
-      handleLifecycle: false,
-      allowedScreenSleep: false,
-    ),
-    betterPlayerDataSource: BetterPlayerDataSource.file(widget.entry.file.path),
-  );
+  BetterPlayerController? _controller;
+  bool? _didSeekToSaved;
+  BetterPlayerConfiguration get _configuration => const BetterPlayerConfiguration(
+        fit: BoxFit.contain,
+        autoPlay: true,
+        looping: false,
+        autoDispose: false,
+        // The page decides play/pause on visibility; the library must not
+        // fight it.
+        handleLifecycle: false,
+        allowedScreenSleep: false,
+      );
+
+  void _attachEvents(BetterPlayerController controller) {
+    controller.addEventsListener((event) async {
+      switch (event.betterPlayerEventType) {
+        case BetterPlayerEventType.finished:
+          _didSeekToSaved = true;
+          widget.model.savePosition(widget.entry, 0);
+          await widget.onEnded?.call();
+          break;
+        case BetterPlayerEventType.initialized:
+          // Re-read the saved playback offset exactly once per data source;
+          // a plain seekTo after initialization lands cleanly.
+          if (_didSeekToSaved != null) return;
+          _didSeekToSaved = false;
+          final savedMs = widget.model.positionFor(widget.entry) ?? 0;
+          if (savedMs > 5000) {
+            // Seek to the last stop point: five seconds before the end is a
+            // natural restart edge.
+            final durationMs = _controller!.videoPlayerController?.value.duration?.inMilliseconds ?? 0;
+            if (savedMs < durationMs - 5000) {
+              _didSeekToSaved = true;
+              _controller?.seekTo(Duration(milliseconds: savedMs));
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _buildController();
+  }
+
+  void _buildController() {
+    _controller = BetterPlayerController(_configuration);
+    _attachEvents(_controller!);
+    _controller!.setupDataSource(BetterPlayerDataSource.file(widget.entry.file.path));
+  }
+
+  /// Saves the current playback offset when a page leaves visibility.
+  Future<void> _saveCurrentPosition() async {
+    final value = _controller?.videoPlayerController?.value;
+    if (value == null) return;
+    final positionMs = value.position?.inMilliseconds ?? 0;
+    if (positionMs <= 0) return;
+    // A fully watched video falls back to a fresh start next time.
+    final durationMs = value.duration?.inMilliseconds ?? 0;
+    if (durationMs > 0 && positionMs > durationMs - 5000) {
+      widget.model.savePosition(widget.entry, 0);
+      return;
+    }
+    widget.model.savePosition(widget.entry, positionMs);
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _saveCurrentPosition();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -88,15 +168,16 @@ class _VideoPageState extends State<_VideoPage> {
     if (widget.active == oldWidget.active) return;
 
     if (widget.active) {
-      _controller.play();
+      _controller?.play();
     } else {
-      _controller.pause();
+      _saveCurrentPosition();
+      _controller?.pause();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BetterPlayer(controller: _controller);
+    return BetterPlayer(controller: _controller!);
   }
 }
 
