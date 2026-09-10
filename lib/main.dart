@@ -34,9 +34,7 @@ import 'package:quax/settings/settings.dart';
 import 'package:quax/settings/settings_export_screen.dart';
 import 'package:quax/status.dart';
 import 'package:quax/subscriptions/users_model.dart';
-import 'package:quax/trends/trends_model.dart';
 import 'package:quax/tweet/_video.dart';
-import 'package:quax/ui/discord_popup.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
@@ -219,7 +217,7 @@ Future<void> main() async {
     optionDisableScreenshots: false,
     optionDownloadPath: '',
     optionDownloadType: optionDownloadTypeAsk,
-    optionHomePages: defaultHomePages.map((e) => e.id).toList(),
+    optionHomePages: ['feed', 'notifs', 'saved', 'settings'],
     optionLocale: optionLocaleDefault,
     optionHomeInitialTab: 'feed',
     optionHomeDefaultFeedTab: feedTabs[0].id.name,
@@ -235,9 +233,8 @@ Future<void> main() async {
     optionMediaAllowBackgroundPlayOtherApps: false,
     optionMediaVideoPrefetchSeconds: 0,
     optionNonConfirmationBiasMode: false,
-    optionShouldCheckForUpdates: true,
+    optionShouldCheckForUpdates: false,
     optionOpenLinksInEmbeddedBrowser: false,
-    optionDiscordPopupDismissed: false,
     optionSubscriptionGroupsOrderByAscending: true,
     optionDisableWarningsForUnrelatedPostsInFeed: false,
     alwaysShowFullTweetContents: false,
@@ -297,10 +294,7 @@ Future<void> main() async {
     groupsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
     subscriptionsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
 
-    var trendLocationModel = UserTrendLocationModel(prefService);
-
-    runApp(PrefService(
-        service: prefService,
+    runApp(PrefService(        service: prefService,
         child: MultiProvider(
           providers: [
             Provider(create: (context) => groupsModel),
@@ -313,9 +307,6 @@ Future<void> main() async {
             Provider(create: (context) => SavedTweetFolderModel()),
             Provider(create: (context) => LikedTweetModel()),
             Provider(create: (context) => SearchUsersModel()),
-            Provider(create: (context) => trendLocationModel),
-            Provider(create: (context) => TrendLocationsModel()),
-            Provider(create: (context) => TrendsModel(trendLocationModel)),
             ChangeNotifierProvider(create: (_) => VideoContextState(prefService.get(optionMediaDefaultMute))),
           ],
           child: FritterApp(),
@@ -344,7 +335,6 @@ class _FritterAppState extends State<FritterApp> {
   bool _checkUpdates = false;
   bool _updateDialogShown = false;
   bool _accountDialogShown = false;
-  bool _discordDialogShown = false;
   bool _isSecure = false;
   double _textScaleFactor = 1.0;
   Locale? _locale;
@@ -538,13 +528,6 @@ class _FritterAppState extends State<FritterApp> {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         _accountDialogShown = true;
                         checkForAccounts(_navigatorKey.currentContext!);
-                      });
-                    }
-
-                    if (!_discordDialogShown) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _discordDialogShown = true;
-                        checkForDiscord(_navigatorKey.currentContext!);
                       });
                     }
 

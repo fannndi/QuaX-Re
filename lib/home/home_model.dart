@@ -1,7 +1,5 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:quax/constants.dart';
-import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/home/home_screen.dart';
 import 'package:quax/utils/iterables.dart';
@@ -37,11 +35,16 @@ class HomeModel extends Store<List<HomePage>> {
     await execute(() async {
       var saved = prefs.getStringList(optionHomePages) ?? [];
 
-      var available = [
-        ...defaultHomePages,
-        ...groupsModel.state.map((e) =>
-            NavigationPage('group-${e.id}', (c) => L10n.of(c).group_name(e.name), Icon(e.iconData), Icon(e.iconData))),
-      ];
+      // The fork replaced the local-subscriptions home page with the
+      // notifications timeline: migrate the stored list so the bell replaces
+      // the people icon in one step, and Settings joins the navbar.
+      saved = saved
+          .expand((id) => id == 'subscriptions' ? ['notifs'] : [id])
+          .toSet()
+          .toList();
+      saved = [...saved, if (!saved.contains('settings')) 'settings'];
+
+      var available = [...defaultHomePages];
 
       var pages = <HomePage>[];
 

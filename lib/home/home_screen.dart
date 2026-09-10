@@ -9,11 +9,11 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/group_screen.dart';
 import 'package:quax/home/_feed.dart';
 import 'package:quax/home/_missing.dart';
+import 'package:quax/home/_notifs.dart';
 import 'package:quax/home/_saved.dart';
 import 'package:quax/home/home_model.dart';
-import 'package:quax/search/search.dart';
+import 'package:quax/settings/settings.dart';
 import 'package:quax/subscriptions/subscriptions.dart';
-import 'package:quax/trends/trends_screen.dart';
 import 'package:quax/ui/errors.dart';
 
 typedef NavigationTitleBuilder = String Function(BuildContext context);
@@ -29,11 +29,12 @@ class NavigationPage {
 
 final List<NavigationPage> defaultHomePages = [
   NavigationPage('feed', (c) => L10n.of(c).home, const Icon(Icons.home_outlined), const Icon(Icons.home)),
-  NavigationPage('subscriptions', (c) => L10n.of(c).subscriptions, const Icon(Icons.people_outlined),
-      const Icon(Icons.people)),
-  NavigationPage('trending', (c) => L10n.of(c).search, const Icon(Icons.search_outlined), const Icon(Icons.search)),
+  NavigationPage(
+      'notifs', (c) => L10n.of(c).notifications, const Icon(Icons.notifications_none_outlined), const Icon(Icons.notifications)),
   NavigationPage(
       'saved', (c) => L10n.of(c).saved, const Icon(Icons.bookmark_border_outlined), const Icon(Icons.bookmark)),
+  NavigationPage(
+      'settings', (c) => L10n.of(c).settings, const Icon(Icons.settings_outlined), const Icon(Icons.settings)),
 ];
 
 class HomeScreen extends StatelessWidget {
@@ -101,7 +102,7 @@ class _HomeScreenState extends State<_HomeScreen> {
           pages: _pages,
           prefs: widget.prefs,
           initialPage: _initialPage,
-          builder: (scrollControllers, focusNodes) {
+          builder: (scrollControllers) {
             return List.generate(_pages.length, (index) {
               final page = _pages[index];
               if (page.id.startsWith('group-')) {
@@ -116,21 +117,21 @@ class _HomeScreenState extends State<_HomeScreen> {
                   return FeedScreen(
                     scrollController: scrollControllers[index]!,
                     id: '-1',
-                    name: L10n.current.feed,
+                  );
+                case 'notifs':
+                  return NotifsScreen(
+                    scrollController: scrollControllers[index]!,
                   );
                 case 'subscriptions':
                   return SubscriptionsScreen(
                     scrollController: scrollControllers[index]!,
                   );
-                case 'trending':
-                  return TrendsScreen(
-                    scrollController: scrollControllers[index]!,
-                    focusNode: focusNodes[index]!,
-                  );
                 case 'saved':
                   return SavedScreen(
                     scrollController: scrollControllers[index]!,
                   );
+                case 'settings':
+                  return const SettingsScreen();
                 default:
                   return const MissingScreen();
               }
@@ -146,7 +147,7 @@ class ScaffoldWithBottomNavigation extends StatefulWidget {
   final List<NavigationPage> pages;
   final BasePrefService prefs;
   final int initialPage;
-  final List<Widget> Function(Map<int, ScrollController> scrollControllers, Map<int, FocusNode> focusNodes) builder; // changed here
+  final List<Widget> Function(Map<int, ScrollController> scrollControllers) builder;
 
   const ScaffoldWithBottomNavigation(
       {super.key, required this.pages, required this.prefs, required this.initialPage, required this.builder});
@@ -159,15 +160,6 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
   late PageController _pageController;
   late int _currentPage;
   final Map<int, ScrollController> _scrollControllers = {};
-  final Map<int, FocusNode> _focusNodes = {};
-
-  void unfocusOtherPages(){
-    _focusNodes.forEach((index, focusNode) {
-      if(index != _currentPage) {
-        focusNode.unfocus();
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -176,7 +168,6 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
     _pageController = PageController(initialPage: widget.initialPage);
     for (int i = 0; i < widget.pages.length; i++) {
       _scrollControllers[i] = ScrollController();
-      _focusNodes[i] = FocusNode();
     }
   }
 
@@ -200,26 +191,7 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
 
   @override
   Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-
     return Scaffold(
-      drawer: Drawer(
-        child: ListView(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.search),
-              title: Text(l10n.search),
-              onTap: () =>
-                  Navigator.pushNamed(context, routeSearch, arguments: SearchArguments(0, focusInputOnOpen: true)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: Text(l10n.settings),
-              onTap: () => Navigator.pushNamed(context, routeSettings),
-            )
-          ],
-        ),
-      ),
       body: PageView(
         controller: _pageController,
         onPageChanged: (page) {
@@ -227,7 +199,7 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
             _currentPage = page;
           });
         },
-        children: widget.builder(_scrollControllers, _focusNodes),
+        children: widget.builder(_scrollControllers),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentPage,
@@ -271,11 +243,7 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
                 await scrollController.animateTo(0, duration: const Duration(seconds: 1), curve: Curves.easeInOut);
               }
             }
-            if (tappedId == "trending") {
-              _focusNodes[_currentPage]!.requestFocus();
-            }
           }
-          unfocusOtherPages();
           _pageController.jumpToPage(index);
         },
       ),
