@@ -3,7 +3,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/tweet/_video.dart';
-import 'package:quax/tweet/_video_controls.dart';
+import 'package:quax/tweet/_video_overlays.dart';
 import 'package:quax/utils/paging.dart';
 
 part 'gif_grid_item.dart';
@@ -109,3 +109,4 @@ List<MediaGridItem> mediaItemsFromChains(List<TweetChain> chains) {
   }
   return out;
 }
+

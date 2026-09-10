@@ -8,7 +8,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/media_grid/gif_playback_gate.dart';
 import 'package:quax/profile/media_grid/media_grid_items/media_grid_item.dart';
 import 'package:quax/status.dart';
-import 'package:quax/tweet/_video_controls.dart';
+import 'package:quax/tweet/_video_overlays.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/paging.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -233,3 +233,4 @@ class _GifGridCellState extends State<_GifGridCell> {
     );
   }
 }
+

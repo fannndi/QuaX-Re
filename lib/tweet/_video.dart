@@ -7,6 +7,7 @@ import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/_video_controls.dart';
+import 'package:quax/tweet/_video_overlays.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/tweet/video_quality.dart';
 import 'package:quax/tweet/video_wakelock.dart';
@@ -592,3 +593,4 @@ class VideoContextState extends ChangeNotifier {
     }
   }
 }
+

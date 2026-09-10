@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_triple/flutter_triple.dart';
@@ -174,7 +173,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           FutureBuilder<String?>(
                             future: _videoThumbFor(entry),
                             builder: (context, snapshot) {
-                              const fallback = Center(child: Icon(Icons.play_circle_outline));
                               final thumbPath = snapshot.data;
                               if (thumbPath == null) {
                                 return Container(
@@ -344,3 +342,4 @@ class _SetupView extends StatelessWidget {
     );
   }
 }
+

@@ -47,11 +47,6 @@ class _LibraryViewerState extends State<LibraryViewer> {
           setState(() {
             _currentPage = index;
           });
-          for (final entry in entries) {
-            // Positions of pages that left the screen save themselves; a page
-            // that just became current re-reads its saved offset through the
-            // events listener.
-          }
         },
         itemBuilder: (context, index) {
           final entry = entries[index];
@@ -144,7 +139,7 @@ class _VideoPageState extends State<_VideoPage> {
   Future<void> _saveCurrentPosition() async {
     final value = _controller?.videoPlayerController?.value;
     if (value == null) return;
-    final positionMs = value.position?.inMilliseconds ?? 0;
+    final positionMs = value.position.inMilliseconds ?? 0;
     if (positionMs <= 0) return;
     // A fully watched video falls back to a fresh start next time.
     final durationMs = value.duration?.inMilliseconds ?? 0;
@@ -213,3 +208,4 @@ class _ImagePage extends StatelessWidget {
     );
   }
 }
+
