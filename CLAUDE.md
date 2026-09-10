@@ -75,7 +75,7 @@ final text = result["data"]["text"] as String;
 
 **Account selection strategy.** `_QuackerTwitterClient.fetch()` in `client.dart` does not pick a random account — it asks `AccountSelector` (`account_selector.dart`, a pure/testable policy) for a *healthy* account, then retries on another account on error. Two distinct health signals:
 - **Rate limit (`429`)** is **per-endpoint** (X rate-limits per endpoint, not per account). It is tracked **in memory** by `RateLimitTracker` (`rate_limit_tracker.dart`), keyed by `(accountId, uri.path)`, with the reset time from X's `x-rate-limit-reset` header (else `rateLimitFallback`). Not persisted — windows are short. The selector receives this via an injected `isRateLimited` predicate.
-- **Not-found (`404`)** is **per-account** and **persisted** (auth likely broken): flagged after `notFoundThreshold` consecutive 404s, for `notFoundCooldown`. Helpers `recordNotFound` / `recordAccountSuccess` live in `accounts.dart`; cooldown constants in `constants.dart`.
+- **Not-found (`404`) and rejected sessions (`401`)** are **per-account** and **persisted** (auth likely broken): flagged after `notFoundThreshold` consecutive failures, for `notFoundCooldown`. Helpers `recordNotFound` / `recordAccountSuccess` live in `accounts.dart`; cooldown constants in `constants.dart`. A 404 on the fork's `HomeLatestTimeline` path is exempted (stale queryId is the likelier cause there — see `getHomeLatestTimeline`). Network-level failures (socket/timeout/TLS) never taint account health: one retry after a 1s pause per fetch, then the error surfaces as-is. A 404 also calls `TwitterHeaders.invalidateIfStale()` so a stale `x-client-transaction-id` key generator (X rotates it on deploys) self-heals on the next request.
 
 `AccountSelector.pick()` prefers healthy accounts but **falls back to flagged ones**, so a real request is always attempted while any account exists — the flags only influence ordering, they never short-circuit. Errors therefore surface only from actual responses, each with a dedicated widget in `ui/errors.dart` (all built on the shared `ActionableErrorWidget`, offering add-account + retry):
 - every tried account was rate-limited on the endpoint → `RateLimitedException` (⏳);
@@ -117,3 +117,23 @@ When writing tests:
 - Use the Should convention, and always use a concise `reason` message in assertions to make it
   perfectly clear what's broken when a test fails
   Look at other tests to mimicate the style.
+
+## Fork notes (deviations from upstream)
+
+- The feed's "Following" tab uses X's `HomeLatestTimeline` endpoint (`getHomeLatestTimeline` in
+  `lib/client/client.dart`). Its queryId is community-tracked (fa0311/twitter-openapi): on 404s
+  update that constant, or record a real response with `tool/record/` (open x.com/home and switch
+  to the Following tab while recording).
+- The bottom navigation is Home / Notifications / Saved / Settings. The Trending page, the Discord
+  startup popup and the subscriptions home page are dropped; search lives in the feed's app bar.
+- The update checker defaults to off: upstream releases would overwrite these fork changes.
+- When (re)installing builds on the connected device, keep app data: use
+  `adb install -r build/app/outputs/flutter-apk/app-debug.apk` (or `x -s <serial> install -r`),
+  NOT `flutter install` — it uninstalls first, which wipes the local database (accounts, likes).
+  Accounts are stored locally as cookies; multiple accounts are supported and picked per-request
+  by the health-tracking `AccountSelector`.
+- On Windows, `generate_icons.py` cannot run (no native cairo). Generate the adaptive icon
+  assets without it: `npx sharp-cli -i assets/icon.svg -o assets/icon-foreground-432x432.png resize 432`,
+  then `assets/icon-background.png` (solid #080808 432x432) and `icon-monochrome-432x432.png`
+  (foreground with alpha turned white) via PIL. `flutter analyze` reports ~40 pre-existing
+  upstream infos/warnings; CI (`test.yml`) only runs `flutter test`.

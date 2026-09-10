@@ -195,6 +195,10 @@
       "description": "Home timeline"
     },
     {
+      "url": "https://x.com/notifications",
+      "description": "Notifications, All tab"
+    },
+    {
       "url": "https://x.com/search?q=quax&f=live",
       "description": "Search, Latest tab"
     },

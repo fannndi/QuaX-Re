@@ -151,6 +151,57 @@ void main() {
     }
   });
 
+  group('HomeTimeline', () {
+    for (final fixture in fixturesOf('HomeTimeline')) {
+      test(fixture.scenario, () {
+        int counter = 0;
+        // HomeLatestTimeline (the Following feed) answers with the same body
+        // shape, so this also covers the parsing side of that timeline.
+        final status = Twitter.createTimelineChains(
+          fixture.body,
+          'tweet',
+          const [],
+          true,
+          false,
+          false,
+          () => counter,
+          () => counter++,
+        );
+        final tweets = allTweets(status);
+        expect(tweets, isNotEmpty,
+            reason: 'A home timeline with posts should yield tweets');
+        expect(status.cursorBottom, isNotNull,
+            reason: 'A timeline should expose a bottom cursor, or the next page is unreachable');
+        expectEveryTweetHasAnAuthor(tweets, fixture);
+      });
+    }
+  });
+
+  group('NotificationsTimeline', () {
+    for (final fixture in fixturesOf('NotificationsTimeline')) {
+      test(fixture.scenario, () {
+        final page = Twitter.parseNotifications(fixture.body);
+        expect(page.entries, isNotEmpty,
+            reason: 'The account received notifications, so parsing should yield some');
+        expect(page.cursorBottom, isNotNull,
+            reason: 'The bottom cursor drives pagination of older notifications');
+
+        for (final entry in page.entries) {
+          if (entry is TweetChain) {
+            expect(entry.tweets, isNotEmpty,
+                reason: 'An embedded tweet entry should carry its tweet, not an empty chain');
+            expectEveryTweetHasAnAuthor(entry.tweets, fixture);
+          } else if (entry is NotificationEntry) {
+            expect(entry.icon, isNotNull,
+                reason: 'The notification icon drives its tile rendering');
+            expect(entry.message, isNotNull,
+                reason: 'A notification without any text renders as an empty tile');
+          }
+        }
+      });
+    }
+  });
+
   for (final operation in ['Following', 'Followers']) {
     group(operation, () {
       for (final fixture in fixturesOf(operation)) {

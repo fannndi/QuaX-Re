@@ -1,0 +1,2379 @@
+{
+ "scenario": "Captured from https://x.com/notifications",
+ "sourceUrl": "https://x.com/notifications",
+ "operation": "NotificationsTimeline",
+ "host": "x.com",
+ "queryId": "lXkwcYxJtGMm63D8jTPtSA",
+ "features": {
+  "rweb_video_screen_enabled": false,
+  "rweb_cashtags_enabled": true,
+  "profile_label_improvements_pcf_label_in_post_enabled": true,
+  "responsive_web_profile_redirect_enabled": true,
+  "rweb_tipjar_consumption_enabled": false,
+  "verified_phone_label_enabled": false,
+  "creator_subscriptions_tweet_preview_api_enabled": true,
+  "responsive_web_graphql_timeline_navigation_enabled": true,
+  "premium_content_api_read_enabled": false,
+  "communities_web_enable_tweet_community_results_fetch": true,
+  "c9s_tweet_anatomy_moderator_badge_enabled": true,
+  "responsive_web_grok_analyze_button_fetch_trends_enabled": false,
+  "responsive_web_grok_analyze_post_followups_enabled": true,
+  "rweb_cashtags_composer_attachment_enabled": true,
+  "responsive_web_jetfuel_frame": true,
+  "rweb_sports_post_context_enabled": false,
+  "responsive_web_grok_share_attachment_enabled": true,
+  "responsive_web_grok_annotations_enabled": true,
+  "articles_preview_enabled": true,
+  "responsive_web_edit_tweet_api_enabled": true,
+  "rweb_conversational_replies_downvote_enabled": false,
+  "graphql_is_translatable_rweb_tweet_is_translatable_enabled": true,
+  "view_counts_everywhere_api_enabled": true,
+  "longform_notetweets_consumption_enabled": true,
+  "responsive_web_twitter_article_tweet_consumption_enabled": true,
+  "content_disclosure_indicator_enabled": true,
+  "content_disclosure_ai_generated_indicator_enabled": true,
+  "responsive_web_grok_show_grok_translated_post": true,
+  "responsive_web_grok_analysis_button_from_backend": true,
+  "post_ctas_fetch_enabled": false,
+  "freedom_of_speech_not_reach_fetch_enabled": true,
+  "standardized_nudges_misinfo": true,
+  "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": true,
+  "longform_notetweets_rich_text_read_enabled": true,
+  "longform_notetweets_inline_media_enabled": false,
+  "responsive_web_grok_image_annotation_enabled": true,
+  "responsive_web_grok_imagine_annotation_enabled": true,
+  "responsive_web_grok_community_note_auto_translation_is_enabled": true,
+  "responsive_web_enhance_cards_enabled": false
+ },
+ "fieldToggles": null,
+ "variables": {
+  "timeline_type": "All",
+  "cursor": "DAACDAABCgABDXxSkzeUQAAIAAIAAAABCAADiJONcggABIaU5ssACwACAAAAC0FhQTVSYnJCZnZZAAA",
+  "count": 20
+ },
+ "status": 200,
+ "headers": {
+  "x-rate-limit-limit": "1500",
+  "content-type": "application/json",
+  "x-rate-limit-remaining": "1498",
+  "x-rate-limit-reset": "1789025807"
+ },
+ "body": {
+  "data": {
+   "viewer_v2": {
+    "user_results": {
+     "result": {
+      "__typename": "User",
+      "notification_timeline": {
+       "id": "VGltZWxpbmU6DAC7CgABDXxSkzeUQAAIAAIAAAABAAA=",
+       "timeline": {
+        "instructions": [
+         {
+          "entries": [
+           {
+            "content": {
+             "__typename": "TimelineTimelineCursor",
+             "cursorType": "Top",
+             "entryType": "TimelineTimelineCursor",
+             "value": "DAABDAABCgABDXxSkzeUQAAIAAIAAAABCAADiJONcggABIaU5ssACwACAAAAC0FhQTVNS292OUlnAAA"
+            },
+            "entryId": "cursor-top-1787665885744",
+            "sortIndex": "1787665885744"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "27335f917f0db198c33935e4b6dac79f",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN0WENmY2dsQTALAAMAAAAeOTcxNzQyNDExODUxMzE3MjQ4LS0xNzQzOTM5MzI5CgAEAAAAAAAAAAEPAAUKAAAAAR0JKOmbmmFMCwAGAAAAEnVzZXJfbWVudGlvbmVkX3lvdQ8ABwsAAAABAAAAHjk3MTc0MjQxMTg1MTMxNzI0OC0tMTc0MzkzOTMyOQoACAAAAaA5MKovAA"
+               }
+              },
+              "element": "user_mentioned_you"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 5576
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://pbs.twimg.com/profile_images/2028328117899841536/aJjwtdR1_normal.jpg"
+                   },
+                   "banner": {
+                    "image_url": "https://pbs.twimg.com/profile_banners/926559323509030912/1642137885"
+                   },
+                   "core": {
+                    "created_at": "Fri Nov 03 21:18:52 +0000 2017",
+                    "name": "budi min",
+                    "screen_name": "KoplakID4"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjo5MjY1NTkzMjM1MDkwMzA5MTI=",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": "Surabaya city"
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {
+                    "tweet_ids_str": [
+                     "1331179426478899201"
+                    ]
+                   },
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "professional": {
+                    "category": [
+                     {
+                      "icon_name": "IconBriefcaseStroke",
+                      "id": 920,
+                      "name": "Other"
+                     }
+                    ],
+                    "professional_type": "Business",
+                    "rest_id": "1578753261645221888"
+                   },
+                   "profile_bio": {
+                    "description": "driver gojek\n\nngefans club real madrid,interMilan,ManUtd,persebaya",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 4,
+                    "following": 725
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "926559323509030912",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 50,
+                    "tweets": 14406
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092248485693382988"
+                 ],
+                 "editable_until_msecs": "1787669485000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 13:51:25 +0000 2026",
+                 "display_text_range": [
+                  39,
+                  76
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "1319728304",
+                    "indices": [
+                     0,
+                     16
+                    ],
+                    "name": "fadhillata liriyatra",
+                    "screen_name": "fhadilliriyatra"
+                   },
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     17,
+                     26
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     27,
+                     38
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 0,
+                 "favorited": false,
+                 "full_text": "@fhadilliriyatra @fannndi_ @WEEKNESDAY Nyatanya Barca gkbisa Nebus rilis nya",
+                 "id_str": "2092248485693382988",
+                 "in_reply_to_screen_name": "fhadilliriyatra",
+                 "in_reply_to_status_id_str": "2092199957771985223",
+                 "in_reply_to_user_id_str": "1319728304",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 0,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "926559323509030912"
+                },
+                "rest_id": "2092248485693382988",
+                "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "51",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5stXCfcglA0",
+            "sortIndex": "1787665885743"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "7ab7b0c37743eae687a9c0e7e1e49f92",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN0cXB3ZElsQTALAAMAAAAdOTcxNzQyNDExODUxMzE3MjQ4LTE4MDAzMTcyMDAKAAQAAAAAAAAAAQ8ABQoAAAABHQklgEuaYR4LAAYAAAASdXNlcl9tZW50aW9uZWRfeW91DwAHCwAAAAEAAAAdOTcxNzQyNDExODUxMzE3MjQ4LTE4MDAzMTcyMDAKAAgAAAGgOSME7wA"
+               }
+              },
+              "element": "user_mentioned_you"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 162
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"
+                   },
+                   "banner": {
+                    "image_url": ""
+                   },
+                   "core": {
+                    "created_at": "Wed Oct 09 07:07:24 +0000 2013",
+                    "name": "komang",
+                    "screen_name": "90Komang"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxOTQ4Nzc4MDMw",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": ""
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_description_language": "und",
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 442,
+                    "following": 1223
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1948778030",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 1,
+                    "tweets": 3398
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092244734844756254"
+                 ],
+                 "editable_until_msecs": "1787668591000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 13:36:31 +0000 2026",
+                 "display_text_range": [
+                  39,
+                  171
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "1319728304",
+                    "indices": [
+                     0,
+                     16
+                    ],
+                    "name": "fadhillata liriyatra",
+                    "screen_name": "fhadilliriyatra"
+                   },
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     17,
+                     26
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     27,
+                     38
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 0,
+                 "favorited": false,
+                 "full_text": "@fhadilliriyatra @fannndi_ @WEEKNESDAY Profesional itu menghargai kontrak yang telah disepakati.\nKalau memang profesional tebus RCnya sesuai yg tertera di kalusul kontrak.",
+                 "id_str": "2092244734844756254",
+                 "in_reply_to_screen_name": "fhadilliriyatra",
+                 "in_reply_to_status_id_str": "2092199957771985223",
+                 "in_reply_to_user_id_str": "1319728304",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 0,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "1948778030"
+                },
+                "rest_id": "2092244734844756254",
+                "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "54",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5stqpwdIlA0",
+            "sortIndex": "1787664991471"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "72d7f4a77221904c3de7862df3ebc2f3",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN0RjYyRzNsQTALAAMAAAAdOTcxNzQyNDExODUxMzE3MjQ4LS04MTc2MDA1NTMKAAQAAAAAAAAAAQ8ABQoAAAABHQkj3fUaoKELAAYAAAASdXNlcl9tZW50aW9uZWRfeW91DwAHCwAAAAEAAAAdOTcxNzQyNDExODUxMzE3MjQ4LS04MTc2MDA1NTMKAAgAAAGgORx7lQA"
+               }
+              },
+              "element": "user_mentioned_you"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 162
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"
+                   },
+                   "banner": {
+                    "image_url": ""
+                   },
+                   "core": {
+                    "created_at": "Wed Oct 09 07:07:24 +0000 2013",
+                    "name": "komang",
+                    "screen_name": "90Komang"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxOTQ4Nzc4MDMw",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": ""
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_description_language": "und",
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 442,
+                    "following": 1223
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1948778030",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 1,
+                    "tweets": 3398
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092242938097213601"
+                 ],
+                 "editable_until_msecs": "1787668163000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 13:29:23 +0000 2026",
+                 "display_text_range": [
+                  37,
+                  288
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "1619882947",
+                    "indices": [
+                     0,
+                     14
+                    ],
+                    "name": "Alam",
+                    "screen_name": "Alam11Guntara"
+                   },
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     15,
+                     24
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     25,
+                     36
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 0,
+                 "favorited": false,
+                 "full_text": "@Alam11Guntara @fannndi_ @WEEKNESDAY Ada yg namanya kontrak kerja, dan itu sudah disepakati di awal. Begitu juga kalau misalkan memutuskan kontrak, pasti tertera aturannya di sana, entah dia harus bayar denda, atau yang lainnya.\nKenapa kontrak ini ada? ya supaya tidak terjadi wanprestasi",
+                 "id_str": "2092242938097213601",
+                 "in_reply_to_screen_name": "Alam11Guntara",
+                 "in_reply_to_status_id_str": "2092183248126529777",
+                 "in_reply_to_user_id_str": "1619882947",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 0,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "1948778030"
+                },
+                "rest_id": "2092242938097213601",
+                "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "40",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5stF62G3lA0",
+            "sortIndex": "1787664563093"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "9fbb8ee124137b82bd37ba2d0f5b8187",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN0RTBwLVNsQTALAAMAAAAeOTcxNzQyNDExODUxMzE3MjQ4LS0xMjY4MDMxMzgyCgAEAAAAAAAAAAEPAAUKAAAAAh0JIwEs2uF3HQj6ylgaAUoLAAYAAAAadXNlcl9yZXBsaWVkX3RvX3lvdXJfdHdlZXQPAAcLAAAAAQAAAB45NzE3NDI0MTE4NTEzMTcyNDgtLTEyNjgwMzEzODIKAAgAAAGgORkIdAA"
+               }
+              },
+              "element": "user_replied_to_your_tweet"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 180
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://pbs.twimg.com/profile_images/1921601382198427648/VvpPasim_normal.jpg"
+                   },
+                   "banner": {
+                    "image_url": ""
+                   },
+                   "core": {
+                    "created_at": "Wed Nov 06 13:52:53 +0000 2019",
+                    "name": "No Coment",
+                    "screen_name": "iamkapten"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxMTkyMDc3MzQ1NjgwNTQzNzQ0",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": ""
+                   },
+                   "media_permissions": {
+                    "can_media_tag": false
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 58,
+                    "following": 51
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1192077345680543744",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 82,
+                    "tweets": 4640
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092241989844787575"
+                 ],
+                 "editable_until_msecs": "1787667937000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 13:25:37 +0000 2026",
+                 "display_text_range": [
+                  44,
+                  186
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     0,
+                     9
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "1587113037911437312",
+                    "indices": [
+                     10,
+                     18
+                    ],
+                    "name": "Rio",
+                    "screen_name": "RIODAF5"
+                   },
+                   {
+                    "id_str": "726849269622181888",
+                    "indices": [
+                     19,
+                     31
+                    ],
+                    "name": "Artha Bagus Pratama",
+                    "screen_name": "Tha_Daisuke"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     32,
+                     43
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 0,
+                 "favorited": false,
+                 "full_text": "@fannndi_ @RIODAF5 @Tha_Daisuke @WEEKNESDAY Kalo madrid bid 150 juta sepertinya ada comunicado officialnya di situs resmi madrid, kalo barca bid 130 juta kyknya belum pernah baca di mana",
+                 "id_str": "2092241989844787575",
+                 "in_reply_to_screen_name": "fannndi_",
+                 "in_reply_to_status_id_str": "2092197773882032458",
+                 "in_reply_to_user_id_str": "971742411851317248",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 1,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "1192077345680543744"
+                },
+                "rest_id": "2092241989844787575",
+                "source": "<a href=\"http://twitter.com/download/android\" rel=\"nofollow\">Twitter for Android</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "84",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5stE0p-SlA0",
+            "sortIndex": "1787664337012"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "8166914e98f373f81abff37f21719cf0",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN1TTJwT2lsQTALAAMAAAAcOTcxNzQyNDExODUxMzE3MjQ4LTk3ODAyMDI5MQoABAAAAAAAAAABDwAFCgAAAAEdCPQZl9phKwsABgAAABZ1c2Vyc19saWtlZF95b3VyX3R3ZWV0DwAHCwAAAAEAAAAcOTcxNzQyNDExODUxMzE3MjQ4LTk3ODAyMDI5MQoACAAAAaA49P3KAA"
+               }
+              },
+              "element": "users_liked_your_tweet"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineNotification",
+              "id": "DXxSkzeUQAAAAAABiJONcoaU5suM2pOilA0",
+              "itemType": "TimelineNotification",
+              "notification_icon": "heart_icon",
+              "notification_url": {
+               "url": "https://twitter.com/fannndi_/status/2092190417672626475",
+               "urlType": "ExternalUrl"
+              },
+              "rich_message": {
+               "entities": [
+                {
+                 "fromIndex": 0,
+                 "ref": {
+                  "type": "TimelineRichTextUser",
+                  "user_results": {
+                   "result": {
+                    "__typename": "User",
+                    "action_counts": {
+                     "favorites_count": 226541
+                    },
+                    "affiliates_highlighted_label": {},
+                    "avatar": {
+                     "image_url": "https://pbs.twimg.com/profile_images/2084643134940794880/niTkNcY__normal.jpg"
+                    },
+                    "banner": {
+                     "image_url": "https://pbs.twimg.com/profile_banners/1257351038509568000/1776088786"
+                    },
+                    "core": {
+                     "created_at": "Mon May 04 16:47:17 +0000 2020",
+                     "name": "Bismarck",
+                     "screen_name": "Bismarck_xyz"
+                    },
+                    "follow_request_sent": false,
+                    "has_graduated_access": true,
+                    "id": "VXNlcjoxMjU3MzUxMDM4NTA5NTY4MDAw",
+                    "is_blue_verified": false,
+                    "location": {
+                     "location": ""
+                    },
+                    "media_permissions": {
+                     "can_media_tag": true
+                    },
+                    "notifications_settings": {
+                     "notifications_enabled": false
+                    },
+                    "parody_commentary_fan_label": "None",
+                    "pinned_items": {},
+                    "possibly_sensitive": false,
+                    "privacy": {
+                     "protected": false
+                    },
+                    "profile_bio": {
+                     "description": "",
+                     "entities": {
+                      "description": {}
+                     }
+                    },
+                    "profile_image_shape": "Circle",
+                    "profile_metadata": {
+                     "profile_interstitial_type": ""
+                    },
+                    "profile_translation": {
+                     "translator_type": "none"
+                    },
+                    "relationship_counts": {
+                     "followers": 92,
+                     "following": 870
+                    },
+                    "relationship_perspectives": {
+                     "blocked_by": false,
+                     "blocking": false,
+                     "followed_by": false,
+                     "following": false,
+                     "live_following": false,
+                     "muting": false
+                    },
+                    "rest_id": "1257351038509568000",
+                    "super_follow_eligible": false,
+                    "super_followed_by": false,
+                    "super_following": false,
+                    "tweet_counts": {
+                     "media_tweets": 23,
+                     "tweets": 11426
+                    },
+                    "verification": {
+                     "verified": false
+                    },
+                    "website": {
+                     "url": ""
+                    }
+                   }
+                  }
+                 },
+                 "toIndex": 8
+                }
+               ],
+               "rtl": false,
+               "text": "Bismarck liked your reply"
+              },
+              "template": {
+               "__typename": "TimelineNotificationAggregateUserActions",
+               "from_users": [
+                {
+                 "__typename": "TimelineNotificationUserRef",
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 226541
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://pbs.twimg.com/profile_images/2084643134940794880/niTkNcY__normal.jpg"
+                   },
+                   "banner": {
+                    "image_url": "https://pbs.twimg.com/profile_banners/1257351038509568000/1776088786"
+                   },
+                   "core": {
+                    "created_at": "Mon May 04 16:47:17 +0000 2020",
+                    "name": "Bismarck",
+                    "screen_name": "Bismarck_xyz"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxMjU3MzUxMDM4NTA5NTY4MDAw",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": ""
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 92,
+                    "following": 870
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1257351038509568000",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 23,
+                    "tweets": 11426
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                }
+               ],
+               "target_objects": [
+                {
+                 "__typename": "TimelineNotificationTweetRef",
+                 "tweet_results": {
+                  "result": {
+                   "__typename": "Tweet",
+                   "cashtag_attachments": [],
+                   "core": {
+                    "user_results": {
+                     "result": {
+                      "__typename": "User",
+                      "action_counts": {
+                       "favorites_count": 7574
+                      },
+                      "affiliates_highlighted_label": {},
+                      "avatar": {
+                       "image_url": "https://pbs.twimg.com/profile_images/1473955625151328259/cDOgf8Ru_normal.jpg"
+                      },
+                      "banner": {
+                       "image_url": "https://pbs.twimg.com/profile_banners/971742411851317248/1703059191"
+                      },
+                      "core": {
+                       "created_at": "Thu Mar 08 13:40:19 +0000 2018",
+                       "name": "fannndi",
+                       "screen_name": "fannndi_"
+                      },
+                      "follow_request_sent": false,
+                      "has_graduated_access": true,
+                      "id": "VXNlcjo5NzE3NDI0MTE4NTEzMTcyNDg=",
+                      "is_blue_verified": false,
+                      "location": {
+                       "location": "Indonesia"
+                      },
+                      "media_permissions": {
+                       "can_media_tag": false
+                      },
+                      "notifications_settings": {
+                       "notifications_enabled": false
+                      },
+                      "parody_commentary_fan_label": "None",
+                      "pinned_items": {
+                       "tweet_ids_str": [
+                        "1247757124874072066"
+                       ]
+                      },
+                      "possibly_sensitive": false,
+                      "privacy": {
+                       "protected": false
+                      },
+                      "profile_bio": {
+                       "description": "Kamu udah kalah, kalau sampai liat profile ini.",
+                       "entities": {
+                        "description": {}
+                       }
+                      },
+                      "profile_description_language": "id",
+                      "profile_image_shape": "Circle",
+                      "profile_metadata": {
+                       "profile_interstitial_type": ""
+                      },
+                      "profile_translation": {
+                       "translator_type": "none"
+                      },
+                      "relationship_counts": {
+                       "followers": 44,
+                       "following": 130
+                      },
+                      "relationship_perspectives": {
+                       "blocked_by": false,
+                       "blocking": false,
+                       "followed_by": false,
+                       "following": false,
+                       "live_following": false,
+                       "muting": false
+                      },
+                      "rest_id": "971742411851317248",
+                      "super_follow_eligible": false,
+                      "super_followed_by": false,
+                      "super_following": false,
+                      "tweet_counts": {
+                       "media_tweets": 242,
+                       "tweets": 1594
+                      },
+                      "verification": {
+                       "verified": false
+                      },
+                      "verified_user_profiles": {
+                       "super_follows_user_profile": {
+                        "is_active": false
+                       }
+                      },
+                      "website": {
+                       "url": ""
+                      }
+                     }
+                    }
+                   },
+                   "edit_control": {
+                    "edit_tweet_ids": [
+                     "2092190417672626475"
+                    ],
+                    "editable_until_msecs": "1787655641000",
+                    "edits_remaining": "5",
+                    "is_edit_eligible": false
+                   },
+                   "grok_analysis_button": true,
+                   "grok_annotations": {},
+                   "grok_translated_post_with_availability": {
+                    "is_available": false
+                   },
+                   "is_translatable": true,
+                   "legacy": {
+                    "bookmark_count": 0,
+                    "bookmarked": false,
+                    "conversation_id_str": "2092124925528326517",
+                    "created_at": "Tue Aug 25 10:00:41 +0000 2026",
+                    "display_text_range": [
+                     27,
+                     286
+                    ],
+                    "entities": {
+                     "user_mentions": [
+                      {
+                       "id_str": "1619882947",
+                       "indices": [
+                        0,
+                        14
+                       ],
+                       "name": "Alam",
+                       "screen_name": "Alam11Guntara"
+                      },
+                      {
+                       "id_str": "1257587433614405632",
+                       "indices": [
+                        15,
+                        26
+                       ],
+                       "name": "WEEK",
+                       "screen_name": "WEEKNESDAY"
+                      }
+                     ]
+                    },
+                    "favorite_count": 2,
+                    "favorited": false,
+                    "full_text": "@Alam11Guntara @WEEKNESDAY Tapi kalau ijazahnya ditahan sama perusaahan gimana bang dan perusaahannya minta Tebusan dulu biar mau dibalikin hehe kayak di RL, masalahnya statementmu itu ga bisa jadi pembanding, kalau memang gitu,tinggal lapor ke FIFA, kalau  mau pindah ke Tim Impian gue",
+                    "id_str": "2092190417672626475",
+                    "in_reply_to_screen_name": "Alam11Guntara",
+                    "in_reply_to_status_id_str": "2092183248126529777",
+                    "in_reply_to_user_id_str": "1619882947",
+                    "is_quote_status": false,
+                    "lang": "in",
+                    "quote_count": 0,
+                    "reply_count": 0,
+                    "retweet_count": 0,
+                    "retweeted": false,
+                    "user_id_str": "971742411851317248"
+                   },
+                   "rest_id": "2092190417672626475",
+                   "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+                   "unmention_data": {},
+                   "views": {
+                    "count": "243",
+                    "state": "EnabledWithCount"
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "timestamp_ms": "2026-08-25T12:46:14.986Z"
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5suM2pOilA0",
+            "sortIndex": "1787661974986"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "53dfce799b45fbab1a35410249ae1ffa",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN0YVc4TXFsQTALAAMAAAAcOTcxNzQyNDExODUxMzE3MjQ4LTMyOTI3MDQ3NgoABAAAAAAAAAABDwAFCgAAAAIdCQL-TZvRzx0I-oZ7GwG6CwAGAAAAGnVzZXJfcmVwbGllZF90b195b3VyX3R3ZWV0DwAHCwAAAAEAAAAcOTcxNzQyNDExODUxMzE3MjQ4LTMyOTI3MDQ3NgoACAAAAaA4mPz3AA"
+               }
+              },
+              "element": "user_replied_to_your_tweet"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 64
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"
+                   },
+                   "banner": {
+                    "image_url": ""
+                   },
+                   "core": {
+                    "created_at": "Thu Mar 12 12:27:23 +0000 2026",
+                    "name": "Niy",
+                    "screen_name": "_imissyouxxl"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoyMDMyMDcwODkwMjQzMTA4ODY0",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": ""
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 1,
+                    "following": 53
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "2032070890243108864",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 4,
+                    "tweets": 88
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092206793137312207"
+                 ],
+                 "editable_until_msecs": "1787659545000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 11:05:45 +0000 2026",
+                 "display_text_range": [
+                  45,
+                  220
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     0,
+                     9
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "1587113037911437312",
+                    "indices": [
+                     10,
+                     18
+                    ],
+                    "name": "Rio",
+                    "screen_name": "RIODAF5"
+                   },
+                   {
+                    "id_str": "1902540343096307714",
+                    "indices": [
+                     19,
+                     32
+                    ],
+                    "name": "hi",
+                    "screen_name": "sunflowers_q"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     33,
+                     44
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 0,
+                 "favorited": false,
+                 "full_text": "@fannndi_ @RIODAF5 @sunflowers_q @WEEKNESDAY Nah iya diliat dari sisi dia ttd kontrak awalnya, ujug ujug pengen pindah ke rival 1 liga sih aneh kebangetan wkwk. Fans Barca malah bnyk yg sok2 kasian alvarez ga happy dll😭🤣",
+                 "id_str": "2092206793137312207",
+                 "in_reply_to_screen_name": "fannndi_",
+                 "in_reply_to_status_id_str": "2092197482411524538",
+                 "in_reply_to_user_id_str": "971742411851317248",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 2,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "2032070890243108864"
+                },
+                "rest_id": "2092206793137312207",
+                "source": "<a href=\"http://twitter.com/download/iphone\" rel=\"nofollow\">Twitter for iPhone</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "63",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5staW8MqlA0",
+            "sortIndex": "1787655945463"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "58a2dc126c0df1a65dee054ddc8d9797",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXNzY3BfSFZsQTALAAMAAAAdOTcxNzQyNDExODUxMzE3MjQ4LS0zMTYxMjU4MjYKAAQAAAAAAAAAAQ8ABQoAAAABHQj-88ia4LELAAYAAAASdXNlcl9tZW50aW9uZWRfeW91DwAHCwAAAAEAAAAdOTcxNzQyNDExODUxMzE3MjQ4LS0zMTYxMjU4MjYKAAgAAAGgOIjS4wA"
+               }
+              },
+              "element": "user_mentioned_you"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 22024
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://pbs.twimg.com/profile_images/1973711271578222592/ZVJVuRW1_normal.jpg"
+                   },
+                   "banner": {
+                    "image_url": ""
+                   },
+                   "core": {
+                    "created_at": "Tue Nov 22 02:57:54 +0000 2022",
+                    "name": "GILFith",
+                    "screen_name": "Gilfffttthhh"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxNTk0ODg3ODI0OTE0MTQxMTg2",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": ""
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "Just a mediocre artist",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_description_language": "en",
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 14,
+                    "following": 473
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1594887824914141186",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 7,
+                    "tweets": 1488
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092202349909696689"
+                 ],
+                 "editable_until_msecs": "1787658486000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 10:48:06 +0000 2026",
+                 "display_text_range": [
+                  39,
+                  124
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "1319728304",
+                    "indices": [
+                     0,
+                     16
+                    ],
+                    "name": "fadhillata liriyatra",
+                    "screen_name": "fhadilliriyatra"
+                   },
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     17,
+                     26
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     27,
+                     38
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 1,
+                 "favorited": false,
+                 "full_text": "@fhadilliriyatra @fannndi_ @WEEKNESDAY Kalau barca emang klub profesional, maka sesuai aturan aja, tebus tuh release clause!",
+                 "id_str": "2092202349909696689",
+                 "in_reply_to_screen_name": "fhadilliriyatra",
+                 "in_reply_to_status_id_str": "2092199957771985223",
+                 "in_reply_to_user_id_str": "1319728304",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 0,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "1594887824914141186"
+                },
+                "rest_id": "2092202349909696689",
+                "source": "<a href=\"http://twitter.com/download/android\" rel=\"nofollow\">Twitter for Android</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "70",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5sscp_HVlA0",
+            "sortIndex": "1787654886115"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "0d16ab2f58c7949387729e0e5c68ba33",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXNzVVl4UTRsQTALAAMAAAAdOTcxNzQyNDExODUxMzE3MjQ4LTE4NDEwODMwNDYKAAQAAAAAAAAAAQ8ABQoAAAABHQjtlxNasWELAAYAAAAWdXNlcnNfbGlrZWRfeW91cl90d2VldA8ABwsAAAABAAAAHTk3MTc0MjQxMTg1MTMxNzI0OC0xODQxMDgzMDQ2CgAIAAABoDiHDtkA"
+               }
+              },
+              "element": "users_liked_your_tweet"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineNotification",
+              "id": "DXxSkzeUQAAAAAABiJONcoaU5ssUYxQ4lA0",
+              "itemType": "TimelineNotification",
+              "notification_icon": "heart_icon",
+              "notification_url": {
+               "url": "https://twitter.com/fannndi_/status/2092183260034150753",
+               "urlType": "ExternalUrl"
+              },
+              "rich_message": {
+               "entities": [
+                {
+                 "fromIndex": 0,
+                 "ref": {
+                  "type": "TimelineRichTextUser",
+                  "user_results": {
+                   "result": {
+                    "__typename": "User",
+                    "action_counts": {
+                     "favorites_count": 22024
+                    },
+                    "affiliates_highlighted_label": {},
+                    "avatar": {
+                     "image_url": "https://pbs.twimg.com/profile_images/1973711271578222592/ZVJVuRW1_normal.jpg"
+                    },
+                    "banner": {
+                     "image_url": ""
+                    },
+                    "core": {
+                     "created_at": "Tue Nov 22 02:57:54 +0000 2022",
+                     "name": "GILFith",
+                     "screen_name": "Gilfffttthhh"
+                    },
+                    "follow_request_sent": false,
+                    "has_graduated_access": true,
+                    "id": "VXNlcjoxNTk0ODg3ODI0OTE0MTQxMTg2",
+                    "is_blue_verified": false,
+                    "location": {
+                     "location": ""
+                    },
+                    "media_permissions": {
+                     "can_media_tag": true
+                    },
+                    "notifications_settings": {
+                     "notifications_enabled": false
+                    },
+                    "parody_commentary_fan_label": "None",
+                    "pinned_items": {},
+                    "possibly_sensitive": false,
+                    "privacy": {
+                     "protected": false
+                    },
+                    "profile_bio": {
+                     "description": "Just a mediocre artist",
+                     "entities": {
+                      "description": {}
+                     }
+                    },
+                    "profile_description_language": "en",
+                    "profile_image_shape": "Circle",
+                    "profile_metadata": {
+                     "profile_interstitial_type": ""
+                    },
+                    "profile_translation": {
+                     "translator_type": "none"
+                    },
+                    "relationship_counts": {
+                     "followers": 14,
+                     "following": 473
+                    },
+                    "relationship_perspectives": {
+                     "blocked_by": false,
+                     "blocking": false,
+                     "followed_by": false,
+                     "following": false,
+                     "live_following": false,
+                     "muting": false
+                    },
+                    "rest_id": "1594887824914141186",
+                    "super_follow_eligible": false,
+                    "super_followed_by": false,
+                    "super_following": false,
+                    "tweet_counts": {
+                     "media_tweets": 7,
+                     "tweets": 1488
+                    },
+                    "verification": {
+                     "verified": false
+                    },
+                    "website": {
+                     "url": ""
+                    }
+                   }
+                  }
+                 },
+                 "toIndex": 7
+                }
+               ],
+               "rtl": false,
+               "text": "GILFith liked your reply"
+              },
+              "template": {
+               "__typename": "TimelineNotificationAggregateUserActions",
+               "from_users": [
+                {
+                 "__typename": "TimelineNotificationUserRef",
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 22024
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://pbs.twimg.com/profile_images/1973711271578222592/ZVJVuRW1_normal.jpg"
+                   },
+                   "banner": {
+                    "image_url": ""
+                   },
+                   "core": {
+                    "created_at": "Tue Nov 22 02:57:54 +0000 2022",
+                    "name": "GILFith",
+                    "screen_name": "Gilfffttthhh"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxNTk0ODg3ODI0OTE0MTQxMTg2",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": ""
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "Just a mediocre artist",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_description_language": "en",
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 14,
+                    "following": 473
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1594887824914141186",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 7,
+                    "tweets": 1488
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                }
+               ],
+               "target_objects": [
+                {
+                 "__typename": "TimelineNotificationTweetRef",
+                 "tweet_results": {
+                  "result": {
+                   "__typename": "Tweet",
+                   "cashtag_attachments": [],
+                   "core": {
+                    "user_results": {
+                     "result": {
+                      "__typename": "User",
+                      "action_counts": {
+                       "favorites_count": 7574
+                      },
+                      "affiliates_highlighted_label": {},
+                      "avatar": {
+                       "image_url": "https://pbs.twimg.com/profile_images/1473955625151328259/cDOgf8Ru_normal.jpg"
+                      },
+                      "banner": {
+                       "image_url": "https://pbs.twimg.com/profile_banners/971742411851317248/1703059191"
+                      },
+                      "core": {
+                       "created_at": "Thu Mar 08 13:40:19 +0000 2018",
+                       "name": "fannndi",
+                       "screen_name": "fannndi_"
+                      },
+                      "follow_request_sent": false,
+                      "has_graduated_access": true,
+                      "id": "VXNlcjo5NzE3NDI0MTE4NTEzMTcyNDg=",
+                      "is_blue_verified": false,
+                      "location": {
+                       "location": "Indonesia"
+                      },
+                      "media_permissions": {
+                       "can_media_tag": false
+                      },
+                      "notifications_settings": {
+                       "notifications_enabled": false
+                      },
+                      "parody_commentary_fan_label": "None",
+                      "pinned_items": {
+                       "tweet_ids_str": [
+                        "1247757124874072066"
+                       ]
+                      },
+                      "possibly_sensitive": false,
+                      "privacy": {
+                       "protected": false
+                      },
+                      "profile_bio": {
+                       "description": "Kamu udah kalah, kalau sampai liat profile ini.",
+                       "entities": {
+                        "description": {}
+                       }
+                      },
+                      "profile_description_language": "id",
+                      "profile_image_shape": "Circle",
+                      "profile_metadata": {
+                       "profile_interstitial_type": ""
+                      },
+                      "profile_translation": {
+                       "translator_type": "none"
+                      },
+                      "relationship_counts": {
+                       "followers": 44,
+                       "following": 130
+                      },
+                      "relationship_perspectives": {
+                       "blocked_by": false,
+                       "blocking": false,
+                       "followed_by": false,
+                       "following": false,
+                       "live_following": false,
+                       "muting": false
+                      },
+                      "rest_id": "971742411851317248",
+                      "super_follow_eligible": false,
+                      "super_followed_by": false,
+                      "super_following": false,
+                      "tweet_counts": {
+                       "media_tweets": 242,
+                       "tweets": 1594
+                      },
+                      "verification": {
+                       "verified": false
+                      },
+                      "verified_user_profiles": {
+                       "super_follows_user_profile": {
+                        "is_active": false
+                       }
+                      },
+                      "website": {
+                       "url": ""
+                      }
+                     }
+                    }
+                   },
+                   "edit_control": {
+                    "edit_tweet_ids": [
+                     "2092183260034150753"
+                    ],
+                    "editable_until_msecs": "1787653934000",
+                    "edits_remaining": "5",
+                    "is_edit_eligible": false
+                   },
+                   "grok_analysis_button": true,
+                   "grok_annotations": {},
+                   "grok_translated_post_with_availability": {
+                    "is_available": false
+                   },
+                   "is_translatable": true,
+                   "legacy": {
+                    "bookmark_count": 0,
+                    "bookmarked": false,
+                    "conversation_id_str": "2092124925528326517",
+                    "created_at": "Tue Aug 25 09:32:14 +0000 2026",
+                    "display_text_range": [
+                     25,
+                     281
+                    ],
+                    "entities": {
+                     "user_mentions": [
+                      {
+                       "id_str": "726849269622181888",
+                       "indices": [
+                        0,
+                        12
+                       ],
+                       "name": "Artha Bagus Pratama",
+                       "screen_name": "Tha_Daisuke"
+                      },
+                      {
+                       "id_str": "1257587433614405632",
+                       "indices": [
+                        13,
+                        24
+                       ],
+                       "name": "WEEK",
+                       "screen_name": "WEEKNESDAY"
+                      }
+                     ]
+                    },
+                    "favorite_count": 3,
+                    "favorited": false,
+                    "full_text": "@Tha_Daisuke @WEEKNESDAY mana bukti nya barca Bid Alvarez 130, dan mana buktinya Arsenal juga Bid Alvarez, jangan cuma Tweet dari Media, harus ada statement resmi,\n\ndan dilogika saja bro, Klub waras mana yg mau memperkuat tim Rival dengan memuluskan kepindahan pemain kunci mereka.",
+                    "id_str": "2092183260034150753",
+                    "in_reply_to_screen_name": "Tha_Daisuke",
+                    "in_reply_to_status_id_str": "2092175961202868616",
+                    "in_reply_to_user_id_str": "726849269622181888",
+                    "is_quote_status": false,
+                    "lang": "in",
+                    "quote_count": 0,
+                    "reply_count": 3,
+                    "retweet_count": 0,
+                    "retweeted": false,
+                    "user_id_str": "971742411851317248"
+                   },
+                   "rest_id": "2092183260034150753",
+                   "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+                   "unmention_data": {},
+                   "views": {
+                    "count": "390",
+                    "state": "EnabledWithCount"
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "timestamp_ms": "2026-08-25T10:46:10.393Z"
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5ssUYxQ4lA0",
+            "sortIndex": "1787654770393"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "80a118d60566d15b3799b4e2a98655a7",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN2U1BWUVNsQTALAAMAAAAeOTcxNzQyNDExODUxMzE3MjQ4LS0xNDgzNTE5ODg3CgAEAAAAAAAAAAEPAAUKAAAAAR0I-vK92uFQCwAGAAAAEnVzZXJfbWVudGlvbmVkX3lvdQ8ABwsAAAABAAAAHjk3MTc0MjQxMTg1MTMxNzI0OC0tMTQ4MzUxOTg4NwoACAAAAaA4eM64AA"
+               }
+              },
+              "element": "user_mentioned_you"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 4106
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://pbs.twimg.com/profile_images/2068415098528710656/NijKhp1v_normal.jpg"
+                   },
+                   "banner": {
+                    "image_url": "https://pbs.twimg.com/profile_banners/1902540343096307714/1766708772"
+                   },
+                   "core": {
+                    "created_at": "Thu Mar 20 01:59:22 +0000 2025",
+                    "name": "hi",
+                    "screen_name": "sunflowers_q"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxOTAyNTQwMzQzMDk2MzA3NzE0",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": "Kuta, Indonesia"
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 302,
+                    "following": 413
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1902540343096307714",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 21,
+                    "tweets": 2311
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092197947387863376"
+                 ],
+                 "editable_until_msecs": "1787657436000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 10:30:36 +0000 2026",
+                 "display_text_range": [
+                  31,
+                  37
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "1587113037911437312",
+                    "indices": [
+                     0,
+                     8
+                    ],
+                    "name": "Rio",
+                    "screen_name": "RIODAF5"
+                   },
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     9,
+                     18
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     19,
+                     30
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 0,
+                 "favorited": false,
+                 "full_text": "@RIODAF5 @fannndi_ @WEEKNESDAY Fr sih",
+                 "id_str": "2092197947387863376",
+                 "in_reply_to_screen_name": "RIODAF5",
+                 "in_reply_to_status_id_str": "2092196280248435037",
+                 "in_reply_to_user_id_str": "1587113037911437312",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 0,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "1902540343096307714"
+                },
+                "rest_id": "2092197947387863376",
+                "source": "<a href=\"http://twitter.com/download/android\" rel=\"nofollow\">Twitter for Android</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "96",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5svSPVQSlA0",
+            "sortIndex": "1787653836472"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineItem",
+             "clientEventInfo": {
+              "component": "urt",
+              "details": {
+               "notificationDetails": {
+                "impressionId": "7180bcf699d310e6a809e997edf03006",
+                "metadata": "CwABAAAAQzAwMDAwMDAwMDAwMDAwMDBmN2Q3ZjhhMmE3ZWVlYTIyLjRkNjVlYWE4YzJiMWM3NjA8OjM5OGU5MGM4MmM3ODFlNDELAAIAAAAjRFh4U2t6ZVVRQUFBQUFBQmlKT05jb2FVNXN1UjllTTVsQTALAAMAAAAcOTcxNzQyNDExODUxMzE3MjQ4LTk5NjcyMzk4NAoABAAAAAAAAAABDwAFCgAAAAIdCPrQIFuh6x0I7ZcTWrFhCwAGAAAAGnVzZXJfcmVwbGllZF90b195b3VyX3R3ZWV0DwAHCwAAAAEAAAAcOTcxNzQyNDExODUxMzE3MjQ4LTk5NjcyMzk4NAoACAAAAaA4eERCAA"
+               }
+              },
+              "element": "user_replied_to_your_tweet"
+             },
+             "entryType": "TimelineTimelineItem",
+             "itemContent": {
+              "__typename": "TimelineTweet",
+              "itemType": "TimelineTweet",
+              "tweetDisplayType": "Tweet",
+              "tweet_results": {
+               "result": {
+                "__typename": "Tweet",
+                "cashtag_attachments": [],
+                "core": {
+                 "user_results": {
+                  "result": {
+                   "__typename": "User",
+                   "action_counts": {
+                    "favorites_count": 85
+                   },
+                   "affiliates_highlighted_label": {},
+                   "avatar": {
+                    "image_url": "https://pbs.twimg.com/profile_images/1589790183540465664/nnHGcPGe_normal.jpg"
+                   },
+                   "banner": {
+                    "image_url": ""
+                   },
+                   "core": {
+                    "created_at": "Sun Dec 05 14:52:41 +0000 2021",
+                    "name": "nash",
+                    "screen_name": "fake12355"
+                   },
+                   "follow_request_sent": false,
+                   "has_graduated_access": true,
+                   "id": "VXNlcjoxNDY3NTA3MTUxODQ1MjI0NDQ5",
+                   "is_blue_verified": false,
+                   "location": {
+                    "location": "Kota Bandung, Jawa Barat"
+                   },
+                   "media_permissions": {
+                    "can_media_tag": true
+                   },
+                   "notifications_settings": {
+                    "notifications_enabled": false
+                   },
+                   "parody_commentary_fan_label": "None",
+                   "pinned_items": {},
+                   "possibly_sensitive": false,
+                   "privacy": {
+                    "protected": false
+                   },
+                   "profile_bio": {
+                    "description": "ハロー！\nなにを書けばいいでしょうか? \n分からん、あっ\n日本が好き\n日本に行きたい\nでも今はまだいけない。色々トラブルがあった\n一人で日本語を学びます\n友達がほしい\n今私のプロファイルを見ている人もぜひ私にDMを送ってください。特に日本に住んでいるインドネシア人もぜひ。\n友達になろうよ！",
+                    "entities": {
+                     "description": {}
+                    }
+                   },
+                   "profile_description_language": "ja",
+                   "profile_image_shape": "Circle",
+                   "profile_metadata": {
+                    "profile_interstitial_type": ""
+                   },
+                   "profile_translation": {
+                    "translator_type": "none"
+                   },
+                   "relationship_counts": {
+                    "followers": 1,
+                    "following": 87
+                   },
+                   "relationship_perspectives": {
+                    "blocked_by": false,
+                    "blocking": false,
+                    "followed_by": false,
+                    "following": false,
+                    "live_following": false,
+                    "muting": false
+                   },
+                   "rest_id": "1467507151845224449",
+                   "super_follow_eligible": false,
+                   "super_followed_by": false,
+                   "super_following": false,
+                   "tweet_counts": {
+                    "media_tweets": 1,
+                    "tweets": 106
+                   },
+                   "verification": {
+                    "verified": false
+                   },
+                   "website": {
+                    "url": ""
+                   }
+                  }
+                 }
+                },
+                "edit_control": {
+                 "edit_tweet_ids": [
+                  "2092197798716613099"
+                 ],
+                 "editable_until_msecs": "1787657401000",
+                 "edits_remaining": "5",
+                 "is_edit_eligible": false
+                },
+                "grok_analysis_button": true,
+                "grok_annotations": {},
+                "grok_translated_post_with_availability": {
+                 "is_available": false
+                },
+                "is_translatable": true,
+                "legacy": {
+                 "bookmark_count": 0,
+                 "bookmarked": false,
+                 "conversation_id_str": "2092124925528326517",
+                 "created_at": "Tue Aug 25 10:30:01 +0000 2026",
+                 "display_text_range": [
+                  35,
+                  240
+                 ],
+                 "entities": {
+                  "user_mentions": [
+                   {
+                    "id_str": "971742411851317248",
+                    "indices": [
+                     0,
+                     9
+                    ],
+                    "name": "fannndi",
+                    "screen_name": "fannndi_"
+                   },
+                   {
+                    "id_str": "726849269622181888",
+                    "indices": [
+                     10,
+                     22
+                    ],
+                    "name": "Artha Bagus Pratama",
+                    "screen_name": "Tha_Daisuke"
+                   },
+                   {
+                    "id_str": "1257587433614405632",
+                    "indices": [
+                     23,
+                     34
+                    ],
+                    "name": "WEEK",
+                    "screen_name": "WEEKNESDAY"
+                   }
+                  ]
+                 },
+                 "favorite_count": 1,
+                 "favorited": false,
+                 "full_text": "@fannndi_ @Tha_Daisuke @WEEKNESDAY Tambahan coba liat jaman ferguson, tingkah dikit dijual, gk peduli ke klub rival, gk ngikutin peraturan goodbye, build around another player, bahkan van Nistelrooy, jap staam jg jd korban, that's mentality",
+                 "id_str": "2092197798716613099",
+                 "in_reply_to_screen_name": "fannndi_",
+                 "in_reply_to_status_id_str": "2092183260034150753",
+                 "in_reply_to_user_id_str": "971742411851317248",
+                 "is_quote_status": false,
+                 "lang": "in",
+                 "quote_count": 0,
+                 "reply_count": 1,
+                 "retweet_count": 0,
+                 "retweeted": false,
+                 "user_id_str": "1467507151845224449"
+                },
+                "rest_id": "2092197798716613099",
+                "source": "<a href=\"http://twitter.com/download/android\" rel=\"nofollow\">Twitter for Android</a>",
+                "unmention_data": {},
+                "views": {
+                 "count": "47",
+                 "state": "EnabledWithCount"
+                }
+               }
+              }
+             }
+            },
+            "entryId": "notification-DXxSkzeUQAAAAAABiJONcoaU5suR9eM5lA0",
+            "sortIndex": "1787653801026"
+           },
+           {
+            "content": {
+             "__typename": "TimelineTimelineCursor",
+             "cursorType": "Bottom",
+             "entryType": "TimelineTimelineCursor",
+             "value": "DAACDAABCgABDXxSkzeUQAAIAAIAAAABCAADiJONcggABIaU5ssACwACAAAAC0FhQTRlRVJDWEpRAAA"
+            },
+            "entryId": "cursor-bottom-1787653801025",
+            "sortIndex": "1787653801025"
+           }
+          ],
+          "type": "TimelineAddEntries"
+         },
+         {
+          "type": "TimelineClearEntriesUnreadState"
+         },
+         {
+          "sort_index": "1789022420471",
+          "type": "TimelineMarkEntriesUnreadGreaterThanSortIndex"
+         }
+        ]
+       }
+      },
+      "rest_id": "971742411851317248"
+     }
+    }
+   }
+  }
+ }
+}

@@ -77,8 +77,10 @@ although [this is limited](https://github.com/Teskann/QuaX/issues/37).
 >   rate limits per endpoint, so an account limited on search can still load
 >   replies. Avoided until the reset time reported by X (or 15 minutes if X
 >   doesn't provide one). This is tracked in memory only.
-> - it returned `404` three times in a row (usually a sign it is no longer
->   correctly authenticated) — avoided for 6 hours.
+> - it returned `404` three times in a row, or sent an explicit `401` (usually a sign it is no longer
+>   correctly authenticated) — avoided for 6 hours. A 404 on the fork's `HomeLatestTimeline`
+>   endpoint is exempted, since it usually means X rotated that endpoint's queryId rather than
+>   the account being broken.
 >
 > QuaX only shows an error after actually attempting a request:
 > - if every account is rate limited on the requested endpoint, it shows a "rate
