@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:http/http.dart' as http;
@@ -162,6 +163,9 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName) 
   final progress = StreamController<DownloadProgress>.broadcast();
   final finished = Completer<bool>(); // network has settled (success, error or cancel)
   final client = http.Client();
+  final queue = DownloadsModel();
+  final isVideo = fileName.contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v)$', caseSensitive: false));
+  queue.register(fileName, uri.toString(), isVideo);
   var cancelled = false;
   int? failedStatus;
 
@@ -192,9 +196,13 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName) 
           lastReceived = received;
         }
         progress.add(DownloadProgress(received, totalBytes, speed));
+        queue.progress(
+            fileName, received / 1048576, totalBytes == null ? null : totalBytes / 1048576,
+            speed / 1048576);
       }
 
       await sink.close();
+      queue.markDone(fileName);
       return tempPath;
     } catch (_) {
       // client.close() from the Cancel button lands here as a ClientException.

@@ -596,5 +596,8 @@
   "library_setup_title": "Set up your media library",
   "library_setup_description": "Pick a folder on your storage for downloaded media. It stays visible in file managers but gets a .nomedia marker so gallery apps never index it.",
   "library_setup_pick": "Choose a folder",
-  "download_handling_type_library": "隐藏媒体库"
+  "download_handling_type_library": "隐藏媒体库",
+  "downloads": "下载",
+  "downloads_empty": "本次会话暂无下载",
+  "downloaded_in_library": "本次会话暂无下载"
 }

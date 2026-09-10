@@ -596,5 +596,8 @@
   "library_setup_title": "Siapkan media library kamu",
   "library_setup_description": "Pilih folder di penyimpananmu untuk media yang diunduh. Foldernya tetap terlihat di file manager, tapi diberi tanda .nomedia agar tidak diindeks aplikasi galeri.",
   "library_setup_pick": "Pilih folder",
-  "download_handling_type_library": "Library tersembunyi"
+  "download_handling_type_library": "Library tersembunyi",
+  "downloads": "Unduhan",
+  "downloads_empty": "Belum ada unduhan di sesi ini.",
+  "downloaded_in_library": "Belum ada unduhan di library-mu."
 }

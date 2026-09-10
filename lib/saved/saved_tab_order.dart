@@ -2,11 +2,12 @@ import 'dart:convert';
 
 import 'package:quax/database/entities.dart';
 
-/// Tokens for the two built-in tabs. Folder tabs use their folder id as the token.
+/// Tokens for the built-in tabs. Folder tabs use their folder id as the token.
 /// A token is also the filter value used by the Saved screen.
 const savedTabAll = 'all';
 const savedTabUnfiled = 'unfiled';
 const savedTabFavorites = 'favorites';
+const savedTabDownloaded = 'downloaded';
 
 /// Resolves the ordered list of Saved tab tokens ([savedTabAll], [savedTabUnfiled]
 /// and folder ids), honouring a stored custom order.

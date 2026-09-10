@@ -596,5 +596,8 @@
   "library_setup_title": "Set up your media library",
   "library_setup_description": "Pick a folder on your storage for downloaded media. It stays visible in file managers but gets a .nomedia marker so gallery apps never index it.",
   "library_setup_pick": "Choose a folder",
-  "download_handling_type_library": "Прихована бібліотека"
+  "download_handling_type_library": "Прихована бібліотека",
+  "downloads": "Завантаження",
+  "downloads_empty": "Немає завантажень у цій сесії.",
+  "downloaded_in_library": "Немає завантажень у цій сесії."
 }

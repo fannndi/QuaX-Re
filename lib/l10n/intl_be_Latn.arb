@@ -596,5 +596,8 @@
   "library_setup_title": "Set up your media library",
   "library_setup_description": "Pick a folder on your storage for downloaded media. It stays visible in file managers but gets a .nomedia marker so gallery apps never index it.",
   "library_setup_pick": "Choose a folder",
-  "download_handling_type_library": "Bibliateka"
+  "download_handling_type_library": "Bibliateka",
+  "downloads": "Spamprazhdzenni",
+  "downloads_empty": "U hetḓ nix.",
+  "downloaded_in_library": "U hetḓ nix."
 }

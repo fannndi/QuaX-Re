@@ -36,13 +36,20 @@ class HomeModel extends Store<List<HomePage>> {
       var saved = prefs.getStringList(optionHomePages) ?? [];
 
       // The fork replaced the local-subscriptions home page with the
-      // notifications timeline: migrate the stored list so the bell replaces
-      // the people icon in one step, and Settings joins the navbar.
+      // notifications timeline and the library page with the downloads queue:
+      // migrate the stored list so the navbar keeps its meaning.
       saved = saved
-          .expand((id) => id == 'subscriptions' ? ['notifs'] : [id])
+          .expand((id) => switch (id) {
+                'subscriptions' => ['notifs'],
+                'library' => ['downloads'],
+                _ => [id]
+              })
           .toSet()
           .toList();
-      saved = [...saved, for (final pageId in ['library', 'settings']) if (!saved.contains(pageId)) pageId];
+      saved = [
+        ...[for (final pageId in ['downloads', 'settings']) if (!saved.contains(pageId)) pageId],
+        ...saved
+      ];
 
       var available = [...defaultHomePages];
 

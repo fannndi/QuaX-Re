@@ -596,5 +596,8 @@
   "library_setup_title": "Set up your media library",
   "library_setup_description": "Pick a folder on your storage for downloaded media. It stays visible in file managers but gets a .nomedia marker so gallery apps never index it.",
   "library_setup_pick": "Choose a folder",
-  "download_handling_type_library": "숨겨진 라이브러리"
+  "download_handling_type_library": "숨겨진 라이브러리",
+  "downloads": "다운로드",
+  "downloads_empty": "이 세션의 다운로드가 없습니다",
+  "downloaded_in_library": "이 세션의 다운로드가 없습니다"
 }
