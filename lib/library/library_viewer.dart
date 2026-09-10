@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
@@ -82,6 +84,9 @@ class _VideoPage extends StatefulWidget {
 class _VideoPageState extends State<_VideoPage> {
   BetterPlayerController? _controller;
   bool? _didSeekToSaved;
+  // The video frame shows under the player until playback actually starts, so
+  // a downloaded clip never greets the reader with a black screen.
+  bool _showPoster = true;
   BetterPlayerConfiguration get _configuration => const BetterPlayerConfiguration(
         fit: BoxFit.contain,
         autoPlay: true,
@@ -96,6 +101,11 @@ class _VideoPageState extends State<_VideoPage> {
   void _attachEvents(BetterPlayerController controller) {
     controller.addEventsListener((event) async {
       switch (event.betterPlayerEventType) {
+        case BetterPlayerEventType.play:
+          if (_showPoster && mounted) {
+            setState(() => _showPoster = false);
+          }
+          break;
         case BetterPlayerEventType.finished:
           _didSeekToSaved = true;
           widget.model.savePosition(widget.entry, 0);
@@ -172,7 +182,28 @@ class _VideoPageState extends State<_VideoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BetterPlayer(controller: _controller!);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        BetterPlayer(controller: _controller!),
+        if (_showPoster)
+          FutureBuilder<String?>(
+            future: widget.model.thumbnailFor(widget.entry),
+            builder: (context, snapshot) {
+              final poster = snapshot.data;
+              if (poster == null) {
+                return const SizedBox.shrink();
+              }
+              return IgnorePointer(
+                child: ColoredBox(
+                  color: Colors.black,
+                  child: ExtendedImage.file(File(poster), fit: BoxFit.contain),
+                ),
+              );
+            },
+          ),
+      ],
+    );
   }
 }
 

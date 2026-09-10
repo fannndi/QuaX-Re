@@ -5,8 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
@@ -171,7 +169,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       children: [
                         if (entry.isVideo)
                           FutureBuilder<String?>(
-                            future: _videoThumbFor(entry),
+                            future: _model.thumbnailFor(entry),
                             builder: (context, snapshot) {
                               final thumbPath = snapshot.data;
                               if (thumbPath == null) {
@@ -240,24 +238,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: SizedBox(height: MediaQuery.of(context).size.height, child: body),
           )
         : body;
-  }
-
-  /// Cached video thumbnail via the dedicated android handler — generate once
-  /// into the app's thumbs directory, reuse forever.
-  Future<String?> _videoThumbFor(LibraryEntry entry) async {
-    try {
-      final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
-      final cached = File(p.join(cacheDir.path, '${p.basenameWithoutExtension(entry.file.path)}.jpg'));
-      if (await cached.exists()) {
-        return cached.path;
-      }
-
-      final generated = await _storageChannel.invokeMethod<String>('videoThumbnail',
-          {'path': entry.file.path, 'outPath': cached.path});
-      return generated;
-    } on Exception catch (_) {
-      return null;
-    }
   }
 
   Future<void> _importExisting() async {

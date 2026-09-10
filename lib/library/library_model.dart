@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 
@@ -14,7 +15,7 @@ const libraryFolderName = 'QuaXLibrary';
 
 // Patched in MainActivity.kt: checks/opens Android's all-files-access screen,
 // which is what plain dart:io writes to a picked folder (with an SD card!)
-// depend on since scoped storage.
+// depend on since scoped storage. Also serves the video-thumbnail handler.
 const MethodChannel _storageChannel = MethodChannel('browser_resolver');
 
 const _videoExtensions = ['.mp4', '.mov', '.webm', '.mkv', '.m4v'];
@@ -40,6 +41,24 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
 
   bool get isConfigured => libraryPath.isNotEmpty;
+
+  /// Cached thumbnail of a video, generated once by the Android handler
+  /// (MediaMetadataRetriever one second in). Serves both the grid tile and the
+  /// viewer's poster, so a downloaded clip never shows as a black frame.
+  Future<String?> thumbnailFor(LibraryEntry entry) async {
+    try {
+      final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      final cached = File(p.join(cacheDir.path, '${p.basenameWithoutExtension(entry.file.path)}.jpg'));
+      if (await cached.exists()) {
+        return cached.path;
+      }
+
+      return _storageChannel.invokeMethod<String>('videoThumbnail',
+          {'path': entry.file.path, 'outPath': cached.path});
+    } on Exception {
+      return null;
+    }
+  }
 
   /// Last-read playback offset per library file (Hentoid's resume-reading
   /// idea), bounded to the 200 most-recent names.
