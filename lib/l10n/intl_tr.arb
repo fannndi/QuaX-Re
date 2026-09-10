@@ -599,5 +599,7 @@
   "download_handling_type_library": "Gizli kütüphane",
   "downloads": "İndirilenler",
   "downloads_empty": "Bu oturumda indirme yok.",
-  "downloaded_in_library": "Bu oturumda indirme yok."
+  "downloaded_in_library": "Bu oturumda indirme yok.",
+  "library_storage_permission_needed": "QuaX, buraya kaydedebilmek için tüm dosyalara erişim iznine ihtiyaç duyuyor. Sistem ekranı açıldı: izni ver, sonra tekrar dene.",
+  "@library_storage_permission_needed": {}
 }

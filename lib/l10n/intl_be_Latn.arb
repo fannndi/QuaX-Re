@@ -599,5 +599,7 @@
   "download_handling_type_library": "Bibliateka",
   "downloads": "Spamprazhdzenni",
   "downloads_empty": "U hetḓ nix.",
-  "downloaded_in_library": "U hetḓ nix."
+  "downloaded_in_library": "U hetḓ nix.",
+  "library_storage_permission_needed": "QuaX needs the all-files-access permission to save there. The system screen was opened: grant it, then try again.",
+  "@library_storage_permission_needed": {}
 }

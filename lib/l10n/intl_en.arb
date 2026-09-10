@@ -599,5 +599,7 @@
   "download_handling_type_library": "Hidden library",
   "downloads": "Downloads",
   "downloads_empty": "No downloads in this session.",
-  "downloaded_in_library": "No downloads in this library."
+  "downloaded_in_library": "No downloads in this library.",
+  "library_storage_permission_needed": "QuaX needs the all-files-access permission to save there. The system screen was opened: grant it, then try again.",
+  "@library_storage_permission_needed": {}
 }

@@ -599,5 +599,7 @@
   "download_handling_type_library": "Biblioteca",
   "downloads": "Descarregues",
   "downloads_empty": "Cap descàrrega en aquesta sessió.",
-  "downloaded_in_library": "Cap descàrrega en aquesta sessió."
+  "downloaded_in_library": "Cap descàrrega en aquesta sessió.",
+  "library_storage_permission_needed": "QuaX necessita el permes d’accés a tots els fitxers per desar-hi. S’ha obert la pantalla del sistema; concedeix-lo i torna-ho a intentar.",
+  "@library_storage_permission_needed": {}
 }

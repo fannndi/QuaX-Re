@@ -599,5 +599,7 @@
   "download_handling_type_library": "مكتبة مخفية",
   "downloads": "التنزيلات",
   "downloads_empty": "لا توجد تنزيلات في هذه الجلسة.",
-  "downloaded_in_library": "لا توجد تنزيلات في هذه الجلسة."
+  "downloaded_in_library": "لا توجد تنزيلات في هذه الجلسة.",
+  "library_storage_permission_needed": "يحتاج QuaX إذن الوصول إلى جميع الملفات للحفظ هنا. تم فتح شاشة النظام — امنح الإذن ثم حاول مرة أخرى.",
+  "@library_storage_permission_needed": {}
 }

@@ -599,5 +599,7 @@
   "download_handling_type_library": "Скрытая библиотека",
   "downloads": "Загрузки",
   "downloads_empty": "В этой сессии загрузок нет.",
-  "downloaded_in_library": "В этой сессии загрузок нет."
+  "downloaded_in_library": "В этой сессии загрузок нет.",
+  "library_storage_permission_needed": "QuaX нужен доступ ко всем файлам, чтобы сохранять сюда. Открылся системный экран: выдайте разрешение и попробуйте снова.",
+  "@library_storage_permission_needed": {}
 }

@@ -599,5 +599,7 @@
   "download_handling_type_library": "Skrytá knihovna",
   "downloads": "Stažené soubory",
   "downloads_empty": "Žádné stahování v této relaci.",
-  "downloaded_in_library": "Žádné stahování v této relaci."
+  "downloaded_in_library": "Žádné stahování v této relaci.",
+  "library_storage_permission_needed": "QuaX potřebuje oprávnění pro přístup ke všem souborům. Otevřela se systémová obrazovka – udělte oprávnění a zkuste to znovu.",
+  "@library_storage_permission_needed": {}
 }

@@ -599,5 +599,7 @@
   "download_handling_type_library": "Library tersembunyi",
   "downloads": "Unduhan",
   "downloads_empty": "Belum ada unduhan di sesi ini.",
-  "downloaded_in_library": "Belum ada unduhan di library-mu."
+  "downloaded_in_library": "Belum ada unduhan di library-mu.",
+  "library_storage_permission_needed": "QuaX butuh izin akses semua file untuk menyimpan di sana. Layar sistem sudah terbuka: berikan izinnya, lalu coba lagi.",
+  "@library_storage_permission_needed": {}
 }

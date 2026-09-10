@@ -599,5 +599,7 @@
   "download_handling_type_library": "Verborgen bibliotheek",
   "downloads": "Downloads",
   "downloads_empty": "Geen downloads in deze sessie.",
-  "downloaded_in_library": "Geen downloads in deze sessie."
+  "downloaded_in_library": "Geen downloads in deze sessie.",
+  "library_storage_permission_needed": "QuaX heeft de machtiging voor toegang tot alle bestanden nodig om hier op te slaan. Het systeemscherm is geopend: geef de machtiging en probeer het opnieuw.",
+  "@library_storage_permission_needed": {}
 }

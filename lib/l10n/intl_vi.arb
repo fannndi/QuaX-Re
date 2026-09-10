@@ -599,5 +599,7 @@
   "download_handling_type_library": "Thư viện ẩn",
   "downloads": "Tải xuống",
   "downloads_empty": "Chưa có tải xuống nào trong phiên này.",
-  "downloaded_in_library": "Chưa có tải xuống nào trong phiên này."
+  "downloaded_in_library": "Chưa có tải xuống nào trong phiên này.",
+  "library_storage_permission_needed": "QuaX cần quyền truy cập tất cả tệp để lưu tại đây. Màn hình hệ thống đã mở: cấp quyền rồi thử lại.",
+  "@library_storage_permission_needed": {}
 }

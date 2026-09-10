@@ -599,5 +599,7 @@
   "download_handling_type_library": "Libreria nascosta",
   "downloads": "Download",
   "downloads_empty": "Nessun download in questa sessione.",
-  "downloaded_in_library": "Nessun download in questa librarye."
+  "downloaded_in_library": "Nessun download in questa librarye.",
+  "library_storage_permission_needed": "QuaX richiede il permesso di accesso a tutti i file per salvare qui. È stata aperta la schermata di sistema: concedila e riprova.",
+  "@library_storage_permission_needed": {}
 }

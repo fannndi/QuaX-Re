@@ -599,5 +599,7 @@
   "download_handling_type_library": "隱藏媒體庫",
   "downloads": "下載",
   "downloads_empty": "本次會話暫無下載",
-  "downloaded_in_library": "本次會話暫無下載"
+  "downloaded_in_library": "本次會話暫無下載",
+  "library_storage_permission_needed": "QuaX 需要「所有檔案存取權限」才能在那裡儲存。系統頁面已開啟：授權後再試一次。",
+  "@library_storage_permission_needed": {}
 }

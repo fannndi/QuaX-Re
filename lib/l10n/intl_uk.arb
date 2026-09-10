@@ -599,5 +599,7 @@
   "download_handling_type_library": "Прихована бібліотека",
   "downloads": "Завантаження",
   "downloads_empty": "Немає завантажень у цій сесії.",
-  "downloaded_in_library": "Немає завантажень у цій сесії."
+  "downloaded_in_library": "Немає завантажень у цій сесії.",
+  "library_storage_permission_needed": "QuaX потрібен дозвіл на доступ до всіх файлів, щоб зберігати тут. Відкрився системний екран: надайте дозвіл, потім повторіть.",
+  "@library_storage_permission_needed": {}
 }

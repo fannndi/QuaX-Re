@@ -599,5 +599,7 @@
   "download_handling_type_library": "Biblioteca oculta",
   "downloads": "Downloads",
   "downloads_empty": "Sem downloads nesta sessão.",
-  "downloaded_in_library": "Sem downloads nesta library."
+  "downloaded_in_library": "Sem downloads nesta library.",
+  "library_storage_permission_needed": "O QuaX precisa da permissão de acesso a todos os arquivos para salvar ali. A tela do sistema foi aberta: conceda-a e tente novamente.",
+  "@library_storage_permission_needed": {}
 }

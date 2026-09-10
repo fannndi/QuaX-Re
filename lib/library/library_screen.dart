@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
@@ -12,10 +13,11 @@ import 'package:quax/ui/errors.dart';
 /// Browses the hidden downloaded-media library. Without a configured folder it
 /// offers the one-time setup (the Hentoid-style folder + .nomedia flow); with
 /// one, it shows the media grid and the TikTok-style vertical viewer.
+///
+/// `embedInSaved: true` renders only the media grid (no app bar) so the Saved
+/// screen can host it as its Downloaded tab with the shared scroll controller.
 class LibraryScreen extends StatefulWidget {
   final BasePrefService prefs;
-  // When true only the media grid is shown, ready to be embedded into the
-  // Saved screen's Downloaded tab (no app bar, shared scroll controller).
   final bool embedInSaved;
 
   const LibraryScreen({super.key, required this.prefs, this.embedInSaved = false});
@@ -35,9 +37,51 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _configureOrLoad() async {
     if (!_model.isConfigured || !await Directory(_model.libraryPath).exists()) {
-      await _model.setupLibrary();
+      await _attemptSetup();
+      return;
     }
     await _model.refresh();
+  }
+
+  /// Runs the folder setup with the storage-permission safety net: when
+  /// Android refuses a plain write (an SD card without all-files-access), the
+  /// system screen was opened — explain, then retry right away upon return.
+  Future<void> _attemptSetup({bool initial = false}) async {
+    final error = ValueNotifier<String?>(null);
+    final ok = await _model.setupLibrary(error: error);
+    if (ok && mounted) {
+      await _model.refresh();
+      return;
+    }
+    if (!mounted) return;
+
+    if (error.value == 'storage_permission_needed') {
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(L10n.of(context).library_setup_title),
+          content: Text(L10n.of(dialogContext).library_storage_permission_needed),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(L10n.of(dialogContext).retry)),
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(L10n.of(dialogContext).close)),
+          ],
+        ),
+      );
+
+      if (retry == true && mounted) {
+        // Back from Android's all-files-access screen: try to finish the setup.
+        return _attemptSetup();
+      }
+      return;
+    }
+
+    if (error.value != null) {
+      showSnackBar(context, icon: '🙊', message: error.value!);
+    }
   }
 
   @override
@@ -74,7 +118,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!_model.isConfigured) {
       return _SetupView(onSetup: () async {
         final ok = await _model.setupLibrary();
-        if (ok && mounted) await _configureOrLoad();
+        if (ok && mounted) await _model.refresh();
       });
     }
 

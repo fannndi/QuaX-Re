@@ -599,5 +599,7 @@
   "download_handling_type_library": "Skjult bibliotek",
   "downloads": "Nedlastinger",
   "downloads_empty": "Ingen nedlastinger i denne økten.",
-  "downloaded_in_library": "Ingen nedlastinger i denne økten."
+  "downloaded_in_library": "Ingen nedlastinger i denne økten.",
+  "library_storage_permission_needed": "QuaX trenger tilgang til alle filer for å lagre her. Systemskjermet er åpnet: gi tillatelsen og prøv igjen.",
+  "@library_storage_permission_needed": {}
 }
