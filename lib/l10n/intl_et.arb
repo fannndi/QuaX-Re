@@ -656,5 +656,9 @@
   "oldest": "Vanimad",
   "@oldest": {},
   "size": "Suurus",
-  "@size": {}
+  "@size": {},
+  "refresh": "Värskenda",
+  "@refresh": {},
+  "library_import_question": "Selles kaustas on meediumifaile. Kas teisaldada need kogusse?",
+  "@library_import_question": {}
 }

@@ -656,5 +656,9 @@
   "oldest": "Najstarsze",
   "@oldest": {},
   "size": "Rozmiar",
-  "@size": {}
+  "@size": {},
+  "refresh": "Odśwież",
+  "@refresh": {},
+  "library_import_question": "W tym folderze są pliki multimedialne. Przenieść je do biblioteki?",
+  "@library_import_question": {}
 }

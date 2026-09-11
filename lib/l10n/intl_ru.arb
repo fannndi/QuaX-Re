@@ -656,5 +656,9 @@
   "oldest": "Старые",
   "@oldest": {},
   "size": "Размер",
-  "@size": {}
+  "@size": {},
+  "refresh": "Обновить",
+  "@refresh": {},
+  "library_import_question": "В этой папке есть медиафайлы. Переместить их в медиатеку?",
+  "@library_import_question": {}
 }

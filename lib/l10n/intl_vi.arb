@@ -656,5 +656,9 @@
   "oldest": "Cũ nhất",
   "@oldest": {},
   "size": "Kích thước",
-  "@size": {}
+  "@size": {},
+  "refresh": "Làm mới",
+  "@refresh": {},
+  "library_import_question": "Có tệp media trong thư mục này. Chuyển vào thư viện?",
+  "@library_import_question": {}
 }

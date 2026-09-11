@@ -656,5 +656,9 @@
   "oldest": "Più vecchi",
   "@oldest": {},
   "size": "Dimensione",
-  "@size": {}
+  "@size": {},
+  "refresh": "Aggiorna",
+  "@refresh": {},
+  "library_import_question": "Ci sono file multimediali in questa cartella. Spostarli nella mediateca?",
+  "@library_import_question": {}
 }

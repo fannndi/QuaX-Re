@@ -656,5 +656,9 @@
   "oldest": "Oldest",
   "@oldest": {},
   "size": "Size",
-  "@size": {}
+  "@size": {},
+  "refresh": "Refresh",
+  "@refresh": {},
+  "library_import_question": "There are media files in this folder. Move them into the library?",
+  "@library_import_question": {}
 }

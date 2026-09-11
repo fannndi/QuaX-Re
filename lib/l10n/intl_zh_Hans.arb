@@ -656,5 +656,9 @@
   "oldest": "最旧",
   "@oldest": {},
   "size": "大小",
-  "@size": {}
+  "@size": {},
+  "refresh": "刷新",
+  "@refresh": {},
+  "library_import_question": "此文件夹中有媒体文件。要移入媒体库吗？",
+  "@library_import_question": {}
 }

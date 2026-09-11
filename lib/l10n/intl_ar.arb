@@ -656,5 +656,9 @@
   "oldest": "الأقدم",
   "@oldest": {},
   "size": "الحجم",
-  "@size": {}
+  "@size": {},
+  "refresh": "تحديث",
+  "@refresh": {},
+  "library_import_question": "توجد ملفات وسائط في هذا المجلد. نقلها إلى المكتبة؟",
+  "@library_import_question": {}
 }

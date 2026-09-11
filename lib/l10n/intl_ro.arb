@@ -656,5 +656,9 @@
   "oldest": "Cele mai vechi",
   "@oldest": {},
   "size": "Dimensiune",
-  "@size": {}
+  "@size": {},
+  "refresh": "Reîmprospătează",
+  "@refresh": {},
+  "library_import_question": "Există fișiere media în acest folder. Le mutăm în mediatecă?",
+  "@library_import_question": {}
 }

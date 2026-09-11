@@ -656,5 +656,9 @@
   "oldest": "Més antic",
   "@oldest": {},
   "size": "Mida",
-  "@size": {}
+  "@size": {},
+  "refresh": "Actualitza",
+  "@refresh": {},
+  "library_import_question": "Hi ha fitxers multimèdia en aquesta carpeta. Els movem a la biblioteca?",
+  "@library_import_question": {}
 }

@@ -656,5 +656,9 @@
   "oldest": "Eldste",
   "@oldest": {},
   "size": "Størrelse",
-  "@size": {}
+  "@size": {},
+  "refresh": "Oppdater",
+  "@refresh": {},
+  "library_import_question": "Det ligger mediefiler i denne mappen. Flytte dem til biblioteket?",
+  "@library_import_question": {}
 }

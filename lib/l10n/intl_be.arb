@@ -656,5 +656,9 @@
   "oldest": "Найстарэйшыя",
   "@oldest": {},
   "size": "Памер",
-  "@size": {}
+  "@size": {},
+  "refresh": "Абнавіць",
+  "@refresh": {},
+  "library_import_question": "У гэтай папцы ёсць медыяфайлы. Перамясціць іх у бібліятэку?",
+  "@library_import_question": {}
 }

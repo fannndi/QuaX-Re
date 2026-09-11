@@ -656,5 +656,9 @@
   "oldest": "Oudste",
   "@oldest": {},
   "size": "Grootte",
-  "@size": {}
+  "@size": {},
+  "refresh": "Vernieuwen",
+  "@refresh": {},
+  "library_import_question": "Er staan mediabestanden in deze map. Naar de mediatheek verplaatsen?",
+  "@library_import_question": {}
 }

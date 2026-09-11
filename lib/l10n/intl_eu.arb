@@ -656,5 +656,9 @@
   "oldest": "Zaharrenak",
   "@oldest": {},
   "size": "Tamaina",
-  "@size": {}
+  "@size": {},
+  "refresh": "Eguneratu",
+  "@refresh": {},
+  "library_import_question": "Karpeta honetan multimedia fitxategiak daude. Liburutegira mugitu?",
+  "@library_import_question": {}
 }

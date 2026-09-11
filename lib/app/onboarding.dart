@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
@@ -94,6 +95,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         _configured = true;
         _visibleInGallery = _library.galleryVisible;
       });
+      await _offerImportOfOldFolder(p.dirname(_library.libraryPath));
       return;
     }
 
@@ -108,6 +110,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     if (error.value != null) {
       showSnackBar(context, icon: '🙊', message: error.value!);
     }
+  }
+
+  /// Old downloads often sit in the folder the user just picked (the days when
+  /// the library did not exist): offer to move them in, Hentoid-style.
+  Future<void> _offerImportOfOldFolder(String sourcePath) async {
+    final count = await _library.countImportableIn(sourcePath);
+    if (count == 0 || !mounted) return;
+
+    final import = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(L10n.of(dialogContext).library_setup_title),
+        content: Text(L10n.of(dialogContext).library_import_question),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(L10n.of(dialogContext).cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(L10n.of(dialogContext).library_import_existing),
+          ),
+        ],
+      ),
+    );
+
+    if (import != true || !mounted) return;
+    setState(() => _busy = true);
+    await _library.importFromDirectory(sourcePath);
+    if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _toggleGalleryVisible(bool value) async {

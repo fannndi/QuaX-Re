@@ -9,6 +9,7 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import java.io.File
 import java.io.FileOutputStream
@@ -20,7 +21,10 @@ import androidx.core.content.FileProvider
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "browser_resolver"
-    private val mediaExtensions = setOf("mp4", "mov", "webm", "mkv", "m4v", "jpg", "jpeg", "png", "webp", "gif")
+    private val mediaExtensions = setOf(
+        "mp4", "mov", "webm", "mkv", "m4v", "avi", "ts", "3gp", "mpeg", "mpg", "wmv", "flv", "m2ts", "ogv",
+        "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "avif", "tiff"
+    )
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -80,18 +84,34 @@ class MainActivity : FlutterActivity() {
                                 result.error("INVALID_ARGUMENT", "Directory does not exist", null)
                             } else {
                                 val nomedia = File(dir, ".nomedia")
+                                val media = dir.walkTopDown()
+                                    .filter { it.isFile && it.extension.lowercase() in mediaExtensions }
+                                    .map { it.absolutePath }
+                                    .toList()
                                 if (visible) {
                                     nomedia.delete()
-                                } else if (!nomedia.exists()) {
-                                    nomedia.createNewFile()
-                                }
-                                // Rescan so the gallery adds or drops the files
-                                // right away, without waiting for a reboot.
-                                val media = dir.listFiles()?.filter {
-                                    it.isFile && it.extension.lowercase() in mediaExtensions
-                                }?.map { it.absolutePath }
-                                if (!media.isNullOrEmpty()) {
-                                    MediaScannerConnection.scanFile(context, media.toTypedArray(), null, null)
+                                    // Rescan so the gallery adds the files right
+                                    // away, without waiting for a reboot.
+                                    if (media.isNotEmpty()) {
+                                        MediaScannerConnection.scanFile(context, media.toTypedArray(), null, null)
+                                    }
+                                } else {
+                                    if (!nomedia.exists()) nomedia.createNewFile()
+                                    // Scanning would ADD them to the gallery, so
+                                    // drop their MediaStore rows instead.
+                                    try {
+                                        val resolver = context.contentResolver
+                                        val collection = MediaStore.Files.getContentUri("external")
+                                        for (path in media) {
+                                            resolver.delete(
+                                                collection,
+                                                MediaStore.MediaColumns.DATA + " = ?",
+                                                arrayOf(path)
+                                            )
+                                        }
+                                    } catch (e: Exception) {
+                                        // Rows may already be gone; the marker is what counts.
+                                    }
                                 }
                                 result.success(true)
                             }

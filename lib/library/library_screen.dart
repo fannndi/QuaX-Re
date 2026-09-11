@@ -194,6 +194,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: l10n.refresh,
+            onPressed: _configureOrLoad,
+          ),
           PopupMenuButton<_LibrarySort>(
             icon: const Icon(Icons.sort),
             tooltip: l10n.sort,

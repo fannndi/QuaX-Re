@@ -656,5 +656,9 @@
   "oldest": "Najstarejšyja",
   "@oldest": {},
   "size": "Pamier",
-  "@size": {}
+  "@size": {},
+  "refresh": "Abnavić",
+  "@refresh": {},
+  "library_import_question": "U hetaj papcy jość miedyjafajły. Pieramiascić ich u bibliateku?",
+  "@library_import_question": {}
 }

@@ -656,5 +656,9 @@
   "oldest": "Plus ancien",
   "@oldest": {},
   "size": "Taille",
-  "@size": {}
+  "@size": {},
+  "refresh": "Actualiser",
+  "@refresh": {},
+  "library_import_question": "Ce dossier contient des médias. Les déplacer dans la médiathèque ?",
+  "@library_import_question": {}
 }

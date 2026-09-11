@@ -656,5 +656,9 @@
   "oldest": "오래된순",
   "@oldest": {},
   "size": "크기",
-  "@size": {}
+  "@size": {},
+  "refresh": "새로고침",
+  "@refresh": {},
+  "library_import_question": "이 폴더에 미디어 파일이 있습니다. 라이브러리로 옮길까요?",
+  "@library_import_question": {}
 }

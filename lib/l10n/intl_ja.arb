@@ -656,5 +656,9 @@
   "oldest": "古い順",
   "@oldest": {},
   "size": "サイズ",
-  "@size": {}
+  "@size": {},
+  "refresh": "更新",
+  "@refresh": {},
+  "library_import_question": "このフォルダにメディアファイルがあります。ライブラリに移動しますか？",
+  "@library_import_question": {}
 }

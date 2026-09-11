@@ -656,5 +656,9 @@
   "oldest": "Terlama",
   "@oldest": {},
   "size": "Ukuran",
-  "@size": {}
+  "@size": {},
+  "refresh": "Muat ulang",
+  "@refresh": {},
+  "library_import_question": "Ada file media di folder ini. Pindahkan ke perpustakaan?",
+  "@library_import_question": {}
 }

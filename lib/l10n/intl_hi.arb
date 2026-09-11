@@ -656,5 +656,9 @@
   "oldest": "सबसे पुराना",
   "@oldest": {},
   "size": "आकार",
-  "@size": {}
+  "@size": {},
+  "refresh": "रीफ़्रेश करें",
+  "@refresh": {},
+  "library_import_question": "इस फ़ोल्डर में मीडिया फ़ाइलें हैं। उन्हें लाइब्रेरी में ले जाएँ?",
+  "@library_import_question": {}
 }

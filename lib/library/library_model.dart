@@ -17,8 +17,11 @@ const libraryFolderName = 'QuaXLibrary';
 // depend on since scoped storage. Also serves the video-thumbnail handler.
 const MethodChannel _storageChannel = MethodChannel('browser_resolver');
 
-const _videoExtensions = ['.mp4', '.mov', '.webm', '.mkv', '.m4v'];
-const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+const _videoExtensions = [
+  '.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi', '.ts', '.3gp', '.mpeg', '.mpg', '.wmv', '.flv',
+  '.m2ts', '.ogv'
+];
+const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif', '.avif', '.tiff'];
 
 const _mimeTypes = {
   '.mp4': 'video/mp4',
@@ -26,11 +29,25 @@ const _mimeTypes = {
   '.webm': 'video/webm',
   '.mkv': 'video/x-matroska',
   '.m4v': 'video/mp4',
+  '.avi': 'video/x-msvideo',
+  '.ts': 'video/mp2t',
+  '.3gp': 'video/3gpp',
+  '.mpeg': 'video/mpeg',
+  '.mpg': 'video/mpeg',
+  '.wmv': 'video/x-ms-wmv',
+  '.flv': 'video/x-flv',
+  '.m2ts': 'video/mp2t',
+  '.ogv': 'video/ogg',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.gif': 'image/gif',
+  '.bmp': 'image/bmp',
+  '.heic': 'image/heic',
+  '.heif': 'image/heif',
+  '.avif': 'image/avif',
+  '.tiff': 'image/tiff',
 };
 
 class LibraryEntry {
@@ -173,28 +190,34 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
-  /// Moves all media files from a folder the user picks into the library —
-  /// the door for downloads made before the library existed (or from apps
-  /// like WhatsApp). Copies each file, then removes the source.
-  Future<bool> importExisting() async {
-    if (libraryPath.isEmpty) {
-      final picked = await FilePicker.getDirectoryPath();
-      if (picked == null) return false;
-      if (!await _configureAt(picked)) return false;
-    }
+  /// Counts media files that sit directly in [sourcePath] — old downloads from
+  /// before the library existed, or files another app left in a shared folder.
+  Future<int> countImportableIn(String sourcePath) async {
+    try {
+      final sourceDir = Directory(sourcePath);
+      if (!await sourceDir.exists()) return 0;
 
-    final source = await FilePicker.getDirectoryPath();
-    if (source == null) return false;
+      var count = 0;
+      await for (final entity in sourceDir.list()) {
+        if (entity is File && _isMedia(entity.path)) count++;
+      }
+      return count;
+    } on Exception {
+      return 0;
+    }
+  }
+
+  /// Moves the media files sitting directly in [sourcePath] into the library
+  /// — copies each file, then removes the source (Hentoid's import flow).
+  Future<bool> importFromDirectory(String sourcePath) async {
+    if (libraryPath.isEmpty) return false;
 
     try {
-      final sourceDir = Directory(source);
+      final sourceDir = Directory(sourcePath);
       if (!await sourceDir.exists()) return false;
 
       await for (final entity in sourceDir.list()) {
-        if (entity is! File) continue;
-        final extension = p.extension(entity.path).toLowerCase();
-        final isMedia = _imageExtensions.contains(extension) || _videoExtensions.contains(extension);
-        if (!isMedia) continue;
+        if (entity is! File || !_isMedia(entity.path)) continue;
 
         var target = p.join(libraryPath, p.basename(entity.path));
         // Keep copies of the same basename alive: prefix with the timestamp.
@@ -215,6 +238,27 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
+  /// Moves all media files from a folder the user picks into the library —
+  /// the door for downloads made before the library existed (or from apps
+  /// like WhatsApp).
+  Future<bool> importExisting() async {
+    if (libraryPath.isEmpty) {
+      final picked = await FilePicker.getDirectoryPath();
+      if (picked == null) return false;
+      if (!await _configureAt(picked)) return false;
+    }
+
+    final source = await FilePicker.getDirectoryPath();
+    if (source == null) return false;
+
+    return importFromDirectory(source);
+  }
+
+  bool _isMedia(String path) {
+    final extension = p.extension(path).toLowerCase();
+    return _imageExtensions.contains(extension) || _videoExtensions.contains(extension);
+  }
+
   Future<void> refresh() async {
     await execute(() async {
       final dir = Directory(libraryPath);
@@ -223,7 +267,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       }
 
       final entries = <LibraryEntry>[];
-      await for (final entity in dir.list()) {
+      // Recursive: imported libraries (or files the user nested) still show up.
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
         if (entity is! File) continue;
         final extension = p.extension(entity.path).toLowerCase();
         final isVideo = _videoExtensions.contains(extension);

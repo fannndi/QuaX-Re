@@ -656,5 +656,9 @@
   "oldest": "En eski",
   "@oldest": {},
   "size": "Boyut",
-  "@size": {}
+  "@size": {},
+  "refresh": "Yenile",
+  "@refresh": {},
+  "library_import_question": "Bu klasörde medya dosyaları var. Kitaplığa taşınsın mı?",
+  "@library_import_question": {}
 }

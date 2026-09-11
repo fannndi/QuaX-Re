@@ -656,5 +656,9 @@
   "oldest": "Más antiguo",
   "@oldest": {},
   "size": "Tamaño",
-  "@size": {}
+  "@size": {},
+  "refresh": "Actualizar",
+  "@refresh": {},
+  "library_import_question": "Hay archivos multimedia en esta carpeta. ¿Moverlos a la biblioteca?",
+  "@library_import_question": {}
 }

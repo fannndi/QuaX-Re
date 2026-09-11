@@ -656,5 +656,9 @@
   "oldest": "Älteste",
   "@oldest": {},
   "size": "Größe",
-  "@size": {}
+  "@size": {},
+  "refresh": "Aktualisieren",
+  "@refresh": {},
+  "library_import_question": "In diesem Ordner liegen Mediendateien. In die Mediathek verschieben?",
+  "@library_import_question": {}
 }

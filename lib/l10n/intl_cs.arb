@@ -656,5 +656,9 @@
   "oldest": "Nejstarší",
   "@oldest": {},
   "size": "Velikost",
-  "@size": {}
+  "@size": {},
+  "refresh": "Obnovit",
+  "@refresh": {},
+  "library_import_question": "V této složce jsou mediální soubory. Přesunout je do knihovny?",
+  "@library_import_question": {}
 }

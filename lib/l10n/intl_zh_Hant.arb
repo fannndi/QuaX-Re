@@ -656,5 +656,9 @@
   "oldest": "最舊",
   "@oldest": {},
   "size": "大小",
-  "@size": {}
+  "@size": {},
+  "refresh": "重新整理",
+  "@refresh": {},
+  "library_import_question": "此資料夾中有媒體檔案。要移入媒體庫嗎？",
+  "@library_import_question": {}
 }
