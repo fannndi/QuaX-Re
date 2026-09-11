@@ -48,12 +48,13 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   Future<String?> thumbnailFor(LibraryEntry entry) async {
     try {
       final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      await cacheDir.create(recursive: true);
       final cached = File(p.join(cacheDir.path, '${p.basenameWithoutExtension(entry.file.path)}.jpg'));
       if (await cached.exists()) {
         return cached.path;
       }
 
-      return _storageChannel.invokeMethod<String>('videoThumbnail',
+      return await _storageChannel.invokeMethod<String>('videoThumbnail',
           {'path': entry.file.path, 'outPath': cached.path});
     } on Exception {
       return null;

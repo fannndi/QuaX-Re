@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:quax/constants.dart';
@@ -27,6 +26,7 @@ Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileN
     sanitizedFilename = 'media-${DateTime.now().millisecondsSinceEpoch}';
   }
 
+  final queue = DownloadsModel();
   try {
     final tempPath = await _downloadToTemp(context, uri, sanitizedFilename);
     if (tempPath == null) return;
@@ -35,12 +35,19 @@ Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileN
       final savePath = await _saveToDestination(context,
           file: tempPath, fileName: sanitizedFilename, prefs: prefs);
       if (savePath != null) {
+        // Only now the file exists where the library scans: mark it done first,
+        // so the done listeners see the finished entry, then celebrate.
+        queue.markDone(sanitizedFilename);
         _showSuccess(context, savePath);
+      } else {
+        // The user cancelled the save dialog after a complete download.
+        queue.remove(sanitizedFilename);
       }
     } finally {
       _deleteTemp(tempPath);
     }
   } catch (e) {
+    queue.fail(sanitizedFilename, error: e.toString());
     if (context.mounted) {
       showSnackBar(context, icon: '🙊', message: e.toString());
     }
@@ -106,42 +113,23 @@ void _showStatusError(BuildContext context, Object statusCode) {
 }
 
 /// Saves the downloaded temp file to the user's destination and returns the
-/// path (null when cancelled). Directory mode also registers the file with the
-/// media scanner so it shows up in the gallery immediately.
+/// path (null when cancelled). The hidden library is the normal destination;
+/// without a configured folder the system save dialog keeps downloads usable.
 Future<String?> _saveToDestination(BuildContext context,
     {required String file, required String fileName, required BasePrefService prefs}) async {
-  final downloadType = prefs.get(optionDownloadType);
-  final downloadPath = prefs.get(optionDownloadPath);
-
-  // Hentoid-style library: everything lands in the hidden folder.
-  if (downloadType == optionDownloadTypeLibrary && prefs.get(optionLibraryPath) is String) {
-    final library = Directory(prefs.get<String>(optionLibraryPath)!);
+  final libraryPath = prefs.get<String>(optionLibraryPath);
+  if (libraryPath != null && libraryPath.isNotEmpty) {
+    final library = Directory(libraryPath);
     if (await library.exists()) {
       final savedFile = p.join(library.path, fileName);
       await File(file).copy(savedFile);
       return savedFile;
     }
-    // The picked folder disappeared (uninstalled folder, sdcard changed...):
-    // fall through to the system save dialog rather than losing the file.
   }
 
-  // The "ask" mode (default) opens the system save dialog from the already
-  // downloaded file, so nothing is keep in memory twice.
-  if (downloadType == optionDownloadTypeAsk || downloadPath == '') {
-    return FlutterFileDialog.saveFile(
-      params: SaveFileDialogParams(sourceFilePath: file, fileName: fileName),
-    );
-  }
-
-  final savedFile = p.join(downloadPath, fileName);
-  await File(file).copy(savedFile);
-
-  const platform = MethodChannel('browser_resolver');
-  try {
-    await platform.invokeMethod('scanMediaFile', {'path': savedFile});
-  } catch (_) {}
-
-  return savedFile;
+  return FlutterFileDialog.saveFile(
+    params: SaveFileDialogParams(sourceFilePath: file, fileName: fileName),
+  );
 }
 
 /// Retries a failed queue entry. When the server honours Range requests the
@@ -159,7 +147,10 @@ Future<void> retryDownload(BuildContext context, DownloadQueueItem item,
       final savePath = await _saveToDestination(context,
           file: tempPath, fileName: item.fileName, prefs: prefs);
       if (savePath != null) {
+        queue.markDone(item.fileName);
         _showSuccess(context, savePath);
+      } else {
+        queue.remove(item.fileName);
       }
     } finally {
       _deleteTemp(tempPath);
@@ -243,7 +234,6 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
     }
 
     await sink.close();
-    queue.markDone(fileName);
     return tempPath;
   } on Exception catch (e) {
     if (queue.isCancelled(fileName)) {

@@ -79,6 +79,7 @@ class MainActivity : FlutterActivity() {
                             val frame = retriever.getFrameAtTime(1_000_000L) // one second in
                             retriever.release()
                             if (frame != null) {
+                                File(outPath).parentFile?.mkdirs()
                                 FileOutputStream(outPath).use { stream ->
                                     frame.compress(Bitmap.CompressFormat.JPEG, 70, stream)
                                 }
