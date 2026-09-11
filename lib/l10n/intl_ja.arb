@@ -622,5 +622,7 @@
   "local": "ローカル",
   "@local": {},
   "profile": "プロフィール",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "ギャラリーに表示",
+  "@show_in_gallery": {}
 }

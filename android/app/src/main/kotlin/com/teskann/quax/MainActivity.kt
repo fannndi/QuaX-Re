@@ -19,6 +19,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "browser_resolver"
+    private val mediaExtensions = setOf("mp4", "mov", "webm", "mkv", "m4v", "jpg", "jpeg", "png", "webp", "gif")
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -67,6 +68,37 @@ class MainActivity : FlutterActivity() {
                         }
                     } else {
                         result.success(true) // pre-R: manifest runtime permission governs this
+                    }
+                } else if (call.method == "setGalleryVisibility") {
+                    val dirPath = call.argument<String>("path")
+                    val visible = call.argument<Boolean>("visible")
+                    if (dirPath != null && visible != null) {
+                        try {
+                            val dir = File(dirPath)
+                            if (!dir.exists()) {
+                                result.error("INVALID_ARGUMENT", "Directory does not exist", null)
+                            } else {
+                                val nomedia = File(dir, ".nomedia")
+                                if (visible) {
+                                    nomedia.delete()
+                                } else if (!nomedia.exists()) {
+                                    nomedia.createNewFile()
+                                }
+                                // Rescan so the gallery adds or drops the files
+                                // right away, without waiting for a reboot.
+                                val media = dir.listFiles()?.filter {
+                                    it.isFile && it.extension.lowercase() in mediaExtensions
+                                }?.map { it.absolutePath }
+                                if (!media.isNullOrEmpty()) {
+                                    MediaScannerConnection.scanFile(context, media.toTypedArray(), null, null)
+                                }
+                                result.success(true)
+                            }
+                        } catch (e: IOException) {
+                            result.error("VISIBILITY_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "path or visible is null", null)
                     }
                 } else if (call.method == "videoThumbnail") {
                     val videoPath = call.argument<String>("path")

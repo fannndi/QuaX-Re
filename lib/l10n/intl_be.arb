@@ -622,5 +622,7 @@
   "local": "Лакальныя",
   "@local": {},
   "profile": "Профіль",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Паказваць у галерэі",
+  "@show_in_gallery": {}
 }

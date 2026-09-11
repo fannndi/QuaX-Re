@@ -622,5 +622,7 @@
   "local": "محلي",
   "@local": {},
   "profile": "الملف الشخصي",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "إظهار في المعرض",
+  "@show_in_gallery": {}
 }

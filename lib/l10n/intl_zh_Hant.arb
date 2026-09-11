@@ -622,5 +622,7 @@
   "local": "本機",
   "@local": {},
   "profile": "個人資料",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "在相簿中顯示",
+  "@show_in_gallery": {}
 }

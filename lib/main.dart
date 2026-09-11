@@ -49,6 +49,7 @@ Future<void> main() async {
     optionTextScaleFactor: 1.0,
     optionDisableScreenshots: false,
     optionLocale: optionLocaleDefault,
+    optionLibraryVisibleInGallery: false,
     optionHomeInitialTab: 'feed',
     optionHomeDefaultFeedTab: feedTabs[0].id.name,
     optionImageQuality: 'medium',

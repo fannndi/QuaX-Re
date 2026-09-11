@@ -622,5 +622,7 @@
   "local": "Místní",
   "@local": {},
   "profile": "Profil",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Zobrazit v galerii",
+  "@show_in_gallery": {}
 }

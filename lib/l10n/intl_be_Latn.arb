@@ -622,5 +622,7 @@
   "local": "Lokalnyja",
   "@local": {},
   "profile": "Profil",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Pakazvać u halerei",
+  "@show_in_gallery": {}
 }

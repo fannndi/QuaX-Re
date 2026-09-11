@@ -622,5 +622,7 @@
   "local": "本地",
   "@local": {},
   "profile": "个人资料",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "在相册中显示",
+  "@show_in_gallery": {}
 }

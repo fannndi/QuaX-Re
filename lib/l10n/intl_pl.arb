@@ -622,5 +622,7 @@
   "local": "Lokalne",
   "@local": {},
   "profile": "Profil",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Pokaż w galerii",
+  "@show_in_gallery": {}
 }

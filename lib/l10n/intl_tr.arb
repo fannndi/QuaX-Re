@@ -622,5 +622,7 @@
   "local": "Yerel",
   "@local": {},
   "profile": "Profil",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Galeride göster",
+  "@show_in_gallery": {}
 }

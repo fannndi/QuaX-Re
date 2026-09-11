@@ -622,5 +622,7 @@
   "local": "स्थानीय",
   "@local": {},
   "profile": "प्रोफ़ाइल",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "गैलरी में दिखाएँ",
+  "@show_in_gallery": {}
 }

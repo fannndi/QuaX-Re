@@ -622,5 +622,7 @@
   "local": "Lokaal",
   "@local": {},
   "profile": "Profiel",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Tonen in galerij",
+  "@show_in_gallery": {}
 }

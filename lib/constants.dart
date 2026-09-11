@@ -27,6 +27,7 @@ const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
 // Hentoid-style hidden library: a picked folder (visible in file managers)
 // holding downloaded media with a .nomedia marker so gallery apps ignore it.
 const optionLibraryPath = 'library.path';
+const optionLibraryVisibleInGallery = 'library.visibleInGallery';
 // JSON map {fileName: lastReadMillis} — the library's resume-last-position map.
 const optionLibraryPositions = 'library.positions';
 

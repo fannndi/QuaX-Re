@@ -622,5 +622,7 @@
   "local": "Lokalak",
   "@local": {},
   "profile": "Profila",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Erakutsi galerian",
+  "@show_in_gallery": {}
 }

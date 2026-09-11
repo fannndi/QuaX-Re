@@ -622,5 +622,7 @@
   "local": "Cục bộ",
   "@local": {},
   "profile": "Hồ sơ",
-  "@profile": {}
+  "@profile": {},
+  "show_in_gallery": "Hiển thị trong thư viện",
+  "@show_in_gallery": {}
 }

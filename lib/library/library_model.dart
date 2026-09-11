@@ -42,6 +42,31 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   bool get isConfigured => libraryPath.isNotEmpty;
 
+  /// Whether the library is listed by gallery apps: true means the `.nomedia`
+  /// marker is gone.
+  bool get galleryVisible => prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
+
+  /// Live toggle for the gallery apps: drops/creates the `.nomedia` marker and
+  /// asks Android to rescan the folder, so the videos appear or disappear from
+  /// the system gallery without a restart.
+  Future<bool> setGalleryVisible(bool visible) async {
+    final path = libraryPath;
+    if (path.isEmpty) return false;
+
+    try {
+      final ok = await _storageChannel.invokeMethod<bool>('setGalleryVisibility', {
+        'path': path,
+        'visible': visible,
+      });
+      if (ok != true) return false;
+
+      prefs.set<bool>(optionLibraryVisibleInGallery, visible);
+      return true;
+    } on Exception {
+      return false;
+    }
+  }
+
   /// Cached thumbnail of a video, generated once by the Android handler
   /// (MediaMetadataRetriever one second in). Serves both the grid tile and the
   /// viewer's poster, so a downloaded clip never shows as a black frame.
@@ -128,10 +153,14 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       final root = Directory(p.join(pickedPath, libraryFolderName));
       await root.create(recursive: true);
 
-      // The gallery-killer itself: one empty marker file, Hentoid-style. Gallery
-      // apps ignore the subtree it sits in; file managers still see the folder.
+      // Hidden by default: the gallery-killer marker itself, Hentoid-style.
+      // With the Download tab's live toggle on, no marker is written, so the
+      // system gallery indexes the folder like any other media directory.
       final nomedia = File(p.join(root.path, _nomedia));
-      if (!await nomedia.exists()) {
+      final visible = prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
+      if (visible && await nomedia.exists()) {
+        await nomedia.delete();
+      } else if (!visible && !await nomedia.exists()) {
         await nomedia.create();
       }
 

@@ -3,7 +3,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/library/library_model.dart';
 import 'package:quax/library/library_screen.dart';
+import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/downloads.dart';
 
 /// The Download tab: the queue on one side, the hidden library (the gallery
@@ -65,11 +67,69 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
             controller: _tabController,
             children: [
               _QueueList(queue: queue, prefs: widget.prefs),
-              LibraryScreen(prefs: widget.prefs),
+              _GalleryTab(prefs: widget.prefs),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Gallery view of the Download tab: the live gallery-visibility toggle and
+/// the library path on top, the media grid (and TikTok viewer) below.
+class _GalleryTab extends StatefulWidget {
+  final BasePrefService prefs;
+
+  const _GalleryTab({required this.prefs});
+
+  @override
+  State<_GalleryTab> createState() => _GalleryTabState();
+}
+
+class _GalleryTabState extends State<_GalleryTab> {
+  late final LibraryModel _model = LibraryModel(widget.prefs);
+  late bool _visible = _model.galleryVisible;
+
+  Future<void> _toggle(bool value) async {
+    final ok = await _model.setGalleryVisible(value);
+    if (!mounted) return;
+
+    if (ok) {
+      setState(() => _visible = value);
+      return;
+    }
+
+    showSnackBar(context, icon: '🙊', message: L10n.of(context).library_storage_permission_needed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final configured = _model.isConfigured;
+    final path = _model.libraryPath;
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        Card(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: SwitchListTile(
+            value: _visible,
+            onChanged: configured ? _toggle : null,
+            secondary: Icon(_visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+            title: Text(L10n.of(context).show_in_gallery),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(L10n.of(context).download_path, style: theme.textTheme.labelSmall),
+                Text(configured ? path : L10n.of(context).not_set,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ),
+        Expanded(child: LibraryScreen(prefs: widget.prefs)),
+      ],
     );
   }
 }
