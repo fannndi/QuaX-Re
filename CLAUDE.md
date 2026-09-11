@@ -125,16 +125,22 @@ When writing tests:
   the profile's likes) — three tabs, with Settings behind the gear in the home app bar. The
   Notifications tab, the Trending page, the Discord startup popup and the subscriptions home page
   are dropped; search lives in the feed's app bar.
-- Downloads stream under an Android progress notification into the hidden library (`.nomedia`) —
-  the single download destination. There is no in-app player: tapping gallery media hands the file
-  to the system player/viewer through a FileProvider (`<applicationId>.library`, `<root-path>`). The
-  queue is persisted (`downloads.json`), runs strictly one at a time, with pause/resume,
-  failure/retry and HTTP Range resume.
+- Downloads stream into the hidden library (`.nomedia`) — the single download destination. There is no
+  in-app player: tapping gallery media hands the file to the system player/viewer through a FileProvider
+  (`<applicationId>.library`, `<root-path>`). The queue is persisted (`downloads.json`), runs strictly
+  one at a time, with pause/resume, failure/retry, HTTP Range resume, idle timeout, space check and
+  integrity check.
+- Progress lives in a **native foreground service** (`DownloadForegroundService.kt`): it keeps the
+  process alive while a transfer runs (downloads survive backgrounding) and its notification carries
+  Pause/Cancel actions that call back into Dart through the `browser_resolver` channel. The Dart side
+  is `DownloadNotifications`; while retryable failures exist, `ConnectivityWatcher` probes the network
+  every 15s and auto-resumes them (bounded per file).
 - Material 3 is centralised in `lib/app/theme.dart` (`buildAppTheme`): one CardTheme/NavigationBarTheme/
   TabBarTheme/… for the whole app, built from the dynamic or seeded color scheme, with the true-black
   preference applied there. Screens should rely on these tokens instead of styling locally.
-- The gallery has search + sort (newest/oldest/name/size); the Download navbar icon carries a badge
-  with the active-transfer count; the queue supports swipe-to-delete and retry-all.
+- The gallery has search + sort (newest/oldest/name/size) and bulk selection (long-press: select-all/
+  share/delete); the Download navbar icon carries a badge with the active-transfer count; the queue
+  supports swipe-to-delete and retry-all.
 - First run is gated by an onboarding wizard (`lib/app/onboarding.dart`, Hentoid's intro idea):
   welcome → all-files-access permission → pick the library folder → done (with the gallery
   visibility switch). Until `optionLibraryPath` is set, `DefaultPage` never shows the tabs.
