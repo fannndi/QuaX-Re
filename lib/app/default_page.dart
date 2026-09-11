@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import 'package:quax/app/onboarding.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/generated/l10n.dart';
@@ -25,6 +26,20 @@ class _DefaultPageState extends State<DefaultPage> {
   Object? _migrationError;
   StackTrace? _migrationStackTrace;
   StreamSubscription<Uri>? _sub;
+
+  // First run (no library picked yet) goes through the onboarding wizard.
+  bool _setupChecked = false;
+  bool _setupDone = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_setupChecked) return;
+    _setupChecked = true;
+
+    final path = PrefService.of(context).get<String>(optionLibraryPath);
+    _setupDone = path != null && path.isNotEmpty;
+  }
 
   void handleInitialLink(Uri link) async {
     final parsed = await parseUri(link);
@@ -133,7 +148,9 @@ class _DefaultPageState extends State<DefaultPage> {
             SystemNavigator.pop();
           }
         },
-        child: const HomeScreen());
+        child: _setupDone
+            ? const HomeScreen()
+            : OnboardingScreen(onFinished: () => setState(() => _setupDone = true)));
   }
 
   @override

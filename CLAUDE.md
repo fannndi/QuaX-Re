@@ -127,7 +127,11 @@ When writing tests:
   are dropped; search lives in the feed's app bar.
 - Downloads stream under an Android progress notification into the hidden library (`.nomedia`) —
   the single download destination; the gallery in the Download tab plays them with a TikTok-style
-  viewer. The queue is persisted (`downloads.json`) with failure/retry + HTTP Range resume.
+  viewer. The queue is persisted (`downloads.json`), runs strictly one at a time, with
+  failure/retry + HTTP Range resume.
+- First run is gated by an onboarding wizard (`lib/app/onboarding.dart`, Hentoid's intro idea):
+  welcome → all-files-access permission → pick the library folder → done (with the gallery
+  visibility switch). Until `optionLibraryPath` is set, `DefaultPage` never shows the tabs.
 - Video thumbnails come from `videoThumbnail` in `MainActivity.kt` (MediaMetadataRetriever, cached
   in the app cache `thumbs/`); the cache dir is created on both sides.
 - The update checker defaults to off: upstream releases would overwrite these fork changes.
