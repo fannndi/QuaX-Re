@@ -171,6 +171,32 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   bool contains(String fileName) => state.any((item) => item.fileName == fileName);
 
+  /// The live entry for [fileName], or null when it is not in the queue.
+  DownloadQueueItem? itemFor(String fileName) {
+    final index = _indexOf(fileName);
+    return index < 0 ? null : state[index];
+  }
+
+  /// True while the entry waits, runs or is held — re-requesting a download
+  /// for such a file must not start a second transfer.
+  bool isActive(String fileName) {
+    final item = itemFor(fileName);
+    return item != null &&
+        (item.status == DownloadStatus.queued ||
+            item.status == DownloadStatus.running ||
+            item.status == DownloadStatus.paused);
+  }
+
+  /// Test hook: drops the in-memory queue (the on-disk ledger is untouched).
+  @visibleForTesting
+  void resetForTests() {
+    _cancelHooks.clear();
+    _cancelled.clear();
+    _paused.clear();
+    _doneListeners.clear();
+    update([], force: true);
+  }
+
   int _indexOf(String fileName) => state.indexWhere((item) => item.fileName == fileName);
 
   void attachCancel(String fileName, void Function() abort) => _cancelHooks[fileName] = abort;

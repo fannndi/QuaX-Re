@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:quax/constants.dart';
@@ -13,11 +15,23 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:share_plus/share_plus.dart';
 
+const _storageChannel = MethodChannel('browser_resolver');
 
 /// Transfers run strictly one at a time (FIFO): parallel downloads would fight
 /// over the connection, so every request joins a single chain and waits for its
 /// turn — the queue screen lists the waiting entries.
 Future<void> _downloadChain = Future.value();
+
+/// A transfer that receives nothing for this long is considered stalled: the
+/// connection is dropped and the entry becomes retryable (resuming where it
+/// stopped), instead of hanging on a dead socket forever.
+const _idleTimeout = Duration(seconds: 30);
+
+/// Attempts per transfer: the first one plus transient-failure retries.
+const _maxAttempts = 3;
+
+/// Never start a transfer that cannot fit in the destination (+ headroom).
+const _spaceMarginBytes = 64 * 1024 * 1024;
 
 void _enqueue(Future<void> Function() task) {
   _downloadChain = _downloadChain.then((_) => task()).catchError((_) {});
@@ -32,21 +46,28 @@ String _sanitized(String fileName) {
   return name;
 }
 
-bool _isVideo(String fileName) =>
-    fileName.contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v)$', caseSensitive: false));
+bool _isVideo(String fileName) => fileName
+    .contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v|avi|ts|3gp|mpeg|mpg|wmv|flv|m2ts|ogv)$', caseSensitive: false));
 
 /// Queues [uri] into the one-at-a-time download queue and, when its turn comes,
 /// saves the file into the hidden library (or through the system dialog before
-/// the library exists) and offers a share sheet.
+/// the library exists) and offers a share sheet. A transfer that is already
+/// active for the same file is left alone instead of being re-queued twice.
 Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileName,
     {required BasePrefService prefs}) async {
   final name = _sanitized(fileName);
-  DownloadsModel().register(name, uri.toString(), _isVideo(name));
+  final queue = DownloadsModel();
+  if (queue.isActive(name)) return;
+
+  queue.register(name, uri.toString(), _isVideo(name));
 
   _enqueue(() => _runDownload(context, uri, name, prefs: prefs));
 }
 
 /// The actual transfer, run when the entry reaches the head of the queue.
+/// Transient failures (stalls, dropped sockets, incomplete streams, 5xx) are
+/// retried up to [_maxAttempts] with a growing pause, resuming from the bytes
+/// already on disk.
 Future<void> _runDownload(BuildContext context, Uri uri, String fileName,
     {required BasePrefService prefs, bool resume = false}) async {
   final queue = DownloadsModel();
@@ -54,9 +75,27 @@ Future<void> _runDownload(BuildContext context, Uri uri, String fileName,
   if (!queue.contains(fileName) || queue.isCancelled(fileName)) return;
 
   try {
-    queue.startRunning(fileName);
+    final targetDir = await _targetDirectory(prefs);
 
-    final tempPath = await _downloadToTemp(context, uri, fileName, resume: resume);
+    String? tempPath;
+    for (var attempt = 0; attempt < _maxAttempts; attempt++) {
+      queue.startRunning(fileName);
+
+      tempPath = await _downloadToTemp(context, uri, fileName,
+          resume: resume || attempt > 0, targetDir: targetDir);
+      if (tempPath != null) break;
+
+      final item = queue.itemFor(fileName);
+      if (item == null ||
+          queue.isCancelled(fileName) ||
+          queue.isPaused(fileName) ||
+          !_isRetryable(item.error)) {
+        return;
+      }
+
+      await Future.delayed(Duration(seconds: 3 * (attempt + 1)));
+      if (!queue.contains(fileName) || queue.isCancelled(fileName) || queue.isPaused(fileName)) return;
+    }
     if (tempPath == null) return;
 
     try {
@@ -80,6 +119,29 @@ Future<void> _runDownload(BuildContext context, Uri uri, String fileName,
     if (context.mounted) {
       showSnackBar(context, icon: '🙊', message: e.toString());
     }
+  }
+}
+
+/// Server-side/client-side errors worth another automatic try. 4xx (except
+/// 408) and a full disk never succeed on retry.
+bool _isRetryable(String? error) {
+  if (error == null || error.isEmpty) return false;
+  if (error.startsWith('HTTP') && !error.startsWith('HTTP 408') && !error.startsWith('HTTP 5')) return false;
+  if (error == 'no_space' || error == 'interrupted') return false;
+  return true;
+}
+
+Future<String> _targetDirectory(BasePrefService prefs) async {
+  final libraryPath = prefs.get<String>(optionLibraryPath);
+  if (libraryPath != null && libraryPath.isNotEmpty) return libraryPath;
+  return (await getTemporaryDirectory()).path;
+}
+
+Future<int?> _availableSpace(String path) async {
+  try {
+    return await _storageChannel.invokeMethod<int>('getAvailableSpace', {'path': path});
+  } on Exception {
+    return null;
   }
 }
 
@@ -115,7 +177,8 @@ Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
 
   String? tempPath;
   try {
-    tempPath = await _downloadToTemp(context, uri, sanitizedFilename);
+    final targetDir = (await getTemporaryDirectory()).path;
+    tempPath = await _downloadToTemp(context, uri, sanitizedFilename, targetDir: targetDir);
     if (tempPath == null) return;
 
     if (context.mounted) {
@@ -142,13 +205,21 @@ void _showStatusError(BuildContext context, Object statusCode) {
 /// Saves the downloaded temp file to the user's destination and returns the
 /// path (null when cancelled). The hidden library is the normal destination;
 /// without a configured folder the system save dialog keeps downloads usable.
+/// An existing file with the same name is never overwritten: the new copy gets
+/// a timestamp suffix.
 Future<String?> _saveToDestination(BuildContext context,
     {required String file, required String fileName, required BasePrefService prefs}) async {
   final libraryPath = prefs.get<String>(optionLibraryPath);
   if (libraryPath != null && libraryPath.isNotEmpty) {
     final library = Directory(libraryPath);
     if (await library.exists()) {
-      final savedFile = p.join(library.path, fileName);
+      var savedFile = p.join(library.path, fileName);
+      if (await File(savedFile).exists()) {
+        savedFile = p.join(
+            library.path,
+            '${p.basenameWithoutExtension(fileName)}-${DateTime.now().millisecondsSinceEpoch}'
+            '${p.extension(fileName)}');
+      }
       await File(file).copy(savedFile);
       return savedFile;
     }
@@ -169,13 +240,21 @@ Future<void> retryDownload(BuildContext context, DownloadQueueItem item,
   _enqueue(() => _runDownload(context, Uri.parse(item.url), item.fileName, prefs: prefs, resume: true));
 }
 
+http.Request _rangeRequest(Uri uri, int offset) {
+  final request = http.Request('GET', uri);
+  if (offset > 0) {
+    request.headers['range'] = 'bytes=$offset-';
+  }
+  return request;
+}
+
 /// Streams the response to a temporary file while feeding the downloads queue
 /// (visible on the Downloads navbar tab) — Hentoid-style: the reader stays
 /// usable while files download in the background. Cancels through the queue.
 /// Failed downloads keep their partial file so a retry can resume.
 /// Returns the temp path, or null when the download failed or was cancelled.
 Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
-    {bool resume = false}) async {
+    {bool resume = false, required String targetDir}) async {
   final tempDir = await getTemporaryDirectory();
   final tempPath = p.join(tempDir.path, 'quax-download-$fileName');
   final queue = DownloadsModel();
@@ -195,16 +274,17 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
       }
     }
 
-    final request = http.Request('GET', uri);
-    if (offset > 0) {
-      request.headers['range'] = 'bytes=$offset-';
+    var response = await client.send(_rangeRequest(uri, offset));
+    if (response.statusCode == 416 && offset > 0) {
+      // The partial bytes no longer match the remote file: start over clean.
+      await _deleteTemp(tempPath);
+      offset = 0;
+      response = await client.send(_rangeRequest(uri, 0));
     }
 
-    final response = await client.send(request);
     final isPartial = response.statusCode == 206;
     if (response.statusCode != 200 && !isPartial) {
-      final message = 'HTTP ${response.statusCode}';
-      queue.fail(fileName, error: message);
+      queue.fail(fileName, error: 'HTTP ${response.statusCode}');
       _showStatusError(context, response.statusCode);
       return null;
     }
@@ -215,13 +295,21 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
         ? null
         : (append ? offset + contentLength : contentLength);
 
+    if (totalBytes != null) {
+      final free = await _availableSpace(targetDir);
+      if (free != null && totalBytes + _spaceMarginBytes > free) {
+        queue.fail(fileName, error: 'no_space');
+        return null;
+      }
+    }
+
     final sink = File(tempPath).openWrite(mode: append ? FileMode.append : FileMode.write);
     var received = append ? offset : 0;
     var lastSample = DateTime.now();
     var lastReceived = 0;
     var speed = 0.0;
 
-    await for (final chunk in response.stream) {
+    await for (final chunk in response.stream.timeout(_idleTimeout)) {
       sink.add(chunk);
       received += chunk.length;
 
@@ -236,6 +324,13 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
     }
 
     await sink.close();
+
+    if (totalBytes != null && received < totalBytes) {
+      // Truncated transfer: keep the partial so a retry can resume it.
+      queue.fail(fileName, error: 'incomplete');
+      return null;
+    }
+
     return tempPath;
   } on Exception catch (e) {
     if (queue.isCancelled(fileName)) {
@@ -245,9 +340,10 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
       // pause(): the entry is already parked and the partial file stays on
       // disk, so resuming sends a Range request from where it stopped.
     } else {
-      queue.fail(fileName, error: e.toString());
+      queue.fail(fileName, error: e is TimeoutException ? 'timeout' : e.toString());
     }
     return null;
+  } finally {
+    client.close();
   }
 }
-

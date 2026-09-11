@@ -9,6 +9,7 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.StatFs
 import android.provider.MediaStore
 import android.provider.Settings
 import java.io.File
@@ -120,6 +121,22 @@ class MainActivity : FlutterActivity() {
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "path or visible is null", null)
+                    }
+                } else if (call.method == "getAvailableSpace") {
+                    val path = call.argument<String>("path")
+                    if (path == null) {
+                        result.error("INVALID_ARGUMENT", "path is null", null)
+                    } else {
+                        try {
+                            var probe = File(path)
+                            while (!probe.exists() && probe.parentFile != null) {
+                                probe = probe.parentFile!!
+                            }
+                            val stat = StatFs(probe.path)
+                            result.success(stat.availableBytes)
+                        } catch (e: Exception) {
+                            result.error("STAT_FAILED", e.message, null)
+                        }
                     }
                 } else if (call.method == "openMediaFile") {
                     val path = call.argument<String>("path")
