@@ -642,5 +642,11 @@
   "setup_done_body": "媒體庫已就緒。你可以隨時在「下載」分頁變更資料夾或相簿顯示。",
   "@setup_done_body": {},
   "setup_finish": "進入 QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "暫停",
+  "@pause": {},
+  "resume": "繼續",
+  "@resume": {},
+  "paused": "已暫停",
+  "@paused": {}
 }

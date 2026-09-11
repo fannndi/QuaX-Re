@@ -1,6 +1,8 @@
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
@@ -163,8 +165,9 @@ class _QueueList extends StatelessWidget {
       itemBuilder: (context, index) => switch (queue[index].status) {
         DownloadStatus.queued => _QueuedCard(item: queue[index]),
         DownloadStatus.running => _RunningCard(item: queue[index]),
+        DownloadStatus.paused => _PausedCard(item: queue[index], prefs: prefs),
         DownloadStatus.error => _ErrorCard(item: queue[index], prefs: prefs),
-        DownloadStatus.done => _DoneCard(item: queue[index]),
+        DownloadStatus.done => _DoneCard(item: queue[index], prefs: prefs),
       },
     );
   }
@@ -282,9 +285,65 @@ class _RunningCard extends StatelessWidget {
               ),
             ),
             IconButton(
+              icon: const Icon(Icons.pause),
+              tooltip: L10n.of(context).pause,
+              onPressed: () => DownloadsModel().pause(item.fileName),
+            ),
+            IconButton(
               icon: const Icon(Icons.close),
               tooltip: L10n.of(context).cancel,
               onPressed: () => DownloadsModel().cancel(item.fileName),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Held by the user: the partial file is intact, resuming goes back through
+/// the queue and continues with a Range request.
+class _PausedCard extends StatelessWidget {
+  final DownloadQueueItem item;
+  final BasePrefService prefs;
+
+  const _PausedCard({required this.item, required this.prefs});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        child: Row(
+          children: [
+            _TypeAvatar(item: item, color: theme.colorScheme.tertiary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.totalMb == null
+                        ? L10n.of(context).paused
+                        : '${L10n.of(context).paused} \u00b7 ${item.receivedMb.toStringAsFixed(1)} MB',
+                    style: theme.textTheme.labelSmall,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.play_arrow),
+              tooltip: L10n.of(context).resume,
+              onPressed: () => retryDownload(context, item, prefs: prefs),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: L10n.of(context).delete,
+              onPressed: () => DownloadsModel().remove(item.fileName),
             ),
           ],
         ),
@@ -346,36 +405,52 @@ class _ErrorCard extends StatelessWidget {
 
 class _DoneCard extends StatelessWidget {
   final DownloadQueueItem item;
+  final BasePrefService prefs;
 
-  const _DoneCard({required this.item});
+  const _DoneCard({required this.item, required this.prefs});
+
+  Future<void> _open(BuildContext context) async {
+    final libraryPath = prefs.get<String>(optionLibraryPath);
+    if (libraryPath == null || libraryPath.isEmpty) return;
+
+    final path = p.join(libraryPath, item.fileName);
+    final ok = await LibraryModel(prefs).openExternally(path);
+    if (!ok && context.mounted) {
+      showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle_outline, color: Colors.green.shade400, size: 32),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 4),
-                  Text(L10n.of(context).successfully_saved_the_media, style: theme.textTheme.labelSmall),
-                ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _open(context),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.green.shade400, size: 32),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    Text(L10n.of(context).successfully_saved_the_media, style: theme.textTheme.labelSmall),
+                  ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: L10n.of(context).delete,
-              onPressed: () => DownloadsModel().remove(item.fileName),
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: L10n.of(context).delete,
+                onPressed: () => DownloadsModel().remove(item.fileName),
+              ),
+            ],
+          ),
         ),
       ),
     );

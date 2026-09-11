@@ -642,5 +642,11 @@
   "setup_done_body": "Knihovna je připravena. Složku i viditelnost v galerii změníte kdykoli na kartě Stažené.",
   "@setup_done_body": {},
   "setup_finish": "Vstoupit do QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pozastavit",
+  "@pause": {},
+  "resume": "Pokračovat",
+  "@resume": {},
+  "paused": "Pozastaveno",
+  "@paused": {}
 }

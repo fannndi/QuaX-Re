@@ -642,5 +642,11 @@
   "setup_done_body": "Mediateca ta e gata. Poți schimba oricând folderul sau vizibilitatea în galerie din fila Descărcări.",
   "@setup_done_body": {},
   "setup_finish": "Intră în QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pauză",
+  "@pause": {},
+  "resume": "Reia",
+  "@resume": {},
+  "paused": "În pauză",
+  "@paused": {}
 }

@@ -642,5 +642,11 @@
   "setup_done_body": "Your library is ready. You can change the folder or gallery visibility anytime in the Download tab.",
   "@setup_done_body": {},
   "setup_finish": "Enter QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pause",
+  "@pause": {},
+  "resume": "Resume",
+  "@resume": {},
+  "paused": "Paused",
+  "@paused": {}
 }

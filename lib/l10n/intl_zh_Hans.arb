@@ -642,5 +642,11 @@
   "setup_done_body": "媒体库已就绪。你可以随时在“下载”标签中更改文件夹或相册可见性。",
   "@setup_done_body": {},
   "setup_finish": "进入 QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "暂停",
+  "@pause": {},
+  "resume": "继续",
+  "@resume": {},
+  "paused": "已暂停",
+  "@paused": {}
 }

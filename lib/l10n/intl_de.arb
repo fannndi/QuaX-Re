@@ -642,5 +642,11 @@
   "setup_done_body": "Deine Mediathek ist bereit. Ordner und Galerie-Sichtbarkeit änderst du jederzeit im Download-Tab.",
   "@setup_done_body": {},
   "setup_finish": "QuaX öffnen",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pausieren",
+  "@pause": {},
+  "resume": "Fortsetzen",
+  "@resume": {},
+  "paused": "Pausiert",
+  "@paused": {}
 }

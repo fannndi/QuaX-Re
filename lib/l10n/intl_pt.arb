@@ -642,5 +642,11 @@
   "setup_done_body": "A tua biblioteca está pronta. Podes mudar a pasta ou a visibilidade na galeria a qualquer momento no separador Transferências.",
   "@setup_done_body": {},
   "setup_finish": "Entrar no QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pausar",
+  "@pause": {},
+  "resume": "Retomar",
+  "@resume": {},
+  "paused": "Em pausa",
+  "@paused": {}
 }

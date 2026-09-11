@@ -642,5 +642,11 @@
   "setup_done_body": "Kitaplığın hazır. Klasörü veya galeri görünürlüğünü İndirmeler sekmesinden istediğin zaman değiştirebilirsin.",
   "@setup_done_body": {},
   "setup_finish": "QuaX'e gir",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Duraklat",
+  "@pause": {},
+  "resume": "Sürdür",
+  "@resume": {},
+  "paused": "Duraklatıldı",
+  "@paused": {}
 }

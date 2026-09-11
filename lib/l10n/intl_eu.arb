@@ -642,5 +642,11 @@
   "setup_done_body": "Zure liburutegia prest dago. Karpeta edo galerian ikusgaitasuna noiznahi alda dezakezu Deskargak fitxan.",
   "@setup_done_body": {},
   "setup_finish": "Sartu QuaX-era",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pausatu",
+  "@pause": {},
+  "resume": "Jarraitu",
+  "@resume": {},
+  "paused": "Pausatuta",
+  "@paused": {}
 }

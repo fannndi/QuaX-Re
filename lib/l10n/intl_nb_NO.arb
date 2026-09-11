@@ -642,5 +642,11 @@
   "setup_done_body": "Biblioteket ditt er klart. Du kan endre mappen eller gallerivisning når som helst i Nedlastinger-fanen.",
   "@setup_done_body": {},
   "setup_finish": "Åpne QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pause",
+  "@pause": {},
+  "resume": "Fortsett",
+  "@resume": {},
+  "paused": "Pauset",
+  "@paused": {}
 }

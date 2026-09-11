@@ -642,5 +642,11 @@
   "setup_done_body": "आपकी लाइब्रेरी तैयार है। फ़ोल्डर या गैलरी दृश्यता आप डाउनलोड टैब में कभी भी बदल सकते हैं।",
   "@setup_done_body": {},
   "setup_finish": "QuaX खोलें",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "रोकें",
+  "@pause": {},
+  "resume": "जारी रखें",
+  "@resume": {},
+  "paused": "रोका गया",
+  "@paused": {}
 }

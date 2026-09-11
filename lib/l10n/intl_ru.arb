@@ -642,5 +642,11 @@
   "setup_done_body": "Медиатека готова. Папку и видимость в галерее можно изменить в любое время на вкладке «Загрузки».",
   "@setup_done_body": {},
   "setup_finish": "Войти в QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Пауза",
+  "@pause": {},
+  "resume": "Продолжить",
+  "@resume": {},
+  "paused": "На паузе",
+  "@paused": {}
 }

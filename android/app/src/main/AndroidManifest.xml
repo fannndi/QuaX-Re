@@ -122,6 +122,18 @@ android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Hands hidden-library files (any absolute path, SD cards included)
+             to external players/viewers without exposing the folder. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.library"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/library_paths" />
+        </provider>
     </application>
 
     <queries>

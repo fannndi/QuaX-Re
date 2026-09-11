@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The library folder is chosen by the user and can live anywhere (SD cards
+     included), so the provider exposes the filesystem root read-only through
+     the app's granted URIs. -->
+<paths>
+    <root-path name="root" path="/" />
+</paths>

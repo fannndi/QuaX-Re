@@ -642,5 +642,11 @@
   "setup_done_body": "La tua mediateca è pronta. Puoi cambiare cartella o visibilità in galleria quando vuoi dalla scheda Download.",
   "@setup_done_body": {},
   "setup_finish": "Entra in QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pausa",
+  "@pause": {},
+  "resume": "Riprendi",
+  "@resume": {},
+  "paused": "In pausa",
+  "@paused": {}
 }

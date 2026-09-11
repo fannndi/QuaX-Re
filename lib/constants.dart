@@ -29,7 +29,6 @@ const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
 const optionLibraryPath = 'library.path';
 const optionLibraryVisibleInGallery = 'library.visibleInGallery';
 // JSON map {fileName: lastReadMillis} — the library's resume-last-position map.
-const optionLibraryPositions = 'library.positions';
 
 const optionLocale = 'locale';
 const optionLocaleDefault = 'system';
@@ -106,4 +105,5 @@ const routeSettings = '/settings';
 const routeStatus = '/status';
 
 const discordInviteUrl = 'https://discord.gg/K7UHuywPWD';
+
 

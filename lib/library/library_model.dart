@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -20,6 +19,19 @@ const MethodChannel _storageChannel = MethodChannel('browser_resolver');
 
 const _videoExtensions = ['.mp4', '.mov', '.webm', '.mkv', '.m4v'];
 const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
+const _mimeTypes = {
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.webm': 'video/webm',
+  '.mkv': 'video/x-matroska',
+  '.m4v': 'video/mp4',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+};
 
 class LibraryEntry {
   final File file;
@@ -86,37 +98,19 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
-  /// Last-read playback offset per library file (Hentoid's resume-reading
-  /// idea), bounded to the 200 most-recent names.
-  int? positionFor(LibraryEntry entry) {
-    final map = _positions();
-    return map[entry.name];
-  }
-
-  void savePosition(LibraryEntry entry, int millis) {
+  /// Opens a library file through the system player/viewer. No in-app player:
+  /// the file URI is granted to the chosen app directly, so the folder stays
+  /// hidden from the gallery while clips play like any other media file.
+  Future<bool> openExternally(String path) async {
+    final mime = _mimeTypes[p.extension(path).toLowerCase()] ?? '*/*';
     try {
-      final map = _positions();
-      map[entry.name] = millis;
-      // Bound the map so it never grows without reason.
-      final entries = map.entries.toList();
-      if (entries.length > 200) {
-        entries.removeRange(0, entries.length - 200);
-      }
-      final trimmed = {for (final e in entries) e.key: e.value};
-      prefs.set<String>(optionLibraryPositions, jsonEncode(trimmed));
+      final ok = await _storageChannel.invokeMethod<bool>('openMediaFile', {
+        'path': path,
+        'mime': mime,
+      });
+      return ok == true;
     } on Exception {
-      // positions are a nicety; losing them on a decode failure is harmless.
-    }
-  }
-
-  Map<String, int> _positions() {
-    final prefValue = prefs.get<String>(optionLibraryPositions);
-    if (prefValue == null) return {};
-    try {
-      final decoded = jsonDecode(prefValue) as Map<String, dynamic>? ?? const {};
-      return decoded.map((key, value) => MapEntry(key, (value as num?)?.toInt() ?? 0));
-    } on Exception {
-      return {};
+      return false;
     }
   }
 

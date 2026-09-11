@@ -642,5 +642,11 @@
   "setup_done_body": "مكتبتك جاهزة. يمكنك تغيير المجلد أو ظهوره في المعرض في أي وقت من تبويب التنزيل.",
   "@setup_done_body": {},
   "setup_finish": "الدخول إلى QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "إيقاف مؤقت",
+  "@pause": {},
+  "resume": "استئناف",
+  "@resume": {},
+  "paused": "متوقف مؤقتًا",
+  "@paused": {}
 }

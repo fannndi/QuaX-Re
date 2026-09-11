@@ -642,5 +642,11 @@
   "setup_done_body": "Ваша медіатека готова. Папку чи видимість у галереї можна змінити будь-коли на вкладці «Завантаження».",
   "@setup_done_body": {},
   "setup_finish": "Увійти в QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Пауза",
+  "@pause": {},
+  "resume": "Продовжити",
+  "@resume": {},
+  "paused": "Призупинено",
+  "@paused": {}
 }

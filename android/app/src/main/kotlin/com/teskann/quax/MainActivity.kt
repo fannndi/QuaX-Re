@@ -16,6 +16,7 @@ import java.io.IOException
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import androidx.core.content.FileProvider
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "browser_resolver"
@@ -99,6 +100,34 @@ class MainActivity : FlutterActivity() {
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "path or visible is null", null)
+                    }
+                } else if (call.method == "openMediaFile") {
+                    val path = call.argument<String>("path")
+                    val mime = call.argument<String>("mime") ?: "*/*"
+                    if (path == null) {
+                        result.error("INVALID_ARGUMENT", "path is null", null)
+                    } else {
+                        val file = File(path)
+                        if (!file.exists()) {
+                            result.error("NOT_FOUND", "File does not exist", null)
+                        } else {
+                            try {
+                                val uri = FileProvider.getUriForFile(
+                                    this, "$packageName.library", file
+                                )
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, mime)
+                                    addFlags(
+                                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                                or Intent.FLAG_ACTIVITY_NEW_TASK
+                                    )
+                                }
+                                startActivity(Intent.createChooser(intent, null))
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("OPEN_FAILED", e.message, null)
+                            }
+                        }
                     }
                 } else if (call.method == "videoThumbnail") {
                     val videoPath = call.argument<String>("path")

@@ -642,5 +642,11 @@
   "setup_done_body": "Sinu kogu on valmis. Kausta või galeriis nähtavust saad igal ajal muuta vahekaardil Allalaadimised.",
   "@setup_done_body": {},
   "setup_finish": "Ava QuaX-i",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Peata",
+  "@pause": {},
+  "resume": "Jätka",
+  "@resume": {},
+  "paused": "Peatatud",
+  "@paused": {}
 }

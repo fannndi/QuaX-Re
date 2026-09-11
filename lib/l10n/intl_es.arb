@@ -642,5 +642,11 @@
   "setup_done_body": "Tu biblioteca está lista. Puedes cambiar la carpeta o su visibilidad en la galería cuando quieras desde la pestaña Descargas.",
   "@setup_done_body": {},
   "setup_finish": "Entrar en QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pausar",
+  "@pause": {},
+  "resume": "Reanudar",
+  "@resume": {},
+  "paused": "En pausa",
+  "@paused": {}
 }

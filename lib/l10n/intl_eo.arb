@@ -642,5 +642,11 @@
   "setup_done_body": "Via biblioteko pretas. Vi povas ŝanĝi la dosierujon aŭ videblecon en la galerio iam ajn en la langeto Elŝutoj.",
   "@setup_done_body": {},
   "setup_finish": "Eniri QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Paŭzi",
+  "@pause": {},
+  "resume": "Daŭrigi",
+  "@resume": {},
+  "paused": "Paŭzita",
+  "@paused": {}
 }

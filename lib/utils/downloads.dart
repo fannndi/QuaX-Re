@@ -241,6 +241,9 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
     if (queue.isCancelled(fileName)) {
       // User aborted from the queue: drop the partial file with the entry.
       _deleteTemp(tempPath);
+    } else if (queue.isPaused(fileName)) {
+      // pause(): the entry is already parked and the partial file stays on
+      // disk, so resuming sends a Range request from where it stopped.
     } else {
       queue.fail(fileName, error: e.toString());
     }

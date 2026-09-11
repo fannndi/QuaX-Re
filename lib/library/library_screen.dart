@@ -8,7 +8,6 @@ import 'package:pref/pref.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
-import 'package:quax/library/library_viewer.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -143,8 +142,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           itemBuilder: (context, index) {
             final entry = entries[index];
             return GestureDetector(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => LibraryViewer(model: _model, initialIndex: index))),
+              onTap: () => _openEntry(entry),
               onLongPress: () => _showEntryMenu(context, entry),
               child: Stack(
                 fit: StackFit.expand,
@@ -211,6 +209,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _openEntry(LibraryEntry entry) async {
+    final ok = await _model.openExternally(entry.file.path);
+    if (!ok && mounted) {
+      showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+    }
   }
 
   Future<void> _importExisting() async {

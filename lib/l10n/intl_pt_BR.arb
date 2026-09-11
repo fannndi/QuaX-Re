@@ -642,5 +642,11 @@
   "setup_done_body": "Sua biblioteca está pronta. Você pode mudar a pasta ou a visibilidade na galeria a qualquer momento na aba Downloads.",
   "@setup_done_body": {},
   "setup_finish": "Entrar no QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pausar",
+  "@pause": {},
+  "resume": "Retomar",
+  "@resume": {},
+  "paused": "Pausado",
+  "@paused": {}
 }

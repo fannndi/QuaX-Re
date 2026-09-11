@@ -126,9 +126,10 @@ When writing tests:
   Notifications tab, the Trending page, the Discord startup popup and the subscriptions home page
   are dropped; search lives in the feed's app bar.
 - Downloads stream under an Android progress notification into the hidden library (`.nomedia`) —
-  the single download destination; the gallery in the Download tab plays them with a TikTok-style
-  viewer. The queue is persisted (`downloads.json`), runs strictly one at a time, with
-  failure/retry + HTTP Range resume.
+  the single download destination. There is no in-app player: tapping gallery media hands the file
+  to the system player/viewer through a FileProvider (`<applicationId>.library`, `<root-path>`). The
+  queue is persisted (`downloads.json`), runs strictly one at a time, with pause/resume,
+  failure/retry and HTTP Range resume.
 - First run is gated by an onboarding wizard (`lib/app/onboarding.dart`, Hentoid's intro idea):
   welcome → all-files-access permission → pick the library folder → done (with the gallery
   visibility switch). Until `optionLibraryPath` is set, `DefaultPage` never shows the tabs.

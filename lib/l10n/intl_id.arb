@@ -642,5 +642,11 @@
   "setup_done_body": "Perpustakaanmu siap dipakai. Kamu bisa ubah folder atau visibilitas galeri kapan saja di tab Download.",
   "@setup_done_body": {},
   "setup_finish": "Masuk QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Jeda",
+  "@pause": {},
+  "resume": "Lanjutkan",
+  "@resume": {},
+  "paused": "Dijeda",
+  "@paused": {}
 }

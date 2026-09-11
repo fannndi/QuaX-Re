@@ -642,5 +642,11 @@
   "setup_done_body": "Vaša bibliateka hatova. Papku abo bačnaść u halerei možna zmiаnić u luby čas na ŭkladcy «Spampoŭki».",
   "@setup_done_body": {},
   "setup_finish": "Uvajści ŭ QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Prypynić",
+  "@pause": {},
+  "resume": "Praciahnуć",
+  "@resume": {},
+  "paused": "Prypyniena",
+  "@paused": {}
 }

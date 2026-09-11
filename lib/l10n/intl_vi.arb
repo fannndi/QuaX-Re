@@ -642,5 +642,11 @@
   "setup_done_body": "Thư viện đã sẵn sàng. Bạn có thể đổi thư mục hoặc chế độ hiển thị trong thư viện ảnh bất cứ lúc nào ở tab Tải xuống.",
   "@setup_done_body": {},
   "setup_finish": "Vào QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Tạm dừng",
+  "@pause": {},
+  "resume": "Tiếp tục",
+  "@resume": {},
+  "paused": "Đã tạm dừng",
+  "@paused": {}
 }

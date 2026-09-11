@@ -9,8 +9,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:quax/downloads/download_notifications.dart';
 
 /// queued: waiting for its turn (downloads run one at a time, so parallel
-/// transfers never fight over the connection).
-enum DownloadStatus { queued, running, done, error }
+/// transfers never fight over the connection); paused: held by the user with
+/// its partial bytes kept for a later resume.
+enum DownloadStatus { queued, running, paused, done, error }
 
 /// One entry of the downloads queue / history. The item survives app
 /// restarts through a small JSON ledger (Hentoid's queue.json idea), so failed
@@ -97,6 +98,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   // to pull it without owning the HTTP machinery.
   final Map<String, void Function()> _cancelHooks = {};
   final Set<String> _cancelled = {};
+  final Set<String> _paused = {};
 
   // Hooks fired when a download lands at its destination: the Downloaded tab
   // re-scans the library folder through these.
@@ -151,6 +153,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   void register(String fileName, String url, bool isVideo) {
     _cancelled.remove(fileName);
+    _paused.remove(fileName);
     final existing = List.of(state);
     existing.removeWhere((item) => item.fileName == fileName);
     existing.insert(
@@ -173,7 +176,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   void attachCancel(String fileName, void Function() abort) => _cancelHooks[fileName] = abort;
 
   void progress(String fileName, int receivedBytes, int? totalBytes, double speedBytesPerSec) {
-    if (_cancelled.contains(fileName)) return;
+    if (_cancelled.contains(fileName) || _paused.contains(fileName)) return;
     final index = _indexOf(fileName);
     if (index < 0) return;
 
@@ -201,10 +204,33 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   bool isCancelled(String fileName) => _cancelled.contains(fileName);
 
+  bool isPaused(String fileName) => _paused.contains(fileName);
+
+  /// Holds a running download: the transfer aborts, but the entry and its
+  /// partial bytes stay, so [requeue]-ing it later resumes with a Range request.
+  void pause(String fileName) {
+    final index = _indexOf(fileName);
+    if (index < 0) return;
+
+    _paused.add(fileName);
+    _cancelHooks.remove(fileName)?.call();
+
+    final updated = [
+      for (final item in state)
+        item.fileName == fileName
+            ? item.copyWith(status: DownloadStatus.paused, speedMbPerSec: 0)
+            : item
+    ];
+    update(updated, force: true);
+    DownloadsModel._pumpNotification(updated[index]);
+    _save(force: true);
+  }
+
   /// Hands the next turn to a waiting entry: it becomes the one running
   /// download (its partial bytes are kept for a resume).
   void startRunning(String fileName) {
     _cancelled.remove(fileName);
+    _paused.remove(fileName);
     final index = _indexOf(fileName);
     if (index < 0) return;
 
@@ -218,10 +244,11 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _save(force: true);
   }
 
-  /// Puts a failed entry back at the waiting line (retry goes through the same
-  /// one-at-a-time queue).
+  /// Puts a failed or paused entry back at the waiting line (a retry/resume
+  /// goes through the same one-at-a-time queue).
   void requeue(String fileName) {
     _cancelled.remove(fileName);
+    _paused.remove(fileName);
     final index = _indexOf(fileName);
     if (index < 0) return;
 
@@ -237,6 +264,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   void markDone(String fileName) {
     _cancelHooks.remove(fileName);
+    _paused.remove(fileName);
     final index = _indexOf(fileName);
     if (index < 0) return;
 
@@ -260,6 +288,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   /// screen can retry it, possibly resuming.
   void fail(String fileName, {String? error}) {
     _cancelHooks.remove(fileName);
+    _paused.remove(fileName);
     final index = _indexOf(fileName);
     if (index < 0) return;
 
@@ -276,6 +305,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   /// bytes go away entirely.
   void cancel(String fileName) {
     _cancelled.add(fileName);
+    _paused.remove(fileName);
     _cancelHooks.remove(fileName)?.call();
     _cancelHooks.remove(fileName);
     final updated = state.where((item) => item.fileName != fileName).toList();

@@ -642,5 +642,11 @@
   "setup_done_body": "ライブラリの準備ができました。フォルダやギャラリー表示は「ダウンロード」タブでいつでも変更できます。",
   "@setup_done_body": {},
   "setup_finish": "QuaXを開始",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "一時停止",
+  "@pause": {},
+  "resume": "再開",
+  "@resume": {},
+  "paused": "一時停止中",
+  "@paused": {}
 }

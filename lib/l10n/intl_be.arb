@@ -642,5 +642,11 @@
   "setup_done_body": "Ваша бібліятэка гатова. Папку або бачнасць у галерэі можна змяніць у любы час на ўкладцы «Спампоўкі».",
   "@setup_done_body": {},
   "setup_finish": "Увайсці ў QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Прыпыніць",
+  "@pause": {},
+  "resume": "Працягнуць",
+  "@resume": {},
+  "paused": "Прыпынена",
+  "@paused": {}
 }

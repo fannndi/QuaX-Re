@@ -642,5 +642,11 @@
   "setup_done_body": "Je mediatheek is klaar. Je kunt de map of galerijzichtbaarheid altijd aanpassen in het tabblad Downloads.",
   "@setup_done_body": {},
   "setup_finish": "QuaX openen",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pauzeren",
+  "@pause": {},
+  "resume": "Hervatten",
+  "@resume": {},
+  "paused": "Gepauzeerd",
+  "@paused": {}
 }

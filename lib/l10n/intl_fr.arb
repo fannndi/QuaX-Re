@@ -642,5 +642,11 @@
   "setup_done_body": "Votre médiathèque est prête. Modifiez le dossier ou sa visibilité dans la galerie à tout moment depuis l'onglet Téléchargements.",
   "@setup_done_body": {},
   "setup_finish": "Entrer dans QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Pause",
+  "@pause": {},
+  "resume": "Reprendre",
+  "@resume": {},
+  "paused": "En pause",
+  "@paused": {}
 }

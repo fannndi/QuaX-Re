@@ -642,5 +642,11 @@
   "setup_done_body": "Twoja biblioteka jest gotowa. Folder i widoczność w galerii zmienisz w dowolnej chwili w zakładce Pobrane.",
   "@setup_done_body": {},
   "setup_finish": "Wejdź do QuaX",
-  "@setup_finish": {}
+  "@setup_finish": {},
+  "pause": "Wstrzymaj",
+  "@pause": {},
+  "resume": "Wznów",
+  "@resume": {},
+  "paused": "Wstrzymane",
+  "@paused": {}
 }
