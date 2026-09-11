@@ -612,5 +612,15 @@
   "download_failed": "Tải xuống thất bại",
   "@download_failed": {},
   "download_interrupted": "Tải xuống bị gián đoạn — thử lại để tiếp tục",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Thư viện",
+  "@gallery": {},
+  "queue": "Hàng đợi",
+  "@queue": {},
+  "likes": "Thích",
+  "@likes": {},
+  "local": "Cục bộ",
+  "@local": {},
+  "profile": "Hồ sơ",
+  "@profile": {}
 }

@@ -612,5 +612,15 @@
   "download_failed": "فشل التنزيل",
   "@download_failed": {},
   "download_interrupted": "توقف التنزيل — أعد المحاولة للاستئناف",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "المعرض",
+  "@gallery": {},
+  "queue": "قائمة الانتظار",
+  "@queue": {},
+  "likes": "الإعجابات",
+  "@likes": {},
+  "local": "محلي",
+  "@local": {},
+  "profile": "الملف الشخصي",
+  "@profile": {}
 }

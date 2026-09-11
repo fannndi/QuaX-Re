@@ -612,5 +612,15 @@
   "download_failed": "Falha na transferência",
   "@download_failed": {},
   "download_interrupted": "Transferência interrompida — tente de novo para retomar",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galeria",
+  "@gallery": {},
+  "queue": "Fila",
+  "@queue": {},
+  "likes": "Gostos",
+  "@likes": {},
+  "local": "Locais",
+  "@local": {},
+  "profile": "Perfil",
+  "@profile": {}
 }

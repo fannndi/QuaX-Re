@@ -8,7 +8,6 @@ const optionWizardCompleted = 'option.wizard_completed';
 const optionDisableScreenshots = 'disable_screenshots';
 const optionHelloLastBuild = 'hello.last_build';
 
-const optionHomePages = 'home.pages';
 const optionHomeInitialTab = 'home.initial_tab';
 const optionHomeDefaultFeedTab = 'home.default_feed_tab';
 
@@ -24,11 +23,6 @@ const optionMediaBackgroundPlayback = 'media.allow_background_play';
 const optionMediaAllowBackgroundPlayOtherApps = 'media.allow_background_play.other_apps';
 const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
 
-const optionDownloadType = 'download.type';
-const optionDownloadPath = 'download.path';
-const optionDownloadTypeDirectory = 'directory';
-const optionDownloadTypeAsk = 'ask';
-const optionDownloadTypeLibrary = 'library';
 
 // Hentoid-style hidden library: a picked folder (visible in file managers)
 // holding downloaded media with a .nomedia marker so gallery apps ignore it.
@@ -108,8 +102,7 @@ const routeProfile = '/profile';
 const routeSearch = '/search';
 const routeSavedFolders = '/saved/folders';
 const routeSettings = '/settings';
-const routeSettingsExport = '/settings/export';
-const routeSettingsHome = '/settings/home';
 const routeStatus = '/status';
 
 const discordInviteUrl = 'https://discord.gg/K7UHuywPWD';
+

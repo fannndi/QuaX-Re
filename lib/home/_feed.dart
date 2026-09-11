@@ -115,6 +115,13 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
                 arguments: SearchArguments(0, focusInputOnOpen: true),
               ),
             ),
+            // Settings moved out of the navbar: the gear in the home app bar
+            // is the only door to it.
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: L10n.of(context).settings,
+              onPressed: () => Navigator.pushNamed(context, routeSettings),
+            ),
           ],
         );
       },

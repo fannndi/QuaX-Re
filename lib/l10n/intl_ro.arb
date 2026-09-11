@@ -612,5 +612,15 @@
   "download_failed": "Descărcarea a eșuat",
   "@download_failed": {},
   "download_interrupted": "Descărcare întreruptă — reîncercați pentru a relua",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galerie",
+  "@gallery": {},
+  "queue": "Coadă",
+  "@queue": {},
+  "likes": "Aprecieri",
+  "@likes": {},
+  "local": "Locale",
+  "@local": {},
+  "profile": "Profil",
+  "@profile": {}
 }

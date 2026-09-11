@@ -612,5 +612,15 @@
   "download_failed": "下载失败",
   "@download_failed": {},
   "download_interrupted": "下载已中断 — 重试以继续",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "媒体库",
+  "@gallery": {},
+  "queue": "队列",
+  "@queue": {},
+  "likes": "喜欢",
+  "@likes": {},
+  "local": "本地",
+  "@local": {},
+  "profile": "个人资料",
+  "@profile": {}
 }

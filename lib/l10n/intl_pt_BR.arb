@@ -612,5 +612,15 @@
   "download_failed": "Falha no download",
   "@download_failed": {},
   "download_interrupted": "Download interrompido — tente de novo para continuar",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galeria",
+  "@gallery": {},
+  "queue": "Fila",
+  "@queue": {},
+  "likes": "Curtidas",
+  "@likes": {},
+  "local": "Locais",
+  "@local": {},
+  "profile": "Perfil",
+  "@profile": {}
 }

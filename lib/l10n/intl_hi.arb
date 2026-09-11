@@ -612,5 +612,15 @@
   "download_failed": "डाउनलोड विफल रहा",
   "@download_failed": {},
   "download_interrupted": "डाउनलोड बाधित — जारी रखने के लिए फिर से कोशिश करें",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "गैलरी",
+  "@gallery": {},
+  "queue": "कतार",
+  "@queue": {},
+  "likes": "पसंद",
+  "@likes": {},
+  "local": "स्थानीय",
+  "@local": {},
+  "profile": "प्रोफ़ाइल",
+  "@profile": {}
 }

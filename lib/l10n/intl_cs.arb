@@ -612,5 +612,15 @@
   "download_failed": "Stahování se nezdařilo",
   "@download_failed": {},
   "download_interrupted": "Stahování přerušeno — zkuste to znovu pro pokračování",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galerie",
+  "@gallery": {},
+  "queue": "Fronta",
+  "@queue": {},
+  "likes": "To se mi líbí",
+  "@likes": {},
+  "local": "Místní",
+  "@local": {},
+  "profile": "Profil",
+  "@profile": {}
 }

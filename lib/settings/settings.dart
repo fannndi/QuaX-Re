@@ -2,16 +2,16 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/settings/_about.dart';
-import 'package:quax/settings/_accessibility.dart';
 import 'package:quax/settings/_account.dart';
-import 'package:quax/settings/_data.dart';
 import 'package:quax/settings/_general.dart';
-import 'package:quax/settings/_home.dart';
 import 'package:quax/settings/_media.dart';
-import 'package:quax/settings/_posts.dart';
 import 'package:quax/settings/_theme.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+/// The fork's settings: the few things worth a screen — language/general,
+/// accounts, downloads & media, theme — plus the about box. Home-page
+/// customisation, accessibility, post appearance and data export were dropped
+/// to keep the app three tabs wide and simple.
 class SettingsScreen extends StatefulWidget {
   final String? initialPage;
 
@@ -51,7 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: Text(L10n.of(context).general),
             leading: Icon(Icons.miscellaneous_services),
             subtitle: Text(
-              "${L10n.of(context).language}, ${L10n.of(context).should_check_for_updates_label}, ${L10n.of(context).disable_screenshots}, ${L10n.of(context).default_tab}, ${L10n.of(context).share_base_url}",
+              L10n.of(context).language,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontStyle: FontStyle.italic),
@@ -59,34 +59,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const SettingsGeneralFragment()),
-            ),
-          ),
-          ListTile(
-            title: Text(L10n.of(context).tweets),
-            leading: Icon(Icons.article),
-            subtitle: Text(
-              "${L10n.of(context).use_absolute_timestamp}, ${L10n.of(context).hide_sensitive_tweets}, ${L10n.of(context).always_show_full_tweet_contents}, ${L10n.of(context).activate_non_confirmation_bias_mode_label}",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsPostsFragment()),
-            ),
-          ),
-          ListTile(
-            title: Text(L10n.of(context).media),
-            leading: Icon(Icons.perm_media),
-            subtitle: Text(
-              "${L10n.of(context).image_quality}, ${L10n.of(context).video_quality}, ${L10n.of(context).mute_videos}, ${L10n.of(context).download_handling}",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsMediaFragment()),
             ),
           ),
           ListTile(
@@ -107,17 +79,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           ListTile(
-            title: Text(L10n.of(context).home),
-            leading: Icon(Icons.home),
+            title: Text(L10n.of(context).media),
+            leading: Icon(Icons.perm_media),
             subtitle: Text(
-              "${L10n.of(context).reset_home_pages}, ${L10n.of(context).home}",
+              "${L10n.of(context).image_quality}, ${L10n.of(context).video_quality}, ${L10n.of(context).mute_videos}, ${L10n.of(context).library}",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontStyle: FontStyle.italic),
             ),
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const SettingsHomeFragment()),
+              MaterialPageRoute(builder: (context) => const SettingsMediaFragment()),
             ),
           ),
           ListTile(
@@ -134,31 +106,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               MaterialPageRoute(builder: (context) => const SettingsThemeFragment()),
             ),
           ),
-          ListTile(
-            title: Text(L10n.of(context).accessibility),
-            leading: Icon(Icons.settings_accessibility),
-            subtitle: Text(
-              "${L10n.of(context).text_scale_factor}, ${L10n.of(context).disable_animations}",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsAccessibilityFragment()),
-            ),
-          ),
-          Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              child: Column(children: [
-                ListTile(
-                  title: Text(
-                    L10n.of(context).data,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                SettingsDataFragment()
-              ])),
           const SizedBox(
             height: 8.0,
           ),

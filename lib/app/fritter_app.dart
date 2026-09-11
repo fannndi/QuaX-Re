@@ -13,9 +13,7 @@ import 'package:quax/group/group_screen.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/saved_folders_screen.dart';
 import 'package:quax/search/search.dart';
-import 'package:quax/settings/_home.dart';
 import 'package:quax/settings/settings.dart';
-import 'package:quax/settings/settings_export_screen.dart';
 import 'package:quax/status.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:logging/logging.dart';
@@ -217,8 +215,6 @@ class _FritterAppState extends State<FritterApp> {
                     routeSearch: (context) => const ResultsScreen(),
                     routeSavedFolders: (context) => const SavedFoldersScreen(),
                     routeSettings: (context) => const SettingsScreen(),
-                    routeSettingsExport: (context) => const SettingsExportScreen(),
-                    routeSettingsHome: (context) => const SettingsHomeFragment(),
                     routeStatus: (context) => const StatusScreen(),
                   },
                   builder: (context, child) {
@@ -268,3 +264,4 @@ class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
     return child;
   }
 }
+

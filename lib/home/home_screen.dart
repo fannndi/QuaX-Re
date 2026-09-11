@@ -1,21 +1,10 @@
-import 'dart:math';
-
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_triple/flutter_triple.dart';
 import 'package:pref/pref.dart';
-import 'package:provider/provider.dart';
 import 'package:quax/constants.dart';
-import 'package:quax/generated/l10n.dart';
-import 'package:quax/group/group_screen.dart';
-import 'package:quax/home/_feed.dart';
-import 'package:quax/home/_missing.dart';
-import 'package:quax/home/_notifs.dart';
-import 'package:quax/home/_saved.dart';
-import 'package:quax/home/home_model.dart';
 import 'package:quax/downloads/downloads_screen.dart';
-import 'package:quax/settings/settings.dart';
-import 'package:quax/subscriptions/subscriptions.dart';
-import 'package:quax/ui/errors.dart';
+import 'package:quax/generated/l10n.dart';
+import 'package:quax/home/_feed.dart';
+import 'package:quax/likes/likes_screen.dart';
 
 typedef NavigationTitleBuilder = String Function(BuildContext context);
 
@@ -28,16 +17,15 @@ class NavigationPage {
   NavigationPage(this.id, this.titleBuilder, this.icon, this.selectedIcon);
 }
 
+/// The fork's whole navigation: Home (For You / Following), Download (queue /
+/// gallery) and Like (local likes / the profile's liked posts). Settings and
+/// search live in the screen app bars — the app stays three tabs wide.
 final List<NavigationPage> defaultHomePages = [
   NavigationPage('feed', (c) => L10n.of(c).home, const Icon(Icons.home_outlined), const Icon(Icons.home)),
-  NavigationPage(
-      'notifs', (c) => L10n.of(c).notifications, const Icon(Icons.notifications_none_outlined), const Icon(Icons.notifications)),
-  NavigationPage(
-      'saved', (c) => L10n.of(c).saved, const Icon(Icons.bookmark_border_outlined), const Icon(Icons.bookmark)),
   NavigationPage('downloads', (c) => L10n.of(c).downloads,
       const Icon(Icons.download_outlined), const Icon(Icons.download)),
-  NavigationPage(
-      'settings', (c) => L10n.of(c).settings, const Icon(Icons.settings_outlined), const Icon(Icons.settings)),
+  NavigationPage('likes', (c) => L10n.of(c).likes,
+      const Icon(Icons.favorite_border_outlined), const Icon(Icons.favorite)),
 ];
 
 class HomeScreen extends StatelessWidget {
@@ -45,104 +33,50 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var prefs = PrefService.of(context);
-    var model = context.read<HomeModel>();
-
-    return _HomeScreen(prefs: prefs, model: model);
+    return _HomeScreen(prefs: PrefService.of(context));
   }
 }
 
 class _HomeScreen extends StatefulWidget {
   final BasePrefService prefs;
-  final HomeModel model;
 
-  const _HomeScreen({required this.prefs, required this.model});
+  const _HomeScreen({required this.prefs});
 
   @override
   State<_HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<_HomeScreen> {
-  int _initialPage = 0;
-  List<NavigationPage> _pages = [];
+  late final int _initialPage = _resolveInitialPage();
 
-  @override
-  void initState() {
-    super.initState();
-
-    _buildPages(widget.model.state);
-    widget.model.observer(onState: _buildPages);
+  int _resolveInitialPage() {
+    final stored = widget.prefs.get<String>(optionHomeInitialTab);
+    final index = defaultHomePages.indexWhere((page) => page.id == stored);
+    return index < 0 ? 0 : index;
   }
-
-  void _buildPages(List<HomePage> state) {
-    var pages = state.where((element) => element.selected).map((e) => e.page).toList();
-
-    if (widget.prefs.getKeys().contains(optionHomeInitialTab)) {
-      _initialPage = max(0, pages.indexWhere((element) => element.id == widget.prefs.get(optionHomeInitialTab)));
-    }
-
-    setState(() {
-      _pages = pages;
-    });
-  }
-
-  final trendsFocusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
-    return ScopedBuilder<HomeModel, List<HomePage>>.transition(
-      store: widget.model,
-      onError: (_, e) => ScaffoldErrorWidget(
-        prefix: L10n.current.unable_to_load_home_pages,
-        error: e,
-        stackTrace: null,
-        onRetry: () async => await widget.model.resetPages(),
-        retryText: L10n.current.reset_home_pages,
-      ),
-      onLoading: (_) => const Center(child: CircularProgressIndicator()),
-      onState: (_, state) {
-        return ScaffoldWithBottomNavigation(
-          pages: _pages,
-          prefs: widget.prefs,
-          initialPage: _initialPage,
-          builder: (scrollControllers) {
-            return List.generate(_pages.length, (index) {
-              final page = _pages[index];
-              if (page.id.startsWith('group-')) {
-                return SubscriptionGroupScreen(
-                  scrollController: scrollControllers[index]!,
-                  id: page.id.replaceAll('group-', ''),
-                  name: '',
-                );
-              }
-              switch (page.id) {
-                case 'feed':
-                  return FeedScreen(
-                    scrollController: scrollControllers[index]!,
-                    id: '-1',
-                  );
-                case 'notifs':
-                  return NotifsScreen(
-                    scrollController: scrollControllers[index]!,
-                  );
-                case 'subscriptions':
-                  return SubscriptionsScreen(
-                    scrollController: scrollControllers[index]!,
-                  );
-                case 'saved':
-                  return SavedScreen(
-                    scrollController: scrollControllers[index]!,
-                  );
-                case 'downloads':
-                  return DownloadsScreen(prefs: widget.prefs);
-                case 'settings':
-                  return const SettingsScreen();
-                default:
-                  return const MissingScreen();
-              }
-            });
-          },
-        );
+    return ScaffoldWithBottomNavigation(
+      pages: defaultHomePages,
+      prefs: widget.prefs,
+      initialPage: _initialPage,
+      builder: (scrollControllers) {
+        return List.generate(defaultHomePages.length, (index) {
+          switch (defaultHomePages[index].id) {
+            case 'feed':
+              return FeedScreen(
+                scrollController: scrollControllers[index]!,
+                id: '-1',
+              );
+            case 'downloads':
+              return DownloadsTab(prefs: widget.prefs, scrollController: scrollControllers[index]!);
+            case 'likes':
+              return LikesScreen(scrollController: scrollControllers[index]!);
+            default:
+              return const SizedBox.shrink();
+          }
+        });
       },
     );
   }

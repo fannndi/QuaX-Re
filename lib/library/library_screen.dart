@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
@@ -13,19 +12,14 @@ import 'package:quax/library/library_viewer.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:share_plus/share_plus.dart';
 
-const MethodChannel _storageChannel = MethodChannel('browser_resolver');
-
-/// Browses the hidden downloaded-media library. Without a configured folder it
-/// offers the one-time setup (the Hentoid-style folder + .nomedia flow); with
-/// one, it shows the media grid and the TikTok-style vertical viewer.
-///
-/// `embedInSaved: true` renders only the media grid (no app bar) so the Saved
-/// screen can host it as its Downloaded tab with the shared scroll controller.
+/// Browses the hidden downloaded-media library — the Download tab's gallery.
+/// Without a configured folder it offers the one-time setup (the Hentoid-style
+/// folder + .nomedia flow); with one, it shows the media grid and the
+/// TikTok-style vertical viewer.
 class LibraryScreen extends StatefulWidget {
   final BasePrefService prefs;
-  final bool embedInSaved;
 
-  const LibraryScreen({super.key, required this.prefs, this.embedInSaved = false});
+  const LibraryScreen({super.key, required this.prefs});
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -123,21 +117,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         retryText: L10n.current.retry,
       ),
       onLoading: (_) => const Center(child: CircularProgressIndicator()),
-      onState: (_, entries) {
-        if (!widget.embedInSaved) {
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(L10n.of(context).library),
-              actions: [
-                IconButton(icon: const Icon(Icons.refresh), onPressed: _configureOrLoad),
-              ],
-            ),
-            body: _buildBody(context, entries),
-          );
-        }
-
-        return _buildBody(context, entries);
-      },
+      onState: (_, entries) => _buildBody(context, entries),
     );
   }
 
@@ -150,94 +130,87 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
 
     final theme = Theme.of(context);
-    final body = entries.isEmpty && !widget.embedInSaved
-        ? (widget.embedInSaved ? const SizedBox.shrink() : Center(child: Text(L10n.of(context).library_is_empty)))
-        : Stack(
-            children: [
-              GridView.builder(
-                padding: const EdgeInsets.only(bottom: 8),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
-                itemCount: entries.length,
-                itemBuilder: (context, index) {
-                  final entry = entries[index];
-                  return GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => LibraryViewer(model: _model, initialIndex: index))),
-                    onLongPress: () => _showEntryMenu(context, entry),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (entry.isVideo)
-                          FutureBuilder<String?>(
-                            future: _model.thumbnailFor(entry),
-                            builder: (context, snapshot) {
-                              final thumbPath = snapshot.data;
-                              if (thumbPath == null) {
-                                return Container(
-                                    color: theme.colorScheme.surfaceContainerHighest,
-                                    child: const Center(child: Icon(Icons.play_circle_outline)));
-                              }
-                              return ExtendedImage.file(
-                                File(thumbPath),
-                                fit: BoxFit.cover,
-                                loadStateChanged: (state) {
-                                  if (state.extendedImageLoadState == LoadState.failed) {
-                                    return const Center(child: Icon(Icons.play_circle_outline));
-                                  }
-                                  return null;
-                                },
-                              );
-                            },
-                          )
-                        else
-                          ExtendedImage.file(
-                            entry.file,
-                            fit: BoxFit.cover,
-                            loadStateChanged: (state) {
-                              if (state.extendedImageLoadState == LoadState.failed) {
-                                return const Icon(Icons.broken_image_outlined);
-                              }
-                              return null;
-                            },
-                          ),
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            color: Colors.black38,
-                            padding: const EdgeInsets.all(4),
-                            child: Text(entry.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(color: Colors.white)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              if (widget.embedInSaved)
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton.extended(
-                    onPressed: _importExisting,
-                    icon: const Icon(Icons.folder_copy_outlined),
-                    label: Text(L10n.of(context).library_import_existing),
-                  ),
-                ),
-            ],
-          );
+    if (entries.isEmpty) {
+      return Center(child: Text(L10n.of(context).library_is_empty));
+    }
 
-    // Inside the Saved screen the scroll goes through the page controller.
-    return widget.embedInSaved
-        ? SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: SizedBox(height: MediaQuery.of(context).size.height, child: body),
-          )
-        : body;
+    return Stack(
+      children: [
+        GridView.builder(
+          padding: const EdgeInsets.only(bottom: 8),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+          itemCount: entries.length,
+          itemBuilder: (context, index) {
+            final entry = entries[index];
+            return GestureDetector(
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => LibraryViewer(model: _model, initialIndex: index))),
+              onLongPress: () => _showEntryMenu(context, entry),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (entry.isVideo)
+                    FutureBuilder<String?>(
+                      future: _model.thumbnailFor(entry),
+                      builder: (context, snapshot) {
+                        final thumbPath = snapshot.data;
+                        if (thumbPath == null) {
+                          return Container(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              child: const Center(child: Icon(Icons.play_circle_outline)));
+                        }
+                        return ExtendedImage.file(
+                          File(thumbPath),
+                          fit: BoxFit.cover,
+                          loadStateChanged: (state) {
+                            if (state.extendedImageLoadState == LoadState.failed) {
+                              return const Center(child: Icon(Icons.play_circle_outline));
+                            }
+                            return null;
+                          },
+                        );
+                      },
+                    )
+                  else
+                    ExtendedImage.file(
+                      entry.file,
+                      fit: BoxFit.cover,
+                      loadStateChanged: (state) {
+                        if (state.extendedImageLoadState == LoadState.failed) {
+                          return const Icon(Icons.broken_image_outlined);
+                        }
+                        return null;
+                      },
+                    ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      color: Colors.black38,
+                      padding: const EdgeInsets.all(4),
+                      child: Text(entry.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            onPressed: _importExisting,
+            icon: const Icon(Icons.folder_copy_outlined),
+            label: Text(L10n.of(context).library_import_existing),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _importExisting() async {
@@ -322,4 +295,5 @@ class _SetupView extends StatelessWidget {
     );
   }
 }
+
 

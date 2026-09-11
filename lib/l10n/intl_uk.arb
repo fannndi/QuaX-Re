@@ -612,5 +612,15 @@
   "download_failed": "Не вдалося завантажити",
   "@download_failed": {},
   "download_interrupted": "Завантаження перервано — повторіть, щоб продовжити",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Галерея",
+  "@gallery": {},
+  "queue": "Черга",
+  "@queue": {},
+  "likes": "Вподобання",
+  "@likes": {},
+  "local": "Локальні",
+  "@local": {},
+  "profile": "Профіль",
+  "@profile": {}
 }

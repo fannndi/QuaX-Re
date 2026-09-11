@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/home/_saved.dart';
+import 'package:quax/likes/likes_screen.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/saved_tweet_model.dart';
 import 'package:quax/ui/errors.dart';

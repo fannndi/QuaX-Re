@@ -612,5 +612,15 @@
   "download_failed": "Download mislukt",
   "@download_failed": {},
   "download_interrupted": "Download onderbroken — probeer opnieuw om te hervatten",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galerij",
+  "@gallery": {},
+  "queue": "Wachtrij",
+  "@queue": {},
+  "likes": "Likes",
+  "@likes": {},
+  "local": "Lokaal",
+  "@local": {},
+  "profile": "Profiel",
+  "@profile": {}
 }

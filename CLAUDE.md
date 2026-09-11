@@ -121,11 +121,15 @@ When writing tests:
   `lib/client/client.dart`). Its queryId is community-tracked (fa0311/twitter-openapi): on 404s
   update that constant, or record a real response with `tool/record/` (open x.com/home and switch
   to the Following tab while recording).
-- The bottom navigation is Home / Notifications / Saved / Downloads / Settings. The Trending page,
-  the Discord startup popup and the subscriptions home page are dropped; search lives in the
-  feed's app bar.
-- Downloads stream under an Android progress notification into the hidden library (`.nomedia`),
-  browsable in Saved > Downloaded with a TikTok-style viewer.
+- The bottom navigation is Home (For You / Following) / Download (queue / gallery) / Like (local likes /
+  the profile's likes) — three tabs, with Settings behind the gear in the home app bar. The
+  Notifications tab, the Trending page, the Discord startup popup and the subscriptions home page
+  are dropped; search lives in the feed's app bar.
+- Downloads stream under an Android progress notification into the hidden library (`.nomedia`) —
+  the single download destination; the gallery in the Download tab plays them with a TikTok-style
+  viewer. The queue is persisted (`downloads.json`) with failure/retry + HTTP Range resume.
+- Video thumbnails come from `videoThumbnail` in `MainActivity.kt` (MediaMetadataRetriever, cached
+  in the app cache `thumbs/`); the cache dir is created on both sides.
 - The update checker defaults to off: upstream releases would overwrite these fork changes.
 - When (re)installing builds on the connected device, keep app data: use
   `adb install -r build/app/outputs/flutter-apk/app-debug.apk` (or `x -s <serial> install -r`),

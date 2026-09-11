@@ -612,5 +612,15 @@
   "download_failed": "다운로드 실패",
   "@download_failed": {},
   "download_interrupted": "다운로드가 중단됨 — 다시 시도하면 이어집니다",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "갤러리",
+  "@gallery": {},
+  "queue": "대기열",
+  "@queue": {},
+  "likes": "좋아요",
+  "@likes": {},
+  "local": "로컬",
+  "@local": {},
+  "profile": "프로필",
+  "@profile": {}
 }

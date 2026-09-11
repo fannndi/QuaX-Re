@@ -612,5 +612,15 @@
   "download_failed": "İndirme başarısız",
   "@download_failed": {},
   "download_interrupted": "İndirme kesildi — devam etmek için yeniden dene",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galeri",
+  "@gallery": {},
+  "queue": "Kuyruk",
+  "@queue": {},
+  "likes": "Beğeniler",
+  "@likes": {},
+  "local": "Yerel",
+  "@local": {},
+  "profile": "Profil",
+  "@profile": {}
 }

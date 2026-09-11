@@ -612,5 +612,15 @@
   "download_failed": "Unduhan gagal",
   "@download_failed": {},
   "download_interrupted": "Unduhan terputus — coba lagi untuk melanjutkan",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galeri",
+  "@gallery": {},
+  "queue": "Antrian",
+  "@queue": {},
+  "likes": "Like",
+  "@likes": {},
+  "local": "Lokal",
+  "@local": {},
+  "profile": "Profil",
+  "@profile": {}
 }

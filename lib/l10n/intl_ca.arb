@@ -612,5 +612,15 @@
   "download_failed": "La descàrrega ha fallat",
   "@download_failed": {},
   "download_interrupted": "Descàrrega interrompuda — torna a provar per reprendre",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galeria",
+  "@gallery": {},
+  "queue": "Cua",
+  "@queue": {},
+  "likes": "M'agrada",
+  "@likes": {},
+  "local": "Locals",
+  "@local": {},
+  "profile": "Perfil",
+  "@profile": {}
 }

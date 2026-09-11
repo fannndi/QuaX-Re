@@ -612,5 +612,15 @@
   "download_failed": "Download failed",
   "@download_failed": {},
   "download_interrupted": "Download interrupted — retry to resume",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Gallery",
+  "@gallery": {},
+  "queue": "Queue",
+  "@queue": {},
+  "likes": "Likes",
+  "@likes": {},
+  "local": "Local",
+  "@local": {},
+  "profile": "Profile",
+  "@profile": {}
 }

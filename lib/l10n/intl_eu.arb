@@ -612,5 +612,15 @@
   "download_failed": "Deskargak huts egin du",
   "@download_failed": {},
   "download_interrupted": "Deskarga eten egin da — saiatu berriro jarraitzeko",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galeria",
+  "@gallery": {},
+  "queue": "Ilara",
+  "@queue": {},
+  "likes": "Atsegin dut",
+  "@likes": {},
+  "local": "Lokalak",
+  "@local": {},
+  "profile": "Profila",
+  "@profile": {}
 }

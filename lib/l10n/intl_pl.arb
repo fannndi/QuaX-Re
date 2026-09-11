@@ -612,5 +612,15 @@
   "download_failed": "Pobieranie nie powiodło się",
   "@download_failed": {},
   "download_interrupted": "Pobieranie przerwane — spróbuj ponownie, aby wznowić",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galeria",
+  "@gallery": {},
+  "queue": "Kolejka",
+  "@queue": {},
+  "likes": "Polubienia",
+  "@likes": {},
+  "local": "Lokalne",
+  "@local": {},
+  "profile": "Profil",
+  "@profile": {}
 }

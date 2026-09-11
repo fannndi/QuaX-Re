@@ -612,5 +612,15 @@
   "download_failed": "Download fehlgeschlagen",
   "@download_failed": {},
   "download_interrupted": "Download unterbrochen – zum Fortsetzen erneut versuchen",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galerie",
+  "@gallery": {},
+  "queue": "Warteschlange",
+  "@queue": {},
+  "likes": "Likes",
+  "@likes": {},
+  "local": "Lokal",
+  "@local": {},
+  "profile": "Profil",
+  "@profile": {}
 }

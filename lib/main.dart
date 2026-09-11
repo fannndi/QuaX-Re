@@ -15,7 +15,6 @@ import 'package:quax/group/feed_session_cache.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/home/_feed.dart';
-import 'package:quax/home/home_model.dart';
 import 'package:quax/import_data_model.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
@@ -49,9 +48,6 @@ Future<void> main() async {
     optionDisableAnimations: false,
     optionTextScaleFactor: 1.0,
     optionDisableScreenshots: false,
-    optionDownloadPath: '',
-    optionDownloadType: optionDownloadTypeAsk,
-    optionHomePages: ['feed', 'notifs', 'saved', 'downloads', 'settings'],
     optionLocale: optionLocaleDefault,
     optionHomeInitialTab: 'feed',
     optionHomeDefaultFeedTab: feedTabs[0].id.name,
@@ -113,9 +109,6 @@ Future<void> main() async {
     var groupsModel = GroupsModel(prefService);
     await groupsModel.reloadGroups();
 
-    var homeModel = HomeModel(prefService, groupsModel);
-    await homeModel.loadPages();
-
     var subscriptionsModel = SubscriptionsModel(prefService, groupsModel);
     await subscriptionsModel.reloadSubscriptions();
 
@@ -139,7 +132,6 @@ Future<void> main() async {
             Provider(create: (context) => groupsModel),
             Provider(create: (context) => feedSessionCache),
             Provider(create: (context) => VideoControllerPool(maxSize: 2)),
-            Provider(create: (context) => homeModel),
             ChangeNotifierProvider(create: (context) => importDataModel),
             Provider(create: (context) => subscriptionsModel),
             Provider(create: (context) => SavedTweetModel()),

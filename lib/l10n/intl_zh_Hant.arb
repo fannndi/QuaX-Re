@@ -612,5 +612,15 @@
   "download_failed": "下載失敗",
   "@download_failed": {},
   "download_interrupted": "下載已中斷 — 重試以繼續",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "媒體庫",
+  "@gallery": {},
+  "queue": "佇列",
+  "@queue": {},
+  "likes": "喜歡",
+  "@likes": {},
+  "local": "本機",
+  "@local": {},
+  "profile": "個人資料",
+  "@profile": {}
 }

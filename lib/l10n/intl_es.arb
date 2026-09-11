@@ -612,5 +612,15 @@
   "download_failed": "Error al descargar",
   "@download_failed": {},
   "download_interrupted": "Descarga interrumpida: reintenta para continuar",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galería",
+  "@gallery": {},
+  "queue": "Cola",
+  "@queue": {},
+  "likes": "Me gusta",
+  "@likes": {},
+  "local": "Locales",
+  "@local": {},
+  "profile": "Perfil",
+  "@profile": {}
 }

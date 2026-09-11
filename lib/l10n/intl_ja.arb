@@ -612,5 +612,15 @@
   "download_failed": "ダウンロードに失敗しました",
   "@download_failed": {},
   "download_interrupted": "ダウンロードが中断されました — 再試行で再開",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "ギャラリー",
+  "@gallery": {},
+  "queue": "キュー",
+  "@queue": {},
+  "likes": "いいね",
+  "@likes": {},
+  "local": "ローカル",
+  "@local": {},
+  "profile": "プロフィール",
+  "@profile": {}
 }

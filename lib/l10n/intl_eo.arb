@@ -612,5 +612,15 @@
   "download_failed": "Elŝuto malsukcesis",
   "@download_failed": {},
   "download_interrupted": "Elŝuto interrompita — reprovu por daŭrigi",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galerio",
+  "@gallery": {},
+  "queue": "Vico",
+  "@queue": {},
+  "likes": "Ŝatoj",
+  "@likes": {},
+  "local": "Lokaj",
+  "@local": {},
+  "profile": "Profilo",
+  "@profile": {}
 }

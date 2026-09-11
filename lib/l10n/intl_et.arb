@@ -612,5 +612,15 @@
   "download_failed": "Allalaadimine ebaõnnestus",
   "@download_failed": {},
   "download_interrupted": "Allalaadimine katkes — jätkamiseks proovi uuesti",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Galerii",
+  "@gallery": {},
+  "queue": "Järjekord",
+  "@queue": {},
+  "likes": "Meeldimised",
+  "@likes": {},
+  "local": "Kohalikud",
+  "@local": {},
+  "profile": "Profiil",
+  "@profile": {}
 }

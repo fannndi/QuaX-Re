@@ -6,9 +6,14 @@ import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:pref/pref.dart';
 
-class SettingsMediaFragment extends StatelessWidget {
+class SettingsMediaFragment extends StatefulWidget {
   const SettingsMediaFragment({super.key});
 
+  @override
+  State<SettingsMediaFragment> createState() => _SettingsMediaFragmentState();
+}
+
+class _SettingsMediaFragmentState extends State<SettingsMediaFragment> {
   @override
   Widget build(BuildContext context) {
     var prefs = PrefService.of(context);
@@ -95,67 +100,8 @@ class SettingsMediaFragment extends StatelessWidget {
             title: Text(L10n.of(context).allow_background_play_other_apps),
             subtitle: Text(L10n.of(context).allow_background_play_other_apps_description),
           ),
-          DownloadTypeSetting(
-            prefs: prefs,
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-class DownloadTypeSetting extends StatefulWidget {
-  final BasePrefService prefs;
-
-  const DownloadTypeSetting({super.key, required this.prefs});
-
-  @override
-  DownloadTypeSettingState createState() => DownloadTypeSettingState();
-}
-
-class DownloadTypeSettingState extends State<DownloadTypeSetting> {
-  @override
-  Widget build(BuildContext context) {
-    var downloadPath = widget.prefs.get<String>(optionDownloadPath) ?? '';
-
-    return Column(
-      children: [
-        PrefDropdown(
-          onChange: (value) {
-            setState(() {});
-          },
-          fullWidth: false,
-          title: Text(L10n.current.download_handling),
-          subtitle: Text(L10n.current.download_handling_description),
-          pref: optionDownloadType,
-          items: [
-            DropdownMenuItem(value: optionDownloadTypeAsk, child: Text(L10n.current.download_handling_type_ask)),
-            DropdownMenuItem(
-                value: optionDownloadTypeDirectory, child: Text(L10n.current.download_handling_type_directory)),
-            DropdownMenuItem(
-                value: optionDownloadTypeLibrary, child: Text(L10n.current.download_handling_type_library)),
-          ],
-        ),
-        if (widget.prefs.get(optionDownloadType) == optionDownloadTypeDirectory)
-          PrefButton(
-            onTap: () async {
-              String? directoryPath = await FilePicker.getDirectoryPath();
-
-              if (directoryPath == null) {
-                return;
-              }
-              // TODO: Gross. Figure out how to re-render automatically when the preference changes
-              setState(() {
-                widget.prefs.set(optionDownloadPath, directoryPath);
-              });
-            },
-            title: Text(L10n.current.download_path),
-            subtitle: Text(
-              downloadPath.isEmpty ? L10n.current.not_set : downloadPath,
-            ),
-            child: Text(L10n.current.choose),
-          )
-        else if (widget.prefs.get(optionDownloadType) == optionDownloadTypeLibrary)
+          // The fork keeps a single download destination: the hidden library.
+          // Non-library handling (ask every time, or a fixed folder) is gone.
           PrefButton(
             onTap: () async {
               String? directoryPath = await FilePicker.getDirectoryPath();
@@ -164,17 +110,17 @@ class DownloadTypeSettingState extends State<DownloadTypeSetting> {
                 return;
               }
 
-              final ok =
-                  await LibraryModel(widget.prefs).setupLibraryAt(directoryPath);
-              if (ok && mounted) {
+              final ok = await LibraryModel(prefs).setupLibraryAt(directoryPath);
+              if (ok && context.mounted) {
                 setState(() {});
               }
             },
             title: Text(L10n.current.library),
-            subtitle: Text(widget.prefs.get<String>(optionLibraryPath) ?? L10n.current.not_set),
+            subtitle: Text(prefs.get<String>(optionLibraryPath) ?? L10n.current.not_set),
             child: Text(L10n.current.choose),
-          )
-      ],
+          ),
+        ]),
+      ),
     );
   }
 }

@@ -612,5 +612,15 @@
   "download_failed": "Спампоўка не ўдалася",
   "@download_failed": {},
   "download_interrupted": "Спампоўка перапынілася — паспрабуйце зноў, каб працягнуць",
-  "@download_interrupted": {}
+  "@download_interrupted": {},
+  "gallery": "Галерэя",
+  "@gallery": {},
+  "queue": "Чарга",
+  "@queue": {},
+  "likes": "Падабайкі",
+  "@likes": {},
+  "local": "Лакальныя",
+  "@local": {},
+  "profile": "Профіль",
+  "@profile": {}
 }
