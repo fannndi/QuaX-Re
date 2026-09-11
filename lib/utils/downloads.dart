@@ -67,8 +67,9 @@ Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileN
 /// The actual transfer, run when the entry reaches the head of the queue.
 /// Transient failures (stalls, dropped sockets, incomplete streams, 5xx) are
 /// retried up to [_maxAttempts] with a growing pause, resuming from the bytes
-/// already on disk.
-Future<void> _runDownload(BuildContext context, Uri uri, String fileName,
+/// already on disk. A null [context] means nobody is watching (an automatic
+/// resume): unchanged progress and errors just stay in the queue.
+Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
     {required BasePrefService prefs, bool resume = false}) async {
   final queue = DownloadsModel();
   // Cancelled (or removed) while waiting: its turn is skipped silently.
@@ -116,10 +117,21 @@ Future<void> _runDownload(BuildContext context, Uri uri, String fileName,
   } catch (e) {
     if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
     queue.fail(fileName, error: e.toString());
-    if (context.mounted) {
+    if (context != null && context.mounted) {
       showSnackBar(context, icon: '🙊', message: e.toString());
     }
   }
+}
+
+/// True when an automatic retry can plausibly succeed. 4xx (except 408), a
+/// full disk and stale interrupted markers are left to the manual Retry.
+bool isRetryableDownloadError(String? error) => _isRetryable(error);
+
+/// Re-queues a failed entry without any UI: the connectivity watcher uses it
+/// when the network comes back.
+void resumeDownload(DownloadQueueItem item, {required BasePrefService prefs}) {
+  DownloadsModel().requeue(item.fileName);
+  _enqueue(() => _runDownload(null, Uri.parse(item.url), item.fileName, prefs: prefs, resume: true));
 }
 
 /// Server-side/client-side errors worth another automatic try. 4xx (except
@@ -153,8 +165,8 @@ Future<void> _deleteTemp(String? tempPath) async {
   } catch (_) {}
 }
 
-void _showSuccess(BuildContext context, String savedPath) {
-  if (!context.mounted) return;
+void _showSuccess(BuildContext? context, String savedPath) {
+  if (context == null || !context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text('✅ ${L10n.of(context).successfully_saved_the_media}'),
@@ -193,8 +205,8 @@ Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
   }
 }
 
-void _showStatusError(BuildContext context, Object statusCode) {
-  if (!context.mounted) return;
+void _showStatusError(BuildContext? context, Object statusCode) {
+  if (context == null || !context.mounted) return;
   showSnackBar(
       context,
       icon: '🙊',
@@ -207,7 +219,7 @@ void _showStatusError(BuildContext context, Object statusCode) {
 /// without a configured folder the system save dialog keeps downloads usable.
 /// An existing file with the same name is never overwritten: the new copy gets
 /// a timestamp suffix.
-Future<String?> _saveToDestination(BuildContext context,
+Future<String?> _saveToDestination(BuildContext? context,
     {required String file, required String fileName, required BasePrefService prefs}) async {
   final libraryPath = prefs.get<String>(optionLibraryPath);
   if (libraryPath != null && libraryPath.isNotEmpty) {
@@ -224,6 +236,9 @@ Future<String?> _saveToDestination(BuildContext context,
       return savedFile;
     }
   }
+
+  // The system dialog needs a live screen; an automatic resume has none.
+  if (context == null || !context.mounted) return null;
 
   return FlutterFileDialog.saveFile(
     params: SaveFileDialogParams(sourceFilePath: file, fileName: fileName),
@@ -253,7 +268,7 @@ http.Request _rangeRequest(Uri uri, int offset) {
 /// usable while files download in the background. Cancels through the queue.
 /// Failed downloads keep their partial file so a retry can resume.
 /// Returns the temp path, or null when the download failed or was cancelled.
-Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
+Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     {bool resume = false, required String targetDir}) async {
   final tempDir = await getTemporaryDirectory();
   final tempPath = p.join(tempDir.path, 'quax-download-$fileName');

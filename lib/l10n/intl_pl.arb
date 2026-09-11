@@ -660,5 +660,9 @@
   "refresh": "Odśwież",
   "@refresh": {},
   "library_import_question": "W tym folderze są pliki multimedialne. Przenieść je do biblioteki?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Zaznacz wszystko",
+  "@select_all": {},
+  "delete_selected_media": "Usunąć zaznaczone multimedia?",
+  "@delete_selected_media": {}
 }

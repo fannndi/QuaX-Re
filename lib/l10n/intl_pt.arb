@@ -660,5 +660,9 @@
   "refresh": "Atualizar",
   "@refresh": {},
   "library_import_question": "Há ficheiros de media nesta pasta. Movê-los para a biblioteca?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Selecionar tudo",
+  "@select_all": {},
+  "delete_selected_media": "Eliminar os média selecionados?",
+  "@delete_selected_media": {}
 }

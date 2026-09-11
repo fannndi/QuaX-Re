@@ -660,5 +660,9 @@
   "refresh": "새로고침",
   "@refresh": {},
   "library_import_question": "이 폴더에 미디어 파일이 있습니다. 라이브러리로 옮길까요?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "모두 선택",
+  "@select_all": {},
+  "delete_selected_media": "선택한 미디어를 삭제할까요?",
+  "@delete_selected_media": {}
 }

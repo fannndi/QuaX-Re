@@ -660,5 +660,9 @@
   "refresh": "Eguneratu",
   "@refresh": {},
   "library_import_question": "Karpeta honetan multimedia fitxategiak daude. Liburutegira mugitu?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Hautatu guztiak",
+  "@select_all": {},
+  "delete_selected_media": "Ezabatu hautatutako multimedia?",
+  "@delete_selected_media": {}
 }

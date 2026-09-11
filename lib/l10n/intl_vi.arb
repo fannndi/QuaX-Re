@@ -660,5 +660,9 @@
   "refresh": "Làm mới",
   "@refresh": {},
   "library_import_question": "Có tệp media trong thư mục này. Chuyển vào thư viện?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Chọn tất cả",
+  "@select_all": {},
+  "delete_selected_media": "Xóa các mục đã chọn?",
+  "@delete_selected_media": {}
 }

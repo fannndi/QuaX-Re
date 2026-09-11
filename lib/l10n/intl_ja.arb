@@ -660,5 +660,9 @@
   "refresh": "更新",
   "@refresh": {},
   "library_import_question": "このフォルダにメディアファイルがあります。ライブラリに移動しますか？",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "すべて選択",
+  "@select_all": {},
+  "delete_selected_media": "選択したメディアを削除しますか？",
+  "@delete_selected_media": {}
 }

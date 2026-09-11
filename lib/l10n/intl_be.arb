@@ -660,5 +660,9 @@
   "refresh": "Абнавіць",
   "@refresh": {},
   "library_import_question": "У гэтай папцы ёсць медыяфайлы. Перамясціць іх у бібліятэку?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Выбраць усе",
+  "@select_all": {},
+  "delete_selected_media": "Выдаліць выбраныя медыяфайлы?",
+  "@delete_selected_media": {}
 }

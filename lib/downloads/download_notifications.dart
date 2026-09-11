@@ -1,54 +1,61 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
+import 'package:quax/downloads/connectivity_watcher.dart';
 import 'package:quax/downloads/downloads_model.dart';
+import 'package:quax/generated/l10n.dart';
 
-/// Hentoid-style progress on Android's notification bar: one ongoing
-/// notification that mirrors the newest running download (percent, moved size
-/// and speed) and is cleared as soon as the queue goes idle.
+/// The foreground-service notification: it keeps the app process alive while a
+/// transfer runs (downloads survive backgrounding) and offers Pause/Cancel
+/// actions whose taps come back through the same channel.
 class DownloadNotifications {
-  static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  static const _channel = MethodChannel('browser_resolver');
   static bool _ready = false;
   static int _lastNotifyAt = 0;
-
-  static const int _id = 4711;
-  static const String _channelId = 'downloads';
-  static const String _channelName = 'Downloads';
-  static const String _channelDescription = 'Media download progress.';
 
   static Future<void> ensure() async {
     if (_ready) return;
     _ready = true;
+    _channel.setMethodCallHandler(_onAction);
+
     try {
-      const settings = InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      );
-      await _plugin.initialize(settings: settings);
-      await _plugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
-    } catch (e) {
-      debugPrint('DownloadNotifications init failed: $e');
-      _ready = false;
+      await _channel.invokeMethod('requestNotificationsPermission');
+    } catch (_) {
+      // Notification permission is a nicety; transfers run regardless.
     }
   }
 
-  /// Mirrors a running download; throttled so the bar updates ~1×/s.
+  static Future<void> _onAction(MethodCall call) async {
+    if (call.method != 'onDownloadAction') return;
+
+    final args = call.arguments as Map?;
+    final fileName = args?['fileName'] as String?;
+    final action = args?['action'] as String?;
+    if (fileName == null || fileName.isEmpty) return;
+
+    final queue = DownloadsModel();
+    switch (action) {
+      case 'pause':
+        queue.pause(fileName);
+      case 'cancel':
+        queue.cancel(fileName);
+    }
+  }
+
+  /// Mirrors a running download; throttled so the bar updates ~1×/s. Any other
+  /// status is a hint the transfer ended: stop the service when nothing runs
+  /// and let the connectivity watcher look after failed entries.
   static Future<void> update(DownloadQueueItem item) async {
-    if (!_ready || item.status != DownloadStatus.running) return;
+    if (!_ready) return;
+
+    if (item.status != DownloadStatus.running) {
+      await _stopIfIdle();
+      ConnectivityWatcher().scheduleCheck();
+      return;
+    }
+
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastNotifyAt < 900) return;
     _lastNotifyAt = now;
-
-    final title = item.isVideo ? 'Downloading video…' : 'Downloading image…';
-    final body = '${item.receivedMb.toStringAsFixed(1)} MB'
-        '${item.totalMb == null ? '' : ' / ${item.totalMb!.toStringAsFixed(1)} MB'}'
-        '\u00b7 ${item.speedMbPerSec.toStringAsFixed(1)} MB/s';
-
-    final percent = (item.totalBytes == null || item.totalBytes == 0)
-        ? 0
-        : ((item.receivedBytes / item.totalBytes!) * 100).round().clamp(0, 100);
-
-    await _push(title, body, percent: percent);
+    await _push(item);
   }
 
   /// Final tick for a download: with an idle queue, drop the bar entirely.
@@ -61,44 +68,44 @@ class DownloadNotifications {
       await clear();
       return;
     }
-    await _push('Downloads', '${item.fileName} finished', percent: 100);
+    await _push(item);
   }
 
   /// The queue went idle (cancel, fail or finish): drop the bar.
   static Future<void> clear() async {
+    if (!_ready) return;
     try {
-      if (_ready) {
-        await _plugin.cancel(id: _id);
-      }
-    } catch (e) {
-      debugPrint('DownloadNotifications clear failed: $e');
+      await _channel.invokeMethod('stopDownloadNotification');
+    } catch (_) {
+      // The service was already stopped (or no binding in tests).
     }
   }
 
-  static Future<void> _push(String title, String body, {required int percent}) async {
+  static Future<void> _stopIfIdle() async {
+    final remaining = DownloadsModel().state.where((e) => e.status == DownloadStatus.running).length;
+    if (remaining == 0) await clear();
+  }
+
+  static Future<void> _push(DownloadQueueItem item) async {
+    final l10n = L10n.current;
+    final body = '${item.receivedMb.toStringAsFixed(1)} MB'
+        '${item.totalMb == null ? '' : ' / ${item.totalMb!.toStringAsFixed(1)} MB'}'
+        '\u00b7 ${item.speedMbPerSec.toStringAsFixed(1)} MB/s';
+    final percent = (item.totalBytes == null || item.totalBytes == 0)
+        ? 0
+        : ((item.receivedBytes / item.totalBytes!) * 100).round().clamp(0, 100);
+
     try {
-      await _plugin.show(
-        id: _id,
-        title: title,
-        body: body,
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
-            channelDescription: _channelDescription,
-            importance: Importance.defaultImportance,
-            priority: Priority.defaultPriority,
-            onlyAlertOnce: true,
-            ongoing: true,
-            showProgress: true,
-            maxProgress: 100,
-            progress: percent,
-            indeterminate: false,
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint('DownloadNotifications push failed: $e');
+      await _channel.invokeMethod('downloadNotification', {
+        'title': item.fileName,
+        'body': body,
+        'percent': percent,
+        'fileName': item.fileName,
+        'pauseLabel': l10n.pause,
+        'cancelLabel': l10n.cancel,
+      });
+    } catch (_) {
+      // The progress bar is best-effort; the transfer itself is unaffected.
     }
   }
 }

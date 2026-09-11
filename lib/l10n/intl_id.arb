@@ -660,5 +660,9 @@
   "refresh": "Muat ulang",
   "@refresh": {},
   "library_import_question": "Ada file media di folder ini. Pindahkan ke perpustakaan?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Pilih semua",
+  "@select_all": {},
+  "delete_selected_media": "Hapus media yang dipilih?",
+  "@delete_selected_media": {}
 }

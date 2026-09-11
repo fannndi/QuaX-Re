@@ -660,5 +660,9 @@
   "refresh": "تحديث",
   "@refresh": {},
   "library_import_question": "توجد ملفات وسائط في هذا المجلد. نقلها إلى المكتبة؟",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "تحديد الكل",
+  "@select_all": {},
+  "delete_selected_media": "حذف الوسائط المحددة؟",
+  "@delete_selected_media": {}
 }

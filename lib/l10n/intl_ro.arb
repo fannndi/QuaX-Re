@@ -660,5 +660,9 @@
   "refresh": "Reîmprospătează",
   "@refresh": {},
   "library_import_question": "Există fișiere media în acest folder. Le mutăm în mediatecă?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Selectează tot",
+  "@select_all": {},
+  "delete_selected_media": "Ștergi media selectată?",
+  "@delete_selected_media": {}
 }

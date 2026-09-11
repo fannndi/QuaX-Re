@@ -660,5 +660,9 @@
   "refresh": "Aggiorna",
   "@refresh": {},
   "library_import_question": "Ci sono file multimediali in questa cartella. Spostarli nella mediateca?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Seleziona tutto",
+  "@select_all": {},
+  "delete_selected_media": "Eliminare i file selezionati?",
+  "@delete_selected_media": {}
 }

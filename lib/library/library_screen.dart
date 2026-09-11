@@ -33,6 +33,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   DateTime _lastAutoRefresh = DateTime.fromMillisecondsSinceEpoch(0);
   String _query = '';
   _LibrarySort _sort = _LibrarySort.newest;
+  final Set<String> _selected = {};
+
+  bool get _selectionActive => _selected.isNotEmpty;
 
   @override
   void initState() {
@@ -136,7 +139,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     return Column(
       children: [
-        _buildToolbar(context),
+        _buildToolbar(context, visible),
         Expanded(
           child: entries.isEmpty
               ? Center(child: Text(L10n.of(context).library_is_empty))
@@ -168,7 +171,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return list;
   }
 
-  Widget _buildToolbar(BuildContext context) {
+  Widget _buildToolbar(BuildContext context, List<LibraryEntry> entries) {
+    if (_selectionActive) return _buildSelectionBar(context, entries);
+
     final l10n = L10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 4, 4),
@@ -216,6 +221,97 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  /// Replaces the toolbar while files are selected: count, select-all, share
+  /// and delete for the whole selection.
+  Widget _buildSelectionBar(BuildContext context, List<LibraryEntry> entries) {
+    final l10n = L10n.of(context);
+    final allSelected = entries.isNotEmpty && _selected.length == entries.length;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: l10n.close,
+            onPressed: () => setState(_selected.clear),
+          ),
+          Expanded(
+            child: Text('${_selected.length}', style: Theme.of(context).textTheme.titleMedium),
+          ),
+          IconButton(
+            icon: Icon(allSelected ? Icons.deselect : Icons.select_all),
+            tooltip: l10n.select_all,
+            onPressed: () => setState(() {
+              if (allSelected) {
+                _selected.clear();
+              } else {
+                _selected
+                  ..clear()
+                  ..addAll(entries.map((entry) => entry.file.path));
+              }
+            }),
+          ),
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: l10n.share,
+            onPressed: _shareSelected,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: l10n.delete,
+            onPressed: _deleteSelected,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleSelection(LibraryEntry entry) {
+    setState(() {
+      if (!_selected.remove(entry.file.path)) {
+        _selected.add(entry.file.path);
+      }
+    });
+  }
+
+  Future<void> _shareSelected() async {
+    final files = _selected.map((path) => XFile(path)).toList();
+    if (files.isEmpty) return;
+    await SharePlus.instance.share(ShareParams(files: files));
+  }
+
+  Future<void> _deleteSelected() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(L10n.of(dialogContext).are_you_sure),
+        content: Text(L10n.of(dialogContext).delete_selected_media),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(L10n.of(dialogContext).cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(L10n.of(dialogContext).delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    for (final path in _selected) {
+      try {
+        await File(path).delete();
+      } catch (_) {
+        // Already gone: the refresh below settles the list either way.
+      }
+    }
+    setState(_selected.clear);
+    await _model.refresh();
+  }
+
   Widget _buildGrid(BuildContext context, List<LibraryEntry> entries) {
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(12);
@@ -229,9 +325,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           itemCount: entries.length,
           itemBuilder: (context, index) {
             final entry = entries[index];
+            final selected = _selected.contains(entry.file.path);
             return GestureDetector(
-              onTap: () => _openEntry(entry),
-              onLongPress: () => _showEntryMenu(context, entry),
+              onTap: () => _selectionActive ? _toggleSelection(entry) : _openEntry(entry),
+              onLongPress: () => _toggleSelection(entry),
               child: ClipRRect(
                 borderRadius: radius,
                 child: Stack(
@@ -283,6 +380,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             style: theme.textTheme.labelSmall?.copyWith(color: Colors.white)),
                       ),
                     ),
+                    if (selected)
+                      Positioned.fill(
+                        child: ColoredBox(color: theme.colorScheme.primary.withValues(alpha: 0.35)),
+                      ),
+                    if (selected)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                      ),
                   ],
                 ),
               ),
@@ -313,46 +420,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final ok = await _model.importExisting();
     if (!mounted || !ok) return;
     await _model.refresh();
-  }
-
-  void _showEntryMenu(BuildContext context, LibraryEntry entry) {
-    showModalBottomSheet(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: Text(L10n.of(sheetContext).delete),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                try {
-                  await entry.file.delete();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(L10n.of(context).successfully_saved_the_media)));
-                  }
-                  await _model.refresh();
-                } catch (e) {
-                  if (context.mounted) {
-                    showSnackBar(context, icon: '🙊', message: e.toString());
-                  }
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: Text(L10n.of(sheetContext).share),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                SharePlus.instance.share(ShareParams(files: [XFile(entry.file.path)]));
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -391,6 +458,7 @@ class _SetupView extends StatelessWidget {
     );
   }
 }
+
 
 
 

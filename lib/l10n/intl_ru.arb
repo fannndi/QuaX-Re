@@ -660,5 +660,9 @@
   "refresh": "Обновить",
   "@refresh": {},
   "library_import_question": "В этой папке есть медиафайлы. Переместить их в медиатеку?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Выбрать все",
+  "@select_all": {},
+  "delete_selected_media": "Удалить выбранные файлы?",
+  "@delete_selected_media": {}
 }

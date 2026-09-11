@@ -15,6 +15,8 @@
     <uses-permission
 android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- io.flutter.app.FlutterApplication is an android.app.Application that
          calls FlutterMain.startInitialization(this); in its onCreate method.
          In most cases you can leave this as-is, but you if you want to provide
@@ -117,6 +119,13 @@ android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
             </intent-filter>
         </activity>
+        <!-- Keeps transfers alive while the app is backgrounded, with the
+             progress notification and its Pause/Cancel actions. -->
+        <service
+            android:name=".DownloadForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

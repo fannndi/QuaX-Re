@@ -660,5 +660,9 @@
   "refresh": "重新整理",
   "@refresh": {},
   "library_import_question": "此資料夾中有媒體檔案。要移入媒體庫嗎？",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "全選",
+  "@select_all": {},
+  "delete_selected_media": "刪除所選媒體？",
+  "@delete_selected_media": {}
 }

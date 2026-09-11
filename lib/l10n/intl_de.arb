@@ -660,5 +660,9 @@
   "refresh": "Aktualisieren",
   "@refresh": {},
   "library_import_question": "In diesem Ordner liegen Mediendateien. In die Mediathek verschieben?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Alle auswählen",
+  "@select_all": {},
+  "delete_selected_media": "Ausgewählte Medien löschen?",
+  "@delete_selected_media": {}
 }

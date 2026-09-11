@@ -660,5 +660,9 @@
   "refresh": "Abnavić",
   "@refresh": {},
   "library_import_question": "U hetaj papcy jość miedyjafajły. Pieramiascić ich u bibliateku?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Vybrać usie",
+  "@select_all": {},
+  "delete_selected_media": "Vydalić vybranyja miedyjafajły?",
+  "@delete_selected_media": {}
 }

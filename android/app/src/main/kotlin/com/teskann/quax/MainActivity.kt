@@ -21,6 +21,12 @@ import io.flutter.plugin.common.MethodChannel
 import androidx.core.content.FileProvider
 
 class MainActivity : FlutterActivity() {
+    companion object {
+        // The service reaches back to Dart through this when a notification
+        // action is tapped.
+        var channel: MethodChannel? = null
+    }
+
     private val CHANNEL = "browser_resolver"
     private val mediaExtensions = setOf(
         "mp4", "mov", "webm", "mkv", "m4v", "avi", "ts", "3gp", "mpeg", "mpg", "wmv", "flv", "m2ts", "ogv",
@@ -31,8 +37,31 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .also { channel = it }
             .setMethodCallHandler { call, result ->
-                if (call.method == "scanMediaFile") {
+                if (call.method == "downloadNotification") {
+                    val intent = Intent(this, DownloadForegroundService::class.java).apply {
+                        putExtra(DownloadForegroundService.EXTRA_TITLE, call.argument<String>("title"))
+                        putExtra(DownloadForegroundService.EXTRA_BODY, call.argument<String>("body"))
+                        putExtra(DownloadForegroundService.EXTRA_PERCENT, call.argument<Int>("percent") ?: 0)
+                        putExtra(DownloadForegroundService.EXTRA_FILE, call.argument<String>("fileName"))
+                        putExtra(DownloadForegroundService.EXTRA_PAUSE_LABEL, call.argument<String>("pauseLabel"))
+                        putExtra(DownloadForegroundService.EXTRA_CANCEL_LABEL, call.argument<String>("cancelLabel"))
+                    }
+                    DownloadForegroundService.start(this, intent)
+                    result.success(true)
+                } else if (call.method == "stopDownloadNotification") {
+                    DownloadForegroundService.stop(this)
+                    result.success(true)
+                } else if (call.method == "requestNotificationsPermission") {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+                        PackageManager.PERMISSION_GRANTED
+                    ) {
+                        requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 4711)
+                    }
+                    result.success(true)
+                } else if (call.method == "scanMediaFile") {
                     val path = call.argument<String>("path")
                     if (path != null) {
                         MediaScannerConnection.scanFile(context, arrayOf(path), null) { _, _ ->

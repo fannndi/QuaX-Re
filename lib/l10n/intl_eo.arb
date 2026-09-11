@@ -660,5 +660,9 @@
   "refresh": "Refreŝigi",
   "@refresh": {},
   "library_import_question": "Estas aŭdovidaj dosieroj en ĉi tiu dosierujo. Ĉu movi ilin al la biblioteko?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Elekti ĉiujn",
+  "@select_all": {},
+  "delete_selected_media": "Ĉu forigi la elektitajn dosierojn?",
+  "@delete_selected_media": {}
 }

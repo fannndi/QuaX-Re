@@ -660,5 +660,9 @@
   "refresh": "Actualiser",
   "@refresh": {},
   "library_import_question": "Ce dossier contient des médias. Les déplacer dans la médiathèque ?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Tout sélectionner",
+  "@select_all": {},
+  "delete_selected_media": "Supprimer les médias sélectionnés ?",
+  "@delete_selected_media": {}
 }

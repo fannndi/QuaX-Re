@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:quax/constants.dart';
 import 'package:quax/database/repository.dart';
+import 'package:quax/downloads/connectivity_watcher.dart';
 import 'package:quax/downloads/download_notifications.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/app/fritter_app.dart';
@@ -122,10 +123,11 @@ Future<void> main() async {
     groupsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
     subscriptionsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
 
-    // Notification bar wired up for the Hentoid-style download queue, and the
-    // persisted queue/history loaded so a restart keeps failures to retry.
+    // Foreground-service notifications wired up for the download queue, the
+    // persisted queue/history loaded, and the connectivity watcher primed so a
+    // network coming back auto-resumes the retryable failures.
     unawaited(DownloadNotifications.ensure());
-    unawaited(DownloadsModel().load());
+    unawaited(DownloadsModel().load().then((_) => ConnectivityWatcher().ensure(prefService)));
 
     runApp(PrefService(        service: prefService,
         child: MultiProvider(

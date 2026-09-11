@@ -660,5 +660,9 @@
   "refresh": "Vernieuwen",
   "@refresh": {},
   "library_import_question": "Er staan mediabestanden in deze map. Naar de mediatheek verplaatsen?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Alles selecteren",
+  "@select_all": {},
+  "delete_selected_media": "Geselecteerde media verwijderen?",
+  "@delete_selected_media": {}
 }

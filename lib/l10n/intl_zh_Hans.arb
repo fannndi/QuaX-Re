@@ -660,5 +660,9 @@
   "refresh": "刷新",
   "@refresh": {},
   "library_import_question": "此文件夹中有媒体文件。要移入媒体库吗？",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "全选",
+  "@select_all": {},
+  "delete_selected_media": "删除所选媒体？",
+  "@delete_selected_media": {}
 }

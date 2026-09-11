@@ -660,5 +660,9 @@
   "refresh": "Refresh",
   "@refresh": {},
   "library_import_question": "There are media files in this folder. Move them into the library?",
-  "@library_import_question": {}
+  "@library_import_question": {},
+  "select_all": "Select all",
+  "@select_all": {},
+  "delete_selected_media": "Delete the selected media?",
+  "@delete_selected_media": {}
 }
