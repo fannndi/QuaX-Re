@@ -648,5 +648,13 @@
   "resume": "Fortsett",
   "@resume": {},
   "paused": "Pauset",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sorter",
+  "@sort": {},
+  "newest": "Nyeste",
+  "@newest": {},
+  "oldest": "Eldste",
+  "@oldest": {},
+  "size": "Størrelse",
+  "@size": {}
 }

@@ -648,5 +648,13 @@
   "resume": "Jätka",
   "@resume": {},
   "paused": "Peatatud",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sorteeri",
+  "@sort": {},
+  "newest": "Uusimad",
+  "@newest": {},
+  "oldest": "Vanimad",
+  "@oldest": {},
+  "size": "Suurus",
+  "@size": {}
 }

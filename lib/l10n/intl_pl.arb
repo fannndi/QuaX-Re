@@ -648,5 +648,13 @@
   "resume": "Wznów",
   "@resume": {},
   "paused": "Wstrzymane",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sortuj",
+  "@sort": {},
+  "newest": "Najnowsze",
+  "@newest": {},
+  "oldest": "Najstarsze",
+  "@oldest": {},
+  "size": "Rozmiar",
+  "@size": {}
 }

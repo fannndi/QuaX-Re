@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/downloads_badge.dart';
 import 'package:quax/downloads/downloads_screen.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/home/_feed.dart';
@@ -22,7 +23,8 @@ class NavigationPage {
 /// screen app bars — the app stays three tabs wide.
 final List<NavigationPage> defaultHomePages = [
   NavigationPage('downloads', (c) => L10n.of(c).downloads,
-      const Icon(Icons.download_outlined), const Icon(Icons.download)),
+      const DownloadsNavBadge(child: Icon(Icons.download_outlined)),
+      const DownloadsNavBadge(child: Icon(Icons.download))),
   NavigationPage('feed', (c) => L10n.of(c).home, const Icon(Icons.home_outlined), const Icon(Icons.home)),
   NavigationPage('likes', (c) => L10n.of(c).likes,
       const Icon(Icons.favorite_border_outlined), const Icon(Icons.favorite)),

@@ -648,5 +648,13 @@
   "resume": "Hervatten",
   "@resume": {},
   "paused": "Gepauzeerd",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sorteren",
+  "@sort": {},
+  "newest": "Nieuwste",
+  "@newest": {},
+  "oldest": "Oudste",
+  "@oldest": {},
+  "size": "Grootte",
+  "@size": {}
 }

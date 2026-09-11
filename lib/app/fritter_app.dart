@@ -1,4 +1,5 @@
 import 'package:quax/app/account_prompt.dart';
+import 'package:quax/app/theme.dart';
 import 'package:quax/app/update_checker.dart';
 import 'package:quax/app/default_page.dart';
 
@@ -160,51 +161,27 @@ class _FritterAppState extends State<FritterApp> {
                   supportedLocales: L10n.delegate.supportedLocales,
                   locale: _locale,
                   title: 'QuaX',
-                  theme: ThemeData(
+                  theme: buildAppTheme(
                     colorScheme: _themeColor == 'accent'
-                        ? lightDynamic
+                        ? lightDynamic ??
+                            ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.light)
                         : ColorScheme.fromSeed(
                             seedColor: themeColors[_themeColor]!
                                 .harmonizeWith(lightDynamic?.primary ?? Colors.transparent),
                             brightness: Brightness.light),
-                    pageTransitionsTheme: _disableAnimations == true
-                        ? PageTransitionsTheme(
-                            builders: {
-                              TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
-                              TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
-                            },
-                          )
-                        : null,
-                    useMaterial3: true,
+                    trueBlack: _trueBlack,
+                    disableAnimations: _disableAnimations,
                   ),
-                  darkTheme: ThemeData(
-                    colorScheme: (_trueBlack == true
-                        ? (_themeColor == 'accent'
-                                ? darkDynamic
-                                : ColorScheme.fromSeed(
-                                    seedColor: themeColors[_themeColor]!
-                                        .harmonizeWith(darkDynamic?.primary ?? Colors.transparent),
-                                    brightness: Brightness.dark))
-                            ?.copyWith(surface: Colors.black)
-                        : (_themeColor == 'accent'
+                  darkTheme: buildAppTheme(
+                    colorScheme: (_themeColor == 'accent'
                             ? darkDynamic
                             : ColorScheme.fromSeed(
                                 seedColor: themeColors[_themeColor]!
                                     .harmonizeWith(darkDynamic?.primary ?? Colors.transparent),
-                                brightness: Brightness.dark))),
-                    navigationBarTheme:
-                        (_trueBlack == true ? NavigationBarThemeData(backgroundColor: Colors.black) : null),
-                    scaffoldBackgroundColor: (_trueBlack == true ? Colors.black : null),
-                    appBarTheme: (_trueBlack == true ? AppBarThemeData(backgroundColor: Colors.black) : null),
-                    pageTransitionsTheme: _disableAnimations == true
-                        ? PageTransitionsTheme(
-                            builders: {
-                              TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
-                              TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
-                            },
-                          )
-                        : null,
-                    useMaterial3: true,
+                                brightness: Brightness.dark)) ??
+                        ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+                    trueBlack: _trueBlack,
+                    disableAnimations: _disableAnimations,
                   ),
                   themeMode: themeMode,
                   initialRoute: '/',
@@ -250,18 +227,4 @@ class _FritterAppState extends State<FritterApp> {
   }
 }
 
-
-class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    // No animation, simply return the child
-    return child;
-  }
-}
 

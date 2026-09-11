@@ -36,10 +36,16 @@ const _mimeTypes = {
 class LibraryEntry {
   final File file;
   final bool isVideo;
+  final int size;
+  final DateTime modified;
 
-  LibraryEntry(this.file, this.isVideo) : name = p.basename(file.path);
+  LibraryEntry(this.file, this.isVideo, {this.size = 0, DateTime? modified})
+      : name = p.basename(file.path),
+        modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   final String name;
+
+  double get sizeMb => size / 1048576;
 }
 
 /// State of the Hentoid-style hidden library: a folder the user picked from
@@ -220,23 +226,23 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       await for (final entity in dir.list()) {
         if (entity is! File) continue;
         final extension = p.extension(entity.path).toLowerCase();
-        if (_imageExtensions.contains(extension)) {
-          entries.add(LibraryEntry(entity, false));
-        } else if (_videoExtensions.contains(extension)) {
-          entries.add(LibraryEntry(entity, true));
+        final isVideo = _videoExtensions.contains(extension);
+        if (!isVideo && !_imageExtensions.contains(extension)) continue;
+
+        var modified = DateTime.fromMillisecondsSinceEpoch(0);
+        var size = 0;
+        try {
+          final stat = entity.statSync();
+          modified = stat.modified;
+          size = stat.size;
+        } catch (_) {
+          // Unreadable file: keep it listed with empty metadata.
         }
+        entries.add(LibraryEntry(entity, isVideo, size: size, modified: modified));
       }
 
-      entries.sort((a, b) => _modifiedOf(b).compareTo(_modifiedOf(a)));
+      entries.sort((a, b) => b.modified.compareTo(a.modified));
       return entries;
     });
-  }
-
-  DateTime _modifiedOf(LibraryEntry entry) {
-    try {
-      return entry.file.lastModifiedSync();
-    } catch (_) {
-      return DateTime.fromMillisecondsSinceEpoch(0);
-    }
   }
 }

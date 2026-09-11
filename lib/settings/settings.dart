@@ -8,9 +8,9 @@ import 'package:quax/settings/_theme.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// The fork's settings: the few things worth a screen — language/general,
-/// accounts, downloads & media, theme — plus the about box. Home-page
-/// customisation, accessibility, post appearance and data export were dropped
-/// to keep the app three tabs wide and simple.
+/// downloads & media, theme — plus the about box. Account switching lives in
+/// the home app bar's account sheet; home-page customisation, accessibility,
+/// post appearance and data export were dropped to keep the app simple.
 class SettingsScreen extends StatefulWidget {
   final String? initialPage;
 
@@ -43,68 +43,108 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(L10n.of(context).settings)),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0 + MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom),
         children: [
-          ListTile(
-            title: Text(L10n.of(context).general),
-            leading: Icon(Icons.miscellaneous_services),
-            subtitle: Text(
-              L10n.of(context).language,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsGeneralFragment()),
-            ),
+          _SettingsSection(
+            title: L10n.of(context).general,
+            tiles: [
+              _SettingsEntry(
+                icon: Icons.miscellaneous_services_outlined,
+                title: L10n.of(context).general,
+                subtitle: L10n.of(context).language,
+                builder: (context) => const SettingsGeneralFragment(),
+              ),
+            ],
           ),
-          ListTile(
-            title: Text(L10n.of(context).media),
-            leading: Icon(Icons.perm_media),
-            subtitle: Text(
-              "${L10n.of(context).image_quality}, ${L10n.of(context).video_quality}, ${L10n.of(context).mute_videos}, ${L10n.of(context).library}",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsMediaFragment()),
-            ),
+          _SettingsSection(
+            title: L10n.of(context).media,
+            tiles: [
+              _SettingsEntry(
+                icon: Icons.perm_media_outlined,
+                title: L10n.of(context).media,
+                subtitle:
+                    "${L10n.of(context).image_quality}, ${L10n.of(context).video_quality}, ${L10n.of(context).mute_videos}, ${L10n.of(context).library}",
+                builder: (context) => const SettingsMediaFragment(),
+              ),
+            ],
           ),
-          ListTile(
-            title: Text(L10n.of(context).theme),
-            subtitle: Text(
-              "${L10n.of(context).theme_mode}, ${L10n.of(context).theme}, ${L10n.of(context).true_black}, ${L10n.of(context).true_black_tweet_cards} ${L10n.of(context).show_navigation_labels}",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-            leading: Icon(Icons.palette),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsThemeFragment()),
-            ),
+          _SettingsSection(
+            title: L10n.of(context).theme,
+            tiles: [
+              _SettingsEntry(
+                icon: Icons.palette_outlined,
+                title: L10n.of(context).theme,
+                subtitle:
+                    "${L10n.of(context).theme_mode}, ${L10n.of(context).theme}, ${L10n.of(context).true_black}, ${L10n.of(context).true_black_tweet_cards} ${L10n.of(context).show_navigation_labels}",
+                builder: (context) => const SettingsThemeFragment(),
+              ),
+            ],
           ),
-          const SizedBox(
-            height: 8.0,
-          ),
-          Card(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              child: Column(children: [
-                ListTile(
-                  title: Text(
-                    L10n.of(context).app_info,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                SettingsAboutFragment(
+          _SettingsSection(
+            title: L10n.of(context).app_info,
+            tiles: [
+              Card(
+                child: SettingsAboutFragment(
                   appVersion: appVersion,
-                )
-              ])),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final List<Widget> tiles;
+
+  const _SettingsSection({required this.title, required this.tiles});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+          child: Text(
+            title,
+            style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary),
+          ),
+        ),
+        Card(
+          child: Column(children: tiles),
+        ),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+}
+
+class _SettingsEntry extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final WidgetBuilder builder;
+
+  const _SettingsEntry({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.builder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: builder)),
     );
   }
 }

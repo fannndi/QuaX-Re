@@ -648,5 +648,13 @@
   "resume": "再開",
   "@resume": {},
   "paused": "一時停止中",
-  "@paused": {}
+  "@paused": {},
+  "sort": "並べ替え",
+  "@sort": {},
+  "newest": "新しい順",
+  "@newest": {},
+  "oldest": "古い順",
+  "@oldest": {},
+  "size": "サイズ",
+  "@size": {}
 }

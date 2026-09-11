@@ -57,6 +57,16 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
               ],
             ),
             actions: [
+              if (queue.any((item) => item.status == DownloadStatus.error))
+                IconButton(
+                  icon: const Icon(Icons.restart_alt),
+                  tooltip: L10n.of(context).retry,
+                  onPressed: () {
+                    for (final item in queue.where((item) => item.status == DownloadStatus.error)) {
+                      retryDownload(context, item, prefs: widget.prefs);
+                    }
+                  },
+                ),
               if (hasFinished)
                 IconButton(
                   icon: const Icon(Icons.delete_sweep_outlined),
@@ -162,12 +172,38 @@ class _QueueList extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: queue.length,
-      itemBuilder: (context, index) => switch (queue[index].status) {
-        DownloadStatus.queued => _QueuedCard(item: queue[index]),
-        DownloadStatus.running => _RunningCard(item: queue[index]),
-        DownloadStatus.paused => _PausedCard(item: queue[index], prefs: prefs),
-        DownloadStatus.error => _ErrorCard(item: queue[index], prefs: prefs),
-        DownloadStatus.done => _DoneCard(item: queue[index], prefs: prefs),
+      itemBuilder: (context, index) {
+        final item = queue[index];
+        final scheme = Theme.of(context).colorScheme;
+
+        return Dismissible(
+          key: ValueKey('queue-${item.fileName}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 28),
+            margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.delete_outline, color: scheme.onErrorContainer),
+          ),
+          onDismissed: (_) {
+            if (item.status == DownloadStatus.running) {
+              DownloadsModel().cancel(item.fileName);
+            } else {
+              DownloadsModel().remove(item.fileName);
+            }
+          },
+          child: switch (item.status) {
+            DownloadStatus.queued => _QueuedCard(item: item),
+            DownloadStatus.running => _RunningCard(item: item),
+            DownloadStatus.paused => _PausedCard(item: item, prefs: prefs),
+            DownloadStatus.error => _ErrorCard(item: item, prefs: prefs),
+            DownloadStatus.done => _DoneCard(item: item, prefs: prefs),
+          },
+        );
       },
     );
   }

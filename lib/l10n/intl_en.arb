@@ -648,5 +648,13 @@
   "resume": "Resume",
   "@resume": {},
   "paused": "Paused",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sort",
+  "@sort": {},
+  "newest": "Newest",
+  "@newest": {},
+  "oldest": "Oldest",
+  "@oldest": {},
+  "size": "Size",
+  "@size": {}
 }

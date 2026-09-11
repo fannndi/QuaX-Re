@@ -648,5 +648,13 @@
   "resume": "Tiếp tục",
   "@resume": {},
   "paused": "Đã tạm dừng",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sắp xếp",
+  "@sort": {},
+  "newest": "Mới nhất",
+  "@newest": {},
+  "oldest": "Cũ nhất",
+  "@oldest": {},
+  "size": "Kích thước",
+  "@size": {}
 }

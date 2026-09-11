@@ -648,5 +648,13 @@
   "resume": "Jarraitu",
   "@resume": {},
   "paused": "Pausatuta",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Ordenatu",
+  "@sort": {},
+  "newest": "Berrienak",
+  "@newest": {},
+  "oldest": "Zaharrenak",
+  "@oldest": {},
+  "size": "Tamaina",
+  "@size": {}
 }

@@ -648,5 +648,13 @@
   "resume": "استئناف",
   "@resume": {},
   "paused": "متوقف مؤقتًا",
-  "@paused": {}
+  "@paused": {},
+  "sort": "ترتيب",
+  "@sort": {},
+  "newest": "الأحدث",
+  "@newest": {},
+  "oldest": "الأقدم",
+  "@oldest": {},
+  "size": "الحجم",
+  "@size": {}
 }

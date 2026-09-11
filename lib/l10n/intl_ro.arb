@@ -648,5 +648,13 @@
   "resume": "Reia",
   "@resume": {},
   "paused": "În pauză",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sortează",
+  "@sort": {},
+  "newest": "Cele mai noi",
+  "@newest": {},
+  "oldest": "Cele mai vechi",
+  "@oldest": {},
+  "size": "Dimensiune",
+  "@size": {}
 }

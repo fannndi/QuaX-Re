@@ -648,5 +648,13 @@
   "resume": "Sürdür",
   "@resume": {},
   "paused": "Duraklatıldı",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sırala",
+  "@sort": {},
+  "newest": "En yeni",
+  "@newest": {},
+  "oldest": "En eski",
+  "@oldest": {},
+  "size": "Boyut",
+  "@size": {}
 }

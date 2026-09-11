@@ -648,5 +648,13 @@
   "resume": "계속",
   "@resume": {},
   "paused": "일시정지됨",
-  "@paused": {}
+  "@paused": {},
+  "sort": "정렬",
+  "@sort": {},
+  "newest": "최신순",
+  "@newest": {},
+  "oldest": "오래된순",
+  "@oldest": {},
+  "size": "크기",
+  "@size": {}
 }

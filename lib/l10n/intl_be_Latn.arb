@@ -648,5 +648,13 @@
   "resume": "Praciahnуć",
   "@resume": {},
   "paused": "Prypyniena",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Sartavać",
+  "@sort": {},
+  "newest": "Najnoŭšyja",
+  "@newest": {},
+  "oldest": "Najstarejšyja",
+  "@oldest": {},
+  "size": "Pamier",
+  "@size": {}
 }

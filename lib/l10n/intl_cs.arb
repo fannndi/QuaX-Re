@@ -648,5 +648,13 @@
   "resume": "Pokračovat",
   "@resume": {},
   "paused": "Pozastaveno",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Seřadit",
+  "@sort": {},
+  "newest": "Nejnovější",
+  "@newest": {},
+  "oldest": "Nejstarší",
+  "@oldest": {},
+  "size": "Velikost",
+  "@size": {}
 }

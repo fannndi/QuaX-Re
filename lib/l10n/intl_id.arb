@@ -648,5 +648,13 @@
   "resume": "Lanjutkan",
   "@resume": {},
   "paused": "Dijeda",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Urutkan",
+  "@sort": {},
+  "newest": "Terbaru",
+  "@newest": {},
+  "oldest": "Terlama",
+  "@oldest": {},
+  "size": "Ukuran",
+  "@size": {}
 }

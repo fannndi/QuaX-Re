@@ -648,5 +648,13 @@
   "resume": "Daŭrigi",
   "@resume": {},
   "paused": "Paŭzita",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Ordigi",
+  "@sort": {},
+  "newest": "Plej novaj",
+  "@newest": {},
+  "oldest": "Plej malnovaj",
+  "@oldest": {},
+  "size": "Grando",
+  "@size": {}
 }

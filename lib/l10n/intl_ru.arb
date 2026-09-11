@@ -648,5 +648,13 @@
   "resume": "Продолжить",
   "@resume": {},
   "paused": "На паузе",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Сортировка",
+  "@sort": {},
+  "newest": "Новые",
+  "@newest": {},
+  "oldest": "Старые",
+  "@oldest": {},
+  "size": "Размер",
+  "@size": {}
 }

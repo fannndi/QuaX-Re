@@ -648,5 +648,13 @@
   "resume": "Reprendre",
   "@resume": {},
   "paused": "En pause",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Trier",
+  "@sort": {},
+  "newest": "Plus récent",
+  "@newest": {},
+  "oldest": "Plus ancien",
+  "@oldest": {},
+  "size": "Taille",
+  "@size": {}
 }

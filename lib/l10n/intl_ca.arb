@@ -648,5 +648,13 @@
   "resume": "Reprèn",
   "@resume": {},
   "paused": "En pausa",
-  "@paused": {}
+  "@paused": {},
+  "sort": "Ordena",
+  "@sort": {},
+  "newest": "Més recent",
+  "@newest": {},
+  "oldest": "Més antic",
+  "@oldest": {},
+  "size": "Mida",
+  "@size": {}
 }

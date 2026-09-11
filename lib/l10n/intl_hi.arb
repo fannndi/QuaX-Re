@@ -648,5 +648,13 @@
   "resume": "जारी रखें",
   "@resume": {},
   "paused": "रोका गया",
-  "@paused": {}
+  "@paused": {},
+  "sort": "क्रमबद्ध करें",
+  "@sort": {},
+  "newest": "सबसे नया",
+  "@newest": {},
+  "oldest": "सबसे पुराना",
+  "@oldest": {},
+  "size": "आकार",
+  "@size": {}
 }

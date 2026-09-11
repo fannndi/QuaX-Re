@@ -648,5 +648,13 @@
   "resume": "继续",
   "@resume": {},
   "paused": "已暂停",
-  "@paused": {}
+  "@paused": {},
+  "sort": "排序",
+  "@sort": {},
+  "newest": "最新",
+  "@newest": {},
+  "oldest": "最旧",
+  "@oldest": {},
+  "size": "大小",
+  "@size": {}
 }
