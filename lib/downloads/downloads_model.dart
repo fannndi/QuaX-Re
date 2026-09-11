@@ -8,7 +8,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:quax/downloads/download_notifications.dart';
 
-enum DownloadStatus { running, done, error }
+/// queued: waiting for its turn (downloads run one at a time, so parallel
+/// transfers never fight over the connection).
+enum DownloadStatus { queued, running, done, error }
 
 /// One entry of the downloads queue / history. The item survives app
 /// restarts through a small JSON ledger (Hentoid's queue.json idea), so failed
@@ -123,7 +125,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
           .whereType<Map<String, dynamic>>()
           .map(DownloadQueueItem.fromJson)
           .where((item) => item.fileName.isNotEmpty && item.url.isNotEmpty)
-          .map((item) => item.status == DownloadStatus.running
+          .map((item) => item.status == DownloadStatus.running || item.status == DownloadStatus.queued
               ? item.copyWith(status: DownloadStatus.error, error: 'interrupted')
               : item)
           .toList();
@@ -154,15 +156,27 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     existing.insert(
         0,
         DownloadQueueItem(
-            fileName: fileName, url: url, isVideo: isVideo, receivedBytes: 0, totalBytes: null));
+            fileName: fileName,
+            url: url,
+            isVideo: isVideo,
+            receivedBytes: 0,
+            totalBytes: null,
+            status: DownloadStatus.queued));
     update(existing, force: true);
     _save(force: true);
   }
+
+  bool contains(String fileName) => state.any((item) => item.fileName == fileName);
+
+  int _indexOf(String fileName) => state.indexWhere((item) => item.fileName == fileName);
 
   void attachCancel(String fileName, void Function() abort) => _cancelHooks[fileName] = abort;
 
   void progress(String fileName, int receivedBytes, int? totalBytes, double speedBytesPerSec) {
     if (_cancelled.contains(fileName)) return;
+    final index = _indexOf(fileName);
+    if (index < 0) return;
+
     final updated = [
       for (final item in state)
         item.fileName == fileName
@@ -171,7 +185,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
             : item
     ];
     update(updated, force: true);
-    DownloadsModel._pumpNotification(updated.firstWhere((e) => e.fileName == fileName));
+    DownloadsModel._pumpNotification(updated[index]);
     _save();
   }
 
@@ -187,10 +201,13 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   bool isCancelled(String fileName) => _cancelled.contains(fileName);
 
-  /// Re-opens a failed entry for a retry (keeps its partial bytes so the
-  /// download can resume with a Range request).
-  void startResume(String fileName) {
+  /// Hands the next turn to a waiting entry: it becomes the one running
+  /// download (its partial bytes are kept for a resume).
+  void startRunning(String fileName) {
     _cancelled.remove(fileName);
+    final index = _indexOf(fileName);
+    if (index < 0) return;
+
     final updated = [
       for (final item in state)
         item.fileName == fileName
@@ -201,8 +218,28 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _save(force: true);
   }
 
+  /// Puts a failed entry back at the waiting line (retry goes through the same
+  /// one-at-a-time queue).
+  void requeue(String fileName) {
+    _cancelled.remove(fileName);
+    final index = _indexOf(fileName);
+    if (index < 0) return;
+
+    final updated = [
+      for (final item in state)
+        item.fileName == fileName
+            ? item.copyWith(status: DownloadStatus.queued, speedMbPerSec: 0, clearError: true)
+            : item
+    ];
+    update(updated, force: true);
+    _save(force: true);
+  }
+
   void markDone(String fileName) {
     _cancelHooks.remove(fileName);
+    final index = _indexOf(fileName);
+    if (index < 0) return;
+
     final updated = [
       for (final item in state)
         item.fileName == fileName
@@ -210,7 +247,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
             : item
     ];
     update(updated, force: true);
-    DownloadsModel._pumpFinalize(updated.firstWhere((e) => e.fileName == fileName));
+    DownloadsModel._pumpFinalize(updated[index]);
     for (final listener in List.of(_doneListeners.values)) {
       try {
         listener();
@@ -223,12 +260,15 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   /// screen can retry it, possibly resuming.
   void fail(String fileName, {String? error}) {
     _cancelHooks.remove(fileName);
+    final index = _indexOf(fileName);
+    if (index < 0) return;
+
     final updated = [
       for (final item in state)
         item.fileName == fileName ? item.copyWith(status: DownloadStatus.error, error: error) : item
     ];
     update(updated, force: true);
-    DownloadsModel._pumpNotification(updated.firstWhere((e) => e.fileName == fileName));
+    DownloadsModel._pumpNotification(updated[index]);
     _save(force: true);
   }
 

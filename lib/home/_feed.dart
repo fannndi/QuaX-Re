@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
+import 'package:quax/client/account_sheet.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/home/_following.dart';
@@ -115,8 +116,13 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
                 arguments: SearchArguments(0, focusInputOnOpen: true),
               ),
             ),
-            // Settings moved out of the navbar: the gear in the home app bar
-            // is the only door to it.
+            // Account switching lives here, not in Settings.
+            IconButton(
+              icon: const Icon(Icons.person_outline),
+              tooltip: L10n.of(context).account,
+              onPressed: () => showAccountSwitcher(context),
+            ),
+            // Settings moved out of the navbar too: the gear is its only door.
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               tooltip: L10n.of(context).settings,

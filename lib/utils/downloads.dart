@@ -14,40 +14,69 @@ import 'package:pref/pref.dart';
 import 'package:share_plus/share_plus.dart';
 
 
-/// Downloads [uri] under a live progress dialog (percent, transferred size and
-/// speed, cancellable), then saves the file — into the configured directory,
-/// or through the system save dialog — and offers a share sheet, so the file
-/// can be sent straight to another app (WhatsApp, Telegram…).
+/// Transfers run strictly one at a time (FIFO): parallel downloads would fight
+/// over the connection, so every request joins a single chain and waits for its
+/// turn — the queue screen lists the waiting entries.
+Future<void> _downloadChain = Future.value();
+
+void _enqueue(Future<void> Function() task) {
+  _downloadChain = _downloadChain.then((_) => task()).catchError((_) {});
+}
+
+String _sanitized(String fileName) {
+  final name = p.basename(fileName.split('?').first);
+  if (name.isEmpty || name.length > 180) {
+    // Android rejects names this long in the media scanner.
+    return 'media-${DateTime.now().millisecondsSinceEpoch}';
+  }
+  return name;
+}
+
+bool _isVideo(String fileName) =>
+    fileName.contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v)$', caseSensitive: false));
+
+/// Queues [uri] into the one-at-a-time download queue and, when its turn comes,
+/// saves the file into the hidden library (or through the system dialog before
+/// the library exists) and offers a share sheet.
 Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileName,
     {required BasePrefService prefs}) async {
-  var sanitizedFilename = p.basename(fileName.split('?').first);
-  if (sanitizedFilename.isEmpty || sanitizedFilename.length > 180) {
-    // Android rejects names this long in the media scanner.
-    sanitizedFilename = 'media-${DateTime.now().millisecondsSinceEpoch}';
-  }
+  final name = _sanitized(fileName);
+  DownloadsModel().register(name, uri.toString(), _isVideo(name));
 
+  _enqueue(() => _runDownload(context, uri, name, prefs: prefs));
+}
+
+/// The actual transfer, run when the entry reaches the head of the queue.
+Future<void> _runDownload(BuildContext context, Uri uri, String fileName,
+    {required BasePrefService prefs, bool resume = false}) async {
   final queue = DownloadsModel();
+  // Cancelled (or removed) while waiting: its turn is skipped silently.
+  if (!queue.contains(fileName) || queue.isCancelled(fileName)) return;
+
   try {
-    final tempPath = await _downloadToTemp(context, uri, sanitizedFilename);
+    queue.startRunning(fileName);
+
+    final tempPath = await _downloadToTemp(context, uri, fileName, resume: resume);
     if (tempPath == null) return;
 
     try {
       final savePath = await _saveToDestination(context,
-          file: tempPath, fileName: sanitizedFilename, prefs: prefs);
+          file: tempPath, fileName: fileName, prefs: prefs);
       if (savePath != null) {
         // Only now the file exists where the library scans: mark it done first,
         // so the done listeners see the finished entry, then celebrate.
-        queue.markDone(sanitizedFilename);
+        queue.markDone(fileName);
         _showSuccess(context, savePath);
       } else {
         // The user cancelled the save dialog after a complete download.
-        queue.remove(sanitizedFilename);
+        queue.remove(fileName);
       }
     } finally {
       _deleteTemp(tempPath);
     }
   } catch (e) {
-    queue.fail(sanitizedFilename, error: e.toString());
+    if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
+    queue.fail(fileName, error: e.toString());
     if (context.mounted) {
       showSnackBar(context, icon: '🙊', message: e.toString());
     }
@@ -77,14 +106,12 @@ void _showSuccess(BuildContext context, String savedPath) {
   );
 }
 
-/// Downloads [uri] under the live progress dialog and opens the share sheet with
-/// the file right away — the "send the meme straight to WhatsApp" shortcut.
+/// Downloads [uri] right away (no queue: a share is a foreground action) and
+/// opens the share sheet with the file — the "send the meme straight to
+/// WhatsApp" shortcut.
 Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
     {required BasePrefService prefs}) async {
-  var sanitizedFilename = p.basename(fileName.split('?').first);
-  if (sanitizedFilename.isEmpty || sanitizedFilename.length > 180) {
-    sanitizedFilename = 'media-${DateTime.now().millisecondsSinceEpoch}';
-  }
+  final sanitizedFilename = _sanitized(fileName);
 
   String? tempPath;
   try {
@@ -132,35 +159,14 @@ Future<String?> _saveToDestination(BuildContext context,
   );
 }
 
-/// Retries a failed queue entry. When the server honours Range requests the
-/// download resumes from the bytes already on disk; otherwise it restarts.
+/// Queues the retry of a failed entry through the same one-at-a-time queue
+/// (first in line when the current transfer ends). When the server honours
+/// Range requests the download resumes from the bytes already on disk.
 Future<void> retryDownload(BuildContext context, DownloadQueueItem item,
     {required BasePrefService prefs}) async {
-  final queue = DownloadsModel();
-  queue.startResume(item.fileName);
+  DownloadsModel().requeue(item.fileName);
 
-  try {
-    final tempPath = await _downloadToTemp(context, Uri.parse(item.url), item.fileName, resume: true);
-    if (tempPath == null) return;
-
-    try {
-      final savePath = await _saveToDestination(context,
-          file: tempPath, fileName: item.fileName, prefs: prefs);
-      if (savePath != null) {
-        queue.markDone(item.fileName);
-        _showSuccess(context, savePath);
-      } else {
-        queue.remove(item.fileName);
-      }
-    } finally {
-      _deleteTemp(tempPath);
-    }
-  } catch (e) {
-    queue.fail(item.fileName, error: e.toString());
-    if (context.mounted) {
-      showSnackBar(context, icon: '🙊', message: e.toString());
-    }
-  }
+  _enqueue(() => _runDownload(context, Uri.parse(item.url), item.fileName, prefs: prefs, resume: true));
 }
 
 /// Streams the response to a temporary file while feeding the downloads queue
@@ -174,10 +180,6 @@ Future<String?> _downloadToTemp(BuildContext context, Uri uri, String fileName,
   final tempPath = p.join(tempDir.path, 'quax-download-$fileName');
   final queue = DownloadsModel();
   final client = http.Client();
-  final isVideo = fileName.contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v)$', caseSensitive: false));
-  if (!resume) {
-    queue.register(fileName, uri.toString(), isVideo);
-  }
 
   queue.attachCancel(fileName, () {
     client.close(); // the stream loop surfaces as a ClientException and cleans up

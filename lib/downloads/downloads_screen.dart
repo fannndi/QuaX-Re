@@ -161,6 +161,7 @@ class _QueueList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: queue.length,
       itemBuilder: (context, index) => switch (queue[index].status) {
+        DownloadStatus.queued => _QueuedCard(item: queue[index]),
         DownloadStatus.running => _RunningCard(item: queue[index]),
         DownloadStatus.error => _ErrorCard(item: queue[index], prefs: prefs),
         DownloadStatus.done => _DoneCard(item: queue[index]),
@@ -188,6 +189,45 @@ class _TypeAvatar extends StatelessWidget {
       child: Icon(
         item.isVideo ? Icons.smart_display_outlined : Icons.image_outlined,
         color: color ?? theme.colorScheme.primary,
+      ),
+    );
+  }
+}
+
+/// Waiting its turn in the one-at-a-time queue.
+class _QueuedCard extends StatelessWidget {
+  final DownloadQueueItem item;
+
+  const _QueuedCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        child: Row(
+          children: [
+            _TypeAvatar(item: item, color: theme.colorScheme.tertiary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(L10n.of(context).queue, style: theme.textTheme.labelSmall),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: L10n.of(context).cancel,
+              onPressed: () => DownloadsModel().cancel(item.fileName),
+            ),
+          ],
+        ),
       ),
     );
   }

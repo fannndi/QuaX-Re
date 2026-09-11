@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/settings/_about.dart';
-import 'package:quax/settings/_account.dart';
 import 'package:quax/settings/_general.dart';
 import 'package:quax/settings/_media.dart';
 import 'package:quax/settings/_theme.dart';
@@ -39,7 +38,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var key = widget.key ?? const Key("Settings");
     var appVersion = 'v${_packageInfo.version}+${_packageInfo.buildNumber}';
 
     return Scaffold(
@@ -59,23 +57,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const SettingsGeneralFragment()),
-            ),
-          ),
-          ListTile(
-            title: Text(L10n.of(context).account),
-            leading: Icon(Icons.account_circle),
-            subtitle: Text(
-              L10n.of(context).account,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontStyle: FontStyle.italic),
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => SettingsAccountFragment(
-                        key: key,
-                      )),
             ),
           ),
           ListTile(

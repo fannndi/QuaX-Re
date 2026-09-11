@@ -17,13 +17,13 @@ class NavigationPage {
   NavigationPage(this.id, this.titleBuilder, this.icon, this.selectedIcon);
 }
 
-/// The fork's whole navigation: Home (For You / Following), Download (queue /
-/// gallery) and Like (local likes / the profile's liked posts). Settings and
-/// search live in the screen app bars — the app stays three tabs wide.
+/// The fork's whole navigation: Download, Home (For You / Following) and Like,
+/// with Home centered like a home button. Settings and search live in the
+/// screen app bars — the app stays three tabs wide.
 final List<NavigationPage> defaultHomePages = [
-  NavigationPage('feed', (c) => L10n.of(c).home, const Icon(Icons.home_outlined), const Icon(Icons.home)),
   NavigationPage('downloads', (c) => L10n.of(c).downloads,
       const Icon(Icons.download_outlined), const Icon(Icons.download)),
+  NavigationPage('feed', (c) => L10n.of(c).home, const Icon(Icons.home_outlined), const Icon(Icons.home)),
   NavigationPage('likes', (c) => L10n.of(c).likes,
       const Icon(Icons.favorite_border_outlined), const Icon(Icons.favorite)),
 ];
@@ -52,7 +52,8 @@ class _HomeScreenState extends State<_HomeScreen> {
   int _resolveInitialPage() {
     final stored = widget.prefs.get<String>(optionHomeInitialTab);
     final index = defaultHomePages.indexWhere((page) => page.id == stored);
-    return index < 0 ? 0 : index;
+    if (index >= 0) return index;
+    return defaultHomePages.indexWhere((page) => page.id == 'feed');
   }
 
   @override
