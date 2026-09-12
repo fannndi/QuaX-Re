@@ -20,10 +20,30 @@ import 'package:share_plus/share_plus.dart';
 
 const _storageChannel = MethodChannel('browser_resolver');
 
-/// Transfers run strictly one at a time (FIFO): parallel downloads would fight
-/// over the connection, so every request joins a single chain and waits for its
-/// turn — the queue screen lists the waiting entries.
-Future<void> _downloadChain = Future.value();
+/// The single download worker: it pulls the first waiting entry (top of the
+/// queue list = next to run, so dragging the queue reorders transfers), works
+/// through it, then picks the next. The old FIFO chain is gone — a plain chain
+/// could not honor pause, stop-all or reordering.
+Future<void>? _worker;
+BasePrefService? _workerPrefs;
+final Map<String, BuildContext?> _workerContexts = {};
+
+void _kickWorker() {
+  if (_worker != null || _workerPrefs == null) return;
+  _worker = _drainQueue().whenComplete(() => _worker = null);
+}
+
+Future<void> _drainQueue() async {
+  final queue = DownloadsModel();
+  while (true) {
+    final next = queue.nextQueued;
+    if (next == null) return;
+
+    final context = _workerContexts.remove(next.fileName);
+    await _runDownload(context, Uri.parse(next.url), next.fileName,
+        prefs: _workerPrefs!, resume: true);
+  }
+}
 
 /// A transfer that receives nothing for this long is considered stalled: the
 /// connection is dropped and the entry becomes retryable (resuming where it
@@ -35,10 +55,6 @@ const _maxAttempts = 3;
 
 /// Never start a transfer that cannot fit in the destination (+ headroom).
 const _spaceMarginBytes = 64 * 1024 * 1024;
-
-void _enqueue(Future<void> Function() task) {
-  _downloadChain = _downloadChain.then((_) => task()).catchError((_) {});
-}
 
 /// Auto-caching short videos runs on its own chain, behind the manual queue,
 /// so a prefetch never delays a download the user actually asked for.
@@ -128,8 +144,9 @@ Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileN
   if (queue.isActive(name)) return;
 
   queue.register(name, uri.toString(), _isVideo(name));
-
-  _enqueue(() => _runDownload(context, uri, name, prefs: prefs));
+  _workerPrefs = prefs;
+  _workerContexts[name] = context;
+  _kickWorker();
 }
 
 /// The actual transfer, run when the entry reaches the head of the queue.
@@ -213,7 +230,8 @@ bool isRetryableDownloadError(String? error) => _isRetryable(error);
 /// when the network comes back.
 void resumeDownload(DownloadQueueItem item, {required BasePrefService prefs}) {
   DownloadsModel().requeue(item.fileName);
-  _enqueue(() => _runDownload(null, Uri.parse(item.url), item.fileName, prefs: prefs, resume: true));
+  _workerPrefs = prefs;
+  _kickWorker();
 }
 
 /// Server-side/client-side errors worth another automatic try. 4xx (except
@@ -334,7 +352,9 @@ Future<void> retryDownload(BuildContext context, DownloadQueueItem item,
     {required BasePrefService prefs}) async {
   DownloadsModel().requeue(item.fileName);
 
-  _enqueue(() => _runDownload(context, Uri.parse(item.url), item.fileName, prefs: prefs, resume: true));
+  _workerPrefs = prefs;
+  _workerContexts[item.fileName] = context;
+  _kickWorker();
 }
 
 http.Request _rangeRequest(Uri uri, int offset) {

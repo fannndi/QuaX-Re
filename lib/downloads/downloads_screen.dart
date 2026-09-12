@@ -25,6 +25,9 @@ class DownloadsTab extends StatefulWidget {
 class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderStateMixin {
   late final TabController _tabController = TabController(length: 2, vsync: this);
   late final DownloadsModel _queue = DownloadsModel();
+  final Set<String> _selected = {};
+
+  bool get _selectionActive => _selected.isNotEmpty;
 
   @override
   void initState() {
@@ -36,6 +39,102 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _toggleSelection(String fileName) {
+    setState(() {
+      if (!_selected.remove(fileName)) _selected.add(fileName);
+    });
+  }
+
+  void _pauseSelected() {
+    for (final name in _selected) {
+      _queue.pause(name);
+    }
+    setState(_selected.clear);
+  }
+
+  void _resumeSelected() {
+    final resumable = _queue.state
+        .where((item) =>
+            _selected.contains(item.fileName) &&
+            (item.status == DownloadStatus.paused || item.status == DownloadStatus.error))
+        .toList();
+    for (final item in resumable) {
+      retryDownload(context, item, prefs: widget.prefs);
+    }
+    setState(_selected.clear);
+  }
+
+  void _deleteSelected() {
+    final victims = _queue.state.where((item) => _selected.contains(item.fileName)).toList();
+    for (final item in victims) {
+      if (item.status == DownloadStatus.running) {
+        _queue.cancel(item.fileName);
+      } else {
+        _queue.remove(item.fileName);
+      }
+    }
+    setState(_selected.clear);
+  }
+
+  /// The queue app bar: queue-wide actions normally, selection actions while
+  /// entries are selected.
+  List<Widget> _buildActions(BuildContext context, List<DownloadQueueItem> queue, bool hasActive,
+      bool hasResumable, bool hasFinished) {
+    if (_selectionActive) {
+      return [
+        IconButton(
+          icon: const Icon(Icons.pause_circle_outline),
+          tooltip: L10n.of(context).pause,
+          onPressed: _pauseSelected,
+        ),
+        IconButton(
+          icon: const Icon(Icons.play_circle_outline),
+          tooltip: L10n.of(context).resume,
+          onPressed: _resumeSelected,
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: L10n.of(context).delete,
+          onPressed: _deleteSelected,
+        ),
+        IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: L10n.of(context).close,
+          onPressed: () => setState(_selected.clear),
+        ),
+      ];
+    }
+
+    return [
+      if (hasActive)
+        IconButton(
+          icon: const Icon(Icons.pause_circle_outline),
+          tooltip: L10n.of(context).pause_all,
+          onPressed: _queue.pauseAll,
+        ),
+      if (hasResumable)
+        IconButton(
+          icon: const Icon(Icons.play_circle_outline),
+          tooltip: L10n.of(context).resume_all,
+          onPressed: () {
+            final resumable = queue
+                .where((item) =>
+                    item.status == DownloadStatus.paused || item.status == DownloadStatus.error)
+                .toList();
+            for (final item in resumable) {
+              retryDownload(context, item, prefs: widget.prefs);
+            }
+          },
+        ),
+      if (hasFinished)
+        IconButton(
+          icon: const Icon(Icons.delete_sweep_outlined),
+          tooltip: L10n.of(context).delete,
+          onPressed: _queue.clearFinished,
+        ),
+    ];
   }
 
   @override
@@ -53,46 +152,26 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
         return Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            title: TabBar(
-              controller: _tabController,
-              tabs: [
-                Tab(text: L10n.of(context).queue),
-                Tab(text: L10n.of(context).gallery),
-              ],
-            ),
-            actions: [
-              if (hasActive)
-                IconButton(
-                  icon: const Icon(Icons.pause_circle_outline),
-                  tooltip: L10n.of(context).pause_all,
-                  onPressed: _queue.pauseAll,
-                ),
-              if (hasResumable)
-                IconButton(
-                  icon: const Icon(Icons.play_circle_outline),
-                  tooltip: L10n.of(context).resume_all,
-                  onPressed: () {
-                    final resumable = queue
-                        .where((item) =>
-                            item.status == DownloadStatus.paused || item.status == DownloadStatus.error)
-                        .toList();
-                    for (final item in resumable) {
-                      retryDownload(context, item, prefs: widget.prefs);
-                    }
-                  },
-                ),
-              if (hasFinished)
-                IconButton(
-                  icon: const Icon(Icons.delete_sweep_outlined),
-                  tooltip: L10n.of(context).delete,
-                  onPressed: _queue.clearFinished,
-                ),
-            ],
+            title: _selectionActive
+                ? Text('${_selected.length}')
+                : TabBar(
+                    controller: _tabController,
+                    tabs: [
+                      Tab(text: L10n.of(context).queue),
+                      Tab(text: L10n.of(context).gallery),
+                    ],
+                  ),
+            actions: _buildActions(context, queue, hasActive, hasResumable, hasFinished),
           ),
           body: TabBarView(
             controller: _tabController,
             children: [
-              _QueueList(queue: queue, prefs: widget.prefs),
+              _QueueList(
+                queue: queue,
+                prefs: widget.prefs,
+                selectedNames: _selected,
+                onToggle: _toggleSelection,
+              ),
               _GalleryTab(prefs: widget.prefs),
             ],
           ),
@@ -163,8 +242,17 @@ class _GalleryTabState extends State<_GalleryTab> {
 class _QueueList extends StatelessWidget {
   final List<DownloadQueueItem> queue;
   final BasePrefService prefs;
+  final Set<String> selectedNames;
+  final void Function(String fileName) onToggle;
 
-  const _QueueList({required this.queue, required this.prefs});
+  const _QueueList({
+    required this.queue,
+    required this.prefs,
+    required this.selectedNames,
+    required this.onToggle,
+  });
+
+  bool get selectionActive => selectedNames.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -183,12 +271,15 @@ class _QueueList extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
+    return ReorderableListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
+      buildDefaultDragHandles: false,
       itemCount: queue.length,
+      onReorder: (oldIndex, newIndex) => DownloadsModel().moveItem(oldIndex, newIndex),
       itemBuilder: (context, index) {
         final item = queue[index];
         final scheme = Theme.of(context).colorScheme;
+        final selected = selectedNames.contains(item.fileName);
 
         return Dismissible(
           key: ValueKey('queue-${item.fileName}'),
@@ -210,13 +301,39 @@ class _QueueList extends StatelessWidget {
               DownloadsModel().remove(item.fileName);
             }
           },
-          child: switch (item.status) {
-            DownloadStatus.queued => _QueuedCard(item: item),
-            DownloadStatus.running => _RunningCard(item: item),
-            DownloadStatus.paused => _PausedCard(item: item, prefs: prefs),
-            DownloadStatus.error => _ErrorCard(item: item, prefs: prefs),
-            DownloadStatus.done => _DoneCard(item: item, prefs: prefs),
-          },
+          child: GestureDetector(
+            onTap: selectionActive ? () => onToggle(item.fileName) : null,
+            onLongPress: () => onToggle(item.fileName),
+            child: Stack(
+              children: [
+                switch (item.status) {
+                  DownloadStatus.queued => _QueuedCard(item: item, dragIndex: index),
+                  DownloadStatus.running => _RunningCard(item: item),
+                  DownloadStatus.paused => _PausedCard(item: item, prefs: prefs),
+                  DownloadStatus.error => _ErrorCard(item: item, prefs: prefs),
+                  DownloadStatus.done => _DoneCard(item: item, prefs: prefs),
+                },
+                if (selected)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (selected)
+                  Positioned(
+                    top: 14,
+                    right: 18,
+                    child: Icon(Icons.check_circle, color: scheme.primary, size: 20),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -247,11 +364,13 @@ class _TypeAvatar extends StatelessWidget {
   }
 }
 
-/// Waiting its turn in the one-at-a-time queue.
+/// Waiting its turn in the one-at-a-time queue. The drag handle lets the
+/// reader put it anywhere in the waiting order.
 class _QueuedCard extends StatelessWidget {
   final DownloadQueueItem item;
+  final int? dragIndex;
 
-  const _QueuedCard({required this.item});
+  const _QueuedCard({required this.item, this.dragIndex});
 
   @override
   Widget build(BuildContext context) {
@@ -262,6 +381,11 @@ class _QueuedCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
         child: Row(
           children: [
+            if (dragIndex != null)
+              ReorderableDelayedDragStartListener(
+                index: dragIndex!,
+                child: Icon(Icons.drag_indicator, size: 20, color: theme.colorScheme.outline),
+              ),
             _TypeAvatar(item: item, color: theme.colorScheme.tertiary),
             const SizedBox(width: 14),
             Expanded(

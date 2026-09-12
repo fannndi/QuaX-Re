@@ -383,11 +383,26 @@ class Twitter {
 
     defaultParam["variables"] = json.encode(variables);
 
-    var response = await _twitterApi.client.get(
-      Uri.https('x.com', '/i/api/graphql/XMOz5h24KAZ86qKffKTLdQ/TweetDetail', defaultParam),
-    );
-
-    return parseTweetDetail(json.decode(response.body) as Map<String, dynamic>);
+    final cacheKey = TimelineCache.keyFor('thread.$id');
+    try {
+      var response = await _twitterApi.client.get(
+        Uri.https('x.com', '/i/api/graphql/XMOz5h24KAZ86qKffKTLdQ/TweetDetail', defaultParam),
+      );
+      if (cursor == null) {
+        // The opened conversation is now readable offline, replies included.
+        unawaited(TimelineCache.write(cacheKey, response.body));
+      }
+      return parseTweetDetail(json.decode(response.body) as Map<String, dynamic>);
+    } catch (e) {
+      // Offline (or X unreachable): serve the stored conversation, if any.
+      if (cursor == null) {
+        final cached = await TimelineCache.read(cacheKey);
+        if (cached != null) {
+          return parseTweetDetail(json.decode(cached) as Map<String, dynamic>);
+        }
+      }
+      rethrow;
+    }
   }
 
   static Future<TweetStatus> searchTweets(

@@ -161,17 +161,40 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _paused.remove(fileName);
     final existing = List.of(state);
     existing.removeWhere((item) => item.fileName == fileName);
-    existing.insert(
-        0,
-        DownloadQueueItem(
-            fileName: fileName,
-            url: url,
-            isVideo: isVideo,
-            receivedBytes: 0,
-            totalBytes: null,
-            status: DownloadStatus.queued));
+    // Appended: the list reads top-to-bottom exactly as transfers run, so
+    // dragging an entry changes its execution order.
+    existing.add(DownloadQueueItem(
+        fileName: fileName,
+        url: url,
+        isVideo: isVideo,
+        receivedBytes: 0,
+        totalBytes: null,
+        status: DownloadStatus.queued));
     _pruneFinished(existing);
     update(existing, force: true);
+    _save(force: true);
+  }
+
+  /// The next transfer the worker should run: the first waiting entry, i.e.
+  /// the topmost one in the queue screen.
+  DownloadQueueItem? get nextQueued {
+    for (final item in state) {
+      if (item.status == DownloadStatus.queued) return item;
+    }
+    return null;
+  }
+
+  /// Moves an entry to another position (drag & drop); waiting entries then run
+  /// in their new order.
+  void moveItem(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= state.length) return;
+
+    final updated = List.of(state);
+    final item = updated.removeAt(oldIndex);
+    var target = newIndex;
+    if (target > oldIndex) target -= 1;
+    updated.insert(target.clamp(0, updated.length), item);
+    update(updated, force: true);
     _save(force: true);
   }
 
