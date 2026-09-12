@@ -218,7 +218,14 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     if (items == null || items.isEmpty) return;
     if (DateTime.now().difference(_lastLoadedAt) < _staleAfter) return;
 
-    _handleRefresh();
+    // Drive the visible pull-to-refresh spinner, so the automatic fetch reads
+    // as "loading for a moment" instead of happening invisibly.
+    final indicator = _refreshKey.currentState;
+    if (indicator != null && widget.onRefresh != null) {
+      indicator.show();
+    } else {
+      _handleRefresh();
+    }
   }
 
   void _attachOnlineListener() {

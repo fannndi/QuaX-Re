@@ -5,6 +5,7 @@ import 'package:quax/downloads/downloads_badge.dart';
 import 'package:quax/downloads/downloads_screen.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/home/_feed.dart';
+import 'package:quax/home/home_events.dart';
 import 'package:quax/likes/likes_screen.dart';
 
 typedef NavigationTitleBuilder = String Function(BuildContext context);
@@ -140,6 +141,9 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
           setState(() {
             _currentPage = page;
           });
+          if (defaultHomePages[page].id == 'feed') {
+            homeFeedSelected.value++;
+          }
         },
         children: widget.builder(_scrollControllers),
       ),

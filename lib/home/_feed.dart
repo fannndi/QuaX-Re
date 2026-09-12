@@ -6,6 +6,7 @@ import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/home/_following.dart';
 import 'package:quax/home/_for_you.dart';
+import 'package:quax/home/home_events.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/_feed_shell.dart';
@@ -52,6 +53,23 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     // Switching the active account speaks for a different timeline: reload the
     // mounted feeds so the content follows the new login.
     accountsRevision.addListener(_onAccountsChanged);
+    // Coming back to the Home tab after a while refreshes the active feed once,
+    // keeping the return just as fresh as a resume.
+    homeFeedSelected.addListener(_onHomeSelected);
+  }
+
+  DateTime _lastAutoRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  void _onHomeSelected() {
+    if (DateTime.now().difference(_lastAutoRefreshAt) < const Duration(minutes: 1)) return;
+    _lastAutoRefreshAt = DateTime.now();
+
+    final controller = _tabController;
+    if (controller == null) return;
+    final feed = controller.index == 0 ? _foryouFeed : _followingFeed;
+    if (feed.hasItems) {
+      feed.softRefresh();
+    }
   }
 
   void _onAccountsChanged() {
@@ -62,6 +80,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     accountsRevision.removeListener(_onAccountsChanged);
+    homeFeedSelected.removeListener(_onHomeSelected);
     _tabController?.dispose();
     _followingFeed.dispose();
     _foryouFeed.dispose();
