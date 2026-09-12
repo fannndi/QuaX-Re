@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Niama padklučennia da internetu",
   "@offline_message": {},
-  "cached": "Keš",
+  "cached": "U kešy",
   "@cached": {},
   "cached_offline": "Dastupna aflajn",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Tolki praz Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Limit pamieru keša",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Novyja paviedamłenni",
+  "@new_posts": {},
+  "no_cached_posts": "Pakul niama zachavanych paviedamłenniaŭ",
+  "@no_cached_posts": {}
 }

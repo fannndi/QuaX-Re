@@ -45,17 +45,28 @@ class TweetFeedController {
   bool _isLastPage(List<TweetChain> chains, String? next, String? cursor) =>
       chains.isEmpty || next == null || next.isEmpty || next == cursor;
 
+  /// Fetches the first page without touching the visible list, so the caller
+  /// can decide between replacing the items or holding them behind a "new
+  /// posts" pill.
+  Future<TweetPageResult> fetchFirstPage() => _loader!(null);
+
+  /// Puts a fetched first page in place without the first-page spinner.
+  void applyFirstPage(TweetPageResult result) {
+    final next = result.nextCursor;
+    final isLast = _isLastPage(result.chains, next, null);
+    _paging.replaceFirstPage(result.chains, isLast ? null : next);
+  }
+
+  void setError(Object error, StackTrace stackTrace) => _paging.setError(error, stackTrace);
+
   /// Reloads the first page and replaces the items in place, *without* resetting
   /// to the first-page spinner the way [PagingController.refresh] does. Used by
   /// pull-to-refresh so the existing tweets stay visible under the indicator.
   Future<void> softRefresh() async {
     try {
-      final result = await _loader!(null);
-      final next = result.nextCursor;
-      final isLast = _isLastPage(result.chains, next, null);
-      _paging.replaceFirstPage(result.chains, isLast ? null : next);
+      applyFirstPage(await fetchFirstPage());
     } catch (e, stackTrace) {
-      _paging.setError(e, stackTrace);
+      setError(e, stackTrace);
     }
   }
 
@@ -100,10 +111,17 @@ class PaginatedTweetList extends StatefulWidget {
 
 class _PaginatedTweetListState extends State<PaginatedTweetList> {
   final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
+  final ScrollController _scrollController = ScrollController();
   FeedRefreshController? _refreshController;
   bool _firstLoadStarted = false;
   bool _pendingInitialLoad = false;
   bool _onlineListenerAttached = false;
+
+  // The "new posts" pill: a fetched first page held back while the reader is
+  // scrolled down, so fresh tweets never yank the list under them.
+  static const _pillThreshold = 500.0;
+  bool _newPostsAvailable = false;
+  TweetPageResult? _pendingFirstPage;
 
   PagingController<int, TweetChain> get _controller => widget.feed.controller;
 
@@ -115,6 +133,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
     // can't trigger the first page itself — we rebuild to swap it in once items
     // arrive, so listen for that.
     _controller.addListener(_onControllerChanged);
+    _scrollController.addListener(_onScroll);
     // Offline mode: the moment the connection returns, retry the page that
     // failed (or that we deliberately did not attempt).
     _attachOnlineListener();
@@ -155,6 +174,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _refreshController?.unregister(_showRefresh);
     if (_onlineListenerAttached) {
       NetworkStatus().online.removeListener(_onOnlineChanged);
@@ -221,13 +242,85 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
       );
 
   /// Soft refresh used by the pull-to-refresh gesture. Runs the caller's
-  /// [onRefresh] side effects, then reloads the first page while keeping the
-  /// current tweets visible (the RefreshIndicator shows its own small spinner on
-  /// top). Awaited so the spinner stays until done.
+  /// [onRefresh] side effects, then reloads the first page. Scrolled down with
+  /// genuinely new posts on top, the page is held behind the pill instead.
   Future<void> _handleRefresh() async {
     await widget.onRefresh?.call();
     if (!mounted) return;
-    await widget.feed.softRefresh();
+
+    final before = _currentTopId();
+    try {
+      final result = await widget.feed.fetchFirstPage();
+      if (!mounted) return;
+
+      final after = result.chains.isEmpty ? null : result.chains.first.id;
+      final scrolledDown = _scrollController.hasClients && _scrollController.offset > _pillThreshold;
+      if (before != null && after != null && before != after && scrolledDown) {
+        _pendingFirstPage = result;
+        setState(() => _newPostsAvailable = true);
+        return;
+      }
+
+      widget.feed.applyFirstPage(result);
+    } catch (e, stackTrace) {
+      widget.feed.setError(e, stackTrace);
+    }
+  }
+
+  String? _currentTopId() {
+    final items = _controller.value.items;
+    return (items == null || items.isEmpty) ? null : items.first.id;
+  }
+
+  void _onScroll() {
+    if (!_newPostsAvailable || !_scrollController.hasClients) return;
+    if (_scrollController.offset > 40) return;
+
+    // Back at the top: slide the held page in and drop the pill.
+    final pending = _pendingFirstPage;
+    _pendingFirstPage = null;
+    if (pending != null) widget.feed.applyFirstPage(pending);
+    setState(() => _newPostsAvailable = false);
+  }
+
+  Future<void> _jumpToNewPosts() async {
+    final pending = _pendingFirstPage;
+    _pendingFirstPage = null;
+    if (pending != null) widget.feed.applyFirstPage(pending);
+    setState(() => _newPostsAvailable = false);
+
+    if (_scrollController.hasClients) {
+      await _scrollController.animateTo(0,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+  }
+
+  Widget _buildNewPostsPill() {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      elevation: 2,
+      color: scheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: _jumpToNewPosts,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.arrow_upward, size: 18, color: scheme.onSecondaryContainer),
+              const SizedBox(width: 6),
+              Text(L10n.of(context).new_posts,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(color: scheme.onSecondaryContainer)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // True while we should display the cached preview: the first page hasn't
@@ -302,6 +395,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
         padding: EdgeInsets.only(top: 4, bottom: MediaQuery.of(context).padding.bottom),
         state: state,
         fetchNextPage: fetchNextPage,
+        scrollController: _scrollController,
         addAutomaticKeepAlives: false,
         // Pre-build items further ahead of the viewport: heavy media cards need
         // decode time, and the default ~250px cache causes visible stutter.
@@ -328,6 +422,12 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
       ),
     );
 
-    return _wrapWithRefresh(list);
+    return Stack(
+      children: [
+        _wrapWithRefresh(list),
+        if (_newPostsAvailable)
+          Positioned(top: 12, left: 0, right: 0, child: Center(child: _buildNewPostsPill())),
+      ],
+    );
   }
 }

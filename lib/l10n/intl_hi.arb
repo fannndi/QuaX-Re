@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "इंटरनेट कनेक्शन नहीं",
   "@offline_message": {},
-  "cached": "कैश",
+  "cached": "कैश में",
   "@cached": {},
   "cached_offline": "ऑफ़लाइन उपलब्ध",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "केवल Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "कैश आकार सीमा",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "नई पोस्ट",
+  "@new_posts": {},
+  "no_cached_posts": "अभी कोई सहेजी गई पोस्ट नहीं",
+  "@no_cached_posts": {}
 }

@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Brak połączenia z internetem",
   "@offline_message": {},
-  "cached": "Cache",
+  "cached": "W pamięci",
   "@cached": {},
   "cached_offline": "Dostępne offline",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Tylko przez Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Limit rozmiaru pamięci podręcznej",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Nowe posty",
+  "@new_posts": {},
+  "no_cached_posts": "Brak zapisanych postów",
+  "@no_cached_posts": {}
 }

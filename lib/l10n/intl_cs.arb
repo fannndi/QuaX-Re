@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Žádné připojení k internetu",
   "@offline_message": {},
-  "cached": "Mezipaměť",
+  "cached": "V mezipaměti",
   "@cached": {},
   "cached_offline": "Dostupné offline",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Jen přes Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Limit velikosti mezipaměti",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Nové příspěvky",
+  "@new_posts": {},
+  "no_cached_posts": "Zatím žádné uložené příspěvky",
+  "@no_cached_posts": {}
 }

@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Няма падключэння да інтэрнэту",
   "@offline_message": {},
-  "cached": "Кэш",
+  "cached": "У кэшы",
   "@cached": {},
   "cached_offline": "Даступна афлайн",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Толькі праз Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Ліміт памеру кэша",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Новыя паведамленні",
+  "@new_posts": {},
+  "no_cached_posts": "Пакуль няма захаваных паведамленняў",
+  "@no_cached_posts": {}
 }

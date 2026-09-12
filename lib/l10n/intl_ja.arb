@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "インターネット接続がありません",
   "@offline_message": {},
-  "cached": "キャッシュ",
+  "cached": "キャッシュ済み",
   "@cached": {},
   "cached_offline": "オフラインで利用可能",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Wi-Fiのみ",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "キャッシュ容量の上限",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "新しいポスト",
+  "@new_posts": {},
+  "no_cached_posts": "保存されたポストはまだありません",
+  "@no_cached_posts": {}
 }

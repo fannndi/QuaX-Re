@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "İnternet bağlantısı yok",
   "@offline_message": {},
-  "cached": "Önbellek",
+  "cached": "Önbellekte",
   "@cached": {},
   "cached_offline": "Çevrimdışı kullanılabilir",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Yalnızca Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Önbellek boyutu sınırı",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Yeni gönderiler",
+  "@new_posts": {},
+  "no_cached_posts": "Henüz kayıtlı gönderi yok",
+  "@no_cached_posts": {}
 }

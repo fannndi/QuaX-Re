@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "沒有網際網路連線",
   "@offline_message": {},
-  "cached": "快取",
+  "cached": "已快取",
   "@cached": {},
   "cached_offline": "可離線檢視",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "僅 Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "快取大小上限",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "新貼文",
+  "@new_posts": {},
+  "no_cached_posts": "還沒有已快取的貼文",
+  "@no_cached_posts": {}
 }

@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Sense connexió a internet",
   "@offline_message": {},
-  "cached": "Memòria cau",
+  "cached": "En memòria cau",
   "@cached": {},
   "cached_offline": "Disponible sense connexió",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Només per Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Límit de mida de la memòria cau",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Publicacions noves",
+  "@new_posts": {},
+  "no_cached_posts": "Encara no hi ha publicacions desades",
+  "@no_cached_posts": {}
 }

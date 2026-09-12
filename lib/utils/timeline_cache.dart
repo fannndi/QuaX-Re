@@ -14,7 +14,7 @@ class TimelineCache {
 
   static String keyFor(String feed) => 'timeline.v1.$feed';
 
-  static Future<Directory> _dir() async {
+  static Future<Directory> directory() async {
     final root = await getApplicationSupportDirectory();
     final dir = Directory(p.join(root.path, _folder));
     await dir.create(recursive: true);
@@ -26,17 +26,19 @@ class TimelineCache {
   static String _fileName(String key) =>
       key.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 
-  /// The cached body, or null when it is missing, unreadable or older than
-  /// [maxAge]. Failures are silent: a cold cache only costs a spinner.
-  static Future<String?> read(String key, {required Duration maxAge}) async {
+  /// The cached body, or null when it is missing or unreadable. [maxAge] bounds
+  /// what counts as fresh; null shows the stored page regardless of age (the
+  /// offline shelf), while the instant-paint preview keeps a short window.
+  static Future<String?> read(String key, {Duration? maxAge}) async {
     try {
-      final file = File(p.join((await _dir()).path, _fileName(key)));
+      final file = File(p.join((await directory()).path, _fileName(key)));
       if (!await file.exists()) return null;
 
       final decoded = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      final savedAt = DateTime.fromMillisecondsSinceEpoch(decoded['at'] as int? ?? 0);
-      if (DateTime.now().difference(savedAt) > maxAge) return null;
-
+      if (maxAge != null) {
+        final savedAt = DateTime.fromMillisecondsSinceEpoch(decoded['at'] as int? ?? 0);
+        if (DateTime.now().difference(savedAt) > maxAge) return null;
+      }
       return decoded['body'] as String?;
     } catch (_) {
       return null;
@@ -45,7 +47,7 @@ class TimelineCache {
 
   static Future<void> write(String key, String body) async {
     try {
-      final file = File(p.join((await _dir()).path, _fileName(key)));
+      final file = File(p.join((await directory()).path, _fileName(key)));
       await file.writeAsString(jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}));
     } catch (_) {
       // The cache is best-effort.
@@ -56,7 +58,7 @@ class TimelineCache {
   /// previews rebuild from the fresh responses.
   static Future<void> clearAll() async {
     try {
-      final dir = await _dir();
+      final dir = await directory();
       if (await dir.exists()) {
         await dir.delete(recursive: true);
       }
@@ -65,3 +67,4 @@ class TimelineCache {
     }
   }
 }
+

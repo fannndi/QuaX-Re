@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "لا يوجد اتصال بالإنترنت",
   "@offline_message": {},
-  "cached": "مخزن",
+  "cached": "مخزّن",
   "@cached": {},
   "cached_offline": "متاح دون اتصال",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "عبر Wi-Fi فقط",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "حد حجم الذاكرة المؤقتة",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "منشورات جديدة",
+  "@new_posts": {},
+  "no_cached_posts": "لا توجد منشورات محفوظة بعد",
+  "@no_cached_posts": {}
 }

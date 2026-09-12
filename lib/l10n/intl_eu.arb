@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Interneteko konexiorik ez",
   "@offline_message": {},
-  "cached": "Cachea",
+  "cached": "Cachean",
   "@cached": {},
   "cached_offline": "Lineaz kanpo erabilgarri",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Wi-Fi bidez soilik",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Cachearen tamainaren muga",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Mezu berriak",
+  "@new_posts": {},
+  "no_cached_posts": "Oraindik ez dago gordetako mezurik",
+  "@no_cached_posts": {}
 }

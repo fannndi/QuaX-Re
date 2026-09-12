@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:quax/client/account_sheet.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/home/_cached.dart';
 import 'package:quax/home/_following.dart';
 import 'package:quax/home/_for_you.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
@@ -14,7 +15,7 @@ import 'package:quax/search/search.dart';
 
 typedef FeedTabTitleBuilder = String Function(BuildContext context);
 
-enum FeedTab { foryou, following }
+enum FeedTab { foryou, following, cached }
 
 class FeedTabOption {
   final FeedTab id;
@@ -26,6 +27,7 @@ class FeedTabOption {
 final List<FeedTabOption> feedTabs = [
   FeedTabOption(FeedTab.foryou, (c) => L10n.of(c).foryou),
   FeedTabOption(FeedTab.following, (c) => L10n.of(c).following),
+  FeedTabOption(FeedTab.cached, (c) => L10n.of(c).cached),
 ];
 
 FeedTab feedTabFromId(String? id) =>
@@ -93,9 +95,17 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         controller: tabController,
         tabs: feedTabs.map((e) => Tab(text: e.titleBuilder(context))).toList(),
         onTap: (index) {
-          // Tapping the already-active tab refreshes that feed (X-style).
+          // Tapping the already-active tab refreshes that feed (X-style); the
+          // cached shelf just re-reads the disk.
           if (index != tabController.index || tabController.indexIsChanging) return;
-          (index == 0 ? _foryouFeed : _followingFeed).softRefresh();
+          switch (index) {
+            case 0:
+              _foryouFeed.softRefresh();
+            case 1:
+              _followingFeed.softRefresh();
+            case 2:
+              cachedFeedRevision.value++;
+          }
         },
       ),
       actionsBuilder: (context) {
@@ -137,6 +147,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           children: [
             ForYouTweets(_foryouFeed),
             FollowingTweets(_followingFeed),
+            const CachedTweets(),
           ],
         );
       },

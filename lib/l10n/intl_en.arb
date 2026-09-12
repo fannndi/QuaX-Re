@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "No internet connection",
   "@offline_message": {},
-  "cached": "Cache",
+  "cached": "Cached",
   "@cached": {},
   "cached_offline": "Available offline",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Wi-Fi only",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Cache size limit",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "New posts",
+  "@new_posts": {},
+  "no_cached_posts": "No cached posts yet — visit For You or Following once to store them",
+  "@no_cached_posts": {}
 }

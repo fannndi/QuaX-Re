@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Нет подключения к интернету",
   "@offline_message": {},
-  "cached": "Кэш",
+  "cached": "В кэше",
   "@cached": {},
   "cached_offline": "Доступно офлайн",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Только по Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Лимит размера кэша",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Новые посты",
+  "@new_posts": {},
+  "no_cached_posts": "Пока нет сохранённых постов",
+  "@no_cached_posts": {}
 }

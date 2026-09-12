@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Ingen internettforbindelse",
   "@offline_message": {},
-  "cached": "Buffer",
+  "cached": "Bufret",
   "@cached": {},
   "cached_offline": "Tilgjengelig offline",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Kun Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Grense for bufferstørrelse",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Nye innlegg",
+  "@new_posts": {},
+  "no_cached_posts": "Ingen lagrede innlegg ennå",
+  "@no_cached_posts": {}
 }

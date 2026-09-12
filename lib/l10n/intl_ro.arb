@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Fără conexiune la internet",
   "@offline_message": {},
-  "cached": "Cache",
+  "cached": "În cache",
   "@cached": {},
   "cached_offline": "Disponibil offline",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Doar pe Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Limită dimensiune cache",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Postări noi",
+  "@new_posts": {},
+  "no_cached_posts": "Încă nu există postări salvate",
+  "@no_cached_posts": {}
 }

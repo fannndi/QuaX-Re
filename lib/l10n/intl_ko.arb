@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "인터넷 연결 없음",
   "@offline_message": {},
-  "cached": "캐시",
+  "cached": "캐시됨",
   "@cached": {},
   "cached_offline": "오프라인에서 사용 가능",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Wi-Fi에서만",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "캐시 크기 제한",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "새 게시물",
+  "@new_posts": {},
+  "no_cached_posts": "아직 저장된 게시물이 없습니다",
+  "@no_cached_posts": {}
 }

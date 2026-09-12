@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Tidak ada koneksi internet",
   "@offline_message": {},
-  "cached": "Cache",
+  "cached": "Di-cache",
   "@cached": {},
   "cached_offline": "Tersedia offline",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Hanya di Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Batas ukuran cache",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Postingan baru",
+  "@new_posts": {},
+  "no_cached_posts": "Belum ada postingan tersimpan — buka For You atau Following sekali agar tersimpan",
+  "@no_cached_posts": {}
 }

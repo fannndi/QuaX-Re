@@ -10,6 +10,7 @@ import 'package:quax/database/repository.dart';
 import 'package:quax/downloads/connectivity_watcher.dart';
 import 'package:quax/downloads/download_notifications.dart';
 import 'package:quax/downloads/downloads_model.dart';
+import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/app/fritter_app.dart';
 import 'package:quax/app/startup.dart';
 import 'package:quax/group/feed_session_cache.dart';
@@ -133,6 +134,9 @@ Future<void> main() async {
     unawaited(DownloadNotifications.ensure());
     unawaited(DownloadsModel().load().then((_) => ConnectivityWatcher().ensure(prefService)));
     unawaited(NetworkStatus().check());
+    // Primes the auto-cache index, so the per-tweet "Cached" labels are right
+    // from the first frame.
+    unawaited(VideoCache().load());
 
     runApp(PrefService(        service: prefService,
         child: MultiProvider(

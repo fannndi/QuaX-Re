@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Geen internetverbinding",
   "@offline_message": {},
-  "cached": "Cache",
+  "cached": "Gecachet",
   "@cached": {},
   "cached_offline": "Offline beschikbaar",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Alleen via Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Maximale cachegrootte",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Nieuwe posts",
+  "@new_posts": {},
+  "no_cached_posts": "Nog geen opgeslagen posts",
+  "@no_cached_posts": {}
 }

@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Internetiühendus puudub",
   "@offline_message": {},
-  "cached": "Vahemälu",
+  "cached": "Vahemälus",
   "@cached": {},
   "cached_offline": "Saadaval võrguühenduseta",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Ainult Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Vahemälu suuruse piirang",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Uued postitused",
+  "@new_posts": {},
+  "no_cached_posts": "Salvestatud postitusi veel pole",
+  "@no_cached_posts": {}
 }

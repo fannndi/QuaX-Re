@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Không có kết nối internet",
   "@offline_message": {},
-  "cached": "Bộ đệm",
+  "cached": "Đã cache",
   "@cached": {},
   "cached_offline": "Có sẵn ngoại tuyến",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Chỉ Wi-Fi",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Giới hạn dung lượng cache",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Bài đăng mới",
+  "@new_posts": {},
+  "no_cached_posts": "Chưa có bài đăng nào được lưu",
+  "@no_cached_posts": {}
 }

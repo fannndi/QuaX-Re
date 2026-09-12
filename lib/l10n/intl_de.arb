@@ -677,7 +677,7 @@
   "@cache_cleared": {},
   "offline_message": "Keine Internetverbindung",
   "@offline_message": {},
-  "cached": "Cache",
+  "cached": "Gecacht",
   "@cached": {},
   "cached_offline": "Offline verfügbar",
   "@cached_offline": {},
@@ -688,5 +688,9 @@
   "auto_cache_wifi_only": "Nur über WLAN",
   "@auto_cache_wifi_only": {},
   "cache_size_limit": "Cache-Größenlimit",
-  "@cache_size_limit": {}
+  "@cache_size_limit": {},
+  "new_posts": "Neue Beiträge",
+  "@new_posts": {},
+  "no_cached_posts": "Noch keine gespeicherten Beiträge",
+  "@no_cached_posts": {}
 }

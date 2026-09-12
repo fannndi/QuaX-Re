@@ -16,6 +16,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/iterables.dart';
+import 'package:quax/utils/storage_report.dart';
 import 'package:quax/utils/timeline_cache.dart';
 import 'package:quax/utils/tweet_cache_index.dart';
 
@@ -62,52 +63,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         DropdownMenuItem(value: 'medium', child: Text(L10n.current.quality_high)),
         DropdownMenuItem(value: 'large', child: Text(L10n.current.quality_maximum)),
       ];
-
-  /// Wipes the offline caches (stored timelines, tweet-id index, gallery
-  /// thumbnails and the image cache) so the next visit fetches everything
-  /// fresh. Downloaded library files are never touched.
-  Future<void> _clearCache(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(L10n.of(dialogContext).are_you_sure),
-        content: Text(L10n.of(dialogContext).clear_cache_description),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(L10n.of(dialogContext).cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(L10n.of(dialogContext).delete),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    await TimelineCache.clearAll();
-    TweetCacheIndex().clear();
-    await VideoCache().clear();
-    try {
-      final thumbs = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
-      if (await thumbs.exists()) {
-        await thumbs.delete(recursive: true);
-      }
-    } catch (_) {
-      // Thumbnails regenerate on demand.
-    }
-    clearMemoryImageCache();
-    try {
-      await clearDiskCachedImages();
-    } catch (_) {
-      // Image cache failures are harmless.
-    }
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10n.of(context).cache_cleared)));
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,15 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _SettingsSection(
             title: L10n.of(context).data,
-            tiles: [
-              ListTile(
-                leading: const Icon(Icons.cleaning_services_outlined),
-                title: Text(L10n.of(context).clear_cache),
-                subtitle: Text(L10n.of(context).clear_cache_description,
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                onTap: () => _clearCache(context),
-              ),
-            ],
+            tiles: [_StorageTiles(prefs: prefs)],
           ),
           _SettingsSection(
             title: L10n.of(context).app_info,
@@ -303,6 +250,97 @@ class _LibraryFolderTileState extends State<_LibraryFolderTile> {
           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.chevron_right),
       onTap: _busy ? null : _pick,
+    );
+  }
+}
+
+/// The Data section: what the app uses on disk (library + caches) with the
+/// one-tap cache wipe. Downloaded library files are never touched.
+class _StorageTiles extends StatefulWidget {
+  final BasePrefService prefs;
+
+  const _StorageTiles({required this.prefs});
+
+  @override
+  State<_StorageTiles> createState() => _StorageTilesState();
+}
+
+class _StorageTilesState extends State<_StorageTiles> {
+  late Future<StorageBreakdown> _report = computeStorageBreakdown(widget.prefs);
+
+  void _refresh() => setState(() => _report = computeStorageBreakdown(widget.prefs));
+
+  Future<void> _clearCache(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(L10n.of(dialogContext).are_you_sure),
+        content: Text(L10n.of(dialogContext).clear_cache_description),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(L10n.of(dialogContext).cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(L10n.of(dialogContext).delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await TimelineCache.clearAll();
+    TweetCacheIndex().clear();
+    await VideoCache().clear();
+    try {
+      final thumbs = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      if (await thumbs.exists()) {
+        await thumbs.delete(recursive: true);
+      }
+    } catch (_) {
+      // Thumbnails regenerate on demand.
+    }
+    clearMemoryImageCache();
+    try {
+      await clearDiskCachedImages();
+    } catch (_) {
+      // Image cache failures are harmless.
+    }
+
+    if (!context.mounted) return;
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10n.of(context).cache_cleared)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = widget.prefs.get<String>(optionLibraryPath);
+
+    return FutureBuilder<StorageBreakdown>(
+      future: _report,
+      builder: (context, snapshot) {
+        final report = snapshot.data;
+        return Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: Text(L10n.of(context).library),
+              subtitle: Text(path == null || path.isEmpty ? L10n.of(context).not_set : path,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: Text(report == null ? '…' : formatBytes(report.libraryBytes)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.cleaning_services_outlined),
+              title: Text(L10n.of(context).clear_cache),
+              subtitle: Text(L10n.of(context).clear_cache_description,
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              trailing: Text(report == null ? '…' : formatBytes(report.cacheBytes)),
+              onTap: () => _clearCache(context),
+            ),
+          ],
+        );
+      },
     );
   }
 }

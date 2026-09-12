@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/import_data_model.dart';
 import 'package:quax/profile/profile.dart';
@@ -356,32 +357,63 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
   }
 
-  /// A tiny label saying this post lives in the offline cache: its text,
-  /// media URL and thumbnail were stored with the timeline page, so it opens
-  /// without a connection (a downloaded video even plays from the library).
+  /// The per-tweet offline label: a live percentage while the clip is being
+  /// auto-cached, then "Cached" once the post (or its video) lives on disk.
+  /// A video that is still fetching plays from the network until it hits 100%.
   Widget _buildCacheLabel() {
-    return ValueListenableBuilder<int>(
-      valueListenable: TweetCacheIndex().revision,
-      builder: (context, _, __) {
-        if (!TweetCacheIndex().contains(tweet.idStr)) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: Listenable.merge([TweetCacheIndex().revision, VideoCache().progressRevision]),
+      builder: (context, _) {
+        final videoUrl = _autoCacheUrl();
+        final progress = videoUrl == null ? null : VideoCache().progressFor(videoUrl);
+        if (progress != null) {
+          return _cacheTag(
+            icon: Icons.downloading,
+            label: '${(progress * 100).clamp(1, 99).round()}%',
+          );
+        }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Tooltip(
-            message: L10n.of(context).cached_offline,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.offline_pin_outlined, size: 18, color: buttonsColor(context)),
-                const SizedBox(width: 4),
-                Text(L10n.of(context).cached,
-                    style: TextStyle(color: buttonsColor(context), fontSize: 14)),
-              ],
-            ),
-          ),
-        );
+        final cached =
+            TweetCacheIndex().contains(tweet.idStr) || (videoUrl != null && VideoCache().isCached(videoUrl));
+        if (!cached) return const SizedBox.shrink();
+
+        return _cacheTag(icon: Icons.offline_pin_outlined, label: L10n.of(context).cached);
       },
     );
+  }
+
+  Widget _cacheTag({required IconData icon, required String label}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Tooltip(
+        message: L10n.of(context).cached_offline,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: buttonsColor(context)),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: buttonsColor(context), fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The MP4 URL the auto-cache fetches for this tweet, if any: the
+  /// highest-bitrate progressive variant, the same pick as the player default.
+  String? _autoCacheUrl() {
+    final media = tweet.extendedEntities?.media;
+    if (media == null) return null;
+
+    for (final item in media) {
+      final variants = item.videoInfo?.variants;
+      if (variants == null) continue;
+
+      final mp4 = variants.where((v) => v.contentType == 'video/mp4' && v.url != null).toList()
+        ..sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
+      if (mp4.isNotEmpty) return mp4.first.url;
+    }
+    return null;
   }
 
   Color? buttonsColor(BuildContext c) {
