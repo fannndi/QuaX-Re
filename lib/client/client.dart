@@ -490,6 +490,10 @@ class Twitter {
         .toList();
   }
 
+  /// The For You (ranked) home timeline. The variables mirror what x.com
+  /// actually sends (see the recorded fixture): crucially `requestContext:
+  /// "launch"` on the first page — without it X keeps serving a stale slice of
+  /// the ranked feed, which is why the top posts could look days old.
   static Future<TweetStatus> getTimelineTweets(
     String id,
     String type, {
@@ -501,37 +505,28 @@ class Twitter {
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
   }) async {
-    bool showPinnedTweet = true;
-    Map<String, Object> defaultUserTweetsParam = {
-      "variables":
-          "{\"userId\":\"160534877\",\"count\":$count,\"includePromotedContent\":false,\"withQuickPromoteEligibilityTweetFields\":true,\"withVoice\":true,\"withV2Timeline\":true}",
-      "features": jsonEncode(_timelineFeatures),
-      "fieldToggles": "{\"withAuxiliaryUserLabels\":false,\"withArticleRichContentState\":false}",
+    Map<String, dynamic> variables = {
+      "count": count,
+      "includePromotedContent": true,
+      "withCommunity": true,
+      if (cursor == null) "requestContext": "launch" else "cursor": cursor,
     };
 
-    Map<String, dynamic> variables = json.decode(defaultUserTweetsParam["variables"].toString());
-    variables["userId"] = id;
-    if (cursor != null) {
-      variables['cursor'] = cursor;
-    }
-    defaultUserTweetsParam["variables"] = json.encode(variables);
-
     var response = await _twitterApi.client.get(
-      Uri.https('twitter.com', 'i/api/graphql/wp06oo3fRGU4P1sK8rECqQ/HomeTimeline', defaultUserTweetsParam),
+      Uri.https('twitter.com', 'i/api/graphql/wp06oo3fRGU4P1sK8rECqQ/HomeTimeline', {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+      }),
     );
-    if (cursor == null) {
-      unawaited(TimelineCache.write(TimelineCache.keyFor('foryou'), response.body));
-    }
     var result = json.decode(response.body);
-    //if this page is not first one on the profile page, dont add pinned tweet
-    if (variables['cursor'] != null) showPinnedTweet = false;
+    // Pinned posts only belong on the first page.
     return createTimelineChains(
       result,
       'tweet',
       pinnedTweets ?? [],
       includeReplies == false,
       includeReplies,
-      showPinnedTweet,
+      cursor == null,
       getTweetsCounter,
       incrementTweetsCounter,
     );
@@ -567,9 +562,6 @@ class Twitter {
         'features': jsonEncode(_timelineFeatures),
       }),
     );
-    if (cursor == null) {
-      unawaited(TimelineCache.write(TimelineCache.keyFor('following'), response.body));
-    }
     return createTimelineChains(
       json.decode(response.body) as Map<String, dynamic>,
       'tweet',
@@ -635,9 +627,6 @@ class Twitter {
         'features': jsonEncode(_timelineFeatures),
       }),
     );
-    if (cursor == null) {
-      unawaited(TimelineCache.write(TimelineCache.keyFor('likes.$userId'), response.body));
-    }
     return createUnconversationedChains(
       json.decode(response.body) as Map<String, dynamic>,
       'tweet',
@@ -649,16 +638,6 @@ class Twitter {
       incrementTweetsCounter,
     );
   }
-
-  /// Rebuilds the For You first page from the disk cache ([TimelineCache]) for
-  /// an instant paint before the network answers. Counters are irrelevant for
-  /// a preview: every entry counts as new.
-  static TweetStatus previewForYouTweets(String body) => createTimelineChains(
-      json.decode(body) as Map<String, dynamic>, 'tweet', const [], true, false, true, () => 0, () {});
-
-  /// Same, for the chronological Following timeline.
-  static TweetStatus previewFollowingTweets(String body) => createTimelineChains(
-      json.decode(body) as Map<String, dynamic>, 'tweet', const [], true, false, false, () => 0, () {});
 
   static Future<TweetStatus> getTweets(
     String id,

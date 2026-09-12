@@ -126,7 +126,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   // Freshness: coming back to the app after a while quietly refreshes the
   // timeline, so what the reader sees is current without a manual pull.
   DateTime _lastLoadedAt = DateTime.fromMillisecondsSinceEpoch(0);
-  static const _staleAfter = Duration(minutes: 5);
+  static const _staleAfter = Duration(minutes: 2);
+
+  // A restored scroll position older than this is skipped: opening the app at
+  // yesterday's tweets reads as a broken feed, so it starts fresh at the top.
+  static const _scrollRestoreMaxAge = Duration(minutes: 30);
 
   // The "new posts" pill: a fetched first page held back while the reader is
   // scrolled down, so fresh tweets never yank the list under them.
@@ -338,11 +342,15 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     _scrollSaveTimer?.cancel();
     _scrollSaveTimer = Timer(const Duration(milliseconds: 600), () {
       if (!mounted || !_scrollController.hasClients) return;
-      PrefService.of(context, listen: false).set<double>('scroll.$key', _scrollController.offset);
+      final prefs = PrefService.of(context, listen: false);
+      prefs.set<double>('scroll.$key', _scrollController.offset);
+      prefs.set<int>('scroll.$key.at', DateTime.now().millisecondsSinceEpoch);
     });
   }
 
-  /// Jumps back to the last reading position once the first page is in place.
+  /// Jumps back to the last reading position once the first page is in place —
+  /// unless that position is old, in which case the feed opens at the top with
+  /// current content instead of yesterday's posts.
   void _maybeRestoreScroll() {
     final key = widget.scrollKey;
     if (_scrollRestored || key == null) return;
@@ -351,8 +359,15 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     if (items == null || items.isEmpty || !_scrollController.hasClients) return;
     _scrollRestored = true;
 
-    final saved = PrefService.of(context, listen: false).get<double>('scroll.$key') ?? 0;
+    final prefs = PrefService.of(context, listen: false);
+    final savedAt = prefs.get<int>('scroll.$key.at');
+    final saved = prefs.get<double>('scroll.$key') ?? 0;
     if (saved <= 0) return;
+
+    if (savedAt != null) {
+      final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(savedAt));
+      if (age > _scrollRestoreMaxAge) return;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
