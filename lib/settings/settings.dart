@@ -1,27 +1,28 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localized_locales/flutter_localized_locales.dart';
+import 'package:intl/intl.dart' show toBeginningOfSentenceCase;
 import 'package:material_ui/material_ui.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:pref/pref.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/settings/_about.dart';
-import 'package:quax/settings/_general.dart';
-import 'package:quax/settings/_media.dart';
-import 'package:quax/settings/_theme.dart';
+import 'package:quax/library/library_model.dart';
+import 'package:quax/ui/errors.dart';
+import 'package:quax/utils/iterables.dart';
 import 'package:quax/utils/timeline_cache.dart';
 import 'package:quax/utils/tweet_cache_index.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
-/// The fork's settings: the few things worth a screen — language/general,
-/// downloads & media, theme — plus the about box. Account switching lives in
-/// the home app bar's account sheet; home-page customisation, accessibility,
-/// post appearance and data export were dropped to keep the app simple.
+/// The whole Settings experience on one page — language & privacy, appearance,
+/// downloads & media, cache, about. The account manager is deliberately not
+/// here: switching accounts lives in the home app bar's account sheet.
 class SettingsScreen extends StatefulWidget {
-  final String? initialPage;
-
-  const SettingsScreen({super.key, this.initialPage});
+  const SettingsScreen({super.key});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -33,15 +34,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-
     Future.microtask(() async {
-      var packageInfo = await PackageInfo.fromPlatform();
-
-      setState(() {
-        _packageInfo = packageInfo;
-      });
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _packageInfo = info);
     });
   }
+
+  PrefDropdown<String> _languagePicker() {
+    return PrefDropdown(
+        fullWidth: false,
+        title: Text(L10n.current.language),
+        subtitle: Text(L10n.current.language_subtitle),
+        pref: optionLocale,
+        items: [
+          DropdownMenuItem(value: optionLocaleDefault, child: Text(L10n.current.system)),
+          ...L10n.delegate.supportedLocales
+              .map((e) => SettingLocale.fromLocale(e))
+              .sorted((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()))
+              .map((e) => DropdownMenuItem(value: e.code, child: Text(e.name)))
+        ]);
+  }
+
+  List<DropdownMenuItem<String>> _qualityItems() => [
+        DropdownMenuItem(value: 'thumb', child: Text(L10n.current.quality_low)),
+        DropdownMenuItem(value: 'small', child: Text(L10n.current.quality_medium)),
+        DropdownMenuItem(value: 'medium', child: Text(L10n.current.quality_high)),
+        DropdownMenuItem(value: 'large', child: Text(L10n.current.quality_maximum)),
+      ];
 
   /// Wipes the offline caches (stored timelines, tweet-id index, gallery
   /// thumbnails and the image cache) so the next visit fetches everything
@@ -90,7 +109,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var appVersion = 'v${_packageInfo.version}+${_packageInfo.buildNumber}';
+    final prefs = PrefService.of(context);
+    final appVersion = 'v${_packageInfo.version}+${_packageInfo.buildNumber}';
 
     return Scaffold(
       appBar: AppBar(title: Text(L10n.of(context).settings)),
@@ -100,35 +120,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsSection(
             title: L10n.of(context).general,
             tiles: [
-              _SettingsEntry(
-                icon: Icons.miscellaneous_services_outlined,
-                title: L10n.of(context).general,
-                subtitle: L10n.of(context).language,
-                builder: (context) => const SettingsGeneralFragment(),
-              ),
-            ],
-          ),
-          _SettingsSection(
-            title: L10n.of(context).media,
-            tiles: [
-              _SettingsEntry(
-                icon: Icons.perm_media_outlined,
-                title: L10n.of(context).media,
-                subtitle:
-                    "${L10n.of(context).image_quality}, ${L10n.of(context).video_quality}, ${L10n.of(context).mute_videos}, ${L10n.of(context).library}",
-                builder: (context) => const SettingsMediaFragment(),
+              _languagePicker(),
+              PrefSwitch(
+                title: Text(L10n.of(context).disable_screenshots),
+                subtitle: Text(L10n.of(context).disable_screenshots_hint),
+                pref: optionDisableScreenshots,
               ),
             ],
           ),
           _SettingsSection(
             title: L10n.of(context).theme,
             tiles: [
-              _SettingsEntry(
-                icon: Icons.palette_outlined,
-                title: L10n.of(context).theme,
-                subtitle:
-                    "${L10n.of(context).theme_mode}, ${L10n.of(context).theme}, ${L10n.of(context).true_black}, ${L10n.of(context).true_black_tweet_cards} ${L10n.of(context).show_navigation_labels}",
-                builder: (context) => const SettingsThemeFragment(),
+              PrefDropdown(
+                  fullWidth: false,
+                  title: Text(L10n.of(context).theme_mode),
+                  pref: optionThemeMode,
+                  items: [
+                    DropdownMenuItem(value: 'system', child: Text(L10n.of(context).system)),
+                    DropdownMenuItem(value: 'light', child: Text(L10n.of(context).light)),
+                    DropdownMenuItem(value: 'dark', child: Text(L10n.of(context).dark)),
+                  ]),
+              PrefDropdown(
+                  fullWidth: false,
+                  title: Text(L10n.of(context).theme),
+                  pref: optionThemeColor,
+                  items: [
+                    const DropdownMenuItem(value: 'accent', child: Text('Accent')),
+                    ...themeColors.entries.getRange(0, themeColors.values.length - 1).map((scheme) =>
+                        DropdownMenuItem(value: scheme.key, child: Text(toBeginningOfSentenceCase(scheme.key)!)))
+                  ]),
+              PrefSwitch(
+                title: Text(L10n.of(context).true_black),
+                pref: optionThemeTrueBlack,
+                subtitle: Text(L10n.of(context).use_true_black_for_the_dark_mode_theme),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: L10n.of(context).media,
+            tiles: [
+              _LibraryFolderTile(prefs: prefs),
+              PrefDropdown(
+                  fullWidth: false,
+                  title: Text(L10n.of(context).video_quality),
+                  subtitle: Text(L10n.of(context).video_quality_description),
+                  pref: optionMediaVideoQuality,
+                  items: _qualityItems()),
+              PrefDropdown(
+                  fullWidth: false,
+                  title: Text(L10n.of(context).image_quality),
+                  subtitle: Text(L10n.of(context).save_bandwidth_using_smaller_images),
+                  pref: optionImageQuality,
+                  items: _qualityItems()),
+              PrefSwitch(
+                pref: optionMediaDefaultMute,
+                title: Text(L10n.of(context).mute_videos),
+                subtitle: Text(L10n.of(context).mute_video_description),
+              ),
+              PrefSwitch(
+                pref: optionMediaBackgroundPlayback,
+                title: Text(L10n.of(context).allow_background_play),
+                subtitle: Text(L10n.of(context).allow_background_play_description),
               ),
             ],
           ),
@@ -147,15 +199,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsSection(
             title: L10n.of(context).app_info,
             tiles: [
-              Card(
-                child: SettingsAboutFragment(
-                  appVersion: appVersion,
-                ),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: Text(L10n.of(context).version),
+                subtitle: Text(appVersion),
+                onTap: () async {
+                  await Clipboard.setData(ClipboardData(text: appVersion));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(L10n.of(context).copied_version_to_clipboard)));
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copyright_outlined),
+                title: Text(L10n.of(context).licenses),
+                onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: L10n.of(context).fritter,
+                    applicationVersion: appVersion,
+                    applicationLegalese: L10n.of(context).released_under_the_mit_license,
+                    applicationIcon: Container(
+                      margin: const EdgeInsets.all(12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(48.0),
+                        child: Image.asset(
+                          'assets/icon.png',
+                          height: 48.0,
+                          width: 48.0,
+                        ),
+                      ),
+                    )),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The library folder row: shows where downloads live and re-runs the folder
+/// setup (hidden subfolder + `.nomedia`) when tapped.
+class _LibraryFolderTile extends StatefulWidget {
+  final BasePrefService prefs;
+
+  const _LibraryFolderTile({required this.prefs});
+
+  @override
+  State<_LibraryFolderTile> createState() => _LibraryFolderTileState();
+}
+
+class _LibraryFolderTileState extends State<_LibraryFolderTile> {
+  bool _busy = false;
+
+  Future<void> _pick() async {
+    final picked = await FilePicker.getDirectoryPath();
+    if (picked == null || !mounted) return;
+
+    setState(() => _busy = true);
+    final error = ValueNotifier<String?>(null);
+    final ok = await LibraryModel(widget.prefs).setupLibraryAt(picked, error: error);
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!ok && error.value != null) {
+      showSnackBar(context, icon: '🙊', message: error.value!);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = widget.prefs.get<String>(optionLibraryPath);
+
+    return ListTile(
+      leading: const Icon(Icons.folder_outlined),
+      title: Text(L10n.of(context).library),
+      subtitle: Text(path == null || path.isEmpty ? L10n.of(context).not_set : path,
+          maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: _busy
+          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.chevron_right),
+      onTap: _busy ? null : _pick,
     );
   }
 }
@@ -188,27 +313,16 @@ class _SettingsSection extends StatelessWidget {
   }
 }
 
-class _SettingsEntry extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final WidgetBuilder builder;
+class SettingLocale {
+  final String code;
+  final String name;
 
-  const _SettingsEntry({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.builder,
-  });
+  SettingLocale(this.code, this.name);
 
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: builder)),
-    );
+  factory SettingLocale.fromLocale(Locale locale) {
+    var code = locale.toLanguageTag().replaceAll('-', '_');
+    var name = LocaleNamesLocalizationsDelegate.nativeLocaleNames[code] ?? code;
+
+    return SettingLocale(code, name);
   }
 }

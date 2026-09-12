@@ -145,6 +145,10 @@ When writing tests:
 - Material 3 is centralised in `lib/app/theme.dart` (`buildAppTheme`): one CardTheme/NavigationBarTheme/
   TabBarTheme/… for the whole app, built from the dynamic or seeded color scheme, with the true-black
   preference applied there. Screens should rely on these tokens instead of styling locally.
+- Settings is a single page (`lib/settings/settings.dart`): General (language, screenshots), Theme,
+  Media & downloads (library folder, qualities, mute, background play), Data (clear cache) and About.
+  Account management lives in the home app bar's account sheet, not in Settings; the old sub-screen
+  files (`_general/_media/_theme/_about.dart`) were deleted.
 - The gallery has search + sort (newest/oldest/name/size) and bulk selection (long-press: select-all/
   share/delete); the Download navbar icon carries a badge with the active-transfer count; the queue
   supports swipe-to-delete and retry-all.
