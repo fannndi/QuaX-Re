@@ -4,6 +4,7 @@ import 'package:better_player_plus/better_player_plus.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/tweet/_video_controls.dart';
@@ -12,6 +13,7 @@ import 'package:quax/tweet/video_context.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/tweet/video_metadata.dart';
 import 'package:quax/tweet/video_wakelock.dart';
+import 'package:quax/utils/downloads.dart';
 import 'package:provider/provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -144,11 +146,13 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final qualities = urls.qualities;
     final downloadUrl = urls.downloadUrl;
 
-    // A clip downloaded earlier plays from the hidden library: same file, no
-    // network, works offline (the tweet itself is cached with its thumbnail).
+    // A clip downloaded earlier plays from the hidden library, and one fetched
+    // by the auto-cache plays from the cache: same file, no network, works
+    // offline (the tweet itself carries its thumbnail).
     final library = LibraryModel(prefs);
     final localPath = (downloadUrl == null ? null : await library.localPathFor(downloadUrl)) ??
-        await library.localPathFor(streamUrl);
+        await library.localPathFor(streamUrl) ??
+        await VideoCache().localPathFor(downloadUrl ?? streamUrl);
 
     final controlsConfiguration = widget.disableControls
         ? const BetterPlayerControlsConfiguration(showControls: false)
@@ -306,6 +310,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     _lastVisibleFraction = info.visibleFraction;
 
     if (isVisible) {
+      _maybeAutoCache();
       if (key != null) _pool?.markVisible(key, this);
       _pauseTimer?.cancel();
       _pauseTimer = null;
@@ -322,6 +327,23 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
         }
       });
     }
+  }
+
+  bool _autoCacheRequested = false;
+
+  /// Auto-caching: the first time a short video scrolls into view, quietly
+  /// fetch it into the video cache so a later play or download starts from
+  /// disk. The settings gate the feature (and Wi-Fi-only); the duration gate
+  /// keeps it to clips under five minutes.
+  void _maybeAutoCache() {
+    if (_autoCacheRequested) return;
+    _autoCacheRequested = true;
+
+    if (!VideoCache.isEligibleDuration(widget.metadata.durationMillis)) return;
+    final prefs = PrefService.of(context, listen: false);
+    if (!(prefs.get<bool>(optionAutoCacheVideos) ?? false)) return;
+
+    unawaited(cacheVideoAhead(urls: widget.metadata.streamUrlsBuilder, prefs: prefs));
   }
 
   Future<void> _restartVideo() async {

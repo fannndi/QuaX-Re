@@ -680,5 +680,13 @@
   "cached": "Cache",
   "@cached": {},
   "cached_offline": "Tersedia offline",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Cache video otomatis",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Mengunduh video pendek (di bawah 5 menit) di latar belakang saat muncul, supaya play atau unduh langsung jalan — boros kuota.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Hanya di Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Batas ukuran cache",
+  "@cache_size_limit": {}
 }

@@ -680,5 +680,13 @@
   "cached": "कैश",
   "@cached": {},
   "cached_offline": "ऑफ़लाइन उपलब्ध",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "वीडियो ऑटो-कैश",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "छोटे वीडियो (5 मिनट से कम) पृष्ठभूमि में डाउनलोड करता है ताकि प्ले या डाउनलोड तुरंत शुरू हो — डेटा खर्च करता है।",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "केवल Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "कैश आकार सीमा",
+  "@cache_size_limit": {}
 }

@@ -1,11 +1,13 @@
 package com.teskann.quax
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Bitmap.CompressFormat.PNG
 import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -150,6 +152,14 @@ class MainActivity : FlutterActivity() {
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "path or visible is null", null)
+                    }
+                } else if (call.method == "isMetered") {
+                    try {
+                        val manager = getSystemService(Context.CONNECTIVITY_SERVICE)
+                                as ConnectivityManager
+                        result.success(manager.isActiveNetworkMetered)
+                    } catch (e: Exception) {
+                        result.success(false)
                     }
                 } else if (call.method == "getAvailableSpace") {
                     val path = call.argument<String>("path")

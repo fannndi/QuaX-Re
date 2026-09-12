@@ -680,5 +680,13 @@
   "cached": "キャッシュ",
   "@cached": {},
   "cached_offline": "オフラインで利用可能",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "動画の自動キャッシュ",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "短い動画（5分未満）が表示されたときバックグラウンドで取得し、再生やダウンロードを即座に開始します — 通信量に注意。",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Wi-Fiのみ",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "キャッシュ容量の上限",
+  "@cache_size_limit": {}
 }

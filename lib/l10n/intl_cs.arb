@@ -680,5 +680,13 @@
   "cached": "Mezipaměť",
   "@cached": {},
   "cached_offline": "Dostupné offline",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Automatické ukládání videí",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Na pozadí stahuje krátká videa (do 5 minut), aby přehrávání či stahování začalo okamžitě — spotřebovává data.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Jen přes Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Limit velikosti mezipaměti",
+  "@cache_size_limit": {}
 }

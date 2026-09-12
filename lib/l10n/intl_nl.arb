@@ -680,5 +680,13 @@
   "cached": "Cache",
   "@cached": {},
   "cached_offline": "Offline beschikbaar",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Video's automatisch cachen",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Haalt korte video's (onder 5 minuten) op de achtergrond op, zodat afspelen of downloaden meteen start — datavretend.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Alleen via Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Maximale cachegrootte",
+  "@cache_size_limit": {}
 }

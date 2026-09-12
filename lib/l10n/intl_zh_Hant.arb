@@ -680,5 +680,13 @@
   "cached": "快取",
   "@cached": {},
   "cached_offline": "可離線檢視",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "自動快取影片",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "影片出現時在背景預取短片（5 分鐘以內），播放或下載立即開始 — 較耗流量。",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "僅 Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "快取大小上限",
+  "@cache_size_limit": {}
 }

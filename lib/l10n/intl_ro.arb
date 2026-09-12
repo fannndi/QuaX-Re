@@ -680,5 +680,13 @@
   "cached": "Cache",
   "@cached": {},
   "cached_offline": "Disponibil offline",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Cache automat pentru videoclipuri",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Descarcă videoclipuri scurte (sub 5 minute) în fundal, ca redarea sau descărcarea să înceapă imediat — consumă date.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Doar pe Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Limită dimensiune cache",
+  "@cache_size_limit": {}
 }

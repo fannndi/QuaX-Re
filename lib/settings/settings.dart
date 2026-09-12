@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/ui/errors.dart';
@@ -87,6 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     await TimelineCache.clearAll();
     TweetCacheIndex().clear();
+    await VideoCache().clear();
     try {
       final thumbs = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
       if (await thumbs.exists()) {
@@ -182,6 +184,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: Text(L10n.of(context).allow_background_play),
                 subtitle: Text(L10n.of(context).allow_background_play_description),
               ),
+              PrefSwitch(
+                pref: optionAutoCacheVideos,
+                title: Text(L10n.of(context).auto_cache_videos),
+                subtitle: Text(L10n.of(context).auto_cache_videos_description),
+              ),
+              PrefSwitch(
+                pref: optionAutoCacheWifiOnly,
+                title: Text(L10n.of(context).auto_cache_wifi_only),
+                disabled: !(prefs.get<bool>(optionAutoCacheVideos) ?? false),
+              ),
+              PrefDropdown(
+                  fullWidth: false,
+                  title: Text(L10n.of(context).cache_size_limit),
+                  pref: optionVideoCacheLimitMb,
+                  items: [
+                    DropdownMenuItem(value: 256, child: Text('256 MB')),
+                    DropdownMenuItem(value: 512, child: Text('512 MB')),
+                    DropdownMenuItem(value: 1024, child: Text('1 GB')),
+                    DropdownMenuItem(value: 2048, child: Text('2 GB')),
+                  ]),
             ],
           ),
           _SettingsSection(

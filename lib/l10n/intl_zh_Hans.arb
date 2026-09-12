@@ -680,5 +680,13 @@
   "cached": "缓存",
   "@cached": {},
   "cached_offline": "可离线查看",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "自动缓存视频",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "视频出现时在后台预取短片（5 分钟以内），播放或下载即刻开始 — 较耗流量。",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "仅 Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "缓存大小上限",
+  "@cache_size_limit": {}
 }

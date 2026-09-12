@@ -13,8 +13,9 @@ class TweetVideoMetadata {
   final double aspectRatio;
   final String? imageUrl;
   final Future<TweetVideoUrls> Function() streamUrlsBuilder;
+  final int? durationMillis;
 
-  TweetVideoMetadata(this.aspectRatio, this.imageUrl, this.streamUrlsBuilder);
+  TweetVideoMetadata(this.aspectRatio, this.imageUrl, this.streamUrlsBuilder, {this.durationMillis});
 
   static Future<TweetVideoUrls> Function() streamUrlsBuilderFromVariants(List<Variant> variants) {
     // Use the progressive MP4 variants (highest bitrate first), not X's HLS
@@ -57,7 +58,8 @@ class TweetVideoMetadata {
     var variants = media.videoInfo?.variants ?? [];
     var imageUrl = media.mediaUrlHttps!;
 
-    return TweetVideoMetadata(aspectRatio, imageUrl, streamUrlsBuilderFromVariants(variants));
+    return TweetVideoMetadata(aspectRatio, imageUrl, streamUrlsBuilderFromVariants(variants),
+        durationMillis: media.videoInfo?.durationMillis);
   }
 }
 /// X-style duration label for a video: `0:42`, `4:05`, `1:02:09`. Empty when

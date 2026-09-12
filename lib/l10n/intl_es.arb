@@ -680,5 +680,13 @@
   "cached": "Caché",
   "@cached": {},
   "cached_offline": "Disponible sin conexión",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Caché automática de vídeos",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Descarga vídeos cortos (menos de 5 minutos) en segundo plano, para que la reproducción o descarga empiece al instante — consume datos.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Solo por Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Límite de tamaño de caché",
+  "@cache_size_limit": {}
 }

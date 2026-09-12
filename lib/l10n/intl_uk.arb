@@ -680,5 +680,13 @@
   "cached": "Кеш",
   "@cached": {},
   "cached_offline": "Доступно офлайн",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Автокеш відео",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Завантажує короткі відео (до 5 хвилин) у фоні, щоб відтворення чи завантаження починалися миттєво — витрачає трафік.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Лише через Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Ліміт розміру кешу",
+  "@cache_size_limit": {}
 }

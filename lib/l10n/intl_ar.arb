@@ -680,5 +680,13 @@
   "cached": "مخزن",
   "@cached": {},
   "cached_offline": "متاح دون اتصال",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "تخزين الفيديو تلقائيًا",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "يُنزّل الفيديوهات القصيرة (أقل من 5 دقائق) في الخلفية عند ظهورها، ليبدأ التشغيل أو التنزيل فورًا — يستهلك البيانات، فعّله بحكمة.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "عبر Wi-Fi فقط",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "حد حجم الذاكرة المؤقتة",
+  "@cache_size_limit": {}
 }

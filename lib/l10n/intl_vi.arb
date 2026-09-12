@@ -680,5 +680,13 @@
   "cached": "Bộ đệm",
   "@cached": {},
   "cached_offline": "Có sẵn ngoại tuyến",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Tự động cache video",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Tải video ngắn (dưới 5 phút) ở chế độ nền khi xuất hiện, để phát hoặc tải xuống bắt đầu ngay — tốn dữ liệu.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Chỉ Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Giới hạn dung lượng cache",
+  "@cache_size_limit": {}
 }

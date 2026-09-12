@@ -7,7 +7,10 @@ import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_model.dart';
+import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/library/library_model.dart';
+import 'package:quax/tweet/video_metadata.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -35,6 +38,59 @@ const _spaceMarginBytes = 64 * 1024 * 1024;
 
 void _enqueue(Future<void> Function() task) {
   _downloadChain = _downloadChain.then((_) => task()).catchError((_) {});
+}
+
+/// Auto-caching short videos runs on its own chain, behind the manual queue,
+/// so a prefetch never delays a download the user actually asked for.
+Future<void> _cacheChain = Future.value();
+
+void _enqueueCache(Future<void> Function() task) {
+  _cacheChain = _cacheChain.then((_) => task()).catchError((_) {});
+}
+
+/// Keeps a short video for later: fetches it into [VideoCache] in the
+/// background, one clip at a time. Used when a video scrolls into view and the
+/// matching setting is on; quietly gives up on anything (metered connection,
+/// already cached or downloaded, failures) so the feed is never disturbed.
+Future<void> cacheVideoAhead(
+    {required Future<TweetVideoUrls> Function() urls, required BasePrefService prefs}) async {
+  if (!(prefs.get<bool>(optionAutoCacheVideos) ?? false)) return;
+  // Manual media loading means the user is watching their data deliberately.
+  if (prefs.get<bool>(optionMediaDisableAutoload) ?? false) return;
+
+  _enqueueCache(() async {
+    try {
+      if (prefs.get<bool>(optionAutoCacheWifiOnly) ?? true) {
+        final metered = await _isMetered();
+        if (metered == true) return;
+      }
+
+      final resolved = await urls();
+      final target = resolved.downloadUrl ?? resolved.streamUrl;
+      if (target.isEmpty) return;
+
+      final cache = VideoCache();
+      if (await cache.localPathFor(target) != null) return;
+      if (await LibraryModel(prefs).localPathFor(target) != null) return;
+
+      final name = VideoCache.fileNameFor(target);
+      final temp = await _downloadToTemp(null, Uri.parse(target), 'cache-$name',
+          targetDir: (await cache.directory()).path);
+      if (temp == null) return;
+
+      await cache.put(target, File(temp), prefs: prefs);
+    } catch (_) {
+      // Auto-caching is best-effort.
+    }
+  });
+}
+
+Future<bool?> _isMetered() async {
+  try {
+    return await _storageChannel.invokeMethod<bool>('isMetered');
+  } on Exception {
+    return null;
+  }
 }
 
 String _sanitized(String fileName) {
@@ -78,27 +134,35 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
   try {
     final targetDir = await _targetDirectory(prefs);
 
-    String? tempPath;
-    for (var attempt = 0; attempt < _maxAttempts; attempt++) {
-      queue.startRunning(fileName);
+    // An auto-cached copy makes both play and download instant: nothing to
+    // fetch, the queue item just promotes the file into the library.
+    final cache = VideoCache();
+    final cachedPath = await cache.localPathFor(uri.toString());
 
-      tempPath = await _downloadToTemp(context, uri, fileName,
-          resume: resume || attempt > 0, targetDir: targetDir);
-      if (tempPath != null) break;
+    String? tempPath = cachedPath;
+    if (cachedPath == null) {
+      for (var attempt = 0; attempt < _maxAttempts; attempt++) {
+        queue.startRunning(fileName);
 
-      final item = queue.itemFor(fileName);
-      if (item == null ||
-          queue.isCancelled(fileName) ||
-          queue.isPaused(fileName) ||
-          !_isRetryable(item.error)) {
-        return;
+        tempPath = await _downloadToTemp(context, uri, fileName,
+            resume: resume || attempt > 0, targetDir: targetDir);
+        if (tempPath != null) break;
+
+        final item = queue.itemFor(fileName);
+        if (item == null ||
+            queue.isCancelled(fileName) ||
+            queue.isPaused(fileName) ||
+            !_isRetryable(item.error)) {
+          return;
+        }
+
+        await Future.delayed(Duration(seconds: 3 * (attempt + 1)));
+        if (!queue.contains(fileName) || queue.isCancelled(fileName) || queue.isPaused(fileName)) return;
       }
-
-      await Future.delayed(Duration(seconds: 3 * (attempt + 1)));
-      if (!queue.contains(fileName) || queue.isCancelled(fileName) || queue.isPaused(fileName)) return;
     }
     if (tempPath == null) return;
 
+    var promoted = false;
     try {
       final savePath = await _saveToDestination(context,
           file: tempPath, fileName: fileName, prefs: prefs);
@@ -107,12 +171,18 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
         // so the done listeners see the finished entry, then celebrate.
         queue.markDone(fileName);
         _showSuccess(context, savePath);
+        if (cachedPath != null) {
+          promoted = true;
+          await cache.remove(uri.toString());
+        }
       } else {
         // The user cancelled the save dialog after a complete download.
         queue.remove(fileName);
       }
     } finally {
-      _deleteTemp(tempPath);
+      // A cached file only leaves the cache once it landed in the library;
+      // a cancelled save keeps it for the next attempt.
+      if (cachedPath == null || promoted) _deleteTemp(tempPath);
     }
   } catch (e) {
     if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;

@@ -680,5 +680,13 @@
   "cached": "Memòria cau",
   "@cached": {},
   "cached_offline": "Disponible sense connexió",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Memòria cau automàtica de vídeos",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Baixa vídeos curts (menys de 5 minuts) en segon pla quan apareixen, perquè la reproducció o la descàrrega comencin a l'instant — consumeix dades.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Només per Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Límit de mida de la memòria cau",
+  "@cache_size_limit": {}
 }

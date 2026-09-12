@@ -680,5 +680,13 @@
   "cached": "Kaŝmemoro",
   "@cached": {},
   "cached_offline": "Disponebla senrete",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Aŭtomata kaŝmemoro de videoj",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Elŝutas mallongajn videojn (sub 5 minutoj) fone, por ke ludo aŭ elŝuto komenciĝu tuj — konsumas datumojn.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Nur per Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Limito de kaŝmemora grando",
+  "@cache_size_limit": {}
 }

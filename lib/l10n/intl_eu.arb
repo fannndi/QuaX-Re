@@ -680,5 +680,13 @@
   "cached": "Cachea",
   "@cached": {},
   "cached_offline": "Lineaz kanpo erabilgarri",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Bideoen cache automatikoa",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Bideo laburrak (5 minutu baino gutxiago) atzeko planoan deskargatzen ditu, erreprodukzioa edo deskarga berehala hasteko — datuak kontsumitzen ditu.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Wi-Fi bidez soilik",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Cachearen tamainaren muga",
+  "@cache_size_limit": {}
 }

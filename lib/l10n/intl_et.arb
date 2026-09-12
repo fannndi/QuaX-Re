@@ -680,5 +680,13 @@
   "cached": "Vahemälu",
   "@cached": {},
   "cached_offline": "Saadaval võrguühenduseta",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Videote automaatne vahemällu salvestamine",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Laadib lühikesed videod (alla 5 minuti) taustal, et esitus või allalaadimine algaks kohe — kulutab andmeid.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Ainult Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Vahemälu suuruse piirang",
+  "@cache_size_limit": {}
 }

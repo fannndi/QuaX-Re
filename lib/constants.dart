@@ -28,6 +28,9 @@ const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
 // holding downloaded media with a .nomedia marker so gallery apps ignore it.
 const optionLibraryPath = 'library.path';
 const optionLibraryVisibleInGallery = 'library.visibleInGallery';
+const optionAutoCacheVideos = 'cache.videos';
+const optionAutoCacheWifiOnly = 'cache.wifiOnly';
+const optionVideoCacheLimitMb = 'cache.limitMb';
 // JSON map {fileName: lastReadMillis} — the library's resume-last-position map.
 
 const optionLocale = 'locale';

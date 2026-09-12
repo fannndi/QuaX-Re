@@ -680,5 +680,13 @@
   "cached": "캐시",
   "@cached": {},
   "cached_offline": "오프라인에서 사용 가능",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "동영상 자동 캐시",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "짧은 동영상(5분 미만)이 나타나면 백그라운드에서 미리 받아 재생·다운로드가 즉시 시작됩니다 — 데이터 소모 주의.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Wi-Fi에서만",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "캐시 크기 제한",
+  "@cache_size_limit": {}
 }

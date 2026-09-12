@@ -680,5 +680,13 @@
   "cached": "Buffer",
   "@cached": {},
   "cached_offline": "Tilgjengelig offline",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Automatisk videobuffer",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Henter korte videoer (under 5 minutter) i bakgrunnen, så avspilling eller nedlasting starter med en gang — bruker data.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Kun Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Grense for bufferstørrelse",
+  "@cache_size_limit": {}
 }

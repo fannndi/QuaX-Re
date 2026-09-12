@@ -680,5 +680,13 @@
   "cached": "Keš",
   "@cached": {},
   "cached_offline": "Dastupna aflajn",
-  "@cached_offline": {}
+  "@cached_offline": {},
+  "auto_cache_videos": "Aŭtakešavannie videa",
+  "@auto_cache_videos": {},
+  "auto_cache_videos_description": "Spampoŭvaje karotkija videa (da 5 chvilin) u fonie pry z'jaŭlenni, kab prajhravańnie ci spampoŭka pačalisia imhnienna — marnuje trafik.",
+  "@auto_cache_videos_description": {},
+  "auto_cache_wifi_only": "Tolki praz Wi-Fi",
+  "@auto_cache_wifi_only": {},
+  "cache_size_limit": "Limit pamieru keša",
+  "@cache_size_limit": {}
 }
