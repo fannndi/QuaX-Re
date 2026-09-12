@@ -115,13 +115,18 @@ class PaginatedTweetList extends StatefulWidget {
   State<PaginatedTweetList> createState() => _PaginatedTweetListState();
 }
 
-class _PaginatedTweetListState extends State<PaginatedTweetList> {
+class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBindingObserver {
   final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
   final ScrollController _scrollController = ScrollController();
   FeedRefreshController? _refreshController;
   bool _firstLoadStarted = false;
   bool _pendingInitialLoad = false;
   bool _onlineListenerAttached = false;
+
+  // Freshness: coming back to the app after a while quietly refreshes the
+  // timeline, so what the reader sees is current without a manual pull.
+  DateTime _lastLoadedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static const _staleAfter = Duration(minutes: 5);
 
   // The "new posts" pill: a fetched first page held back while the reader is
   // scrolled down, so fresh tweets never yank the list under them.
@@ -149,6 +154,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
     // failed (or that we deliberately did not attempt).
     _attachOnlineListener();
     NetworkStatus().check();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
@@ -192,7 +198,20 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
     if (_onlineListenerAttached) {
       NetworkStatus().online.removeListener(_onOnlineChanged);
     }
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!NetworkStatus().online.value) return;
+
+    final items = _controller.value.items;
+    if (items == null || items.isEmpty) return;
+    if (DateTime.now().difference(_lastLoadedAt) < _staleAfter) return;
+
+    _handleRefresh();
   }
 
   void _attachOnlineListener() {
@@ -237,6 +256,9 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
   }
 
   void _onControllerChanged() {
+    if (_controller.value.items?.isNotEmpty ?? false) {
+      _lastLoadedAt = DateTime.now();
+    }
     if (mounted) setState(() {});
   }
 
@@ -445,10 +467,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
         addAutomaticKeepAlives: false,
         // Pre-build items further ahead of the viewport: heavy media cards need
         // decode time, and the default ~250px cache causes visible stutter.
-        cacheExtent: 800,
+        // 1200px also makes the pager fetch the next page a screen earlier.
+        cacheExtent: 1200,
         builderDelegate: PagedChildBuilderDelegate(
           itemBuilder: (context, chain, index) => _buildChain(context, chain),
-          firstPageProgressIndicatorBuilder: (context) => const Center(child: CircularProgressIndicator()),
+          firstPageProgressIndicatorBuilder: (context) => const _FeedSkeleton(),
           firstPageErrorIndicatorBuilder: (context) => NetworkStatus().online.value
               ? FullPageErrorWidget(
                   error: pagingErrorOf(state)?.error,
@@ -474,6 +497,68 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
         if (_newPostsAvailable)
           Positioned(top: 12, left: 0, right: 0, child: Center(child: _buildNewPostsPill())),
       ],
+    );
+  }
+}
+
+/// A quiet placeholder for the first page: card-shaped blocks instead of a
+/// lone spinner, so the wait reads as content arriving.
+class _FeedSkeleton extends StatelessWidget {
+  const _FeedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final block = Theme.of(context).colorScheme.surfaceContainerHighest;
+
+    Widget bar(double widthFactor, double height) => FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: widthFactor,
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(6)),
+          ),
+        );
+
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: 5,
+      itemBuilder: (context, index) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(radius: 20, backgroundColor: block),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        bar(0.4, 12),
+                        const SizedBox(height: 6),
+                        bar(0.25, 10),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              bar(1.0, 12),
+              const SizedBox(height: 6),
+              bar(0.85, 12),
+              const SizedBox(height: 14),
+              Container(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(12)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

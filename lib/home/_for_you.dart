@@ -7,7 +7,6 @@ import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/image_prefetch.dart';
-import 'package:quax/utils/tweet_cache_index.dart';
 
 final UserWithExtra user = UserWithExtra.fromArguments(idStr: "1", possiblySensitive: false, screenName: "ForYou");
 
@@ -45,8 +44,7 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
       incrementTweetsCounter: incrementLoadTweetsCounter,
     );
     if (cursor == null) {
-      // The client just stored this page: the posts join the offline shelf.
-      TweetCacheIndex().addAll(result.chains.map((chain) => chain.id));
+      // Nothing extra to do: the client stores the page for the offline thread cache.
     }
     if (mounted) {
       // Warm the pictures just below the viewport.
@@ -72,3 +70,4 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
     );
   }
 }
+

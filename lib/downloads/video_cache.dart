@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
@@ -46,26 +45,8 @@ class VideoCache {
   final Map<String, VideoCacheEntry> _entries = {};
   bool _loaded = false;
 
-  /// Live auto-cache progress per URL (0–1), for the per-tweet percentage.
-  final ValueNotifier<int> progressRevision = ValueNotifier<int>(0);
-  final Map<String, double> _progress = {};
-
   static bool isEligibleDuration(int? durationMillis) =>
       durationMillis != null && durationMillis > 0 && durationMillis <= maxDurationMillis;
-
-  /// The in-flight auto-cache fraction for a media URL, or null when nothing
-  /// is being fetched for it (either idle or finished).
-  double? progressFor(String url) => _progress[fileNameFor(url)];
-
-  void setProgress(String url, double value) {
-    final name = fileNameFor(url);
-    if (value >= 1 || value <= 0) {
-      _progress.remove(name);
-    } else {
-      _progress[name] = value;
-    }
-    progressRevision.value++;
-  }
 
   /// Whether a completed cache file exists (sync view of [load]'s index).
   bool isCached(String url) => _entries.containsKey(fileNameFor(url));

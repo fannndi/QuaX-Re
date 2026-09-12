@@ -59,7 +59,7 @@ class DownloadForegroundService : Service() {
         when (intent?.action) {
             ACTION_PAUSE, ACTION_CANCEL -> {
                 val action = if (intent.action == ACTION_PAUSE) "pause" else "cancel"
-                MainActivity.channel?.invokeMethod(
+                QuaxApplication.channel?.invokeMethod(
                     "onDownloadAction",
                     mapOf("action" to action, "fileName" to intent.getStringExtra(EXTRA_FILE))
                 )

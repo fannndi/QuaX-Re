@@ -18,7 +18,6 @@ import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/iterables.dart';
 import 'package:quax/utils/storage_report.dart';
 import 'package:quax/utils/timeline_cache.dart';
-import 'package:quax/utils/tweet_cache_index.dart';
 
 /// The whole Settings experience on one page — language & privacy, appearance,
 /// downloads & media, cache, about. The account manager is deliberately not
@@ -291,7 +290,6 @@ class _StorageTilesState extends State<_StorageTiles> {
     if (confirmed != true) return;
 
     await TimelineCache.clearAll();
-    TweetCacheIndex().clear();
     await VideoCache().clear();
     try {
       final thumbs = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));

@@ -90,21 +90,11 @@ Future<void> cacheVideoAhead(
       if (await LibraryModel(prefs).localPathFor(target) != null) return;
 
       final name = VideoCache.fileNameFor(target);
-      try {
-        final temp = await _downloadToTemp(null, Uri.parse(target), 'cache-$name',
-            targetDir: (await cache.directory()).path,
-            onProgress: (received, total) {
-          if (total != null && total > 0) {
-            VideoCache().setProgress(target, received / total);
-          }
-        });
-        if (temp == null) return;
+      final temp = await _downloadToTemp(null, Uri.parse(target), 'cache-$name',
+          targetDir: (await cache.directory()).path);
+      if (temp == null) return;
 
-        await cache.put(target, File(temp), prefs: prefs);
-      } finally {
-        // 1 clears the live percentage: done or failed, the label moves on.
-        VideoCache().setProgress(target, 1);
-      }
+      await cache.put(target, File(temp), prefs: prefs);
     } catch (_) {
       // Auto-caching is best-effort.
     }
@@ -371,7 +361,7 @@ http.Request _rangeRequest(Uri uri, int offset) {
 /// Failed downloads keep their partial file so a retry can resume.
 /// Returns the temp path, or null when the download failed or was cancelled.
 Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
-    {bool resume = false, required String targetDir, void Function(int received, int? total)? onProgress}) async {
+    {bool resume = false, required String targetDir}) async {
   final tempDir = await getTemporaryDirectory();
   final tempPath = p.join(tempDir.path, 'quax-download-$fileName');
   final queue = DownloadsModel();
@@ -438,7 +428,6 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
         lastReceived = received;
       }
       queue.progress(fileName, received, totalBytes, speed);
-      onProgress?.call(received, totalBytes);
     }
 
     await sink.close();
