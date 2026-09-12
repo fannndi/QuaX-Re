@@ -692,5 +692,11 @@
   "new_posts": "Новые посты",
   "@new_posts": {},
   "no_cached_posts": "Пока нет сохранённых постов",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Вы подписаны",
+  "@followed": {},
+  "cache_videos": "Кэш видео",
+  "@cache_videos": {},
+  "cache_other": "Прочий кэш",
+  "@cache_other": {}
 }

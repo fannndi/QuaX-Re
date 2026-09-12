@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
@@ -92,6 +95,8 @@ class PaginatedTweetList extends StatefulWidget {
   // load is in flight, so a feed reveals its cached content instead of a
   // full-screen progress indicator.
   final List<TweetChain>? firstPagePreview;
+  // Remembers the scroll offset across app restarts, per feed.
+  final String? scrollKey;
 
   const PaginatedTweetList({
     super.key,
@@ -103,6 +108,7 @@ class PaginatedTweetList extends StatefulWidget {
     required this.emptyMessage,
     this.onRefresh,
     this.firstPagePreview,
+    this.scrollKey,
   });
 
   @override
@@ -122,6 +128,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
   static const _pillThreshold = 500.0;
   bool _newPostsAvailable = false;
   TweetPageResult? _pendingFirstPage;
+
+  // Scroll memory: the offset is persisted (debounced) and restored once the
+  // first page is in place.
+  bool _scrollRestored = false;
+  Timer? _scrollSaveTimer;
 
   PagingController<int, TweetChain> get _controller => widget.feed.controller;
 
@@ -176,6 +187,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
     _controller.removeListener(_onControllerChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _scrollSaveTimer?.cancel();
     _refreshController?.unregister(_showRefresh);
     if (_onlineListenerAttached) {
       NetworkStatus().online.removeListener(_onOnlineChanged);
@@ -273,6 +285,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
   }
 
   void _onScroll() {
+    _scheduleScrollSave();
+
     if (!_newPostsAvailable || !_scrollController.hasClients) return;
     if (_scrollController.offset > 40) return;
 
@@ -293,6 +307,36 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
       await _scrollController.animateTo(0,
           duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
+  }
+
+  void _scheduleScrollSave() {
+    final key = widget.scrollKey;
+    if (key == null || !_scrollController.hasClients) return;
+
+    _scrollSaveTimer?.cancel();
+    _scrollSaveTimer = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted || !_scrollController.hasClients) return;
+      PrefService.of(context, listen: false).set<double>('scroll.$key', _scrollController.offset);
+    });
+  }
+
+  /// Jumps back to the last reading position once the first page is in place.
+  void _maybeRestoreScroll() {
+    final key = widget.scrollKey;
+    if (_scrollRestored || key == null) return;
+
+    final items = _controller.value.items;
+    if (items == null || items.isEmpty || !_scrollController.hasClients) return;
+    _scrollRestored = true;
+
+    final saved = PrefService.of(context, listen: false).get<double>('scroll.$key') ?? 0;
+    if (saved <= 0) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final target = saved.clamp(0.0, _scrollController.position.maxScrollExtent);
+      if (target > 0) _scrollController.jumpTo(target);
+    });
   }
 
   Widget _buildNewPostsPill() {
@@ -378,6 +422,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
 
   @override
   Widget build(BuildContext context) {
+    _maybeRestoreScroll();
+
     if (_showingPreview) {
       _maybeStartFirstLoad();
       return _wrapWithRefresh(CachedTweetList(widget.firstPagePreview!, username: widget.username));

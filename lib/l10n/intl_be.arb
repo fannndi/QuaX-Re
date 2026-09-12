@@ -692,5 +692,11 @@
   "new_posts": "Новыя паведамленні",
   "@new_posts": {},
   "no_cached_posts": "Пакуль няма захаваных паведамленняў",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Падпісаны",
+  "@followed": {},
+  "cache_videos": "Кэш відэа",
+  "@cache_videos": {},
+  "cache_other": "Іншы кэш",
+  "@cache_other": {}
 }

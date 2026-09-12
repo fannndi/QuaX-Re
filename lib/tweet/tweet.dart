@@ -12,6 +12,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/import_data_model.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
+import 'package:quax/subscriptions/followed_users_index.dart';
 import 'package:quax/tweet/_like_button.dart';
 import 'package:quax/tweet/_tweet_leading.dart';
 import 'package:quax/status.dart';
@@ -354,6 +355,31 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
           ),
         ),
       ),
+    );
+  }
+
+  /// A small "Followed" chip next to the name when the account is one of the
+  /// locally subscribed users; hidden otherwise.
+  Widget _followedTag() {
+    return ValueListenableBuilder<int>(
+      valueListenable: FollowedUsersIndex().revision,
+      builder: (context, _, __) {
+        if (!FollowedUsersIndex().contains(tweet.user?.idStr)) return const SizedBox.shrink();
+
+        final scheme = Theme.of(context).colorScheme;
+        return Container(
+          margin: const EdgeInsets.only(left: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            L10n.of(context).followed,
+            style: TextStyle(fontSize: 11, color: scheme.onPrimaryContainer),
+          ),
+        );
+      },
     );
   }
 
@@ -714,7 +740,8 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                       style: const TextStyle(fontWeight: FontWeight.w500))),
               if (tweet.user!.verified ?? false) const SizedBox(width: 4),
               if (tweet.user!.verified ?? false)
-                Icon(Icons.verified, size: 18, color: Theme.of(context).colorScheme.primary)
+                Icon(Icons.verified, size: 18, color: Theme.of(context).colorScheme.primary),
+              _followedTag(),
             ],
           ),
         ),

@@ -692,5 +692,11 @@
   "new_posts": "منشورات جديدة",
   "@new_posts": {},
   "no_cached_posts": "لا توجد منشورات محفوظة بعد",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "متابَع",
+  "@followed": {},
+  "cache_videos": "ذاكرة الفيديو المؤقتة",
+  "@cache_videos": {},
+  "cache_other": "ذاكرة مؤقتة أخرى",
+  "@cache_other": {}
 }

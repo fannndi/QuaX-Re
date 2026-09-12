@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
+import 'package:quax/utils/image_prefetch.dart';
 import 'package:quax/utils/tweet_cache_index.dart';
 
 class FollowingTweets extends StatefulWidget {
@@ -39,6 +42,10 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
       // The client just stored this page: the posts join the offline shelf.
       TweetCacheIndex().addAll(result.chains.map((chain) => chain.id));
     }
+    if (mounted) {
+      // Warm the pictures just below the viewport.
+      unawaited(prefetchChainImages(context, result.chains));
+    }
     return (chains: result.chains, nextCursor: result.cursorBottom);
   }
 
@@ -51,6 +58,7 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
         loadPage: _loadTweets,
         username: null,
         onRefresh: () async {},
+        scrollKey: 'home.following',
         firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
         newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
         emptyMessage: L10n.of(context).unable_to_load_the_tweets_for_the_feed,

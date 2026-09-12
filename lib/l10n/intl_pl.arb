@@ -692,5 +692,11 @@
   "new_posts": "Nowe posty",
   "@new_posts": {},
   "no_cached_posts": "Brak zapisanych postów",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Obserwujesz",
+  "@followed": {},
+  "cache_videos": "Pamięć filmów",
+  "@cache_videos": {},
+  "cache_other": "Inna pamięć",
+  "@cache_other": {}
 }

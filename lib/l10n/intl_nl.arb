@@ -692,5 +692,11 @@
   "new_posts": "Nieuwe posts",
   "@new_posts": {},
   "no_cached_posts": "Nog geen opgeslagen posts",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Gevolgd",
+  "@followed": {},
+  "cache_videos": "Videocache",
+  "@cache_videos": {},
+  "cache_other": "Overige cache",
+  "@cache_other": {}
 }

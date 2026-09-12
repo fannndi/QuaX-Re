@@ -692,5 +692,11 @@
   "new_posts": "Nové příspěvky",
   "@new_posts": {},
   "no_cached_posts": "Zatím žádné uložené příspěvky",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Sledováno",
+  "@followed": {},
+  "cache_videos": "Mezipaměť videí",
+  "@cache_videos": {},
+  "cache_other": "Další mezipaměť",
+  "@cache_other": {}
 }

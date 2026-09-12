@@ -692,5 +692,11 @@
   "new_posts": "새 게시물",
   "@new_posts": {},
   "no_cached_posts": "아직 저장된 게시물이 없습니다",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "팔로우 중",
+  "@followed": {},
+  "cache_videos": "동영상 캐시",
+  "@cache_videos": {},
+  "cache_other": "기타 캐시",
+  "@cache_other": {}
 }

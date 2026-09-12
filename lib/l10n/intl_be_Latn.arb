@@ -692,5 +692,11 @@
   "new_posts": "Novyja paviedamłenni",
   "@new_posts": {},
   "no_cached_posts": "Pakul niama zachavanych paviedamłenniaŭ",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Padpisany",
+  "@followed": {},
+  "cache_videos": "Keš videa",
+  "@cache_videos": {},
+  "cache_other": "Inšy keš",
+  "@cache_other": {}
 }

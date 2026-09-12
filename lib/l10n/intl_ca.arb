@@ -692,5 +692,11 @@
   "new_posts": "Publicacions noves",
   "@new_posts": {},
   "no_cached_posts": "Encara no hi ha publicacions desades",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Seguit",
+  "@followed": {},
+  "cache_videos": "Memòria cau de vídeos",
+  "@cache_videos": {},
+  "cache_other": "Altres memòries cau",
+  "@cache_other": {}
 }

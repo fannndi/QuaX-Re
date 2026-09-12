@@ -692,5 +692,11 @@
   "new_posts": "Nye innlegg",
   "@new_posts": {},
   "no_cached_posts": "Ingen lagrede innlegg ennå",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Følges",
+  "@followed": {},
+  "cache_videos": "Videobuffer",
+  "@cache_videos": {},
+  "cache_other": "Annen buffer",
+  "@cache_other": {}
 }

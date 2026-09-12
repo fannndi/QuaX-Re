@@ -692,5 +692,11 @@
   "new_posts": "新貼文",
   "@new_posts": {},
   "no_cached_posts": "還沒有已快取的貼文",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "已追蹤",
+  "@followed": {},
+  "cache_videos": "影片快取",
+  "@cache_videos": {},
+  "cache_other": "其他快取",
+  "@cache_other": {}
 }

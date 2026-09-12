@@ -692,5 +692,11 @@
   "new_posts": "Mezu berriak",
   "@new_posts": {},
   "no_cached_posts": "Oraindik ez dago gordetako mezurik",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Jarraitzen",
+  "@followed": {},
+  "cache_videos": "Bideoen cachea",
+  "@cache_videos": {},
+  "cache_other": "Beste cache bat",
+  "@cache_other": {}
 }

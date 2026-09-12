@@ -692,5 +692,11 @@
   "new_posts": "Bài đăng mới",
   "@new_posts": {},
   "no_cached_posts": "Chưa có bài đăng nào được lưu",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Đang theo dõi",
+  "@followed": {},
+  "cache_videos": "Cache video",
+  "@cache_videos": {},
+  "cache_other": "Cache khác",
+  "@cache_other": {}
 }

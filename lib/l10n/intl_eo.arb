@@ -692,5 +692,11 @@
   "new_posts": "Novaj afiŝoj",
   "@new_posts": {},
   "no_cached_posts": "Ankoraŭ ne estas konservitaj afiŝoj",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Sekvata",
+  "@followed": {},
+  "cache_videos": "Videa kaŝmemoro",
+  "@cache_videos": {},
+  "cache_other": "Alia kaŝmemoro",
+  "@cache_other": {}
 }

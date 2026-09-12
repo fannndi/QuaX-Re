@@ -316,6 +316,7 @@ class _StorageTilesState extends State<_StorageTiles> {
   @override
   Widget build(BuildContext context) {
     final path = widget.prefs.get<String>(optionLibraryPath);
+    final limitMb = widget.prefs.get<int>(optionVideoCacheLimitMb) ?? 1024;
 
     return FutureBuilder<StorageBreakdown>(
       future: _report,
@@ -329,6 +330,17 @@ class _StorageTilesState extends State<_StorageTiles> {
               subtitle: Text(path == null || path.isEmpty ? L10n.of(context).not_set : path,
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: Text(report == null ? '…' : formatBytes(report.libraryBytes)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.smart_display_outlined),
+              title: Text(L10n.of(context).cache_videos),
+              subtitle: Text(
+                  report == null ? '…' : '${report.videoCount} · ${formatBytes(report.videoCacheBytes)} / $limitMb MB'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text(L10n.of(context).cache_other),
+              trailing: Text(report == null ? '…' : formatBytes(report.otherCacheBytes)),
             ),
             ListTile(
               leading: const Icon(Icons.cleaning_services_outlined),

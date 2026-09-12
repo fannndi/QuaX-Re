@@ -692,5 +692,11 @@
   "new_posts": "Neue Beiträge",
   "@new_posts": {},
   "no_cached_posts": "Noch keine gespeicherten Beiträge",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Gefolgt",
+  "@followed": {},
+  "cache_videos": "Video-Cache",
+  "@cache_videos": {},
+  "cache_other": "Sonstiger Cache",
+  "@cache_other": {}
 }

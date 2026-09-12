@@ -692,5 +692,11 @@
   "new_posts": "新しいポスト",
   "@new_posts": {},
   "no_cached_posts": "保存されたポストはまだありません",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "フォロー中",
+  "@followed": {},
+  "cache_videos": "動画キャッシュ",
+  "@cache_videos": {},
+  "cache_other": "その他のキャッシュ",
+  "@cache_other": {}
 }

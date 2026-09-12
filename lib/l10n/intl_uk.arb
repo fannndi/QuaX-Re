@@ -692,5 +692,11 @@
   "new_posts": "Нові дописи",
   "@new_posts": {},
   "no_cached_posts": "Поки немає збережених дописів",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Ви підписані",
+  "@followed": {},
+  "cache_videos": "Кеш відео",
+  "@cache_videos": {},
+  "cache_other": "Інший кеш",
+  "@cache_other": {}
 }

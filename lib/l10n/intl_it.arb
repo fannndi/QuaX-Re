@@ -692,5 +692,11 @@
   "new_posts": "Nuovi post",
   "@new_posts": {},
   "no_cached_posts": "Nessun post salvato",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Seguito",
+  "@followed": {},
+  "cache_videos": "Cache video",
+  "@cache_videos": {},
+  "cache_other": "Altra cache",
+  "@cache_other": {}
 }

@@ -61,7 +61,7 @@ Future<void> cacheVideoAhead(
   _enqueueCache(() async {
     try {
       if (prefs.get<bool>(optionAutoCacheWifiOnly) ?? true) {
-        final metered = await _isMetered();
+        final metered = await isMeteredConnection();
         if (metered == true) return;
       }
 
@@ -95,7 +95,9 @@ Future<void> cacheVideoAhead(
   });
 }
 
-Future<bool?> _isMetered() async {
+/// Whether the phone is on a metered connection (cellular, hotspot); null when
+/// Android cannot tell. Shared by every feature that fetches ahead of time.
+Future<bool?> isMeteredConnection() async {
   try {
     return await _storageChannel.invokeMethod<bool>('isMetered');
   } on Exception {

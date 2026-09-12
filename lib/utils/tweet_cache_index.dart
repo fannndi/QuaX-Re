@@ -16,6 +16,9 @@ class TweetCacheIndex {
 
   bool contains(String? id) => id != null && _ids.contains(id);
 
+  /// How many posts currently count as cached (shown in the storage stats).
+  int get count => _ids.length;
+
   void addAll(Iterable<String> ids) {
     final added = ids.where(_ids.add).length;
     if (added > 0) revision.value++;

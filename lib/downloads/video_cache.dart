@@ -70,6 +70,11 @@ class VideoCache {
   /// Whether a completed cache file exists (sync view of [load]'s index).
   bool isCached(String url) => _entries.containsKey(fileNameFor(url));
 
+  /// Usage stats for the settings screen.
+  int get count => _entries.length;
+
+  int get totalBytes => _entries.values.fold(0, (sum, entry) => sum + entry.size);
+
   Future<Directory> directory() async {
     final root = await getApplicationDocumentsDirectory();
     final dir = Directory(p.join(root.path, _folder));

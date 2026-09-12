@@ -692,5 +692,11 @@
   "new_posts": "Yeni gönderiler",
   "@new_posts": {},
   "no_cached_posts": "Henüz kayıtlı gönderi yok",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Takip ediliyor",
+  "@followed": {},
+  "cache_videos": "Video önbelleği",
+  "@cache_videos": {},
+  "cache_other": "Diğer önbellek",
+  "@cache_other": {}
 }

@@ -692,5 +692,11 @@
   "new_posts": "Postări noi",
   "@new_posts": {},
   "no_cached_posts": "Încă nu există postări salvate",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Urmărit",
+  "@followed": {},
+  "cache_videos": "Cache video",
+  "@cache_videos": {},
+  "cache_other": "Alt cache",
+  "@cache_other": {}
 }

@@ -12,25 +12,35 @@ class StorageBreakdown {
   final int videoCacheBytes;
   final int timelineCacheBytes;
   final int thumbnailBytes;
+  final int videoCount;
 
   const StorageBreakdown({
     required this.libraryBytes,
     required this.videoCacheBytes,
     required this.timelineCacheBytes,
     required this.thumbnailBytes,
+    required this.videoCount,
   });
 
   /// Everything the "clear cache" action can reclaim.
   int get cacheBytes => videoCacheBytes + timelineCacheBytes + thumbnailBytes;
+
+  /// Timelines + thumbnails: the caches the video count does not describe.
+  int get otherCacheBytes => timelineCacheBytes + thumbnailBytes;
 }
 
-/// Measures what the app uses on disk: the media library plus the three caches.
+/// Measures what the app uses on disk: the media library, the video cache and
+/// the data caches, plus the cached-clip count for the usage stats.
 Future<StorageBreakdown> computeStorageBreakdown(BasePrefService prefs) async {
+  final videoCache = VideoCache();
+  await videoCache.load();
+
   return StorageBreakdown(
     libraryBytes: await directorySize(prefs.get<String>(optionLibraryPath)),
-    videoCacheBytes: await directorySize((await VideoCache().directory()).path),
+    videoCacheBytes: await directorySize((await videoCache.directory()).path),
     timelineCacheBytes: await directorySize((await TimelineCache.directory()).path),
     thumbnailBytes: await directorySize(p.join((await getTemporaryDirectory()).path, 'thumbs')),
+    videoCount: videoCache.count,
   );
 }
 

@@ -692,5 +692,11 @@
   "new_posts": "新帖子",
   "@new_posts": {},
   "no_cached_posts": "还没有已缓存的帖子",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "已关注",
+  "@followed": {},
+  "cache_videos": "视频缓存",
+  "@cache_videos": {},
+  "cache_other": "其他缓存",
+  "@cache_other": {}
 }

@@ -692,5 +692,11 @@
   "new_posts": "नई पोस्ट",
   "@new_posts": {},
   "no_cached_posts": "अभी कोई सहेजी गई पोस्ट नहीं",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "फ़ॉलो किया",
+  "@followed": {},
+  "cache_videos": "वीडियो कैश",
+  "@cache_videos": {},
+  "cache_other": "अन्य कैश",
+  "@cache_other": {}
 }

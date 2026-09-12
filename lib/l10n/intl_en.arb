@@ -692,5 +692,11 @@
   "new_posts": "New posts",
   "@new_posts": {},
   "no_cached_posts": "No cached posts yet — visit For You or Following once to store them",
-  "@no_cached_posts": {}
+  "@no_cached_posts": {},
+  "followed": "Followed",
+  "@followed": {},
+  "cache_videos": "Video cache",
+  "@cache_videos": {},
+  "cache_other": "Other cache",
+  "@cache_other": {}
 }
