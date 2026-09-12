@@ -307,7 +307,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       // only arrivals after this point read as New.
       TweetFreshnessIndex().promoteSeenToBaseline();
     } catch (e, stackTrace) {
+      // A failed refresh must not look like "nothing new": say so.
       widget.feed.setError(e, stackTrace);
+      if (mounted) {
+        showSnackBar(context, icon: '🙊', message: e.toString());
+      }
     }
   }
 

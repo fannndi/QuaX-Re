@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dart_twitter_api/src/utils/date_utils.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:quax/catcher/exceptions.dart';
 import 'package:quax/client/account_selector.dart';
 import 'package:quax/client/accounts.dart';
@@ -134,6 +135,12 @@ class _QuackerTwitterClient extends TwitterClient {
       }
       final code = response.statusCode;
 
+      if (code < 200 || code >= 300) {
+        // Surfaced in the Android log: the fastest way to spot a rotated
+        // queryId (404) or a shape change (400) without a debugger.
+        debugPrint('QuaX fetch $code ${uri.path}');
+      }
+
       if (code >= 200 && code < 300) {
         if (response.headers['x-rate-limit-remaining'] == '0') {
           // That was the last call allowed on this endpoint for the window:
@@ -160,7 +167,7 @@ class _QuackerTwitterClient extends TwitterClient {
         // endpoint's queryId, not that this account's auth is broken — don't
         // taint account health for it (see getHomeLatestTimeline). A 401 is X
         // rejecting the session, so it counts as broken auth.
-        final staleQueryId = code == 404 && uri.path.endsWith('/HomeLatestTimeline');
+        final staleQueryId = code == 404 && uri.path.contains('/i/api/graphql/');
         if (!staleQueryId) {
           await recordNotFound(account.id);
         }
