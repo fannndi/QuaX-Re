@@ -698,5 +698,9 @@
   "cache_videos": "Кеш відео",
   "@cache_videos": {},
   "cache_other": "Інший кеш",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Нове",
+  "@label_new": {},
+  "label_old": "Старе",
+  "@label_old": {}
 }

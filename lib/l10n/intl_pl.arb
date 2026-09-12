@@ -698,5 +698,9 @@
   "cache_videos": "Pamięć filmów",
   "@cache_videos": {},
   "cache_other": "Inna pamięć",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Nowe",
+  "@label_new": {},
+  "label_old": "Stare",
+  "@label_old": {}
 }

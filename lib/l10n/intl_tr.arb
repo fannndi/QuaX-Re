@@ -698,5 +698,9 @@
   "cache_videos": "Video önbelleği",
   "@cache_videos": {},
   "cache_other": "Diğer önbellek",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Yeni",
+  "@label_new": {},
+  "label_old": "Eski",
+  "@label_old": {}
 }

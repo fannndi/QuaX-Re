@@ -698,5 +698,9 @@
   "cache_videos": "Videobuffer",
   "@cache_videos": {},
   "cache_other": "Annen buffer",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Ny",
+  "@label_new": {},
+  "label_old": "Gammel",
+  "@label_old": {}
 }

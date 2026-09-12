@@ -698,5 +698,9 @@
   "cache_videos": "Bideoen cachea",
   "@cache_videos": {},
   "cache_other": "Beste cache bat",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Berria",
+  "@label_new": {},
+  "label_old": "Zaharra",
+  "@label_old": {}
 }

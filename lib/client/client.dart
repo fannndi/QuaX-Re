@@ -493,11 +493,13 @@ class Twitter {
   /// The For You (ranked) home timeline. The variables mirror what x.com
   /// actually sends (see the recorded fixture): crucially `requestContext:
   /// "launch"` on the first page — without it X keeps serving a stale slice of
-  /// the ranked feed, which is why the top posts could look days old.
+  /// the ranked feed. [seenTweetIds] carries what is already on screen so a
+  /// refresh comes back with genuinely different posts instead of a repeat.
   static Future<TweetStatus> getTimelineTweets(
     String id,
     String type, {
     List<String>? pinnedTweets,
+    List<String>? seenTweetIds,
     int count = 10,
     String? cursor,
     bool includeReplies = true,
@@ -510,6 +512,7 @@ class Twitter {
       "includePromotedContent": true,
       "withCommunity": true,
       if (cursor == null) "requestContext": "launch" else "cursor": cursor,
+      if (cursor == null && seenTweetIds != null && seenTweetIds.isNotEmpty) "seenTweetIds": seenTweetIds,
     };
 
     var response = await _twitterApi.client.get(

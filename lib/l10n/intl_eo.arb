@@ -698,5 +698,9 @@
   "cache_videos": "Videa kaŝmemoro",
   "@cache_videos": {},
   "cache_other": "Alia kaŝmemoro",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Nova",
+  "@label_new": {},
+  "label_old": "Malnova",
+  "@label_old": {}
 }

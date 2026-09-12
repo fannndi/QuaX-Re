@@ -698,5 +698,9 @@
   "cache_videos": "Mezipaměť videí",
   "@cache_videos": {},
   "cache_other": "Další mezipaměť",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Nové",
+  "@label_new": {},
+  "label_old": "Staré",
+  "@label_old": {}
 }

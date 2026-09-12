@@ -698,5 +698,9 @@
   "cache_videos": "Cache video",
   "@cache_videos": {},
   "cache_other": "Cache khác",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Mới",
+  "@label_new": {},
+  "label_old": "Cũ",
+  "@label_old": {}
 }

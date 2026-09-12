@@ -698,5 +698,9 @@
   "cache_videos": "视频缓存",
   "@cache_videos": {},
   "cache_other": "其他缓存",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "新",
+  "@label_new": {},
+  "label_old": "旧",
+  "@label_old": {}
 }

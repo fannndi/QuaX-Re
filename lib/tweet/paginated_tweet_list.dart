@@ -37,6 +37,8 @@ class TweetFeedController {
 
   bool get hasItems => _paging.items != null;
 
+  List<TweetChain>? get items => _paging.items;
+
   Future<CursorPage<String, TweetChain>> _fetch(String? cursor) async {
     final result = await _loader!(cursor);
     final next = result.nextCursor;

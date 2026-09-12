@@ -698,5 +698,9 @@
   "cache_videos": "Videovahemälu",
   "@cache_videos": {},
   "cache_other": "Muu vahemälu",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Uus",
+  "@label_new": {},
+  "label_old": "Vana",
+  "@label_old": {}
 }

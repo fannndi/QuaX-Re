@@ -698,5 +698,9 @@
   "cache_videos": "동영상 캐시",
   "@cache_videos": {},
   "cache_other": "기타 캐시",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "새 글",
+  "@label_new": {},
+  "label_old": "이전",
+  "@label_old": {}
 }

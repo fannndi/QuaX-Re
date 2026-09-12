@@ -7,6 +7,7 @@ import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/image_prefetch.dart';
+import 'package:quax/utils/tweet_freshness_index.dart';
 
 final UserWithExtra user = UserWithExtra.fromArguments(idStr: "1", possiblySensitive: false, screenName: "ForYou");
 
@@ -34,18 +35,23 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
   }
 
   Future<TweetPageResult> _loadTweets(String? cursor) async {
+    // A refresh tells X what is already on screen, so the ranked feed answers
+    // with different posts instead of the same launch slice.
+    final seen = cursor == null
+        ? widget.feed.items?.take(30).map((chain) => chain.id).toList()
+        : null;
+
     final result = await Twitter.getTimelineTweets(
       user.idStr!,
       'profile',
       cursor: cursor,
       count: pageSize,
       includeReplies: false,
+      seenTweetIds: seen,
       getTweetsCounter: getLoadTweetsCounter,
       incrementTweetsCounter: incrementLoadTweetsCounter,
     );
-    if (cursor == null) {
-      // Nothing extra to do: the client stores the page for the offline thread cache.
-    }
+    TweetFreshnessIndex().note(result.chains.map((chain) => chain.id));
     if (mounted) {
       // Warm the pictures just below the viewport.
       unawaited(prefetchChainImages(context, result.chains));

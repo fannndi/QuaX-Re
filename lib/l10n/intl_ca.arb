@@ -698,5 +698,9 @@
   "cache_videos": "Memòria cau de vídeos",
   "@cache_videos": {},
   "cache_other": "Altres memòries cau",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Nou",
+  "@label_new": {},
+  "label_old": "Antic",
+  "@label_old": {}
 }

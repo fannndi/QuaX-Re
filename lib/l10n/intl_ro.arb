@@ -698,5 +698,9 @@
   "cache_videos": "Cache video",
   "@cache_videos": {},
   "cache_other": "Alt cache",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Nou",
+  "@label_new": {},
+  "label_old": "Vechi",
+  "@label_old": {}
 }

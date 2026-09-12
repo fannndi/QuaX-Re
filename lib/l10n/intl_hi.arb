@@ -698,5 +698,9 @@
   "cache_videos": "वीडियो कैश",
   "@cache_videos": {},
   "cache_other": "अन्य कैश",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "नया",
+  "@label_new": {},
+  "label_old": "पुराना",
+  "@label_old": {}
 }

@@ -698,5 +698,9 @@
   "cache_videos": "動画キャッシュ",
   "@cache_videos": {},
   "cache_other": "その他のキャッシュ",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "新着",
+  "@label_new": {},
+  "label_old": "以前",
+  "@label_old": {}
 }

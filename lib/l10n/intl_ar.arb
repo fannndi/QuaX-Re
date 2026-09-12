@@ -698,5 +698,9 @@
   "cache_videos": "ذاكرة الفيديو المؤقتة",
   "@cache_videos": {},
   "cache_other": "ذاكرة مؤقتة أخرى",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "جديد",
+  "@label_new": {},
+  "label_old": "قديم",
+  "@label_old": {}
 }

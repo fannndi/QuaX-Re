@@ -26,6 +26,7 @@ import 'package:quax/search/search_model.dart';
 import 'package:quax/subscriptions/users_model.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/network_status.dart';
+import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
@@ -134,9 +135,10 @@ Future<void> main() async {
     unawaited(DownloadNotifications.ensure());
     unawaited(DownloadsModel().load().then((_) => ConnectivityWatcher().ensure(prefService)));
     unawaited(NetworkStatus().check());
-    // Primes the auto-cache index, so the per-tweet "Cached" labels are right
-    // from the first frame.
+    // Primes the auto-cache index so cache hits register right away.
     unawaited(VideoCache().load());
+    // Snapshot of previously seen tweets, for the New/Old labels.
+    unawaited(TweetFreshnessIndex().load());
 
     runApp(PrefService(        service: prefService,
         child: MultiProvider(

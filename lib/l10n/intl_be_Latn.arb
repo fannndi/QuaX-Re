@@ -698,5 +698,9 @@
   "cache_videos": "Keš videa",
   "@cache_videos": {},
   "cache_other": "Inšy keš",
-  "@cache_other": {}
+  "@cache_other": {},
+  "label_new": "Novaje",
+  "@label_new": {},
+  "label_old": "Staroje",
+  "@label_old": {}
 }
