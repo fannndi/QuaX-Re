@@ -13,18 +13,20 @@ class XRegularAccount extends ChangeNotifier {
 
   Future<http.Response> fetch(Uri uri,
       {Map<String, String>? headers,
+      String? body,
       required Logger log,
       required Map<dynamic, dynamic> authHeader}) async {
     log.info('Fetching $uri');
 
     final baseHeaders = await TwitterHeaders.getHeaders(uri, authHeader);
 
-    var response = await http.get(uri, headers: {
-      ...?headers,
-      ...baseHeaders
-    });
+    if (body == null) {
+      return await http.get(uri, headers: {...?headers, ...baseHeaders});
+    }
 
-    return response;
+    // GraphQL operations that X now requires as POST send a JSON body.
+    return await http.post(uri,
+        headers: {...?headers, ...baseHeaders, 'Content-Type': 'application/json'}, body: body);
   }
 
   Future<void> deleteAccount(String username) async {

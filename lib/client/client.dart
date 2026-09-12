@@ -56,6 +56,33 @@ class _QuackerTwitterClient extends TwitterClient {
     return future;
   }
 
+  /// Authenticated JSON POST for the GraphQL operations X now serves as POST
+  /// (HomeTimeline, HomeLatestTimeline). Mirrors [get]'s status handling and
+  /// request coalescing. Static because `TwitterApi.client` is typed as the
+  /// package's AbstractTwitterClient, which has no such helper.
+  static Future<http.Response> postJson(Uri uri,
+      {Map<String, String>? headers, required String body, Duration? timeout}) {
+    final key = '${uri.toString()}|$body';
+    final running = _inflight[key];
+    if (running != null) return running;
+
+    late final Future<http.Response> future;
+    future = fetch(uri, headers: headers, body: body)
+        .timeout(timeout ?? _defaultTimeout)
+        .then<http.Response>((response) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response;
+      } else {
+        return Future.error(HttpException(response));
+      }
+    }).whenComplete(() {
+      if (identical(_inflight[key], future)) _inflight.remove(key);
+    });
+
+    _inflight[key] = future;
+    return future;
+  }
+
   /// Tries accounts (healthy ones first, then flagged ones as a fallback),
   /// retrying on another account when one returns a 429 (rate-limited for that
   /// endpoint, tracked in memory), a 404 (retried once, then surfaced) or a 401
@@ -70,7 +97,7 @@ class _QuackerTwitterClient extends TwitterClient {
   /// and the guest request also failed. Network-level failures (socket, timeout,
   /// TLS) are absorbed once per fetch with a short pause, since they never
   /// reached X and are no account's fault; a second one is surfaced as-is.
-  static Future<http.Response> fetch(Uri uri, {Map<String, String>? headers}) async {
+  static Future<http.Response> fetch(Uri uri, {Map<String, String>? headers, String? body}) async {
     final endpoint = uri.path;
     final now = DateTime.now();
     final accounts = await getAccounts();
@@ -94,7 +121,7 @@ class _QuackerTwitterClient extends TwitterClient {
       http.Response response;
       try {
         response =
-            await XRegularAccount().fetch(uri, headers: headers, log: log, authHeader: authHeader);
+            await XRegularAccount().fetch(uri, headers: headers, body: body, log: log, authHeader: authHeader);
       } on Exception catch (e, st) {
         lastNetworkError = e;
         lastNetworkStackTrace = st;
@@ -149,6 +176,10 @@ class _QuackerTwitterClient extends TwitterClient {
       Error.throwWithStackTrace(lastNetworkError, lastNetworkStackTrace!);
     }
     if (tried.isEmpty) {
+      // A POST body is private data; no account means no request.
+      if (body != null) {
+        throw NoAccountAvailableException();
+      }
       // No account at all: still attempt an unauthenticated (guest) request so we
       // never error before sending one. Only invite to add an account if it fails.
       final guest = await fetchUnauthenticated(uri, headers: headers, log: log);
@@ -260,7 +291,7 @@ class Twitter {
   };
 
   static Future<Profile> getProfileById(String id) async {
-    var uri = Uri.https('twitter.com', '/i/api/graphql/Qs44y3K0SXxItjNi6mUFQA/UserByRestId', {
+    var uri = Uri.https('twitter.com', '/i/api/graphql/XIpMDIi_YoVzXeoON-cfAQ/UserByRestId', {
       'variables': jsonEncode({
         'userId': id,
         'withHighlightedLabel': true,
@@ -277,7 +308,7 @@ class Twitter {
     if (screenName.startsWith('@')) {
       screenName = screenName.substring(1);
     }
-    var uri = Uri.https('twitter.com', '/i/api/graphql/Gb-d6r0vxPOADdG62OEBpQ/UserByScreenName', {
+    var uri = Uri.https('twitter.com', '/i/api/graphql/IGgvgiOx4QZndDHuD3x9TQ/UserByScreenName', {
       'variables': jsonEncode({'screen_name': screenName, "withSafetyModeUserFields": true}),
       'features': jsonEncode(_profileFeatures),
     });
@@ -294,7 +325,7 @@ class Twitter {
         userId,
         count,
         cursor: cursor,
-        queryId: 'qGZZDF3mp91q7X22s3HxpA',
+        queryId: 'F42cDX8PDFxkbjjq6JrM2w',
         operation: 'Following',
       );
 
@@ -303,7 +334,7 @@ class Twitter {
         userId,
         count,
         cursor: cursor,
-        queryId: 'JNyQdTISpzCkj_1fqxDvFg',
+        queryId: '_orfRBQae57vylFPH0Huhg',
         operation: 'Followers',
       );
 
@@ -386,7 +417,7 @@ class Twitter {
     final cacheKey = TimelineCache.keyFor('thread.$id');
     try {
       var response = await _twitterApi.client.get(
-        Uri.https('x.com', '/i/api/graphql/XMOz5h24KAZ86qKffKTLdQ/TweetDetail', defaultParam),
+        Uri.https('x.com', '/i/api/graphql/oCon7R-cgWRFy6EfZjaKfg/TweetDetail', defaultParam),
       );
       if (cursor == null) {
         // The opened conversation is now readable offline, replies included.
@@ -425,7 +456,7 @@ class Twitter {
       variables['cursor'] = cursor;
     }
 
-    var uri = Uri.https('x.com', '/i/api/graphql/hyPfJYJ_XAtDYoslQc-Rgg/SearchTimeline', {
+    var uri = Uri.https('x.com', '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline', {
       'variables': jsonEncode(variables),
       'features': jsonEncode(_timelineFeatures),
     });
@@ -453,7 +484,7 @@ class Twitter {
       variables['cursor'] = cursor;
     }
 
-    var uri = Uri.https('twitter.com', '/i/api/graphql/hyPfJYJ_XAtDYoslQc-Rgg/SearchTimeline', {
+    var uri = Uri.https('twitter.com', '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline', {
       'variables': jsonEncode(variables),
       'features': jsonEncode(_timelineFeatures),
     });
@@ -507,19 +538,20 @@ class Twitter {
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
   }) async {
-    Map<String, dynamic> variables = {
+    final variables = <String, dynamic>{
       "count": count,
       "includePromotedContent": true,
+      "latestControlAvailable": true,
       "withCommunity": true,
       if (cursor == null) "requestContext": "launch" else "cursor": cursor,
       if (cursor == null && seenTweetIds != null && seenTweetIds.isNotEmpty) "seenTweetIds": seenTweetIds,
     };
 
-    var response = await _twitterApi.client.get(
-      Uri.https('twitter.com', 'i/api/graphql/wp06oo3fRGU4P1sK8rECqQ/HomeTimeline', {
-        'variables': jsonEncode(variables),
-        'features': jsonEncode(_timelineFeatures),
-      }),
+    // X serves HomeTimeline as a POST now; the old GET queryId (wp06oo3f…)
+    // answered from a frozen archive, which is why For You never moved.
+    final response = await _QuackerTwitterClient.postJson(
+      Uri.https('x.com', '/i/api/graphql/7zlnp2TxC044W4C1ZUJMHw/HomeTimeline'),
+      body: jsonEncode({'variables': variables, 'features': _timelineFeatures}),
     );
     var result = json.decode(response.body);
     // Pinned posts only belong on the first page.
@@ -548,22 +580,18 @@ class Twitter {
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
   }) async {
-    var variables = {
+    final variables = <String, dynamic>{
       "count": count,
-      "includePromotedContent": false,
+      "includePromotedContent": true,
       "latestControlAvailable": true,
-      "withCommunity": true,
-      "withV2Timeline": true,
+      if (cursor == null) "requestContext": "launch" else "cursor": cursor,
     };
-    if (cursor != null) {
-      variables['cursor'] = cursor;
-    }
 
-    var response = await _twitterApi.client.get(
-      Uri.https('x.com', '/i/api/graphql/0dateTVgvXjpkf7kyBZy0g/HomeLatestTimeline', {
-        'variables': jsonEncode(variables),
-        'features': jsonEncode(_timelineFeatures),
-      }),
+    // HomeLatestTimeline is a POST too; the old GET shape is what X keeps in
+    // its compatibility cache, which is why Following could look frozen.
+    final response = await _QuackerTwitterClient.postJson(
+      Uri.https('x.com', '/i/api/graphql/0dateTVgvXjpkf7kyBZy0g/HomeLatestTimeline'),
+      body: jsonEncode({'variables': variables, 'features': _timelineFeatures}),
     );
     return createTimelineChains(
       json.decode(response.body) as Map<String, dynamic>,
@@ -592,7 +620,7 @@ class Twitter {
     };
 
     var response = await _twitterApi.client.get(
-      Uri.https('x.com', '/i/api/graphql/lXkwcYxJtGMm63D8jTPtSA/NotificationsTimeline', {
+      Uri.https('x.com', '/i/api/graphql/gzC0OYBCnfdYS4M4Gue7BA/NotificationsTimeline', {
         'variables': jsonEncode(variables),
         'features': jsonEncode(_timelineFeatures),
       }),
@@ -677,11 +705,11 @@ class Twitter {
 
     late String path;
     if (type == "media") {
-      path = "/i/api/graphql/36oKqyQ7E_9CmtONGjJRsA/UserMedia";
+      path = "/i/api/graphql/9EovraBTXJYGSEQXZqlLmQ/UserMedia";
     } else {
       path = includeReplies
-          ? "/i/api/graphql/T52C7z3XOxUTSsIn1sQ5MA/UserTweetsAndReplies"
-          : '/i/api/graphql/eviprbEPLvNG88V3smUngQ/UserTweets';
+          ? "/i/api/graphql/D5eKzDa5ZoJuC1TCeAXbWA/UserTweetsAndReplies"
+          : '/i/api/graphql/36rb3Xj3iJ64Q-9wKDjCcQ/UserTweets';
     }
 
     var response = await _twitterApi.client.get(Uri.https('x.com', path, defaultUserTweetsParam));
@@ -708,4 +736,6 @@ class Twitter {
     return json.decode(response.body);
   }
 }
+
+
 

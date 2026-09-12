@@ -12,6 +12,7 @@ import 'package:quax/tweet/conversation.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/paging.dart';
+import 'package:quax/utils/tweet_freshness_index.dart';
 
 typedef TweetPageResult = ({List<TweetChain> chains, String? nextCursor});
 typedef TweetPageLoader = Future<TweetPageResult> Function(String? cursor);
@@ -302,6 +303,9 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       }
 
       widget.feed.applyFirstPage(result);
+      // A reload closes the freshness round: what just loaded becomes Old and
+      // only arrivals after this point read as New.
+      TweetFreshnessIndex().promoteSeenToBaseline();
     } catch (e, stackTrace) {
       widget.feed.setError(e, stackTrace);
     }

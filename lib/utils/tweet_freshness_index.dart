@@ -64,6 +64,19 @@ class TweetFreshnessIndex {
     _saveTimer = Timer(const Duration(seconds: 2), _save);
   }
 
+  /// A manual reload starts a new freshness round: everything seen so far is
+  /// old now, so only posts arriving after the reload read as New.
+  void promoteSeenToBaseline() {
+    if (_seenNow.isEmpty) return;
+
+    _baseline = <String>{..._baseline, ..._seenNow};
+    _seenNow.clear();
+    revision.value++;
+
+    _saveTimer?.cancel();
+    unawaited(_save());
+  }
+
   Future<void> _save() async {
     try {
       // The session baseline stays untouched (it defines New/Old for this
