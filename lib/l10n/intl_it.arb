@@ -664,5 +664,21 @@
   "select_all": "Seleziona tutto",
   "@select_all": {},
   "delete_selected_media": "Eliminare i file selezionati?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Ferma tutto",
+  "@pause_all": {},
+  "resume_all": "Riprendi tutto",
+  "@resume_all": {},
+  "clear_cache": "Svuota cache",
+  "@clear_cache": {},
+  "clear_cache_description": "Elimina timeline e miniature salvate; verranno riscaricate quando servono.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Cache svuotata",
+  "@cache_cleared": {},
+  "offline_message": "Nessuna connessione a internet",
+  "@offline_message": {},
+  "cached": "Cache",
+  "@cached": {},
+  "cached_offline": "Disponibile offline",
+  "@cached_offline": {}
 }

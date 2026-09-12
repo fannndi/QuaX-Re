@@ -46,6 +46,10 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
       onLoading: (_) => const Center(child: CircularProgressIndicator()),
       onState: (_, queue) {
         final hasFinished = queue.any((item) => item.status == DownloadStatus.done);
+        final hasActive = queue.any((item) =>
+            item.status == DownloadStatus.running || item.status == DownloadStatus.queued);
+        final hasResumable = queue.any((item) =>
+            item.status == DownloadStatus.paused || item.status == DownloadStatus.error);
         return Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
@@ -57,12 +61,22 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
               ],
             ),
             actions: [
-              if (queue.any((item) => item.status == DownloadStatus.error))
+              if (hasActive)
                 IconButton(
-                  icon: const Icon(Icons.restart_alt),
-                  tooltip: L10n.of(context).retry,
+                  icon: const Icon(Icons.pause_circle_outline),
+                  tooltip: L10n.of(context).pause_all,
+                  onPressed: _queue.pauseAll,
+                ),
+              if (hasResumable)
+                IconButton(
+                  icon: const Icon(Icons.play_circle_outline),
+                  tooltip: L10n.of(context).resume_all,
                   onPressed: () {
-                    for (final item in queue.where((item) => item.status == DownloadStatus.error)) {
+                    final resumable = queue
+                        .where((item) =>
+                            item.status == DownloadStatus.paused || item.status == DownloadStatus.error)
+                        .toList();
+                    for (final item in resumable) {
                       retryDownload(context, item, prefs: widget.prefs);
                     }
                   },

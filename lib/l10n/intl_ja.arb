@@ -664,5 +664,21 @@
   "select_all": "すべて選択",
   "@select_all": {},
   "delete_selected_media": "選択したメディアを削除しますか？",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "すべて停止",
+  "@pause_all": {},
+  "resume_all": "すべて再開",
+  "@resume_all": {},
+  "clear_cache": "キャッシュを消去",
+  "@clear_cache": {},
+  "clear_cache_description": "保存されたタイムラインとサムネイルを削除します。必要になると再取得されます。",
+  "@clear_cache_description": {},
+  "cache_cleared": "キャッシュを消去しました",
+  "@cache_cleared": {},
+  "offline_message": "インターネット接続がありません",
+  "@offline_message": {},
+  "cached": "キャッシュ",
+  "@cached": {},
+  "cached_offline": "オフラインで利用可能",
+  "@cached_offline": {}
 }

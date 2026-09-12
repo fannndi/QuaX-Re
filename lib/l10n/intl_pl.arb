@@ -664,5 +664,21 @@
   "select_all": "Zaznacz wszystko",
   "@select_all": {},
   "delete_selected_media": "Usunąć zaznaczone multimedia?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Zatrzymaj wszystko",
+  "@pause_all": {},
+  "resume_all": "Wznów wszystko",
+  "@resume_all": {},
+  "clear_cache": "Wyczyść pamięć podręczną",
+  "@clear_cache": {},
+  "clear_cache_description": "Usuwa zapisane osie czasu i miniatury; zostaną pobrane ponownie w razie potrzeby.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Pamięć podręczna wyczyszczona",
+  "@cache_cleared": {},
+  "offline_message": "Brak połączenia z internetem",
+  "@offline_message": {},
+  "cached": "Cache",
+  "@cached": {},
+  "cached_offline": "Dostępne offline",
+  "@cached_offline": {}
 }

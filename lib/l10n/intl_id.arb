@@ -664,5 +664,21 @@
   "select_all": "Pilih semua",
   "@select_all": {},
   "delete_selected_media": "Hapus media yang dipilih?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Stop semua",
+  "@pause_all": {},
+  "resume_all": "Lanjutkan semua",
+  "@resume_all": {},
+  "clear_cache": "Bersihkan cache",
+  "@clear_cache": {},
+  "clear_cache_description": "Menghapus timeline dan thumbnail tersimpan; akan diunduh lagi saat dibutuhkan.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Cache dibersihkan",
+  "@cache_cleared": {},
+  "offline_message": "Tidak ada koneksi internet",
+  "@offline_message": {},
+  "cached": "Cache",
+  "@cached": {},
+  "cached_offline": "Tersedia offline",
+  "@cached_offline": {}
 }

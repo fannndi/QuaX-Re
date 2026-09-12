@@ -664,5 +664,21 @@
   "select_all": "Chọn tất cả",
   "@select_all": {},
   "delete_selected_media": "Xóa các mục đã chọn?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Dừng tất cả",
+  "@pause_all": {},
+  "resume_all": "Tiếp tục tất cả",
+  "@resume_all": {},
+  "clear_cache": "Xóa bộ nhớ đệm",
+  "@clear_cache": {},
+  "clear_cache_description": "Xóa dòng thời gian và ảnh thu nhỏ đã lưu; sẽ tải lại khi cần.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Đã xóa bộ nhớ đệm",
+  "@cache_cleared": {},
+  "offline_message": "Không có kết nối internet",
+  "@offline_message": {},
+  "cached": "Bộ đệm",
+  "@cached": {},
+  "cached_offline": "Có sẵn ngoại tuyến",
+  "@cached_offline": {}
 }

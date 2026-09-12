@@ -664,5 +664,21 @@
   "select_all": "Выбраць усе",
   "@select_all": {},
   "delete_selected_media": "Выдаліць выбраныя медыяфайлы?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Прыпыніць усе",
+  "@pause_all": {},
+  "resume_all": "Працягнуць усе",
+  "@resume_all": {},
+  "clear_cache": "Ачысціць кэш",
+  "@clear_cache": {},
+  "clear_cache_description": "Выдаліць захаваныя стужкі і мініяцюры; яны зноў загрузяцца пры неабходнасці.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Кэш ачышчаны",
+  "@cache_cleared": {},
+  "offline_message": "Няма падключэння да інтэрнэту",
+  "@offline_message": {},
+  "cached": "Кэш",
+  "@cached": {},
+  "cached_offline": "Даступна афлайн",
+  "@cached_offline": {}
 }

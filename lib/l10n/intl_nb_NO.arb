@@ -664,5 +664,21 @@
   "select_all": "Velg alle",
   "@select_all": {},
   "delete_selected_media": "Slette valgt media?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Stopp alle",
+  "@pause_all": {},
+  "resume_all": "Fortsett alle",
+  "@resume_all": {},
+  "clear_cache": "Tøm buffer",
+  "@clear_cache": {},
+  "clear_cache_description": "Sletter lagrede tidslinjer og miniatyrbilder; de hentes på nytt ved behov.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Bufferen er tømt",
+  "@cache_cleared": {},
+  "offline_message": "Ingen internettforbindelse",
+  "@offline_message": {},
+  "cached": "Buffer",
+  "@cached": {},
+  "cached_offline": "Tilgjengelig offline",
+  "@cached_offline": {}
 }

@@ -664,5 +664,21 @@
   "select_all": "Tout sélectionner",
   "@select_all": {},
   "delete_selected_media": "Supprimer les médias sélectionnés ?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Tout arrêter",
+  "@pause_all": {},
+  "resume_all": "Tout reprendre",
+  "@resume_all": {},
+  "clear_cache": "Vider le cache",
+  "@clear_cache": {},
+  "clear_cache_description": "Supprime les chronologies et vignettes enregistrées ; elles seront retéléchargées au besoin.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Cache vidé",
+  "@cache_cleared": {},
+  "offline_message": "Pas de connexion internet",
+  "@offline_message": {},
+  "cached": "Cache",
+  "@cached": {},
+  "cached_offline": "Disponible hors ligne",
+  "@cached_offline": {}
 }

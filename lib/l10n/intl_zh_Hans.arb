@@ -664,5 +664,21 @@
   "select_all": "全选",
   "@select_all": {},
   "delete_selected_media": "删除所选媒体？",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "全部停止",
+  "@pause_all": {},
+  "resume_all": "全部继续",
+  "@resume_all": {},
+  "clear_cache": "清除缓存",
+  "@clear_cache": {},
+  "clear_cache_description": "删除已存储的时间线和缩略图，需要时会重新获取。",
+  "@clear_cache_description": {},
+  "cache_cleared": "缓存已清除",
+  "@cache_cleared": {},
+  "offline_message": "无互联网连接",
+  "@offline_message": {},
+  "cached": "缓存",
+  "@cached": {},
+  "cached_offline": "可离线查看",
+  "@cached_offline": {}
 }

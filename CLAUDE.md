@@ -130,6 +130,13 @@ When writing tests:
   (`<applicationId>.library`, `<root-path>`). The queue is persisted (`downloads.json`), runs strictly
   one at a time, with pause/resume, failure/retry, HTTP Range resume, idle timeout, space check and
   integrity check.
+- Offline mode: `TimelineCache` stores the first page of each home timeline as a file (Ttl 12h);
+  feeds paint it instantly and revalidate, `TweetCacheIndex` drives the per-tweet "Cache" footer label,
+  and `NetworkStatus` (DNS probe) keeps offline failures behind a friendly notice that retries itself
+  when the connection returns. Identical in-flight requests are coalesced in `_QuackerTwitterClient.get`.
+  Settings > Data > Clear cache wipes timelines/thumbnails/image cache (never the library).
+- A video downloaded into the library plays from the local file inside the tweet (`LibraryModel.localPathFor`),
+  so cached posts with downloaded clips open offline.
 - Progress lives in a **native foreground service** (`DownloadForegroundService.kt`): it keeps the
   process alive while a transfer runs (downloads survive backgrounding) and its notification carries
   Pause/Cancel actions that call back into Dart through the `browser_resolver` channel. The Dart side

@@ -20,6 +20,7 @@ import 'package:quax/tweet/_media.dart';
 import 'package:quax/article/article.dart';
 import 'package:quax/ui/dates.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/utils/tweet_cache_index.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/rich_text.dart';
 import 'package:quax/utils/translation.dart';
@@ -347,10 +348,39 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                 },
               ),
               if (!isArticle) _buildTranslateButton(locale),
+              if (!isArticle) _buildCacheLabel(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// A tiny label saying this post lives in the offline cache: its text,
+  /// media URL and thumbnail were stored with the timeline page, so it opens
+  /// without a connection (a downloaded video even plays from the library).
+  Widget _buildCacheLabel() {
+    return ValueListenableBuilder<int>(
+      valueListenable: TweetCacheIndex().revision,
+      builder: (context, _, __) {
+        if (!TweetCacheIndex().contains(tweet.idStr)) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Tooltip(
+            message: L10n.of(context).cached_offline,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.offline_pin_outlined, size: 18, color: buttonsColor(context)),
+                const SizedBox(width: 4),
+                Text(L10n.of(context).cached,
+                    style: TextStyle(color: buttonsColor(context), fontSize: 14)),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

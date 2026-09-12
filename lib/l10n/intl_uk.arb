@@ -664,5 +664,21 @@
   "select_all": "Вибрати все",
   "@select_all": {},
   "delete_selected_media": "Видалити вибрані медіафайли?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Зупинити все",
+  "@pause_all": {},
+  "resume_all": "Продовжити все",
+  "@resume_all": {},
+  "clear_cache": "Очистити кеш",
+  "@clear_cache": {},
+  "clear_cache_description": "Видаляє збережені стрічки та мініатюри; за потреби вони завантажаться знову.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Кеш очищено",
+  "@cache_cleared": {},
+  "offline_message": "Немає підключення до інтернету",
+  "@offline_message": {},
+  "cached": "Кеш",
+  "@cached": {},
+  "cached_offline": "Доступно офлайн",
+  "@cached_offline": {}
 }

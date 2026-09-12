@@ -664,5 +664,21 @@
   "select_all": "Vybrat vše",
   "@select_all": {},
   "delete_selected_media": "Smazat vybraná média?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Pozastavit vše",
+  "@pause_all": {},
+  "resume_all": "Pokračovat ve všem",
+  "@resume_all": {},
+  "clear_cache": "Vymazat mezipaměť",
+  "@clear_cache": {},
+  "clear_cache_description": "Smaže uložené časové osy a náhledy; při potřebě se stáhnou znovu.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Mezipaměť vymazána",
+  "@cache_cleared": {},
+  "offline_message": "Žádné připojení k internetu",
+  "@offline_message": {},
+  "cached": "Mezipaměť",
+  "@cached": {},
+  "cached_offline": "Dostupné offline",
+  "@cached_offline": {}
 }

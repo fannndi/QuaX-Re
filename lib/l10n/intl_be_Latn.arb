@@ -664,5 +664,21 @@
   "select_all": "Vybrać usie",
   "@select_all": {},
   "delete_selected_media": "Vydalić vybranyja miedyjafajły?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Prypynić usie",
+  "@pause_all": {},
+  "resume_all": "Praciahnuć usie",
+  "@resume_all": {},
+  "clear_cache": "Ačyscić keš",
+  "@clear_cache": {},
+  "clear_cache_description": "Vydalić zachavanyja stužki i minijatury; jany znoŭ zahruziacca pry nieabchodnaści.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Keš ačyščany",
+  "@cache_cleared": {},
+  "offline_message": "Niama padklučennia da internetu",
+  "@offline_message": {},
+  "cached": "Keš",
+  "@cached": {},
+  "cached_offline": "Dastupna aflajn",
+  "@cached_offline": {}
 }

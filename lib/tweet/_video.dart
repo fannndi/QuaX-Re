@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/library/library_model.dart';
 import 'package:quax/tweet/_video_controls.dart';
 import 'package:quax/tweet/_video_overlays.dart';
 import 'package:quax/tweet/video_context.dart';
@@ -134,11 +135,20 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
   Future<PooledVideo> _createPooled(bool prefLoop, bool startMuted, String quality,
       int prefetchSeconds, bool mixWithOthers) async {
+    // Read the prefs before any await: the local-library lookup below must not
+    // touch the context afterwards.
+    final prefs = PrefService.of(context, listen: false);
     final urls = await widget.metadata.streamUrlsBuilder();
     final streamUrl = _defaultQualityUrl(urls, quality);
     final username = widget.username;
     final qualities = urls.qualities;
     final downloadUrl = urls.downloadUrl;
+
+    // A clip downloaded earlier plays from the hidden library: same file, no
+    // network, works offline (the tweet itself is cached with its thumbnail).
+    final library = LibraryModel(prefs);
+    final localPath = (downloadUrl == null ? null : await library.localPathFor(downloadUrl)) ??
+        await library.localPathFor(streamUrl);
 
     final controlsConfiguration = widget.disableControls
         ? const BetterPlayerControlsConfiguration(showControls: false)
@@ -175,11 +185,13 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     );
 
     final controller = BetterPlayerController(configuration);
-    final dataSource = BetterPlayerDataSource.network(
-      streamUrl,
-      cacheConfiguration: _videoCacheConfiguration,
-      bufferingConfiguration: _bufferingFor(prefetchSeconds),
-    );
+    final dataSource = localPath != null
+        ? BetterPlayerDataSource.file(localPath)
+        : BetterPlayerDataSource.network(
+            streamUrl,
+            cacheConfiguration: _videoCacheConfiguration,
+            bufferingConfiguration: _bufferingFor(prefetchSeconds),
+          );
     await controller.setupDataSource(dataSource);
     // Silent looping GIFs must never grab audio focus and pause other apps.
     controller.setMixWithOthers(widget.disableControls || mixWithOthers);

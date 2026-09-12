@@ -664,5 +664,21 @@
   "select_all": "Seleccionar todo",
   "@select_all": {},
   "delete_selected_media": "¿Eliminar los medios seleccionados?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Detener todo",
+  "@pause_all": {},
+  "resume_all": "Reanudar todo",
+  "@resume_all": {},
+  "clear_cache": "Borrar caché",
+  "@clear_cache": {},
+  "clear_cache_description": "Elimina las cronologías y miniaturas guardadas; se volverán a descargar cuando haga falta.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Caché borrada",
+  "@cache_cleared": {},
+  "offline_message": "Sin conexión a internet",
+  "@offline_message": {},
+  "cached": "Caché",
+  "@cached": {},
+  "cached_offline": "Disponible sin conexión",
+  "@cached_offline": {}
 }

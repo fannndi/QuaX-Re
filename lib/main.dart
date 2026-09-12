@@ -24,6 +24,7 @@ import 'package:quax/saved/saved_tweet_model.dart';
 import 'package:quax/search/search_model.dart';
 import 'package:quax/subscriptions/users_model.dart';
 import 'package:quax/tweet/_video.dart';
+import 'package:quax/utils/network_status.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
@@ -128,6 +129,7 @@ Future<void> main() async {
     // network coming back auto-resumes the retryable failures.
     unawaited(DownloadNotifications.ensure());
     unawaited(DownloadsModel().load().then((_) => ConnectivityWatcher().ensure(prefService)));
+    unawaited(NetworkStatus().check());
 
     runApp(PrefService(        service: prefService,
         child: MultiProvider(

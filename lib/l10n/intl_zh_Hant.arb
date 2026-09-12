@@ -664,5 +664,21 @@
   "select_all": "全選",
   "@select_all": {},
   "delete_selected_media": "刪除所選媒體？",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "全部停止",
+  "@pause_all": {},
+  "resume_all": "全部繼續",
+  "@resume_all": {},
+  "clear_cache": "清除快取",
+  "@clear_cache": {},
+  "clear_cache_description": "刪除已儲存的時間軸和縮圖，需要時會重新取得。",
+  "@clear_cache_description": {},
+  "cache_cleared": "快取已清除",
+  "@cache_cleared": {},
+  "offline_message": "沒有網際網路連線",
+  "@offline_message": {},
+  "cached": "快取",
+  "@cached": {},
+  "cached_offline": "可離線檢視",
+  "@cached_offline": {}
 }

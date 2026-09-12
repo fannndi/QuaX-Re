@@ -664,5 +664,21 @@
   "select_all": "Hautatu guztiak",
   "@select_all": {},
   "delete_selected_media": "Ezabatu hautatutako multimedia?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Guztiak gelditu",
+  "@pause_all": {},
+  "resume_all": "Guztiak jarraitu",
+  "@resume_all": {},
+  "clear_cache": "Garbitu cachea",
+  "@clear_cache": {},
+  "clear_cache_description": "Gordetako denbora-lerroak eta miniaturak ezabatzen ditu; behar denean berriz jaitsiko dira.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Cachea garbituta",
+  "@cache_cleared": {},
+  "offline_message": "Interneteko konexiorik ez",
+  "@offline_message": {},
+  "cached": "Cachea",
+  "@cached": {},
+  "cached_offline": "Lineaz kanpo erabilgarri",
+  "@cached_offline": {}
 }

@@ -664,5 +664,21 @@
   "select_all": "모두 선택",
   "@select_all": {},
   "delete_selected_media": "선택한 미디어를 삭제할까요?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "모두 중지",
+  "@pause_all": {},
+  "resume_all": "모두 계속",
+  "@resume_all": {},
+  "clear_cache": "캐시 지우기",
+  "@clear_cache": {},
+  "clear_cache_description": "저장된 타임라인과 썸네일을 삭제합니다. 필요할 때 다시 받아옵니다.",
+  "@clear_cache_description": {},
+  "cache_cleared": "캐시를 지웠습니다",
+  "@cache_cleared": {},
+  "offline_message": "인터넷 연결 없음",
+  "@offline_message": {},
+  "cached": "캐시",
+  "@cached": {},
+  "cached_offline": "오프라인에서 사용 가능",
+  "@cached_offline": {}
 }

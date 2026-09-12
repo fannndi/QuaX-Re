@@ -1,10 +1,17 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/settings/_about.dart';
 import 'package:quax/settings/_general.dart';
 import 'package:quax/settings/_media.dart';
 import 'package:quax/settings/_theme.dart';
+import 'package:quax/utils/timeline_cache.dart';
+import 'package:quax/utils/tweet_cache_index.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// The fork's settings: the few things worth a screen — language/general,
@@ -34,6 +41,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _packageInfo = packageInfo;
       });
     });
+  }
+
+  /// Wipes the offline caches (stored timelines, tweet-id index, gallery
+  /// thumbnails and the image cache) so the next visit fetches everything
+  /// fresh. Downloaded library files are never touched.
+  Future<void> _clearCache(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(L10n.of(dialogContext).are_you_sure),
+        content: Text(L10n.of(dialogContext).clear_cache_description),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(L10n.of(dialogContext).cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(L10n.of(dialogContext).delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await TimelineCache.clearAll();
+    TweetCacheIndex().clear();
+    try {
+      final thumbs = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      if (await thumbs.exists()) {
+        await thumbs.delete(recursive: true);
+      }
+    } catch (_) {
+      // Thumbnails regenerate on demand.
+    }
+    clearMemoryImageCache();
+    try {
+      await clearDiskCachedImages();
+    } catch (_) {
+      // Image cache failures are harmless.
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10n.of(context).cache_cleared)));
+    }
   }
 
   @override
@@ -77,6 +129,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle:
                     "${L10n.of(context).theme_mode}, ${L10n.of(context).theme}, ${L10n.of(context).true_black}, ${L10n.of(context).true_black_tweet_cards} ${L10n.of(context).show_navigation_labels}",
                 builder: (context) => const SettingsThemeFragment(),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: L10n.of(context).data,
+            tiles: [
+              ListTile(
+                leading: const Icon(Icons.cleaning_services_outlined),
+                title: Text(L10n.of(context).clear_cache),
+                subtitle: Text(L10n.of(context).clear_cache_description,
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: () => _clearCache(context),
               ),
             ],
           ),

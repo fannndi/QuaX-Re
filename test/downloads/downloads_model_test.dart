@@ -132,6 +132,39 @@ void main() {
     });
   });
 
+  group('pauseAll()', () {
+    test('Should park waiting and running entries together', () {
+      queue.register('a.mp4', 'https://x/a.mp4', true);
+      queue.register('b.mp4', 'https://x/b.mp4', true);
+      queue.startRunning('b.mp4');
+      queue.progress('b.mp4', 256, 1024, 1);
+
+      queue.pauseAll();
+
+      expect(queue.itemFor('a.mp4')?.status, DownloadStatus.paused,
+          reason: 'Stop-all must hold the queue, not drop it: resume-all brings it back');
+      expect(queue.itemFor('b.mp4')?.status, DownloadStatus.paused,
+          reason: 'The running transfer is paused in place');
+      expect(queue.itemFor('b.mp4')?.receivedBytes, 256,
+          reason: 'Force-closing the app keeps partial bytes; stop-all must too');
+    });
+
+    test('Should leave finished and failed entries alone', () {
+      queue.register('done.mp4', 'https://x/done.mp4', true);
+      queue.startRunning('done.mp4');
+      queue.markDone('done.mp4');
+      queue.register('bad.mp4', 'https://x/bad.mp4', true);
+      queue.startRunning('bad.mp4');
+      queue.fail('bad.mp4', error: 'timeout');
+
+      queue.pauseAll();
+
+      expect(queue.itemFor('done.mp4')?.status, DownloadStatus.done, reason: 'History is not an active transfer');
+      expect(queue.itemFor('bad.mp4')?.status, DownloadStatus.error,
+          reason: 'A real failure keeps its error for the retry path');
+    });
+  });
+
   group('markDone() and clearFinished()', () {
     test('Should mark the entry done and keep history entries separate', () {
       queue.register('a.mp4', 'https://x/a.mp4', true);

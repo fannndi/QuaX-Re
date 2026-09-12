@@ -664,5 +664,21 @@
   "select_all": "Select all",
   "@select_all": {},
   "delete_selected_media": "Delete the selected media?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Stop all",
+  "@pause_all": {},
+  "resume_all": "Resume all",
+  "@resume_all": {},
+  "clear_cache": "Clear cache",
+  "@clear_cache": {},
+  "clear_cache_description": "Drops the stored timelines and thumbnails; they are fetched again when needed.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Cache cleared",
+  "@cache_cleared": {},
+  "offline_message": "No internet connection",
+  "@offline_message": {},
+  "cached": "Cache",
+  "@cached": {},
+  "cached_offline": "Available offline",
+  "@cached_offline": {}
 }

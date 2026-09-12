@@ -16,6 +16,7 @@ import 'package:quax/profile/profile_model.dart';
 import 'package:quax/article/article.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/iterables.dart';
+import 'package:quax/utils/timeline_cache.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
@@ -29,15 +30,30 @@ class _QuackerTwitterClient extends TwitterClient {
 
   _QuackerTwitterClient() : super(consumerKey: '', consumerSecret: '', token: '', secret: '');
 
+  // Identical requests flying at the same time (two tabs refreshing, a soft
+  // refresh racing the pager) share one response instead of burning another
+  // rate-limit slot.
+  static final Map<String, Future<http.Response>> _inflight = {};
+
   @override
   Future<http.Response> get(Uri uri, {Map<String, String>? headers, Duration? timeout}) {
-    return fetch(uri, headers: headers).timeout(timeout ?? _defaultTimeout).then((response) {
+    final key = uri.toString();
+    final running = _inflight[key];
+    if (running != null) return running;
+
+    late final Future<http.Response> future;
+    future = fetch(uri, headers: headers).timeout(timeout ?? _defaultTimeout).then<http.Response>((response) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response;
       } else {
         return Future.error(HttpException(response));
       }
+    }).whenComplete(() {
+      if (identical(_inflight[key], future)) _inflight.remove(key);
     });
+
+    _inflight[key] = future;
+    return future;
   }
 
   /// Tries accounts (healthy ones first, then flagged ones as a fallback),
@@ -488,6 +504,9 @@ class Twitter {
     var response = await _twitterApi.client.get(
       Uri.https('twitter.com', 'i/api/graphql/wp06oo3fRGU4P1sK8rECqQ/HomeTimeline', defaultUserTweetsParam),
     );
+    if (cursor == null) {
+      unawaited(TimelineCache.write(TimelineCache.keyFor('foryou'), response.body));
+    }
     var result = json.decode(response.body);
     //if this page is not first one on the profile page, dont add pinned tweet
     if (variables['cursor'] != null) showPinnedTweet = false;
@@ -533,6 +552,9 @@ class Twitter {
         'features': jsonEncode(_timelineFeatures),
       }),
     );
+    if (cursor == null) {
+      unawaited(TimelineCache.write(TimelineCache.keyFor('following'), response.body));
+    }
     return createTimelineChains(
       json.decode(response.body) as Map<String, dynamic>,
       'tweet',
@@ -598,6 +620,9 @@ class Twitter {
         'features': jsonEncode(_timelineFeatures),
       }),
     );
+    if (cursor == null) {
+      unawaited(TimelineCache.write(TimelineCache.keyFor('likes.$userId'), response.body));
+    }
     return createUnconversationedChains(
       json.decode(response.body) as Map<String, dynamic>,
       'tweet',
@@ -609,6 +634,16 @@ class Twitter {
       incrementTweetsCounter,
     );
   }
+
+  /// Rebuilds the For You first page from the disk cache ([TimelineCache]) for
+  /// an instant paint before the network answers. Counters are irrelevant for
+  /// a preview: every entry counts as new.
+  static TweetStatus previewForYouTweets(String body) => createTimelineChains(
+      json.decode(body) as Map<String, dynamic>, 'tweet', const [], true, false, true, () => 0, () {});
+
+  /// Same, for the chronological Following timeline.
+  static TweetStatus previewFollowingTweets(String body) => createTimelineChains(
+      json.decode(body) as Map<String, dynamic>, 'tweet', const [], true, false, false, () => 0, () {});
 
   static Future<TweetStatus> getTweets(
     String id,

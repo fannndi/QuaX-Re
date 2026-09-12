@@ -664,5 +664,21 @@
   "select_all": "Выбрать все",
   "@select_all": {},
   "delete_selected_media": "Удалить выбранные файлы?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Остановить все",
+  "@pause_all": {},
+  "resume_all": "Продолжить все",
+  "@resume_all": {},
+  "clear_cache": "Очистить кэш",
+  "@clear_cache": {},
+  "clear_cache_description": "Удаляет сохранённые ленты и миниатюры; при необходимости они загрузятся заново.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Кэш очищен",
+  "@cache_cleared": {},
+  "offline_message": "Нет подключения к интернету",
+  "@offline_message": {},
+  "cached": "Кэш",
+  "@cached": {},
+  "cached_offline": "Доступно офлайн",
+  "@cached_offline": {}
 }

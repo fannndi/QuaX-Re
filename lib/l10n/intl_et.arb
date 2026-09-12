@@ -664,5 +664,21 @@
   "select_all": "Vali kõik",
   "@select_all": {},
   "delete_selected_media": "Kas kustutada valitud meediumid?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Peata kõik",
+  "@pause_all": {},
+  "resume_all": "Jätka kõiki",
+  "@resume_all": {},
+  "clear_cache": "Tühjenda vahemälu",
+  "@clear_cache": {},
+  "clear_cache_description": "Kustutab salvestatud ajajooned ja pisipildid; need laaditakse vajadusel uuesti.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Vahemälu tühjendatud",
+  "@cache_cleared": {},
+  "offline_message": "Internetiühendus puudub",
+  "@offline_message": {},
+  "cached": "Vahemälu",
+  "@cached": {},
+  "cached_offline": "Saadaval võrguühenduseta",
+  "@cached_offline": {}
 }

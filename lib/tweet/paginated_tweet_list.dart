@@ -2,10 +2,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:provider/provider.dart';
 import 'package:quax/client/client.dart';
+import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/feed_refresh_controller.dart';
 import 'package:quax/tweet/cached_tweet_list.dart';
 import 'package:quax/tweet/conversation.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/paging.dart';
 
 typedef TweetPageResult = ({List<TweetChain> chains, String? nextCursor});
@@ -101,6 +103,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
   FeedRefreshController? _refreshController;
   bool _firstLoadStarted = false;
   bool _pendingInitialLoad = false;
+  bool _onlineListenerAttached = false;
 
   PagingController<int, TweetChain> get _controller => widget.feed.controller;
 
@@ -112,6 +115,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
     // can't trigger the first page itself — we rebuild to swap it in once items
     // arrive, so listen for that.
     _controller.addListener(_onControllerChanged);
+    // Offline mode: the moment the connection returns, retry the page that
+    // failed (or that we deliberately did not attempt).
+    _attachOnlineListener();
+    NetworkStatus().check();
   }
 
   @override
@@ -149,7 +156,51 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
   void dispose() {
     _controller.removeListener(_onControllerChanged);
     _refreshController?.unregister(_showRefresh);
+    if (_onlineListenerAttached) {
+      NetworkStatus().online.removeListener(_onOnlineChanged);
+    }
     super.dispose();
+  }
+
+  void _attachOnlineListener() {
+    if (_onlineListenerAttached) return;
+    _onlineListenerAttached = true;
+    NetworkStatus().online.addListener(_onOnlineChanged);
+  }
+
+  void _onOnlineChanged() {
+    if (!mounted || !NetworkStatus().online.value) return;
+    // The connection is back: retry whatever offline mode held back.
+    _firstLoadStarted = false;
+    setState(() {});
+    _maybeStartFirstLoad();
+    if (_controller.value.error != null && _controller.value.items == null) {
+      _controller.fetchNextPage();
+    }
+  }
+
+  /// Shown when there is genuinely nothing to display while offline: neither
+  /// live items, nor an error from a real attempt, nor a cached preview.
+  Widget _buildOffline(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_outlined, size: 48),
+            const SizedBox(height: 12),
+            Text(L10n.of(context).offline_message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: () => NetworkStatus().check(force: true),
+              icon: const Icon(Icons.refresh),
+              label: Text(L10n.of(context).retry),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _onControllerChanged() {
@@ -198,6 +249,12 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
     // controller synchronously, which would setState() mid-build via our listener.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!NetworkStatus().online.value) {
+        // Offline: keep whatever is on screen; the listener retries later.
+        _firstLoadStarted = false;
+        NetworkStatus().check();
+        return;
+      }
       if (widget.onRefresh == null) {
         _controller.fetchNextPage();
         return;
@@ -233,6 +290,12 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
       return _wrapWithRefresh(CachedTweetList(widget.firstPagePreview!, username: widget.username));
     }
 
+    final state = _controller.value;
+    if (!NetworkStatus().online.value && state.items == null && state.error == null) {
+      NetworkStatus().check();
+      return _buildOffline(context);
+    }
+
     final list = PagingListener<int, TweetChain>(
       controller: _controller,
       builder: (context, state, fetchNextPage) => PagedListView<int, TweetChain>(
@@ -246,12 +309,14 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> {
         builderDelegate: PagedChildBuilderDelegate(
           itemBuilder: (context, chain, index) => _buildChain(context, chain),
           firstPageProgressIndicatorBuilder: (context) => const Center(child: CircularProgressIndicator()),
-          firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
-            error: pagingErrorOf(state)?.error,
-            stackTrace: pagingErrorOf(state)?.stackTrace,
-            prefix: widget.firstPageErrorPrefix,
-            onRetry: fetchNextPage,
-          ),
+          firstPageErrorIndicatorBuilder: (context) => NetworkStatus().online.value
+              ? FullPageErrorWidget(
+                  error: pagingErrorOf(state)?.error,
+                  stackTrace: pagingErrorOf(state)?.stackTrace,
+                  prefix: widget.firstPageErrorPrefix,
+                  onRetry: fetchNextPage,
+                )
+              : _buildOffline(context),
           newPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
             error: pagingErrorOf(state)?.error,
             stackTrace: pagingErrorOf(state)?.stackTrace,

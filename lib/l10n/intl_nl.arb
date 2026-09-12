@@ -664,5 +664,21 @@
   "select_all": "Alles selecteren",
   "@select_all": {},
   "delete_selected_media": "Geselecteerde media verwijderen?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Alles stoppen",
+  "@pause_all": {},
+  "resume_all": "Alles hervatten",
+  "@resume_all": {},
+  "clear_cache": "Cache wissen",
+  "@clear_cache": {},
+  "clear_cache_description": "Gooit opgeslagen tijdlijnen en miniaturen weg; ze worden zo nodig opnieuw opgehaald.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Cache gewist",
+  "@cache_cleared": {},
+  "offline_message": "Geen internetverbinding",
+  "@offline_message": {},
+  "cached": "Cache",
+  "@cached": {},
+  "cached_offline": "Offline beschikbaar",
+  "@cached_offline": {}
 }

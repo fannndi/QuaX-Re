@@ -94,6 +94,10 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   bool _loaded = false;
   int _lastSaveAt = 0;
 
+  /// Finished rows kept in the ledger; older ones are pruned on the next
+  /// enqueue so the history cannot grow forever.
+  static const _maxFinishedHistory = 50;
+
   // Each running download leaves its abort hook here; the queue screen is able
   // to pull it without owning the HTTP machinery.
   final Map<String, void Function()> _cancelHooks = {};
@@ -113,8 +117,9 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     return File(p.join(dir.path, 'downloads.json'));
   }
 
-  /// Loads the persisted history once per process. Running rows mean the app
-  /// died mid-download: they become retryable errors, never silent resumes.
+  /// Loads the persisted history once per process. Entries that were waiting
+  /// or running mean the app died mid-download (or was force-closed): they come
+  /// back as paused with their partial bytes, ready for Resume-all.
   Future<void> load() async {
     if (_loaded) return;
     _loaded = true;
@@ -128,7 +133,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
           .map(DownloadQueueItem.fromJson)
           .where((item) => item.fileName.isNotEmpty && item.url.isNotEmpty)
           .map((item) => item.status == DownloadStatus.running || item.status == DownloadStatus.queued
-              ? item.copyWith(status: DownloadStatus.error, error: 'interrupted')
+              ? item.copyWith(status: DownloadStatus.paused, speedMbPerSec: 0)
               : item)
           .toList();
       update(items, force: true);
@@ -165,8 +170,22 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
             receivedBytes: 0,
             totalBytes: null,
             status: DownloadStatus.queued));
+    _pruneFinished(existing);
     update(existing, force: true);
     _save(force: true);
+  }
+
+  /// Bounds the finished history so the ledger stays small and startup fast:
+  /// at most [_maxFinishedHistory] done rows, newest first.
+  void _pruneFinished(List<DownloadQueueItem> items) {
+    var finished = items.where((item) => item.status == DownloadStatus.done).length;
+    if (finished <= _maxFinishedHistory) return;
+
+    items.removeWhere((item) {
+      if (item.status != DownloadStatus.done || finished <= _maxFinishedHistory) return false;
+      finished--;
+      return true;
+    });
   }
 
   bool contains(String fileName) => state.any((item) => item.fileName == fileName);
@@ -231,6 +250,19 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   bool isCancelled(String fileName) => _cancelled.contains(fileName);
 
   bool isPaused(String fileName) => _paused.contains(fileName);
+
+  /// Holds the whole queue: the running transfer is paused in place and the
+  /// waiting ones move to paused too, so Resume-all can bring every entry back
+  /// in order (each resuming from its partial bytes).
+  void pauseAll() {
+    final names = state
+        .where((item) => item.status == DownloadStatus.running || item.status == DownloadStatus.queued)
+        .map((item) => item.fileName)
+        .toList();
+    for (final name in names) {
+      pause(name);
+    }
+  }
 
   /// Holds a running download: the transfer aborts, but the entry and its
   /// partial bytes stay, so [requeue]-ing it later resumes with a Range request.

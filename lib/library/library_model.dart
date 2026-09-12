@@ -137,6 +137,53 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
+  /// The library file matching a media URL, or null when it was never
+  /// downloaded. Downloads keep the URL basename; a duplicate gets a
+  /// `-timestamp` suffix, so the stem is compared too.
+  Future<String?> localPathFor(String url) async {
+    if (libraryPath.isEmpty) return null;
+
+    final name = p.basename(url.split('?').first);
+    if (name.isEmpty) return null;
+
+    final direct = File(p.join(libraryPath, name));
+    if (await direct.exists()) return direct.path;
+
+    await _buildNameIndexIfStale();
+    final exact = _localNames[name];
+    if (exact != null) return exact;
+
+    final stem = p.basenameWithoutExtension(name).toLowerCase();
+    final extension = p.extension(name).toLowerCase();
+    for (final entry in _localNames.entries) {
+      if (p.extension(entry.key).toLowerCase() != extension) continue;
+      if (p.basenameWithoutExtension(entry.key).toLowerCase().startsWith('$stem-')) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  final Map<String, String> _localNames = {};
+  DateTime _namesBuiltAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  Future<void> _buildNameIndexIfStale() async {
+    final now = DateTime.now();
+    if (_localNames.isNotEmpty && now.difference(_namesBuiltAt).inMinutes < 5) return;
+
+    _namesBuiltAt = now;
+    _localNames.clear();
+    try {
+      final dir = Directory(libraryPath);
+      if (!await dir.exists()) return;
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) _localNames[p.basename(entity.path)] = entity.path;
+      }
+    } catch (_) {
+      // An unreadable folder simply yields no local matches.
+    }
+  }
+
   /// Configures [pickedPath] into the hidden library root, without running the
   /// system picker (the settings screen picks the folder itself).
   ///

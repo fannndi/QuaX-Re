@@ -664,5 +664,21 @@
   "select_all": "تحديد الكل",
   "@select_all": {},
   "delete_selected_media": "حذف الوسائط المحددة؟",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "إيقاف الكل مؤقتًا",
+  "@pause_all": {},
+  "resume_all": "استئناف الكل",
+  "@resume_all": {},
+  "clear_cache": "مسح ذاكرة التخزين المؤقت",
+  "@clear_cache": {},
+  "clear_cache_description": "حذف الخطوط الزمنية المخزنة والصور المصغرة، ثم إعادة تنزيلها عند الحاجة.",
+  "@clear_cache_description": {},
+  "cache_cleared": "تم مسح الذاكرة المؤقتة",
+  "@cache_cleared": {},
+  "offline_message": "لا يوجد اتصال بالإنترنت",
+  "@offline_message": {},
+  "cached": "مخزن",
+  "@cached": {},
+  "cached_offline": "متاح دون اتصال",
+  "@cached_offline": {}
 }

@@ -664,5 +664,21 @@
   "select_all": "Selectează tot",
   "@select_all": {},
   "delete_selected_media": "Ștergi media selectată?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Oprește tot",
+  "@pause_all": {},
+  "resume_all": "Reia tot",
+  "@resume_all": {},
+  "clear_cache": "Golește cache-ul",
+  "@clear_cache": {},
+  "clear_cache_description": "Șterge cronologiile și miniaturile salvate; vor fi descărcate din nou la nevoie.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Cache golit",
+  "@cache_cleared": {},
+  "offline_message": "Fără conexiune la internet",
+  "@offline_message": {},
+  "cached": "Cache",
+  "@cached": {},
+  "cached_offline": "Disponibil offline",
+  "@cached_offline": {}
 }

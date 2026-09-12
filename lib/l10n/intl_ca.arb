@@ -664,5 +664,21 @@
   "select_all": "Selecciona-ho tot",
   "@select_all": {},
   "delete_selected_media": "Voleu suprimir els fitxers seleccionats?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Posa-ho tot",
+  "@pause_all": {},
+  "resume_all": "Reprèn-ho tot",
+  "@resume_all": {},
+  "clear_cache": "Buida la memòria cau",
+  "@clear_cache": {},
+  "clear_cache_description": "Suprimeix les cronologies i miniatures desades; es tornaran a baixar quan calgui.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Memòria cau buidada",
+  "@cache_cleared": {},
+  "offline_message": "Sense connexió a internet",
+  "@offline_message": {},
+  "cached": "Memòria cau",
+  "@cached": {},
+  "cached_offline": "Disponible sense connexió",
+  "@cached_offline": {}
 }

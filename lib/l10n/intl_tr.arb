@@ -664,5 +664,21 @@
   "select_all": "Tümünü seç",
   "@select_all": {},
   "delete_selected_media": "Seçili medyalar silinsin mi?",
-  "@delete_selected_media": {}
+  "@delete_selected_media": {},
+  "pause_all": "Tümünü durdur",
+  "@pause_all": {},
+  "resume_all": "Tümünü sürdür",
+  "@resume_all": {},
+  "clear_cache": "Önbelleği temizle",
+  "@clear_cache": {},
+  "clear_cache_description": "Kayıtlı zaman tünellerini ve küçük resimleri siler; gerektiğinde yeniden indirilir.",
+  "@clear_cache_description": {},
+  "cache_cleared": "Önbellek temizlendi",
+  "@cache_cleared": {},
+  "offline_message": "İnternet bağlantısı yok",
+  "@offline_message": {},
+  "cached": "Önbellek",
+  "@cached": {},
+  "cached_offline": "Çevrimdışı kullanılabilir",
+  "@cached_offline": {}
 }

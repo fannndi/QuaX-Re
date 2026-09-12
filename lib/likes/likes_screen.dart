@@ -49,6 +49,18 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
               Tab(text: L10n.of(context).profile),
             ],
           ),
+          actions: [
+            AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, _) => _tabController.index == 0
+                  ? IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: L10n.of(context).refresh,
+                      onPressed: () => context.read<LikedTweetModel>().refreshLikedTweets(),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ),
         body: TabBarView(
           controller: _tabController,
