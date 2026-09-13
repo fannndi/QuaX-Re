@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d 件のファイルを非表示にしました",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d 件のファイルがまだギャラリーに表示される可能性があります",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "ブックマーク",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "ブックマークはまだありません",
+  "@no_bookmarks_yet": {}
 }

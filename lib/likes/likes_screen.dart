@@ -8,7 +8,7 @@ import 'package:quax/client/accounts.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/profile/_likes.dart';
+import 'package:quax/profile/_feed.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
 import 'package:quax/tweet/tweet.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
@@ -16,8 +16,8 @@ import 'package:quax/ui/errors.dart';
 import 'package:quax/user.dart';
 
 /// The Like tab: what was liked inside the app (local database) next to the
-/// real likes X holds for the active account. Two tabs, mirroring the feed's
-/// For You / Following switch.
+/// real likes and bookmarks X holds for the active account. Three tabs,
+/// mirroring the feed's For You / Following switch.
 class LikesScreen extends StatefulWidget {
   final ScrollController scrollController;
 
@@ -28,7 +28,7 @@ class LikesScreen extends StatefulWidget {
 }
 
 class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+  late final TabController _tabController = TabController(length: 3, vsync: this);
 
   @override
   void dispose() {
@@ -47,6 +47,7 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
             tabs: [
               Tab(text: L10n.of(context).local),
               Tab(text: L10n.of(context).profile),
+              Tab(text: L10n.of(context).bookmarks),
             ],
           ),
           actions: [
@@ -67,6 +68,7 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
           children: [
             _LocalLikes(scrollController: widget.scrollController),
             const _ProfileLikes(),
+            const _ProfileBookmarks(),
           ],
         ),
       ),
@@ -146,14 +148,62 @@ class _EmptyLikes extends StatelessWidget {
 
 /// The likes of the active account, fetched from X's Likes endpoint (X only
 /// answers this for the requesting account itself).
-class _ProfileLikes extends StatefulWidget {
+class _ProfileLikes extends StatelessWidget {
   const _ProfileLikes();
 
   @override
-  State<_ProfileLikes> createState() => _ProfileLikesState();
+  Widget build(BuildContext context) {
+    return _ActiveAccountFeed(
+      builder: (user) => ProfileTweetFeed(
+        user: user,
+        emptyMessage: L10n.of(context).no_liked_posts_yet,
+        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getLikes(
+          user.idStr!,
+          cursor: cursor,
+          count: 20,
+          getTweetsCounter: getTweetsCounter,
+          incrementTweetsCounter: incrementTweetsCounter,
+        ),
+      ),
+    );
+  }
 }
 
-class _ProfileLikesState extends State<_ProfileLikes> with AutomaticKeepAliveClientMixin<_ProfileLikes> {
+/// The posts the active account bookmarked, fetched from X's Bookmarks
+/// endpoint (x.com/i/bookmarks) — again only for the requesting account.
+class _ProfileBookmarks extends StatelessWidget {
+  const _ProfileBookmarks();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ActiveAccountFeed(
+      builder: (user) => ProfileTweetFeed(
+        user: user,
+        emptyMessage: L10n.of(context).no_bookmarks_yet,
+        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getBookmarks(
+          cursor: cursor,
+          count: 20,
+          getTweetsCounter: getTweetsCounter,
+          incrementTweetsCounter: incrementTweetsCounter,
+        ),
+      ),
+    );
+  }
+}
+
+/// Resolves the active account's profile, then hands it to [builder]: both
+/// account-timeline tabs need the profile only to render their tweet cards
+/// (screen name, sensitive check), not as a filter.
+class _ActiveAccountFeed extends StatefulWidget {
+  final Widget Function(UserWithExtra user) builder;
+
+  const _ActiveAccountFeed({required this.builder});
+
+  @override
+  State<_ActiveAccountFeed> createState() => _ActiveAccountFeedState();
+}
+
+class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKeepAliveClientMixin<_ActiveAccountFeed> {
   late Future<UserWithExtra?> _user;
 
   @override
@@ -197,7 +247,7 @@ class _ProfileLikesState extends State<_ProfileLikes> with AutomaticKeepAliveCli
           return _EmptyLikes(message: L10n.of(context).no_account_available_title);
         }
 
-        return ProfileLikes(user: user);
+        return widget.builder(user);
       },
     );
   }

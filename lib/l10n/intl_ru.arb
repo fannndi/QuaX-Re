@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d файлов скрыто",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d файлов всё ещё могут отображаться в галерее",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Закладки",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Пока нет закладок",
+  "@no_bookmarks_yet": {}
 }

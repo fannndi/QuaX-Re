@@ -677,6 +677,38 @@ class Twitter {
     );
   }
 
+  /// The posts the active account bookmarked (x.com/i/bookmarks), served by
+  /// X's Bookmarks endpoint — like Likes, X only answers it for the account
+  /// the request runs as. The timeline nests under data.bookmark_timeline_v2,
+  /// so the GraphQL timeline parser reads it. The queryId is community-tracked
+  /// (fa0311/twitter-openapi); refresh it when a 404 shows up.
+  static Future<TweetStatus> getBookmarks({
+    int count = 20,
+    String? cursor,
+    required int Function() getTweetsCounter,
+    required void Function() incrementTweetsCounter,
+  }) async {
+    var variables = {
+      "count": count,
+      "includePromotedContent": true,
+      if (cursor != null) "cursor": cursor,
+    };
+
+    var response = await _twitterApi.client.get(
+      Uri.https('x.com', '/i/api/graphql/XD0ViOeSOW4YoeNTGjVaYw/Bookmarks', {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+      }),
+    );
+
+    final body = json.decode(response.body) as Map<String, dynamic>;
+    final timeline = body['data']?['bookmark_timeline_v2'] ?? body['data']?['bookmark_timeline'];
+    if (timeline is! Map<String, dynamic>) {
+      return TweetStatus(chains: [], cursorBottom: null, cursorTop: null);
+    }
+    return createUnconversationedChainsGraphql(timeline, 'tweet', const [], true);
+  }
+
   static Future<TweetStatus> getTweets(
     String id,
     String type,

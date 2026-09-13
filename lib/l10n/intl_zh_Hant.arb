@@ -708,5 +708,9 @@
   "gallery_hidden_count": "已隱藏 %d 個檔案",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d 個檔案可能仍會顯示在相簿中",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "書籤",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "還沒有書籤",
+  "@no_bookmarks_yet": {}
 }

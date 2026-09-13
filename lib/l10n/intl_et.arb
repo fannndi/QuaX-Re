@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d faili peidetud",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d faili võib endiselt galeriis nähtav olla",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Järjehoidjad",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Järjehoidjaid veel pole",
+  "@no_bookmarks_yet": {}
 }

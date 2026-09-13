@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d fitxers amagats",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d fitxers encara poden aparèixer a la galeria",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Marcadors",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Encara no hi ha marcadors",
+  "@no_bookmarks_yet": {}
 }

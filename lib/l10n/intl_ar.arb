@@ -708,5 +708,9 @@
   "gallery_hidden_count": "تم إخفاء %d ملف",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "قد يظل %d ملف ظاهرًا في المعرض",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "العلامات المرجعية",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "لا توجد علامات مرجعية بعد",
+  "@no_bookmarks_yet": {}
 }

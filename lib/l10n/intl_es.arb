@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d archivos ocultos",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d archivos aún pueden aparecer en la galería",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Marcadores",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Aún no hay marcadores",
+  "@no_bookmarks_yet": {}
 }

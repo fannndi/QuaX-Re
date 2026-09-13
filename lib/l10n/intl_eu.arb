@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d fitxategi ezkutatuta",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d fitxategi ager daitezke oraindik galerian",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Laster-markak",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Oraindik ez dago laster-markarik",
+  "@no_bookmarks_yet": {}
 }

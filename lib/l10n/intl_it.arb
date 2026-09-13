@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d file nascosti",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d file potrebbero ancora apparire nella galleria",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Segnalibri",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Ancora nessun segnalibro",
+  "@no_bookmarks_yet": {}
 }

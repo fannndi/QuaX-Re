@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d개 파일 숨김",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d개 파일이 여전히 갤러리에 표시될 수 있습니다",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "북마크",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "아직 북마크가 없습니다",
+  "@no_bookmarks_yet": {}
 }

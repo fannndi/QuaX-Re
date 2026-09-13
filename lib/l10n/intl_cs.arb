@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d souborů skryto",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d souborů se stále může zobrazovat v galerii",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Záložky",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Zatím žádné záložky",
+  "@no_bookmarks_yet": {}
 }

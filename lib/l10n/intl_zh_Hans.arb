@@ -708,5 +708,9 @@
   "gallery_hidden_count": "已隐藏 %d 个文件",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d 个文件可能仍会显示在相册中",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "书签",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "还没有书签",
+  "@no_bookmarks_yet": {}
 }

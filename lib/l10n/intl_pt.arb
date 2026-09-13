@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d ficheiros ocultos",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d ficheiros podem ainda aparecer na galeria",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Guardados",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Ainda não há guardados",
+  "@no_bookmarks_yet": {}
 }

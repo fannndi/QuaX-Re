@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d fichiers masqués",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d fichiers peuvent encore apparaître dans la galerie",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Signets",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Pas encore de signets",
+  "@no_bookmarks_yet": {}
 }

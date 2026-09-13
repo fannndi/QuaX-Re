@@ -708,5 +708,9 @@
   "gallery_hidden_count": "%d dosieroj kaŝitaj",
   "@gallery_hidden_count": {},
   "gallery_hide_incomplete": "%d dosieroj eble ankoraŭ aperas en la galerio",
-  "@gallery_hide_incomplete": {}
+  "@gallery_hide_incomplete": {},
+  "bookmarks": "Legosignoj",
+  "@bookmarks": {},
+  "no_bookmarks_yet": "Ankoraŭ neniuj legosignoj",
+  "@no_bookmarks_yet": {}
 }
