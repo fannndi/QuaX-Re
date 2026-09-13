@@ -702,5 +702,11 @@
   "label_new": "नया",
   "@label_new": {},
   "label_old": "पुराना",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d फ़ाइलें अब गैलरी में दिखाई देती हैं",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d फ़ाइलें छिपाई गईं",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d फ़ाइलें अभी भी गैलरी में दिख सकती हैं",
+  "@gallery_hide_incomplete": {}
 }

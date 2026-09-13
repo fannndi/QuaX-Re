@@ -702,5 +702,11 @@
   "label_new": "Ny",
   "@label_new": {},
   "label_old": "Gammel",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d filer vises nå i galleriet",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d filer skjult",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d filer kan fortsatt vises i galleriet",
+  "@gallery_hide_incomplete": {}
 }

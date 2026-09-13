@@ -702,5 +702,11 @@
   "label_new": "Yeni",
   "@label_new": {},
   "label_old": "Eski",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d dosya artık galeride görünüyor",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d dosya gizlendi",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d dosya hâlâ galeride görünebilir",
+  "@gallery_hide_incomplete": {}
 }

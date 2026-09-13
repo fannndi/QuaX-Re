@@ -702,5 +702,11 @@
   "label_new": "Nou",
   "@label_new": {},
   "label_old": "Vechi",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d fișiere apar acum în galerie",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d fișiere ascunse",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d fișiere pot apărea încă în galerie",
+  "@gallery_hide_incomplete": {}
 }

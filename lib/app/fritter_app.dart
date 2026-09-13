@@ -1,4 +1,5 @@
 import 'package:quax/app/account_prompt.dart';
+import 'package:quax/app/privacy_shield.dart';
 import 'package:quax/app/theme.dart';
 import 'package:quax/app/update_checker.dart';
 import 'package:quax/app/default_page.dart';
@@ -217,9 +218,11 @@ class _FritterAppState extends State<FritterApp> {
                           prefix: L10n.of(context).something_broke_in_fritter,
                         );
 
-                    return SecureContentScope(
-                      enabled: _isSecure,
-                      child: child ?? Container(),
+                    return PrivacyShield(
+                      child: SecureContentScope(
+                        enabled: _isSecure,
+                        child: child ?? Container(),
+                      ),
                     );
                   },
                 ));

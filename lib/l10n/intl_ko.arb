@@ -702,5 +702,11 @@
   "label_new": "새 글",
   "@label_new": {},
   "label_old": "이전",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d개 파일이 이제 갤러리에 표시됩니다",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d개 파일 숨김",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d개 파일이 여전히 갤러리에 표시될 수 있습니다",
+  "@gallery_hide_incomplete": {}
 }

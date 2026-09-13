@@ -197,15 +197,32 @@ class _GalleryTabState extends State<_GalleryTab> {
   late bool _visible = _model.galleryVisible;
 
   Future<void> _toggle(bool value) async {
-    final ok = await _model.setGalleryVisible(value);
+    final result = await _model.setGalleryVisible(value);
     if (!mounted) return;
 
-    if (ok) {
-      setState(() => _visible = value);
+    final l10n = L10n.of(context);
+    if (!result.ok) {
+      showSnackBar(context, icon: '🙊', message: l10n.library_storage_permission_needed);
       return;
     }
 
-    showSnackBar(context, icon: '🙊', message: L10n.of(context).library_storage_permission_needed);
+    setState(() => _visible = value);
+
+    if (!value && result.remaining > 0) {
+      // The marker is in place, but rows the app no longer owns survived: the
+      // gallery may keep showing those files until they are deleted there.
+      showSnackBar(
+        context,
+        icon: '⚠️',
+        message: l10n.gallery_hide_incomplete.replaceFirst('%d', '${result.remaining}'),
+      );
+      return;
+    }
+
+    final message = value
+        ? l10n.gallery_shown_count.replaceFirst('%d', '${result.affected}')
+        : l10n.gallery_hidden_count.replaceFirst('%d', '${result.affected}');
+    showSnackBar(context, icon: value ? '👀' : '🙈', message: message);
   }
 
   @override

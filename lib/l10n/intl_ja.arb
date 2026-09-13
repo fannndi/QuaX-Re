@@ -702,5 +702,11 @@
   "label_new": "新着",
   "@label_new": {},
   "label_old": "以前",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d 件のファイルがギャラリーに表示されました",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d 件のファイルを非表示にしました",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d 件のファイルがまだギャラリーに表示される可能性があります",
+  "@gallery_hide_incomplete": {}
 }

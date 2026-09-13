@@ -65,6 +65,19 @@ class LibraryEntry {
   double get sizeMb => size / 1048576;
 }
 
+/// Outcome of a gallery show/hide pass: [affected] media files entered (or
+/// left) the gallery, [remaining] says how many rows stayed behind in the
+/// media database after hiding (0 means fully hidden).
+class GalleryVisibilityResult {
+  const GalleryVisibilityResult({required this.ok, this.affected = 0, this.remaining = 0});
+
+  static const failed = GalleryVisibilityResult(ok: false);
+
+  final bool ok;
+  final int affected;
+  final int remaining;
+}
+
 /// State of the Hentoid-style hidden library: a folder the user picked from
 /// the device storage (visible in file managers), holding every downloaded
 /// media and a `.nomedia` marker that keeps gallery apps from indexing it.
@@ -83,22 +96,28 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   /// Live toggle for the gallery apps: drops/creates the `.nomedia` marker and
   /// asks Android to rescan the folder, so the videos appear or disappear from
-  /// the system gallery without a restart.
-  Future<bool> setGalleryVisible(bool visible) async {
+  /// the system gallery without a restart. Resolves only after the native side
+  /// finished the whole pass (scans included), reporting how many files were
+  /// touched and how many stayed visible.
+  Future<GalleryVisibilityResult> setGalleryVisible(bool visible) async {
     final path = libraryPath;
-    if (path.isEmpty) return false;
+    if (path.isEmpty) return GalleryVisibilityResult.failed;
 
     try {
-      final ok = await _storageChannel.invokeMethod<bool>('setGalleryVisibility', {
+      final outcome = await _storageChannel.invokeMapMethod<String, dynamic>('setGalleryVisibility', {
         'path': path,
         'visible': visible,
       });
-      if (ok != true) return false;
+      if (outcome == null) return GalleryVisibilityResult.failed;
 
       prefs.set<bool>(optionLibraryVisibleInGallery, visible);
-      return true;
+      return GalleryVisibilityResult(
+        ok: true,
+        affected: (outcome['affected'] as num?)?.toInt() ?? 0,
+        remaining: (outcome['remaining'] as num?)?.toInt() ?? 0,
+      );
     } on Exception {
-      return false;
+      return GalleryVisibilityResult.failed;
     }
   }
 
@@ -230,6 +249,15 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
       prefs.set<String>(optionLibraryPath, root.path);
       update([]);
+
+      if (visible) {
+        // A picked folder can already hold media: index it right away, so the
+        // gallery switch means what it says from the first run.
+        await _storageChannel.invokeMethod('setGalleryVisibility', {
+          'path': root.path,
+          'visible': true,
+        });
+      }
       return true;
     } on Exception catch (e) {
       error?.value = e.toString();

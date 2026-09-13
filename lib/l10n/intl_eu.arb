@@ -702,5 +702,11 @@
   "label_new": "Berria",
   "@label_new": {},
   "label_old": "Zaharra",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d fitxategi agertzen dira orain galerian",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d fitxategi ezkutatuta",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d fitxategi ager daitezke oraindik galerian",
+  "@gallery_hide_incomplete": {}
 }

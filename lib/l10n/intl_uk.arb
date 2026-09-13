@@ -702,5 +702,11 @@
   "label_new": "Нове",
   "@label_new": {},
   "label_old": "Старе",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d файлів тепер видно в галереї",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d файлів приховано",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d файлів усе ще можуть відображатися в галереї",
+  "@gallery_hide_incomplete": {}
 }

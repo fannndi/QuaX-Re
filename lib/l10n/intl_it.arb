@@ -702,5 +702,11 @@
   "label_new": "Nuovo",
   "@label_new": {},
   "label_old": "Vecchio",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d file ora compaiono nella galleria",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d file nascosti",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d file potrebbero ancora apparire nella galleria",
+  "@gallery_hide_incomplete": {}
 }

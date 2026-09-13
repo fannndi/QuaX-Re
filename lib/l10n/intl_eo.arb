@@ -702,5 +702,11 @@
   "label_new": "Nova",
   "@label_new": {},
   "label_old": "Malnova",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d dosieroj nun aperas en la galerio",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d dosieroj kaŝitaj",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d dosieroj eble ankoraŭ aperas en la galerio",
+  "@gallery_hide_incomplete": {}
 }

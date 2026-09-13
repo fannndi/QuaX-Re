@@ -702,5 +702,11 @@
   "label_new": "جديد",
   "@label_new": {},
   "label_old": "قديم",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "ظهر %d ملف في المعرض",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "تم إخفاء %d ملف",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "قد يظل %d ملف ظاهرًا في المعرض",
+  "@gallery_hide_incomplete": {}
 }

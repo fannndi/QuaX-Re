@@ -702,5 +702,11 @@
   "label_new": "Neu",
   "@label_new": {},
   "label_old": "Alt",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d Dateien sind jetzt in der Galerie sichtbar",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d Dateien ausgeblendet",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d Dateien können noch in der Galerie erscheinen",
+  "@gallery_hide_incomplete": {}
 }

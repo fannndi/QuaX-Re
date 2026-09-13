@@ -702,5 +702,11 @@
   "label_new": "Baru",
   "@label_new": {},
   "label_old": "Lama",
-  "@label_old": {}
+  "@label_old": {},
+  "gallery_shown_count": "%d file kini muncul di galeri",
+  "@gallery_shown_count": {},
+  "gallery_hidden_count": "%d file disembunyikan",
+  "@gallery_hidden_count": {},
+  "gallery_hide_incomplete": "%d file mungkin masih muncul di galeri",
+  "@gallery_hide_incomplete": {}
 }

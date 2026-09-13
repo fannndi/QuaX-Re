@@ -11,6 +11,8 @@ import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.os.StatFs
 import android.provider.MediaStore
 import android.provider.Settings
@@ -50,6 +52,10 @@ class QuaxApplication : android.app.Application() {
     lateinit var engine: FlutterEngine
         private set
 
+    // Scan callbacks arrive on a binder thread; MethodChannel results belong to
+    // the main one.
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private val mediaExtensions = setOf(
         "mp4", "mov", "webm", "mkv", "m4v", "avi", "ts", "3gp", "mpeg", "mpg", "wmv", "flv", "m2ts", "ogv",
         "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "avif", "tiff"
@@ -75,6 +81,124 @@ class QuaxApplication : android.app.Application() {
         } else {
             true
         }
+    }
+
+    /**
+     * Shows or hides the library folder's media from gallery apps, and reports
+     * how many files were affected so the UI can confirm the outcome instead of
+     * guessing.
+     *
+     * Showing deletes the `.nomedia` marker and rescans every media file,
+     * answering only once the scanner called back for all of them. Hiding
+     * writes the marker (which keeps future scans out) and deletes the files'
+     * rows from the media database on every shared-storage volume, so SD-card
+     * files disappear too; a second pass sweeps rows the provider re-created
+     * mid-operation, and whatever stays behind (rows the app no longer owns)
+     * is reported in `remaining`.
+     */
+    private fun setGalleryVisibility(dirPath: String, visible: Boolean, result: MethodChannel.Result) {
+        val dir = File(dirPath)
+        if (!dir.exists()) {
+            result.error("INVALID_ARGUMENT", "Directory does not exist", null)
+            return
+        }
+
+        val media = try {
+            mediaFilesUnder(dir)
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        if (visible) {
+            File(dir, ".nomedia").delete()
+            if (media.isEmpty()) {
+                result.success(mapOf("affected" to 0, "remaining" to 0))
+                return
+            }
+
+            var completed = 0
+            var scanned = 0
+            MediaScannerConnection.scanFile(this, media.toTypedArray(), null) { _, uri ->
+                completed++
+                if (uri != null) scanned++
+                if (completed == media.size) {
+                    mainHandler.post {
+                        result.success(mapOf("affected" to scanned, "remaining" to 0))
+                    }
+                }
+            }
+            return
+        }
+
+        val nomedia = File(dir, ".nomedia")
+        try {
+            if (!nomedia.exists()) nomedia.createNewFile()
+        } catch (e: IOException) {
+            result.error("VISIBILITY_FAILED", e.message, null)
+            return
+        }
+
+        val removed = deleteMediaStoreRows(media)
+        var remaining = countMediaStoreRows(media)
+        if (remaining > 0) {
+            deleteMediaStoreRows(media)
+            remaining = countMediaStoreRows(media)
+        }
+        result.success(mapOf("affected" to removed, "remaining" to remaining))
+    }
+
+    private fun mediaFilesUnder(dir: File): List<String> =
+        dir.walkTopDown()
+            .filter { it.isFile && it.extension.lowercase() in mediaExtensions }
+            .map { it.absolutePath }
+            .toList()
+
+    /** Shared-storage volumes the media database knows about (SD cards included). */
+    private fun externalVolumeNames(): List<String> {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.getExternalVolumeNames(this).toList()
+            } else {
+                listOf("external")
+            }
+        } catch (e: Exception) {
+            listOf("external")
+        }
+    }
+
+    private fun deleteMediaStoreRows(paths: List<String>): Int {
+        var removed = 0
+        for (volume in externalVolumeNames()) {
+            val collection = MediaStore.Files.getContentUri(volume)
+            for (path in paths) {
+                try {
+                    removed += contentResolver.delete(
+                        collection, MediaStore.MediaColumns.DATA + " = ?", arrayOf(path)
+                    )
+                } catch (e: Exception) {
+                    // Reported through `remaining` instead of failing the pass.
+                }
+            }
+        }
+        return removed
+    }
+
+    private fun countMediaStoreRows(paths: List<String>): Int {
+        var remaining = 0
+        for (volume in externalVolumeNames()) {
+            val collection = MediaStore.Files.getContentUri(volume)
+            for (path in paths) {
+                try {
+                    contentResolver.query(
+                        collection, arrayOf(MediaStore.MediaColumns._ID),
+                        MediaStore.MediaColumns.DATA + " = ?", arrayOf(path), null
+                    )?.use { remaining += it.count }
+                } catch (e: Exception) {
+                    // An unreadable volume simply cannot report leftovers.
+                }
+            }
+        }
+        return remaining
     }
 
     private fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -146,45 +270,7 @@ class QuaxApplication : android.app.Application() {
             val dirPath = call.argument<String>("path")
             val visible = call.argument<Boolean>("visible")
             if (dirPath != null && visible != null) {
-                try {
-                    val dir = File(dirPath)
-                    if (!dir.exists()) {
-                        result.error("INVALID_ARGUMENT", "Directory does not exist", null)
-                    } else {
-                        val nomedia = File(dir, ".nomedia")
-                        val media = dir.walkTopDown()
-                            .filter { it.isFile && it.extension.lowercase() in mediaExtensions }
-                            .map { it.absolutePath }
-                            .toList()
-                        if (visible) {
-                            nomedia.delete()
-                            // Rescan so the gallery adds the files right away.
-                            if (media.isNotEmpty()) {
-                                MediaScannerConnection.scanFile(this, media.toTypedArray(), null, null)
-                            }
-                        } else {
-                            if (!nomedia.exists()) nomedia.createNewFile()
-                            // Scanning would ADD them to the gallery, so drop
-                            // their MediaStore rows instead.
-                            try {
-                                val resolver = contentResolver
-                                val collection = MediaStore.Files.getContentUri("external")
-                                for (path in media) {
-                                    resolver.delete(
-                                        collection,
-                                        MediaStore.MediaColumns.DATA + " = ?",
-                                        arrayOf(path)
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                // Rows may already be gone; the marker is what counts.
-                            }
-                        }
-                        result.success(true)
-                    }
-                } catch (e: IOException) {
-                    result.error("VISIBILITY_FAILED", e.message, null)
-                }
+                setGalleryVisibility(dirPath, visible, result)
             } else {
                 result.error("INVALID_ARGUMENT", "path or visible is null", null)
             }
