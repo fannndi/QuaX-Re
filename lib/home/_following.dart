@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
@@ -38,6 +39,11 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
       getTweetsCounter: getLoadTweetsCounter,
       incrementTweetsCounter: incrementLoadTweetsCounter,
     );
+    if (kDebugMode) {
+      // An empty page here is normal for a quiet following list; the feed
+      // keeps its items instead of blanking (see applyFirstPage).
+      debugPrint('QuaX following entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}');
+    }
     TweetFreshnessIndex().note(result.chains.map((chain) => chain.id));
     if (mounted) {
       // Warm the pictures just below the viewport.

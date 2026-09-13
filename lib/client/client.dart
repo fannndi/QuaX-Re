@@ -138,7 +138,7 @@ class _QuackerTwitterClient extends TwitterClient {
       if (code < 200 || code >= 300) {
         // Surfaced in the Android log: the fastest way to spot a rotated
         // queryId (404) or a shape change (400) without a debugger.
-        debugPrint('QuaX fetch $code ${uri.path}');
+        if (kDebugMode) debugPrint('QuaX fetch $code ${uri.path}');
       }
 
       if (code >= 200 && code < 300) {

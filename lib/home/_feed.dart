@@ -43,7 +43,7 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateMixin {
-  final TweetFeedController _followingFeed = TweetFeedController();
+  final TweetFeedController _followingFeed = TweetFeedController(mergeOnRefresh: true);
   final TweetFeedController _foryouFeed = TweetFeedController();
   TabController? _tabController;
 

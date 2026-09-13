@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
@@ -51,6 +52,11 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
       getTweetsCounter: getLoadTweetsCounter,
       incrementTweetsCounter: incrementLoadTweetsCounter,
     );
+    if (kDebugMode) {
+      // One greppable line per fetch: a rotated endpoint answers 404 (logged
+      // by the client) and a stale ranked slice answers an unchanged page.
+      debugPrint('QuaX foryou entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}');
+    }
     TweetFreshnessIndex().note(result.chains.map((chain) => chain.id));
     if (mounted) {
       // Warm the pictures just below the viewport.

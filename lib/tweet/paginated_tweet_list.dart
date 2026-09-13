@@ -28,7 +28,12 @@ class TweetFeedController {
   late final CursorPagingController<String, TweetChain> _paging;
   TweetPageLoader? _loader;
 
-  TweetFeedController() {
+  /// Chronological feeds (Following) merge a refreshed first page on top of
+  /// what is already loaded; a refresh must never shorten the feed to just the
+  /// handful of newer posts.
+  final bool mergeOnRefresh;
+
+  TweetFeedController({this.mergeOnRefresh = false}) {
     _paging = CursorPagingController<String, TweetChain>(_fetch);
   }
 
@@ -43,7 +48,22 @@ class TweetFeedController {
   Future<CursorPage<String, TweetChain>> _fetch(String? cursor) async {
     final result = await _loader!(cursor);
     final next = result.nextCursor;
-    return (items: result.chains, nextCursor: _isLastPage(result.chains, next, cursor) ? null : next);
+    return (items: _dedupe(result.chains, cursor), nextCursor: _isLastPage(result.chains, next, cursor) ? null : next);
+  }
+
+  // Ranked feeds can repeat a tweet across pages; a repeated chain would render
+  // twice, so anything already on screen is dropped from later pages. The raw
+  // page decides "last page" above, so an all-duplicate page doesn't end
+  // pagination early.
+  List<TweetChain> _dedupe(List<TweetChain> chains, String? cursor) {
+    if (cursor == null) return chains;
+
+    final seen = (_paging.items ?? const <TweetChain>[]).map((chain) => chain.id).toSet();
+    final fresh = <TweetChain>[];
+    for (final chain in chains) {
+      if (seen.add(chain.id)) fresh.add(chain);
+    }
+    return fresh;
   }
 
   // Pagination ends on an empty page, a missing/blank cursor, or a cursor that
@@ -57,10 +77,37 @@ class TweetFeedController {
   Future<TweetPageResult> fetchFirstPage() => _loader!(null);
 
   /// Puts a fetched first page in place without the first-page spinner.
-  void applyFirstPage(TweetPageResult result) {
+  ///
+  /// Two safety rules, because X serves empty and partial first pages all the
+  /// time (a quiet "latest" feed answers empty, a refresh with `seenTweetIds`
+  /// only answers what is new):
+  /// - an empty page never wipes a non-empty list — that must not read as a
+  ///   broken tab;
+  /// - when [mergeOnRefresh] is set, the page is prepended to the visible
+  ///   items (deduplicated) instead of replacing them.
+  ///
+  /// Returns whether anything was actually applied.
+  bool applyFirstPage(TweetPageResult result) {
+    final current = _paging.items;
+    final hasCurrent = current?.isNotEmpty ?? false;
+    if (result.chains.isEmpty && hasCurrent) return false;
+
     final next = result.nextCursor;
     final isLast = _isLastPage(result.chains, next, null);
-    _paging.replaceFirstPage(result.chains, isLast ? null : next);
+    final cursor = isLast ? null : next;
+
+    if (mergeOnRefresh && hasCurrent) {
+      final freshIds = result.chains.map((chain) => chain.id).toSet();
+      final merged = <TweetChain>[
+        ...result.chains,
+        ...current!.where((chain) => !freshIds.contains(chain.id)),
+      ];
+      _paging.replaceFirstPage(merged, cursor);
+      return true;
+    }
+
+    _paging.replaceFirstPage(result.chains, cursor);
+    return result.chains.isNotEmpty;
   }
 
   void setError(Object error, StackTrace stackTrace) => _paging.setError(error, stackTrace);
@@ -309,10 +356,13 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
         return;
       }
 
-      widget.feed.applyFirstPage(result);
+      final applied = widget.feed.applyFirstPage(result);
       // A reload closes the freshness round: what just loaded becomes Old and
-      // only arrivals after this point read as New.
-      TweetFreshnessIndex().promoteSeenToBaseline();
+      // only arrivals after this point read as New. An empty page changed
+      // nothing, so the round stays open.
+      if (applied) {
+        TweetFreshnessIndex().promoteSeenToBaseline();
+      }
     } catch (e, stackTrace) {
       // A failed refresh must not look like "nothing new": say so.
       widget.feed.setError(e, stackTrace);
