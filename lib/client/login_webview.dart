@@ -6,7 +6,6 @@ import 'package:quax/client/accounts.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/subscriptions/_import.dart' show SubscriptionImportScreen;
 import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import 'package:webview_cookie_manager_plus/webview_cookie_manager_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -97,23 +96,6 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
               }
               if (context.mounted) {
                 Navigator.pop(context);
-                await showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text(L10n.of(context).import_subscriptions),
-                    content: Text(L10n.of(context).import_subscriptions_text(screenName)),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: Text(L10n.of(context).no)),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionImportScreen()));
-                        },
-                        child: Text(L10n.of(context).yes),
-                      ),
-                    ],
-                  ),
-                );
               }
             } catch (e) {
               throw Exception(e);

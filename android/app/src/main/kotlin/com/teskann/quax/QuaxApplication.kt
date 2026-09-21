@@ -16,6 +16,7 @@ import android.os.Looper
 import android.os.StatFs
 import android.provider.MediaStore
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.core.content.FileProvider
 import androidx.multidex.MultiDex
 import io.flutter.embedding.engine.FlutterEngine
@@ -223,6 +224,17 @@ class QuaxApplication : android.app.Application() {
                 PackageManager.PERMISSION_GRANTED
             ) {
                 activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 4711)
+            }
+            result.success(true)
+        } else if (call.method == "setRecentsSecure") {
+            val secure = call.argument<Boolean>("secure") ?: false
+            val activity = currentActivity?.get()
+            activity?.runOnUiThread {
+                if (secure) {
+                    activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
             }
             result.success(true)
         } else if (call.method == "getDefaultBrowser") {

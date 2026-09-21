@@ -127,13 +127,6 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           showMore: false,
           showSettings: false,
           extra: [
-            // The notifications timeline opens from the bell; the fork keeps
-            // three navbar tabs and puts secondary doors in the app bar.
-            IconButton(
-              icon: const Icon(Icons.notifications_none_outlined),
-              tooltip: L10n.of(context).notifications,
-              onPressed: () => Navigator.pushNamed(context, routeNotifications),
-            ),
             IconButton(
               icon: const Icon(Icons.search),
               onPressed: () => Navigator.pushNamed(

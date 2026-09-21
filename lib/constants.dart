@@ -96,7 +96,6 @@ const int notFoundThreshold = 3;
 
 const routeHome = '/';
 const routeGroup = '/group';
-const routeNotifications = '/notifications';
 const routeProfile = '/profile';
 const routeSearch = '/search';
 const routeSavedFolders = '/saved/folders';
