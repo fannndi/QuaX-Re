@@ -195,10 +195,15 @@ class _GalleryTab extends StatefulWidget {
 class _GalleryTabState extends State<_GalleryTab> {
   late final LibraryModel _model = LibraryModel(widget.prefs);
   late bool _visible = _model.galleryVisible;
+  bool _busy = false;
 
   Future<void> _toggle(bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+
     final result = await _model.setGalleryVisible(value);
     if (!mounted) return;
+    setState(() => _busy = false);
 
     final l10n = L10n.of(context);
     if (!result.ok) {
@@ -210,7 +215,8 @@ class _GalleryTabState extends State<_GalleryTab> {
 
     if (!value && result.remaining > 0) {
       // The marker is in place, but rows the app no longer owns survived: the
-      // gallery may keep showing those files until they are deleted there.
+      // gallery may keep showing those files until it rescans. The sync
+      // action re-applies the pass for galleries that need another nudge.
       showSnackBar(
         context,
         icon: '⚠️',
@@ -235,19 +241,35 @@ class _GalleryTabState extends State<_GalleryTab> {
       children: [
         Card(
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: SwitchListTile(
-            value: _visible,
-            onChanged: configured ? _toggle : null,
-            secondary: Icon(_visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-            title: Text(L10n.of(context).show_in_gallery),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(L10n.of(context).download_path, style: theme.textTheme.labelSmall),
-                Text(configured ? path : L10n.of(context).not_set,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: SwitchListTile(
+                  value: _visible,
+                  onChanged: configured && !_busy ? _toggle : null,
+                  secondary: Icon(_visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  title: Text(L10n.of(context).show_in_gallery),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(L10n.of(context).download_path, style: theme.textTheme.labelSmall),
+                      Text(configured ? path : L10n.of(context).not_set,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ),
+              // Applies the current state again without flipping the switch:
+              // a gallery with its own index sometimes needs the marker/scan
+              // pass twice before it lets go.
+              IconButton(
+                icon: _busy
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.sync),
+                tooltip: L10n.of(context).refresh,
+                onPressed: configured && !_busy ? () => _toggle(_visible) : null,
+              ),
+            ],
           ),
         ),
         Expanded(child: LibraryScreen(prefs: widget.prefs)),

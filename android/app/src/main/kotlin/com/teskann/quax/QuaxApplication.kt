@@ -48,6 +48,10 @@ class QuaxApplication : android.app.Application() {
         // everything else works off the application context.
         @JvmStatic
         var currentActivity: WeakReference<Activity>? = null
+
+        // A gallery pass must always answer, even when the system scanner stays
+        // silent (an OEM provider with its own index, a headless emulator).
+        private const val SCAN_TIMEOUT_MS = 10_000L
     }
 
     lateinit var engine: FlutterEngine
@@ -89,13 +93,15 @@ class QuaxApplication : android.app.Application() {
      * how many files were affected so the UI can confirm the outcome instead of
      * guessing.
      *
-     * Showing deletes the `.nomedia` marker and rescans every media file,
-     * answering only once the scanner called back for all of them. Hiding
-     * writes the marker (which keeps future scans out) and deletes the files'
-     * rows from the media database on every shared-storage volume, so SD-card
-     * files disappear too; a second pass sweeps rows the provider re-created
-     * mid-operation, and whatever stays behind (rows the app no longer owns)
-     * is reported in `remaining`.
+     * Showing removes the `.nomedia` marker and scans every media file, so the
+     * gallery finds them again. Hiding writes the marker and scans it, which
+     * makes MediaProvider re-read the folder rule and drop the indexed entries;
+     * the rows that survive (a gallery app with its own index, an OEM provider)
+     * are only counted, never deleted, because deleting a MediaStore row
+     * deletes the file it points at.
+     *
+     * Answers at most [SCAN_TIMEOUT_MS] after the request even if the system
+     * scanner never calls back, so the switch can never hang.
      */
     private fun setGalleryVisibility(dirPath: String, visible: Boolean, result: MethodChannel.Result) {
         val dir = File(dirPath)
@@ -109,29 +115,28 @@ class QuaxApplication : android.app.Application() {
         } catch (e: Exception) {
             emptyList()
         }
+        val nomedia = File(dir, ".nomedia")
 
         if (visible) {
-            File(dir, ".nomedia").delete()
+            try {
+                if (nomedia.exists()) nomedia.delete()
+            } catch (e: IOException) {
+                result.error("VISIBILITY_FAILED", e.message, null)
+                return
+            }
+
             if (media.isEmpty()) {
                 result.success(mapOf("affected" to 0, "remaining" to 0))
                 return
             }
 
-            var completed = 0
-            var scanned = 0
-            MediaScannerConnection.scanFile(this, media.toTypedArray(), null) { _, uri ->
-                completed++
-                if (uri != null) scanned++
-                if (completed == media.size) {
-                    mainHandler.post {
-                        result.success(mapOf("affected" to scanned, "remaining" to 0))
-                    }
-                }
+            scanMedia(media.toTypedArray(), result) {
+                val indexed = countMediaStoreRows(media)
+                mapOf("affected" to indexed, "remaining" to (media.size - indexed).coerceAtLeast(0))
             }
             return
         }
 
-        val nomedia = File(dir, ".nomedia")
         try {
             if (!nomedia.exists()) nomedia.createNewFile()
         } catch (e: IOException) {
@@ -139,16 +144,30 @@ class QuaxApplication : android.app.Application() {
             return
         }
 
-        // Deleting a MediaStore row deletes the file it points at, which used
-        // to wipe downloaded videos when the switch was turned off. The marker
-        // is the hiding mechanism: scanning it makes MediaProvider re-read the
-        // folder rule and drop the entries. Rows that survive are only
-        // counted, never deleted, so the UI can say the gallery may still list
-        // them until it rescans.
-        MediaScannerConnection.scanFile(this, arrayOf(nomedia.absolutePath), null) { _, _ ->
-            mainHandler.post {
-                result.success(mapOf("affected" to media.size, "remaining" to countMediaStoreRows(media)))
-            }
+        scanMedia(arrayOf(nomedia.absolutePath), result) {
+            mapOf("affected" to media.size, "remaining" to countMediaStoreRows(media))
+        }
+    }
+
+    /**
+     * Hands [paths] to the system media scanner and answers with [answer] once
+     * the scanner reported every path — or when [SCAN_TIMEOUT_MS] passes, so a
+     * scanner that stays silent cannot leave the switch spinning forever.
+     */
+    private fun scanMedia(paths: Array<String>, result: MethodChannel.Result, answer: () -> Map<String, Any>) {
+        var replied = false
+        val scanned = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+        fun reply() {
+            if (replied) return
+            replied = true
+            result.success(answer())
+        }
+
+        mainHandler.postDelayed({ reply() }, SCAN_TIMEOUT_MS)
+        MediaScannerConnection.scanFile(this, paths, null) { path, _ ->
+            if (path != null) scanned.add(path)
+            if (scanned.size >= paths.size) mainHandler.post { reply() }
         }
     }
 
