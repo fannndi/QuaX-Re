@@ -280,11 +280,6 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                   tweet.replyCount != null ? numberFormat.format(tweet.replyCount) : '',
                   buttonsColor(context),
                   () => onClickOpenTweet(tweet)),
-              if (tweet.retweetCount != null && tweet.quoteCount != null)
-                _createFooterTextButton(
-                    Icons.repeat,
-                    numberFormat.format((tweet.retweetCount! + tweet.quoteCount!)),
-                    buttonsColor(context)),
               Consumer<LikedTweetModel>(builder: (context, likedModel, child) {
                 var isLiked = likedModel.isLiked(tweet.idStr!);
                 var label = tweet.favoriteCount != null ? numberFormat.format(tweet.favoriteCount) : '';
@@ -309,11 +304,6 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                   },
                 );
               }),
-              if (tweet.viewCount != null)
-                _createFooterTextButton(
-                    Icons.bar_chart,
-                    numberFormat.format(tweet.viewCount),
-                    buttonsColor(context)),
               const SizedBox(
                 width: 8.0,
               ),

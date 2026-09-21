@@ -139,13 +139,17 @@ class QuaxApplication : android.app.Application() {
             return
         }
 
-        val removed = deleteMediaStoreRows(media)
-        var remaining = countMediaStoreRows(media)
-        if (remaining > 0) {
-            deleteMediaStoreRows(media)
-            remaining = countMediaStoreRows(media)
+        // Deleting a MediaStore row deletes the file it points at, which used
+        // to wipe downloaded videos when the switch was turned off. The marker
+        // is the hiding mechanism: scanning it makes MediaProvider re-read the
+        // folder rule and drop the entries. Rows that survive are only
+        // counted, never deleted, so the UI can say the gallery may still list
+        // them until it rescans.
+        MediaScannerConnection.scanFile(this, arrayOf(nomedia.absolutePath), null) { _, _ ->
+            mainHandler.post {
+                result.success(mapOf("affected" to media.size, "remaining" to countMediaStoreRows(media)))
+            }
         }
-        result.success(mapOf("affected" to removed, "remaining" to remaining))
     }
 
     private fun mediaFilesUnder(dir: File): List<String> =
@@ -165,23 +169,6 @@ class QuaxApplication : android.app.Application() {
         } catch (e: Exception) {
             listOf("external")
         }
-    }
-
-    private fun deleteMediaStoreRows(paths: List<String>): Int {
-        var removed = 0
-        for (volume in externalVolumeNames()) {
-            val collection = MediaStore.Files.getContentUri(volume)
-            for (path in paths) {
-                try {
-                    removed += contentResolver.delete(
-                        collection, MediaStore.MediaColumns.DATA + " = ?", arrayOf(path)
-                    )
-                } catch (e: Exception) {
-                    // Reported through `remaining` instead of failing the pass.
-                }
-            }
-        }
-        return removed
     }
 
     private fun countMediaStoreRows(paths: List<String>): Int {
