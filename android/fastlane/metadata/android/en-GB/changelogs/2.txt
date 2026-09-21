@@ -1,4 +1,0 @@
-• Fix: Video player not working
-• Fix: Blue checks do not appear
-• Fix: UI on search bar is bugged
-• Fix: Long tweets are not visible

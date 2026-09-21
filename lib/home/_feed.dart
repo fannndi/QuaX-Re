@@ -119,14 +119,21 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       ),
       actionsBuilder: (context) {
         final model = context.read<GroupModel>();
-        // Home feeds are read-only: search replaces the drawer hamburger, the
-        // drawer (settings) stays reachable by edge swipe.
+        // Home feeds are read-only: every secondary door (notifications,
+        // search, account, settings) lives in this app bar.
         return defaultGroupActions(
           context,
           model: model,
           showMore: false,
           showSettings: false,
           extra: [
+            // The notifications timeline opens from the bell; the fork keeps
+            // three navbar tabs and puts secondary doors in the app bar.
+            IconButton(
+              icon: const Icon(Icons.notifications_none_outlined),
+              tooltip: L10n.of(context).notifications,
+              onPressed: () => Navigator.pushNamed(context, routeNotifications),
+            ),
             IconButton(
               icon: const Icon(Icons.search),
               onPressed: () => Navigator.pushNamed(

@@ -428,27 +428,3 @@ class TweetCard extends StatelessWidget {
     }
   }
 }
-
-class UnknownCardType implements Exception {
-  final String? tweet;
-  final String type;
-
-  UnknownCardType(this.tweet, this.type);
-
-  @override
-  String toString() {
-    return 'UnknownCardType{tweet: $tweet, type: $type}';
-  }
-}
-
-class UnknownUnifiedCardType implements Exception {
-  final String? tweet;
-  final String type;
-
-  UnknownUnifiedCardType(this.tweet, this.type);
-
-  @override
-  String toString() {
-    return 'UnknownUnifiedCardType{tweet: $tweet, type: $type}';
-  }
-}

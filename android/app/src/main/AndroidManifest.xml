@@ -92,7 +92,6 @@ android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
                     android:host="t.co"
                     android:scheme="https" />
 
-                <!-- Discord embedding websites -->
                 <data
                     android:host="fxtwitter.com"
                     android:scheme="https" />

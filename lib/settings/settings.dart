@@ -82,6 +82,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: Text(L10n.of(context).disable_screenshots_hint),
                 pref: optionDisableScreenshots,
               ),
+              PrefSwitch(
+                title: Text(L10n.of(context).option_confirm_close_label),
+                subtitle: Text(L10n.of(context).option_confirm_close_description),
+                pref: optionConfirmClose,
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).option_open_links_in_embedded_browser_label),
+                subtitle: Text(L10n.of(context).option_open_links_in_embedded_browser_description),
+                pref: optionOpenLinksInEmbeddedBrowser,
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).should_check_for_updates_label),
+                subtitle: Text(L10n.of(context).should_check_for_updates_description),
+                pref: optionShouldCheckForUpdates,
+              ),
+              _ShareBaseUrlTile(prefs: prefs),
             ],
           ),
           _SettingsSection(
@@ -110,6 +126,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 pref: optionThemeTrueBlack,
                 subtitle: Text(L10n.of(context).use_true_black_for_the_dark_mode_theme),
               ),
+              PrefSwitch(
+                title: Text(L10n.of(context).true_black_tweet_cards),
+                pref: optionThemeTrueBlackTweetCards,
+                disabled: !(prefs.get<bool>(optionThemeTrueBlack) ?? false),
+                subtitle: Text(L10n.of(context).use_true_black_for_tweet_cards),
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).show_navigation_labels),
+                pref: optionShowNavigationLabels,
+              ),
             ],
           ),
           _SettingsSection(
@@ -128,15 +154,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: Text(L10n.of(context).save_bandwidth_using_smaller_images),
                   pref: optionImageQuality,
                   items: _qualityItems()),
+              PrefDropdown(
+                  fullWidth: false,
+                  title: Text(L10n.of(context).media_grid_columns),
+                  subtitle: Text(L10n.of(context).media_grid_columns_description),
+                  pref: optionMediaGridColumns,
+                  items: [
+                    for (var count in [1, 2, 3, 4, 5])
+                      DropdownMenuItem(value: count, child: Text('$count')),
+                  ]),
+              PrefSwitch(
+                pref: optionMediaDisableAutoload,
+                title: Text(L10n.of(context).load_media_manually),
+                subtitle: Text(L10n.of(context).load_media_manually_description),
+              ),
               PrefSwitch(
                 pref: optionMediaDefaultMute,
                 title: Text(L10n.of(context).mute_videos),
                 subtitle: Text(L10n.of(context).mute_video_description),
               ),
               PrefSwitch(
+                pref: optionMediaDefaultLoop,
+                title: Text(L10n.of(context).loop_videos),
+                subtitle: Text(L10n.of(context).loop_videos_description),
+              ),
+              PrefSwitch(
+                pref: optionMediaDefaultAutoPlay,
+                title: Text(L10n.of(context).autoplay_videos),
+                subtitle: Text(L10n.of(context).autoplay_videos_description),
+              ),
+              PrefDropdown(
+                  fullWidth: false,
+                  title: Text(L10n.of(context).video_prefetch),
+                  subtitle: Text(L10n.of(context).video_prefetch_description),
+                  pref: optionMediaVideoPrefetchSeconds,
+                  items: [
+                    DropdownMenuItem(
+                        value: 0, child: Text(L10n.of(context).video_prefetch_unlimited)),
+                    for (var seconds in [1, 5, 15, 30, 60])
+                      DropdownMenuItem(
+                          value: seconds, child: Text(L10n.of(context).video_prefetch_seconds(seconds))),
+                  ]),
+              PrefSwitch(
                 pref: optionMediaBackgroundPlayback,
                 title: Text(L10n.of(context).allow_background_play),
                 subtitle: Text(L10n.of(context).allow_background_play_description),
+              ),
+              PrefSwitch(
+                pref: optionMediaAllowBackgroundPlayOtherApps,
+                title: Text(L10n.of(context).allow_background_play_other_apps),
+                subtitle: Text(L10n.of(context).allow_background_play_other_apps_description),
               ),
               PrefSwitch(
                 pref: optionAutoCacheVideos,
@@ -158,6 +225,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     DropdownMenuItem(value: 1024, child: Text('1 GB')),
                     DropdownMenuItem(value: 2048, child: Text('2 GB')),
                   ]),
+            ],
+          ),
+          _SettingsSection(
+            title: L10n.of(context).tweets,
+            tiles: [
+              PrefSwitch(
+                pref: optionUseAbsoluteTimestamp,
+                title: Text(L10n.of(context).use_absolute_timestamp),
+                subtitle: Text(L10n.of(context).use_absolute_timestamp_description),
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).hide_sensitive_tweets),
+                subtitle: Text(L10n.of(context).whether_to_hide_tweets_marked_as_sensitive),
+                pref: optionTweetsHideSensitive,
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).always_show_full_tweet_contents),
+                subtitle: Text(L10n.of(context).always_show_full_tweet_contents_description),
+                pref: alwaysShowFullTweetContents,
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).activate_non_confirmation_bias_mode_label),
+                pref: optionNonConfirmationBiasMode,
+                subtitle: Text(L10n.of(context).activate_non_confirmation_bias_mode_description),
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).disable_warnings_for_unrelated_posts_in_feed),
+                subtitle: Text(L10n.of(context).disable_warnings_for_unrelated_posts_in_feed_description),
+                pref: optionDisableWarningsForUnrelatedPostsInFeed,
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: L10n.of(context).accessibility,
+            tiles: [
+              PrefSlider(
+                title: Text(L10n.of(context).text_scale_factor),
+                subtitle: Text(L10n.of(context).text_scale_factor_description),
+                pref: optionTextScaleFactor,
+                min: 1.0,
+                max: 1.5,
+                divisions: 10,
+              ),
+              PrefSwitch(
+                title: Text(L10n.of(context).disable_animations),
+                subtitle: Text(L10n.of(context).disable_animations_description),
+                pref: optionDisableAnimations,
+              ),
             ],
           ),
           _SettingsSection(
@@ -249,6 +364,56 @@ class _LibraryFolderTileState extends State<_LibraryFolderTile> {
           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.chevron_right),
       onTap: _busy ? null : _pick,
+    );
+  }
+}
+
+/// Edits [optionShareBaseUrl], the base URL prepended to shared post links
+/// (x.com by default; useful for FxTwitter-style mirrors).
+class _ShareBaseUrlTile extends StatefulWidget {
+  final BasePrefService prefs;
+
+  const _ShareBaseUrlTile({required this.prefs});
+
+  @override
+  State<_ShareBaseUrlTile> createState() => _ShareBaseUrlTileState();
+}
+
+class _ShareBaseUrlTileState extends State<_ShareBaseUrlTile> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.prefs.get<String>(optionShareBaseUrl));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    await widget.prefs.set(optionShareBaseUrl, _controller.text);
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PrefDialogButton(
+      title: Text(L10n.of(context).share_base_url),
+      subtitle: Text(L10n.of(context).share_base_url_description),
+      dialog: PrefDialog(
+        title: Text(L10n.of(context).share_base_url),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(L10n.of(context).cancel)),
+          TextButton(onPressed: _save, child: Text(L10n.of(context).save)),
+        ],
+        children: [
+          TextFormField(
+            controller: _controller,
+            decoration: const InputDecoration(hintText: 'https://x.com'),
+          ),
+        ],
+      ),
     );
   }
 }

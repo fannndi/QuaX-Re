@@ -271,44 +271,6 @@ class NoWorkingAccountErrorWidget extends FritterErrorWidget {
   }
 }
 
-class InlineErrorWidget extends FritterErrorWidget {
-  final Object? error;
-
-  const InlineErrorWidget({super.key, required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: Icon(Icons.error_outline, color: Colors.red.harmonizeWith(Theme.of(context).colorScheme.primary)),
-          ),
-          Text('$error', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).hintColor)),
-        ],
-      ),
-    );
-  }
-}
-
-class AlertErrorWidget extends FritterErrorWidget {
-  final Object? error;
-  final StackTrace? stackTrace;
-  final String prefix;
-
-  const AlertErrorWidget({super.key, required this.error, required this.stackTrace, required this.prefix});
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      content: FullPageErrorWidget(error: error, prefix: prefix, stackTrace: stackTrace),
-    );
-  }
-}
-
 class ScaffoldErrorWidget extends FritterErrorWidget {
   final Object? error;
   final StackTrace? stackTrace;

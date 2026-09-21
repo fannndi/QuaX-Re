@@ -225,15 +225,6 @@ class QuaxApplication : android.app.Application() {
                 activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 4711)
             }
             result.success(true)
-        } else if (call.method == "scanMediaFile") {
-            val path = call.argument<String>("path")
-            if (path != null) {
-                MediaScannerConnection.scanFile(this, arrayOf(path), null) { _, _ ->
-                    result.success(null)
-                }
-            } else {
-                result.error("INVALID_ARGUMENT", "Path is null", null)
-            }
         } else if (call.method == "getDefaultBrowser") {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse("https://")

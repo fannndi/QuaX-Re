@@ -41,10 +41,4 @@ class NoWorkingAccountException with SyntheticException implements Exception {
   String toString() => 'No working account';
 }
 
-class ManuallyReportedException {
-  final Object? exception;
-
-  ManuallyReportedException(this.exception);
-}
-
 mixin SyntheticException {}

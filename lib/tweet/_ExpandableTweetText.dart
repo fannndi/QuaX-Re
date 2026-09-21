@@ -20,10 +20,26 @@ class ExpandableTweetText extends StatefulWidget {
 class ExpandableTweetTextState extends State<ExpandableTweetText> {
   bool _isExpanded = false;
 
-  bool _textIsTruncated() {
-    if (!mounted) return false;
+  // Answering "does this overflow?" with a throwaway TextPainter is the most
+  // expensive part of building a card, and the feed rebuilds its tiles often
+  // (freshness tags, consumers, scroll-driven rebuilds). The answer only
+  // depends on the text, the width and the text scale, so it is measured once
+  // and reused until one of those changes.
+  double? _measuredAtWidth;
+  double? _measuredScale;
+  bool? _measuredTruncated;
 
-    if (widget.maxLines == null) return false;
+  /// Test-only: the result of the last overflow measurement, or null when the
+  /// text has not been measured yet.
+  bool? get debugMeasuredTruncated => _measuredTruncated;
+
+  bool _textIsTruncated(double width) {
+    if (!mounted || widget.maxLines == null) return false;
+
+    final scale = MediaQuery.of(context).textScaler.scale(1.0);
+    if (_measuredTruncated != null && _measuredAtWidth == width && _measuredScale == scale) {
+      return _measuredTruncated!;
+    }
 
     final painter = TextPainter(
       text: TextSpan(children: widget.textSpans),
@@ -31,16 +47,43 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
       textScaler: MediaQuery.of(context).textScaler,
     );
 
-    painter.layout(maxWidth: MediaQuery.of(context).size.width);
-    final res = painter.computeLineMetrics().length > widget.maxLines!;
+    painter.layout(maxWidth: width);
+    final truncated = painter.computeLineMetrics().length > widget.maxLines!;
     painter.dispose();
 
-    return res;
+    _measuredAtWidth = width;
+    _measuredScale = scale;
+    _measuredTruncated = truncated;
+    return truncated;
+  }
+
+  @override
+  void didUpdateWidget(ExpandableTweetText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!identical(oldWidget.textSpans, widget.textSpans) || oldWidget.maxLines != widget.maxLines) {
+      _measuredTruncated = null;
+    }
+  }
+
+  /// Plain [Text] inside a [SelectionArea] instead of [SelectableText]: the
+  /// latter is built on an EditableText, which is far heavier per card. The
+  /// area keeps the text selectable, and the gesture detector keeps the
+  /// tap-to-open behaviour SelectableText used to provide.
+  Widget _buildText({int? maxLines}) {
+    return SelectionArea(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: Text.rich(TextSpan(children: widget.textSpans), maxLines: maxLines),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final textIsTruncated = _textIsTruncated();
+    final textIsTruncated = _textIsTruncated(MediaQuery.of(context).size.width);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return Column(
@@ -62,23 +105,10 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
                   ).createShader(bounds);
                 },
                 blendMode: BlendMode.dstIn,
-                child: SelectableText.rich(
-                  TextSpan(children: widget.textSpans),
-                  scrollPhysics: NeverScrollableScrollPhysics(),
-                  maxLines: widget.maxLines,
-                  style: DefaultTextStyle
-                      .of(context)
-                      .style,
-                  onTap: widget.onTap,
-                ),
+                child: _buildText(maxLines: widget.maxLines),
               )
             else
-              SelectableText.rich(
-                TextSpan(children: widget.textSpans),
-                scrollPhysics: NeverScrollableScrollPhysics(),
-                maxLines: _isExpanded || !textIsTruncated ? null : widget.maxLines,
-                onTap: widget.onTap,
-              ),
+              _buildText(maxLines: _isExpanded || !textIsTruncated ? null : widget.maxLines),
             if (!_isExpanded && textIsTruncated)
               Align(
                 alignment: Alignment.centerLeft,

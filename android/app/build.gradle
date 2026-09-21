@@ -42,7 +42,7 @@ if (keystoreFile != null && !keystoreFile.isEmpty()) {
 android {
     namespace 'com.teskann.quax'
     compileSdkVersion 37
-    ndkVersion = "29.0.14206865"
+    ndkVersion = "30.0.16248370"
 
     dependenciesInfo {
         includeInApk = false
@@ -69,7 +69,7 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
-        // java-time APIs used by flutter_local_notifications.
+        // java-time APIs used by media plugins.
         coreLibraryDesugaringEnabled true
     }
 

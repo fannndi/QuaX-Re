@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
@@ -94,12 +93,6 @@ Future<void> main() async {
     optionLikedFirstToastShown: false,
     optionUseAbsoluteTimestamp: false,
     optionDefaultProfileTab: profileTabs[0].id.name,
-    optionUserTrendsLocations: jsonEncode({
-      'active': {'name': 'Worldwide', 'woeid': 1},
-      'locations': [
-        {'name': 'Worldwide', 'woeid': 1}
-      ]
-    }),
   });
 
   await migrateMediaQualityPrefs(prefService);

@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -10,13 +7,15 @@ import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/_feed.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
-import 'package:quax/tweet/tweet.dart';
+import 'package:quax/saved/saved_screen.dart';
+import 'package:quax/saved/saved_tweet_model.dart';
+import 'package:quax/saved/saved_tweet_tile.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/user.dart';
 
-/// The Like tab: what was liked inside the app (local database) next to the
-/// real likes and bookmarks X holds for the active account. Three tabs,
+/// The Like tab: what was liked and saved inside the app (local database) next
+/// to the real likes and bookmarks X holds for the active account. Four tabs,
 /// mirroring the feed's For You / Following switch.
 class LikesScreen extends StatefulWidget {
   final ScrollController scrollController;
@@ -28,7 +27,7 @@ class LikesScreen extends StatefulWidget {
 }
 
 class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 3, vsync: this);
+  late final TabController _tabController = TabController(length: 4, vsync: this);
 
   @override
   void dispose() {
@@ -46,6 +45,7 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
             controller: _tabController,
             tabs: [
               Tab(text: L10n.of(context).local),
+              Tab(text: L10n.of(context).saved),
               Tab(text: L10n.of(context).profile),
               Tab(text: L10n.of(context).bookmarks),
             ],
@@ -53,13 +53,19 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
           actions: [
             AnimatedBuilder(
               animation: _tabController,
-              builder: (context, _) => _tabController.index == 0
-                  ? IconButton(
-                      icon: const Icon(Icons.refresh),
-                      tooltip: L10n.of(context).refresh,
-                      onPressed: () => context.read<LikedTweetModel>().refreshLikedTweets(),
-                    )
-                  : const SizedBox.shrink(),
+              builder: (context, _) => switch (_tabController.index) {
+                0 => IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: L10n.of(context).refresh,
+                    onPressed: () => context.read<LikedTweetModel>().refreshLikedTweets(),
+                  ),
+                1 => IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: L10n.of(context).refresh,
+                    onPressed: () => context.read<SavedTweetModel>().refreshSavedTweets(),
+                  ),
+                _ => const SizedBox.shrink(),
+              },
             ),
           ],
         ),
@@ -67,6 +73,7 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
           controller: _tabController,
           children: [
             _LocalLikes(scrollController: widget.scrollController),
+            const SavedView(),
             const _ProfileLikes(),
             const _ProfileBookmarks(),
           ],
@@ -249,52 +256,6 @@ class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKe
 
         return widget.builder(user);
       },
-    );
-  }
-}
-
-class SavedTweetTile extends StatelessWidget {
-  final String id;
-  final String? content;
-
-  const SavedTweetTile({super.key, required this.id, this.content});
-
-  @override
-  Widget build(BuildContext context) {
-    var content = this.content;
-    if (content == null) {
-      // The tweet is probably too big to fit inside the cursor and has been removed from the result set
-      return SavedTweetTooLarge(id: id);
-    }
-
-    var tweet = TweetWithCard.fromJson(jsonDecode(content));
-
-    return TweetTile(key: Key(tweet.idStr!), tweet: tweet, clickable: true);
-  }
-}
-
-class SavedTweetTooLarge extends StatelessWidget {
-  final String id;
-
-  const SavedTweetTooLarge({super.key, required this.id});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              leading:
-                  Icon(Icons.error_outline, color: Colors.red.harmonizeWith(Theme.of(context).colorScheme.primary)),
-              title: Text(L10n.current.oops_something_went_wrong),
-              subtitle: Text(L10n.current.saved_tweet_too_large),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

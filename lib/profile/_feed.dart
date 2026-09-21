@@ -33,7 +33,6 @@ class _ProfileTweetFeedState extends State<ProfileTweetFeed> with AutomaticKeepA
   late final CursorPagingController<String, TweetChain> _paging;
   PagingController<int, TweetChain> get _pagingController => _paging.pagingController;
 
-  static const int pageSize = 20;
   int loadTweetsCounter = 0;
 
   @override
@@ -91,10 +90,18 @@ class _ProfileTweetFeedState extends State<ProfileTweetFeed> with AutomaticKeepA
             state: state,
             fetchNextPage: fetchNextPage,
             addAutomaticKeepAlives: false,
+            // Same tuning as the home feed: build media ahead of the viewport
+            // and fetch the next page a few chains before the bottom.
+            cacheExtent: 1200,
             builderDelegate: PagedChildBuilderDelegate(
+              invisibleItemsThreshold: 8,
               itemBuilder: (context, chain, index) {
                 return TweetConversation(
-                    id: chain.id, tweets: chain.tweets, username: widget.user.screenName!, isPinned: chain.isPinned);
+                    key: ValueKey(chain.id),
+                    id: chain.id,
+                    tweets: chain.tweets,
+                    username: widget.user.screenName!,
+                    isPinned: chain.isPinned);
               },
               firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
                 error: pagingErrorOf(state)?.error,

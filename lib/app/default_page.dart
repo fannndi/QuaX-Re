@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import 'package:quax/app/account_prompt.dart';
 import 'package:quax/app/onboarding.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/repository.dart';
@@ -31,6 +32,11 @@ class _DefaultPageState extends State<DefaultPage> {
   bool _setupChecked = false;
   bool _setupDone = false;
 
+  // The "not logged in" prompt is owned here, not by the app shell: it must
+  // wait for the wizard to finish instead of covering the setup steps.
+  late final Future<void> _migration;
+  bool _accountCheckScheduled = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -39,6 +45,22 @@ class _DefaultPageState extends State<DefaultPage> {
 
     final path = PrefService.of(context).get<String>(optionLibraryPath);
     _setupDone = path != null && path.isNotEmpty;
+    _maybePromptForAccount();
+  }
+
+  /// Shows the login prompt once per launch, and only once the app is set up:
+  /// the wizard owns the screen until the user finishes it.
+  void _maybePromptForAccount() {
+    if (_accountCheckScheduled || !_setupDone) return;
+    _accountCheckScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // The accounts table only exists after the migrations have run; the
+      // migration error screen is the one that reports failures.
+      await _migration;
+      if (!mounted) return;
+      await checkForAccounts(context);
+    });
   }
 
   void handleInitialLink(Uri link) async {
@@ -91,7 +113,7 @@ class _DefaultPageState extends State<DefaultPage> {
     super.initState();
 
     // Run the database migrations
-    Repository().migrate().catchError((e, s) {
+    _migration = Repository().migrate().catchError((e, s) {
       setState(() {
         _migrationError = e;
         _migrationStackTrace = s;
@@ -150,7 +172,11 @@ class _DefaultPageState extends State<DefaultPage> {
         },
         child: _setupDone
             ? const HomeScreen()
-            : OnboardingScreen(onFinished: () => setState(() => _setupDone = true)));
+            : OnboardingScreen(
+                onFinished: () {
+                  setState(() => _setupDone = true);
+                  _maybePromptForAccount();
+                }));
   }
 
   @override

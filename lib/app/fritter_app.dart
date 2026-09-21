@@ -1,4 +1,3 @@
-import 'package:quax/app/account_prompt.dart';
 import 'package:quax/app/privacy_shield.dart';
 import 'package:quax/app/theme.dart';
 import 'package:quax/app/update_checker.dart';
@@ -12,6 +11,7 @@ import 'package:flutter_portal/flutter_portal.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/group_screen.dart';
+import 'package:quax/notifications/notifications_screen.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/saved_folders_screen.dart';
 import 'package:quax/search/search.dart';
@@ -40,7 +40,6 @@ class _FritterAppState extends State<FritterApp> {
   bool _trueBlack = true;
   bool _checkUpdates = false;
   bool _updateDialogShown = false;
-  bool _accountDialogShown = false;
   bool _isSecure = false;
   double _textScaleFactor = 1.0;
   Locale? _locale;
@@ -189,6 +188,7 @@ class _FritterAppState extends State<FritterApp> {
                   routes: {
                     routeHome: (context) => const DefaultPage(),
                     routeGroup: (context) => const GroupScreen(),
+                    routeNotifications: (context) => const NotificationsScreen(),
                     routeProfile: (context) => const ProfileScreen(),
                     routeSearch: (context) => const ResultsScreen(),
                     routeSavedFolders: (context) => const SavedFoldersScreen(),
@@ -201,13 +201,6 @@ class _FritterAppState extends State<FritterApp> {
                       // Use navigatorKey's context for showDialog
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         checkForUpdates(_navigatorKey.currentContext!);
-                      });
-                    }
-
-                    if (!_accountDialogShown) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _accountDialogShown = true;
-                        checkForAccounts(_navigatorKey.currentContext!);
                       });
                     }
 

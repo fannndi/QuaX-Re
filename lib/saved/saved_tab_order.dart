@@ -7,7 +7,6 @@ import 'package:quax/database/entities.dart';
 const savedTabAll = 'all';
 const savedTabUnfiled = 'unfiled';
 const savedTabFavorites = 'favorites';
-const savedTabDownloaded = 'downloaded';
 
 /// Resolves the ordered list of Saved tab tokens ([savedTabAll], [savedTabUnfiled]
 /// and folder ids), honouring a stored custom order.

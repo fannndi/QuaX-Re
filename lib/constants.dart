@@ -3,10 +3,7 @@ import 'package:material_ui/material_ui.dart';
 const optionDisableAnimations = 'accessibility.disable_animations';
 const optionTextScaleFactor = 'accessibility.text_scale_factor';
 
-const optionWizardCompleted = 'option.wizard_completed';
-
 const optionDisableScreenshots = 'disable_screenshots';
-const optionHelloLastBuild = 'hello.last_build';
 
 const optionHomeInitialTab = 'home.initial_tab';
 const optionHomeDefaultFeedTab = 'home.default_feed_tab';
@@ -78,8 +75,6 @@ const optionSavedTabOrder = 'saved.tab_order';
 const optionSavedFolderHintShown = 'saved.folder_hint_shown';
 const optionLikedFirstToastShown = 'saved.liked_first_toast_shown';
 
-const optionUserTrendsLocations = 'trends.locations';
-
 const optionNonConfirmationBiasMode = 'other.improve_non_confirmation_bias';
 
 
@@ -101,12 +96,11 @@ const int notFoundThreshold = 3;
 
 const routeHome = '/';
 const routeGroup = '/group';
+const routeNotifications = '/notifications';
 const routeProfile = '/profile';
 const routeSearch = '/search';
 const routeSavedFolders = '/saved/folders';
 const routeSettings = '/settings';
 const routeStatus = '/status';
-
-const discordInviteUrl = 'https://discord.gg/K7UHuywPWD';
 
 

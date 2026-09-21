@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:io' show Platform;
-import 'package:auto_direction/auto_direction.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
@@ -10,7 +9,9 @@ import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/import_data_model.dart';
 import 'package:quax/profile/profile.dart';
+import 'package:quax/saved/folder_picker.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
+import 'package:quax/saved/saved_tweet_model.dart';
 import 'package:quax/subscriptions/followed_users_index.dart';
 import 'package:quax/tweet/_like_button.dart';
 import 'package:quax/tweet/_tweet_leading.dart';
@@ -94,6 +95,12 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
 
   bool _isInitialized = false;
 
+  // The text direction only changes when the text does; detecting it on every
+  // rebuild walks the whole string through the bidi algorithm again.
+  bool _isRtl = false;
+  bool _originalIsRtl = false;
+  bool _translatedIsRtl = false;
+
   final GlobalKey _globalKey = GlobalKey(); // needed for "share tweet as image"
 
   @override
@@ -131,6 +138,8 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     setState(() {
       _displayParts = tweetParts;
       _originalParts = tweetParts;
+      _originalIsRtl = Bidi.detectRtlDirectionality(tweetTextFinal);
+      _isRtl = _originalIsRtl;
     });
   }
 
@@ -139,6 +148,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     if (_translatedParts.isNotEmpty) {
       return setState(() {
         _displayParts = _translatedParts;
+        _isRtl = _translatedIsRtl;
         _translationStatus = TranslationStatus.translated;
       });
     }
@@ -158,6 +168,8 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
       return setState(() {
         _displayParts = translatedParts;
         _translatedParts = translatedParts;
+        _translatedIsRtl = Bidi.detectRtlDirectionality(res.body['result']['text']);
+        _isRtl = _translatedIsRtl;
         _translationStatus = TranslationStatus.translated;
       });
     } else {
@@ -176,6 +188,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   Future<void> onClickShowOriginal() async {
     setState(() {
       _displayParts = _originalParts;
+      _isRtl = _originalIsRtl;
       _translationStatus = TranslationStatus.original;
     });
   }
@@ -197,6 +210,17 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
       onPressed: onPressed,
       style: footerButtonStyle,
     );
+  }
+
+  /// Shows a one-time hint teaching the long-press-to-file gesture after the first save.
+  void _maybeShowFolderHint(BuildContext context) {
+    var prefs = PrefService.of(context, listen: false);
+    if (prefs.get<bool>(optionSavedFolderHintShown) ?? false) {
+      return;
+    }
+
+    prefs.set(optionSavedFolderHintShown, true);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10n.of(context).long_press_folder_hint)));
   }
 
   /// Shows a one-time notice, on the very first like, that likes never leave the device.
@@ -257,6 +281,11 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                   tweet.replyCount != null ? numberFormat.format(tweet.replyCount) : '',
                   buttonsColor(context),
                   () => onClickOpenTweet(tweet)),
+              if (tweet.retweetCount != null && tweet.quoteCount != null)
+                _createFooterTextButton(
+                    Icons.repeat,
+                    numberFormat.format((tweet.retweetCount! + tweet.quoteCount!)),
+                    buttonsColor(context)),
               Consumer<LikedTweetModel>(builder: (context, likedModel, child) {
                 var isLiked = likedModel.isLiked(tweet.idStr!);
                 var label = tweet.favoriteCount != null ? numberFormat.format(tweet.favoriteCount) : '';
@@ -281,9 +310,40 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                   },
                 );
               }),
+              if (tweet.viewCount != null)
+                _createFooterTextButton(
+                    Icons.bar_chart,
+                    numberFormat.format(tweet.viewCount),
+                    buttonsColor(context)),
               const SizedBox(
                 width: 8.0,
               ),
+              Consumer<SavedTweetModel>(builder: (context, model, child) {
+                var isSaved = model.isSaved(tweet.idStr!);
+                var button = isSaved
+                    ? _createFooterIconButton(Icons.bookmark, Theme.of(context).colorScheme.primary, 1, () async {
+                        await model.deleteSavedTweet(tweet.idStr!);
+                        setState(() {});
+                      })
+                    : _createFooterIconButton(Icons.bookmark_border, buttonsColor(context), 0, () async {
+                        await model.saveTweet(tweet.idStr!, tweet.user?.idStr, tweet.toJson());
+                        setState(() {});
+                        if (context.mounted) {
+                          _maybeShowFolderHint(context);
+                        }
+                      });
+
+                return GestureDetector(
+                  onLongPress: () async {
+                    await showSaveToFolderSheet(context,
+                        tweetId: tweet.idStr!, userId: tweet.user?.idStr, content: tweet.toJson());
+                    if (mounted) {
+                      setState(() {});
+                    }
+                  },
+                  child: button,
+                );
+              }),
               _createFooterIconButton(
                 Icons.share,
                 buttonsColor(context),
@@ -415,8 +475,8 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
   }
 
-  Color? buttonsColor(BuildContext c) {
-    if (Theme.of(c).textTheme.bodyMedium == null || Theme.of(c).textTheme.bodyMedium!.color == null) return null;
+Color? buttonsColor(BuildContext c) {
+  if (Theme.of(c).textTheme.bodyMedium == null || Theme.of(c).textTheme.bodyMedium!.color == null) return null;
     final hsl = HSLColor.fromColor(Theme.of(c).textTheme.bodyMedium!.color!);
     const lightnessFactorDark = 0.5;
     const lightnessFactorLight = 4.0;
@@ -469,7 +529,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
         currentUsername != null && tweet.user != null && currentUsername == tweet.user!.screenName;
     final hideAuthorInformation = !isTweetOnSameProfile && prefs.get(optionNonConfirmationBiasMode);
 
-    var numberFormat = NumberFormat.compact();
+    var numberFormat = _compactNumberFormat();
     var theme = Theme.of(context);
 
     if (tweet.isTombstone ?? false) {
@@ -565,8 +625,8 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                       ),
                     ),
                     SizedBox(height: 8),
-                    AutoDirection(
-                        text: tweetText,
+                    Directionality(
+                        textDirection: _isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
                         child: SelectableText.rich(
                           TextSpan(children: [
                             ..._displayParts.map((e) {
@@ -642,8 +702,8 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
           // Fill the width so both RTL and LTR text are displayed correctly
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: AutoDirection(
-            text: tweetText,
+          child: Directionality(
+            textDirection: _isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
             child: ExpandableTweetText(
               textSpans: displayRichText(_displayParts),
               onTap: () => !widget.tweetOpened ? onClickOpenTweet(tweet) : null,
@@ -886,17 +946,30 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   }
 }
 
+// Compact counters are formatted for every card on every rebuild; building the
+// formatter itself costs ICU lookups, so keep one per locale.
+final Map<String, NumberFormat> _compactNumberFormats = {};
+NumberFormat _compactNumberFormat() =>
+    _compactNumberFormats.putIfAbsent(Intl.getCurrentLocale(), () => NumberFormat.compact());
+
+// Seeded card colors are memoized: ColorScheme.fromSeed generates a whole tonal
+// palette, and without this it runs again for every card on every rebuild.
+final Map<int, Color> _tweetCardColors = {};
+
 Color? tweetCardColor(BuildContext context) {
   final theme = Theme.of(context);
   final prefs = PrefService.of(context, listen: false);
   final trueBlack = theme.brightness == Brightness.dark &&
-      prefs.get(optionThemeTrueBlack) &&
-      prefs.get(optionThemeTrueBlackTweetCards);
-  return trueBlack
-      ? Colors.black
-      : ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: theme.colorScheme.primary, brightness: theme.brightness),
-        ).cardColor;
+      (prefs.get<bool>(optionThemeTrueBlack) ?? false) &&
+      (prefs.get<bool>(optionThemeTrueBlackTweetCards) ?? false);
+  if (trueBlack) return Colors.black;
+
+  return _tweetCardColors.putIfAbsent(
+    Object.hash(theme.colorScheme.primary, theme.brightness),
+    () => ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: theme.colorScheme.primary, brightness: theme.brightness),
+    ).cardColor,
+  );
 }
 
 enum TranslationStatus { original, translating, translationFailed, translated }

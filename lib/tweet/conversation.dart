@@ -25,6 +25,21 @@ class TweetConversation extends StatefulWidget {
 }
 
 class _TweetConversationState extends State<TweetConversation> {
+  // Sorting a thread again on every rebuild is wasted work: the tweet list of
+  // a chain only changes when a different chain is handed to this element.
+  late List<TweetWithCard> _sorted = _sortTweets(widget.tweets);
+
+  static List<TweetWithCard> _sortTweets(List<TweetWithCard> tweets) =>
+      tweets.sorted((a, b) => a.idStr!.compareTo(b.idStr!)).toList(growable: false);
+
+  @override
+  void didUpdateWidget(TweetConversation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.tweets, widget.tweets)) {
+      _sorted = _sortTweets(widget.tweets);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.tweets.length == 1) {
@@ -37,8 +52,8 @@ class _TweetConversationState extends State<TweetConversation> {
           initialMediaIndex: widget.initialMediaIndex);
     }
 
+    var tweets = _sorted;
     var tiles = <Widget>[];
-    var tweets = widget.tweets.sorted((a, b) => a.idStr!.compareTo(b.idStr!)).toList(growable: false);
 
     for (var i = 0; i < tweets.length; i++) {
       tiles.add(TweetTile(

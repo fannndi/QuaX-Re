@@ -330,6 +330,9 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   }
 
   Widget _buildChain(BuildContext context, TweetChain chain) => TweetConversation(
+        // Keyed by chain: refreshed pages shift indices, and without the key a
+        // recycled element would keep rendering the tweet it held before.
+        key: ValueKey(chain.id),
         id: chain.id,
         tweets: chain.tweets,
         username: widget.username,
@@ -405,8 +408,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   void _scheduleScrollSave() {
     final key = widget.scrollKey;
     if (key == null || !_scrollController.hasClients) return;
+    // One timer in flight is enough: it reads the offset when it fires, so the
+    // final position always lands within the debounce window without a new
+    // timer (and its garbage) on every scroll frame.
+    if (_scrollSaveTimer?.isActive ?? false) return;
 
-    _scrollSaveTimer?.cancel();
     _scrollSaveTimer = Timer(const Duration(milliseconds: 600), () {
       if (!mounted || !_scrollController.hasClients) return;
       final prefs = PrefService.of(context, listen: false);
@@ -552,6 +558,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
         // 1200px also makes the pager fetch the next page a screen earlier.
         cacheExtent: 1200,
         builderDelegate: PagedChildBuilderDelegate(
+          // Start fetching when this many chains are still below the viewport:
+          // the next page arrives before the reader reaches the bottom, so a
+          // long fling keeps rolling instead of stalling on the spinner.
+          invisibleItemsThreshold: 8,
           itemBuilder: (context, chain, index) => _buildChain(context, chain),
           firstPageProgressIndicatorBuilder: (context) => const _FeedSkeleton(),
           firstPageErrorIndicatorBuilder: (context) => NetworkStatus().online.value

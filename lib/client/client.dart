@@ -213,31 +213,6 @@ class _QuackerTwitterClient extends TwitterClient {
   }
 }
 
-class UnknownProfileResultType with SyntheticException implements Exception {
-  final String type;
-  final String message;
-  final String uri;
-
-  UnknownProfileResultType(this.type, this.message, this.uri);
-
-  @override
-  String toString() {
-    return 'Unknown profile result type: {type: $type, message: $message, uri: $uri}';
-  }
-}
-
-class UnknownProfileUnavailableReason with SyntheticException implements Exception {
-  final String reason;
-  final String uri;
-
-  UnknownProfileUnavailableReason(this.reason, this.uri);
-
-  @override
-  String toString() {
-    return 'Unknown profile unavailable reason: {reason: $reason, uri: $uri}';
-  }
-}
-
 class Twitter {
   static final TwitterApi _twitterApi = TwitterApi(client: _QuackerTwitterClient());
 
