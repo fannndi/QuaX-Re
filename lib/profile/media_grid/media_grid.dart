@@ -10,6 +10,7 @@ import 'package:quax/profile/media_grid/media_grid_items/media_grid_item.dart';
 import 'package:quax/status.dart';
 import 'package:quax/tweet/_video_overlays.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/ui/skeletons.dart';
 import 'package:quax/utils/paging.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -65,6 +66,7 @@ class _MediaGridState extends State<MediaGrid> with AutomaticKeepAliveClientMixi
             // Like the tweet feeds: fetch the next page while there is still a
             // screen of tiles left, so a long fling never reaches the end.
             invisibleItemsThreshold: 8,
+            firstPageProgressIndicatorBuilder: (context) => MediaGridSkeleton(columns: columns),
             itemBuilder: (context, item, index) => _MediaGridTile(item: item, gifGate: _gifGate),
             firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
               error: pagingErrorOf(state)?.error,

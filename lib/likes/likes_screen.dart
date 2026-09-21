@@ -12,6 +12,7 @@ import 'package:quax/saved/saved_tweet_model.dart';
 import 'package:quax/saved/saved_tweet_tile.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/ui/skeletons.dart';
 import 'package:quax/user.dart';
 
 /// The Like tab: what was liked and saved inside the app (local database) next
@@ -116,7 +117,7 @@ class _LocalLikesState extends State<_LocalLikes> with AutomaticKeepAliveClientM
         prefix: L10n.current.unable_to_load_the_tweets,
         onRetry: () => model.listLikedTweets(),
       ),
-      onLoading: (_) => const Center(child: CircularProgressIndicator()),
+      onLoading: (_) => const TweetListSkeleton(),
       onState: (_, likes) => RefreshIndicator(
         onRefresh: model.refreshLikedTweets,
         child: likes.isEmpty

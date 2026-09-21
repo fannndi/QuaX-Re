@@ -5,6 +5,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/tweet/conversation.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/ui/skeletons.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
@@ -199,6 +200,7 @@ class _StatusScreenState extends State<_StatusScreen> {
         shrinkWrap: true,
         builderDelegate: PagedChildBuilderDelegate(
           invisibleItemsThreshold: 8,
+          firstPageProgressIndicatorBuilder: (context) => const TweetListSkeleton(),
           itemBuilder: (context, chain, index) {
             return AutoScrollTag(
               key: ValueKey(chain.id),

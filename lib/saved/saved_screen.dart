@@ -13,6 +13,7 @@ import 'package:quax/saved/saved_tweet_folder_model.dart';
 import 'package:quax/saved/saved_tweet_model.dart';
 import 'package:quax/saved/saved_tweet_tile.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/ui/skeletons.dart';
 
 /// Posts saved on the device, with a folder filter strip above the list.
 /// Shown as a tab of the Like screen; the strip layout (order and visibility)
@@ -234,7 +235,7 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
         prefix: L10n.current.unable_to_load_the_tweets,
         onRetry: () => model.listSavedTweets(),
       ),
-      onLoading: (_) => const Center(child: CircularProgressIndicator()),
+      onLoading: (_) => const TweetListSkeleton(),
       onState: (_, data) {
         var filtered = _applyFilter(data, filter);
 
@@ -261,7 +262,7 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
         prefix: L10n.current.unable_to_load_the_tweets,
         onRetry: () => model.listLikedTweets(),
       ),
-      onLoading: (_) => const Center(child: CircularProgressIndicator()),
+      onLoading: (_) => const TweetListSkeleton(),
       onState: (_, data) => RefreshIndicator(
         onRefresh: _refresh,
         child: data.isEmpty

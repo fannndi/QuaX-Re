@@ -183,9 +183,11 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
         onDestinationSelected: (index) async {
           if (index == _currentPage) {
             final tappedId = widget.pages[index].id;
-            if (tappedId == "feed" || tappedId.startsWith("group-")) {
+            if (tappedId == "feed" || tappedId == "likes" || tappedId.startsWith("group-")) {
               final scrollController = _scrollControllers[_currentPage];
-              if (scrollController != null) {
+              // A tab whose list is not mounted (the Like tab showing another
+              // sub-tab) has nothing to scroll back up.
+              if (scrollController != null && scrollController.hasClients) {
                 await scrollController.animateTo(0, duration: const Duration(seconds: 1), curve: Curves.easeInOut);
               }
             }

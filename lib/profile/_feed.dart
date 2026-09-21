@@ -4,6 +4,7 @@ import 'package:quax/client/client.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/tweet/conversation.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/ui/skeletons.dart';
 import 'package:quax/user.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:quax/generated/l10n.dart';
@@ -95,6 +96,7 @@ class _ProfileTweetFeedState extends State<ProfileTweetFeed> with AutomaticKeepA
             cacheExtent: 1200,
             builderDelegate: PagedChildBuilderDelegate(
               invisibleItemsThreshold: 8,
+              firstPageProgressIndicatorBuilder: (context) => const TweetListSkeleton(),
               itemBuilder: (context, chain, index) {
                 return TweetConversation(
                     key: ValueKey(chain.id),

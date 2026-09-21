@@ -10,6 +10,7 @@ import 'package:quax/group/feed_refresh_controller.dart';
 import 'package:quax/tweet/cached_tweet_list.dart';
 import 'package:quax/tweet/conversation.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/ui/skeletons.dart';
 import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/paging.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
@@ -563,7 +564,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
           // long fling keeps rolling instead of stalling on the spinner.
           invisibleItemsThreshold: 8,
           itemBuilder: (context, chain, index) => _buildChain(context, chain),
-          firstPageProgressIndicatorBuilder: (context) => const _FeedSkeleton(),
+          firstPageProgressIndicatorBuilder: (context) => const TweetListSkeleton(),
           firstPageErrorIndicatorBuilder: (context) => NetworkStatus().online.value
               ? FullPageErrorWidget(
                   error: pagingErrorOf(state)?.error,
@@ -589,68 +590,6 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
         if (_newPostsAvailable)
           Positioned(top: 12, left: 0, right: 0, child: Center(child: _buildNewPostsPill())),
       ],
-    );
-  }
-}
-
-/// A quiet placeholder for the first page: card-shaped blocks instead of a
-/// lone spinner, so the wait reads as content arriving.
-class _FeedSkeleton extends StatelessWidget {
-  const _FeedSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    final block = Theme.of(context).colorScheme.surfaceContainerHighest;
-
-    Widget bar(double widthFactor, double height) => FractionallySizedBox(
-          alignment: Alignment.centerLeft,
-          widthFactor: widthFactor,
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(6)),
-          ),
-        );
-
-    return ListView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(top: 8),
-      itemCount: 5,
-      itemBuilder: (context, index) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(radius: 20, backgroundColor: block),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        bar(0.4, 12),
-                        const SizedBox(height: 6),
-                        bar(0.25, 10),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              bar(1.0, 12),
-              const SizedBox(height: 6),
-              bar(0.85, 12),
-              const SizedBox(height: 14),
-              Container(
-                height: 140,
-                width: double.infinity,
-                decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(12)),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
