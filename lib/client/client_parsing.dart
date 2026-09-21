@@ -545,6 +545,40 @@ TweetStatus createUnconversationedChains(
 }
 
 
+/// Which parser [parseOffThread] should run. An enum instead of a callback:
+/// only top-level references travel to another isolate.
+enum ParseJob { tweetDetail, profile, follows, search, bookmarks }
+
+/// Decodes [body] and runs the matching parser on a worker isolate, so pages
+/// of a few hundred KB do not block the frame they arrive in. The locale is
+/// loaded there too: tombstones and other localized bits are resolved while
+/// parsing, and `L10n.current` would trip in a fresh isolate.
+Future<T> parseOffThread<T>(String body, ParseJob job, {String? extra}) async {
+  final result = await Isolate.run<Object>(() async {
+    await L10n.load(Locale(Intl.getCurrentLocale()));
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    return switch (job) {
+      ParseJob.tweetDetail => parseTweetDetail(json),
+      ParseJob.profile => parseProfile(json, extra!),
+      ParseJob.follows => parseFollows(json),
+      ParseJob.search => parseSearchTimeline(json, product: extra!),
+      ParseJob.bookmarks => parseBookmarkTimeline(json),
+    };
+  });
+
+  return result as T;
+}
+
+/// The bookmarks timeline nests under its own key, unlike the other
+/// unconversationed timelines.
+TweetStatus parseBookmarkTimeline(Map<String, dynamic> body) {
+  final timeline = body['data']?['bookmark_timeline_v2'] ?? body['data']?['bookmark_timeline'];
+  if (timeline is! Map<String, dynamic>) {
+    return TweetStatus(chains: [], cursorBottom: null, cursorTop: null);
+  }
+  return createUnconversationedChainsGraphql(timeline, 'tweet', const [], true);
+}
+
 /// Decodes and parses one timeline page on a worker isolate: the body runs to
 /// hundreds of KB, and the decode plus parse takes tens of milliseconds that
 /// would otherwise land as dropped frames when the page arrives mid-scroll.

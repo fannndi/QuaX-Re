@@ -303,7 +303,7 @@ class Twitter {
 
   static Future<Profile> _getProfile(Uri uri) async {
     var response = await _twitterApi.client.get(uri);
-    return parseProfile(jsonDecode(response.body) as Map<String, dynamic>, uri.toString());
+    return parseOffThread<Profile>(response.body, ParseJob.profile, extra: uri.toString());
   }
 
   static Future<PaginatedUsers> friendsList(String userId, int count, {String? cursor}) => _graphqlFollows(
@@ -345,7 +345,7 @@ class Twitter {
 
     return _twitterApi.client
         .get(uri)
-        .then((response) => parseFollows(jsonDecode(response.body) as Map<String, dynamic>));
+        .then((response) => parseOffThread<PaginatedUsers>(response.body, ParseJob.follows));
   }
 
   static Future<Follows> getProfileFollows(
@@ -408,13 +408,13 @@ class Twitter {
         // The opened conversation is now readable offline, replies included.
         unawaited(TimelineCache.write(cacheKey, response.body));
       }
-      return parseTweetDetail(json.decode(response.body) as Map<String, dynamic>);
+      return await parseOffThread<TweetStatus>(response.body, ParseJob.tweetDetail);
     } catch (e) {
       // Offline (or X unreachable): serve the stored conversation, if any.
       if (cursor == null) {
         final cached = await TimelineCache.read(cacheKey);
         if (cached != null) {
-          return parseTweetDetail(json.decode(cached) as Map<String, dynamic>);
+          return await parseOffThread<TweetStatus>(cached, ParseJob.tweetDetail);
         }
       }
       rethrow;
@@ -447,10 +447,7 @@ class Twitter {
     });
 
     var response = await _twitterApi.client.get(uri);
-    return parseSearchTimeline(
-      json.decode(response.body) as Map<String, dynamic>,
-      product: product,
-    );
+    return parseOffThread<TweetStatus>(response.body, ParseJob.search, extra: product);
   }
 
   static Future<List<UserWithExtra>> searchUsers(String query, {int limit = 25, String? cursor}) async {
@@ -681,12 +678,7 @@ class Twitter {
       }),
     );
 
-    final body = json.decode(response.body) as Map<String, dynamic>;
-    final timeline = body['data']?['bookmark_timeline_v2'] ?? body['data']?['bookmark_timeline'];
-    if (timeline is! Map<String, dynamic>) {
-      return TweetStatus(chains: [], cursorBottom: null, cursorTop: null);
-    }
-    return createUnconversationedChainsGraphql(timeline, 'tweet', const [], true);
+    return parseOffThread<TweetStatus>(response.body, ParseJob.bookmarks);
   }
 
   static Future<TweetStatus> getTweets(

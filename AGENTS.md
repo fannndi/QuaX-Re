@@ -116,6 +116,11 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
 - Scroll performance: text is measured once per card, seeded card colors and number formats are
   memoized, RTL is detected once per tile, and pagination prefetches 8 items early. Judge scroll
   smoothness on a profile/release build — debug is much slower.
+- Fetching: timeline/profile/search/follows pages are decoded and parsed on a worker isolate
+  (`parseChainsOnIsolate` / `parseOffThread` in `lib/client/client_parsing.dart`), which also loads
+  the locale there because tombstones resolve a message while parsing; the app shares a single
+  `http.Client` (`lib/client/http_client.dart`) so requests reuse the connection; and every list
+  first load paints a `lib/ui/skeletons.dart` placeholder instead of a spinner.
 - Downloads go to the hidden library only (`.nomedia`). A native foreground service owns progress
   and its notification actions; the queue is persisted (`downloads.json`), one transfer at a time,
   with pause/resume, Range resume, retries, space and integrity checks. No in-app player: gallery
