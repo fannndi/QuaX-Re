@@ -55,7 +55,7 @@ through `execute()`). Widgets observe stores via `ScopedBuilder` / `TripleBuilde
 | `notifications/` | Notifications timeline (opened from the feed's bell) |
 | `profile/` | Profile header, tabs and media grid |
 | `saved/` | Saved posts, folders, folder picker |
-| `search/` | Tweet and user search |
+| `search/` | Tweet and user search, plus the offline Local tab |
 | `settings/` | The single-page settings screen |
 | `subscriptions/` | Followed users and their groups |
 | `tweet/` | Tweet cards, threads, media, video playback |
@@ -127,6 +127,9 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   media opens in the system viewer through a FileProvider.
 - Offline mode: `TimelineCache` (first page, 12h Ttl) paints feeds instantly, `NetworkStatus`
   (DNS probe) retries when the connection returns, and downloaded clips play from disk.
+- Local search (search screen's 5th tab) matches saved/liked posts in Dart
+  (`lib/database/local_post_search.dart`) and library media by file name — Android's SQLite ships
+  without FTS5 (verified on device: `no such module: fts5`), so do not build an SQL index for it.
 - Settings is one page: General, Theme, Media & downloads, Posts, Accessibility, Data, About.
   Account management lives in the account sheet, not in Settings.
 - Responsiveness around the app: video pool + visibility-based playback, gallery search/sort/bulk

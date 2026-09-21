@@ -251,6 +251,8 @@
   "@load_media_manually_description": {},
   "local": "Lokal",
   "@local": {},
+  "local_search_hint": "Cari postingan yang kamu simpan atau sukai, dan media yang kamu unduh. Semuanya tetap di perangkat ini.",
+  "@local_search_hint": {},
   "logging": "Log",
   "@logging": {},
   "logging_in_quax": "Masuk ke QuaX",

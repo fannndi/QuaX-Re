@@ -251,6 +251,8 @@
   "@load_media_manually_description": {},
   "local": "Local",
   "@local": {},
+  "local_search_hint": "Search the posts you saved or liked, and the media you downloaded. Everything stays on this device.",
+  "@local_search_hint": {},
   "logging": "Logging",
   "@logging": {},
   "logging_in_quax": "Logging in QuaX",

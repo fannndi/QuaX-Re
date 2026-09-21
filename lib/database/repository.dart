@@ -263,11 +263,20 @@ class Repository {
         // health-aware selector decides alone). One active account at a time.
         SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN is_active INTEGER DEFAULT 0',
             reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN is_active'),
+      ],
+      28: [
+        // Local search matches saved and liked posts in Dart
+        // (lib/database/local_post_search.dart), because Android's SQLite ships
+        // without FTS5 and an index table would sit unused on the phone. This
+        // step only removes the table an earlier build of the feature created.
+        Migration(Operation((db) async {
+          await db.execute('DROP TABLE IF EXISTS tweet_search');
+        })),
       ]
     });
     await openDatabase(
       databaseName,
-      version: 27,
+      version: 28,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
       onDowngrade: myMigrationPlan.call,

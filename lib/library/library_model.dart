@@ -186,6 +186,25 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   final Map<String, String> _localNames = {};
   DateTime _namesBuiltAt = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// Library files whose name contains [query]. Downloads are named
+  /// `handle-<media id>.ext`, so searching an account finds the media taken
+  /// from it without any network request.
+  Future<List<LibraryEntry>> searchByName(String query, {int limit = 30}) async {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty || libraryPath.isEmpty) return const [];
+
+    await _buildNameIndexIfStale();
+
+    final matches = <LibraryEntry>[];
+    for (final entry in _localNames.entries) {
+      if (!entry.key.toLowerCase().contains(needle)) continue;
+
+      matches.add(LibraryEntry(File(entry.value), _videoExtensions.contains(p.extension(entry.key).toLowerCase())));
+      if (matches.length >= limit) break;
+    }
+    return matches;
+  }
+
   Future<void> _buildNameIndexIfStale() async {
     final now = DateTime.now();
     if (_localNames.isNotEmpty && now.difference(_namesBuiltAt).inMinutes < 5) return;
