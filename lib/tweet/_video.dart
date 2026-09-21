@@ -14,6 +14,7 @@ import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/tweet/video_metadata.dart';
 import 'package:quax/tweet/video_wakelock.dart';
 import 'package:quax/utils/downloads.dart';
+import 'package:quax/utils/image_decode.dart';
 import 'package:provider/provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -369,6 +370,11 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     });
   }
 
+  /// Poster/thumbnail images are drawn at card width, and there are three of
+  /// them per tile (the poster, the play-button cover and the loading cover):
+  /// decoding the source resolution for each wastes memory in every feed.
+  int get _posterCacheWidth => decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
+
   Widget _buildVideo(PooledVideo pooled) {
     final video = BetterPlayer(controller: pooled.controller);
 
@@ -394,7 +400,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
               alignment: Alignment.center,
               children: [
                 if (widget.metadata.imageUrl != null)
-                  Image.network(widget.metadata.imageUrl!, fit: BoxFit.cover),
+                  Image.network(widget.metadata.imageUrl!, fit: BoxFit.cover, cacheWidth: _posterCacheWidth),
                 if (!widget.disableControls) const Center(child: CircularProgressIndicator()),
                 // A GIF shown static (still buffering, or no decoder available)
                 // gets a "GIF" label; it fades out with the poster once it plays.
@@ -427,7 +433,9 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
             alignment: Alignment.center,
             children: [
               if (widget.metadata.imageUrl != null)
-                Positioned.fill(child: Image.network(widget.metadata.imageUrl!, fit: BoxFit.cover)),
+                Positioned.fill(
+                    child: Image.network(widget.metadata.imageUrl!,
+                        fit: BoxFit.cover, cacheWidth: _posterCacheWidth)),
               FritterCenterPlayButton(
                 backgroundColor: Colors.black54,
                 iconColor: Colors.white,
@@ -460,7 +468,9 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
               alignment: Alignment.center,
               children: [
                 if (widget.metadata.imageUrl != null)
-                  Positioned.fill(child: Image.network(widget.metadata.imageUrl!, fit: BoxFit.cover)),
+                  Positioned.fill(
+                      child: Image.network(widget.metadata.imageUrl!,
+                          fit: BoxFit.cover, cacheWidth: _posterCacheWidth)),
                 const CircularProgressIndicator(),
               ],
             ),

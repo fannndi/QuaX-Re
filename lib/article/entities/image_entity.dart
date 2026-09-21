@@ -8,7 +8,8 @@ class ImageEntity extends EntityValue {
   @override
   Widget toWidget(BuildContext context) {
     return GestureDetector(
-      child: ExtendedImage.network(imageUrl, fit: BoxFit.fitWidth),
+      child: ExtendedImage.network(imageUrl,
+          fit: BoxFit.fitWidth, cacheWidth: decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32)),
       onTap: () {
         Navigator.push(
           context,

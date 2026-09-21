@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:quax/tweet/media_viewer.dart';
 import 'package:quax/tweet/_video.dart';
+import 'package:quax/utils/image_decode.dart';
 
 part 'markdown_entity.dart';
 part 'image_entity.dart';

@@ -5,6 +5,22 @@ import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/tweet.dart';
+import 'package:quax/utils/lru_cache.dart';
+
+/// Parsed stored posts, keyed by id + content hash: the lists rebuild their
+/// visible items on every state change, and re-decoding the JSON each time is
+/// pure waste while scrolling.
+final _decodedTweets = LruCache<String, TweetWithCard>(80);
+
+TweetWithCard _decodeTweet(String id, String content) {
+  final key = '$id#${content.hashCode}';
+  final cached = _decodedTweets.get(key);
+  if (cached != null) return cached;
+
+  final tweet = TweetWithCard.fromJson(jsonDecode(content));
+  _decodedTweets.set(key, tweet);
+  return tweet;
+}
 
 /// Renders a post stored in the local database (saved or liked) as a regular
 /// tweet card.
@@ -22,7 +38,7 @@ class SavedTweetTile extends StatelessWidget {
       return SavedTweetTooLarge(id: id);
     }
 
-    var tweet = TweetWithCard.fromJson(jsonDecode(content));
+    var tweet = _decodeTweet(id, content);
 
     return TweetTile(key: Key(tweet.idStr!), tweet: tweet, clickable: true);
   }
