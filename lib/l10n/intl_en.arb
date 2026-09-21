@@ -3,6 +3,14 @@
   "@accessibility": {},
   "account": "Accounts",
   "@account": {},
+  "account_switched": "Now reading @{handle} — timelines were reloaded",
+  "@account_switched": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
   "account_suspended": "Account suspended",
   "@account_suspended": {},
   "activate_non_confirmation_bias_mode_description": "Hide post authors. Avoid confirmation bias based on authoritative arguments.",

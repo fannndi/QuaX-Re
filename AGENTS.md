@@ -111,6 +111,12 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   opens the notifications screen; search shares the same app bar.
 - The Following tab uses `HomeLatestTimeline` (`getHomeLatestTimeline`). Its queryId is
   community-tracked — on 404s update the constant or re-record with `tool/record/`.
+- Account switching is a hard reset, never a refresh: `accountsRevision` (bumped only by a real
+  switch, `lib/client/accounts.dart`) makes both home feeds `TweetFeedController.reset()` — the
+  chronological feed must not merge the new login's first page on top of the old one's posts — and
+  a page still in flight is cancelled (`CursorPagingController.reset`), so two timelines can never
+  mix. The in-memory `activeAccount` (id + handle) drives the app-bar avatar and the per-account
+  scroll keys (`scroll.home.*.<accountId>`); re-picking the current account is a no-op.
 - Saving is end-to-end: the footer bookmark saves/unsaves (long-press opens the folder sheet);
   folders are configured in the Saved tab's Manage folders.
 - Scroll performance: text is measured once per card, seeded card colors and number formats are

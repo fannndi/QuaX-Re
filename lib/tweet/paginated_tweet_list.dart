@@ -124,6 +124,15 @@ class TweetFeedController {
     }
   }
 
+  /// Drops what is loaded and reloads the first page from scratch.
+  ///
+  /// Used when the data underneath the feed changed (the active account
+  /// switched): a refresh would *merge* on the chronological feeds and keep
+  /// the previous login's posts — and its pagination cursor — under the new
+  /// ones. This clears both, and any page still in flight is cancelled, so a
+  /// response fetched for the previous account cannot land in the new list.
+  void reset() => _paging.reset();
+
   void dispose() => _paging.dispose();
 }
 

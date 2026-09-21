@@ -6,8 +6,8 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/settings/_account.dart';
 
 /// Bottom sheet for switching the active account straight from the home app
-/// bar: one tap and [accountsRevision] reloads the feed against the new
-/// account, leaving the reader on the home timeline.
+/// bar: one tap and [accountsRevision] drops the loaded feeds, so the next
+/// first page is fetched with the new login instead of mixing both accounts.
 Future<void> showAccountSwitcher(BuildContext context) {
   return showModalBottomSheet(
     context: context,

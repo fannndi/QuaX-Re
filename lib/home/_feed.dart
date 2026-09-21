@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
-import 'package:quax/client/account_sheet.dart';
+import 'package:quax/client/active_account_button.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/home/_following.dart';
@@ -12,6 +12,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/_feed_shell.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/search/search.dart';
+import 'package:quax/ui/errors.dart';
 
 typedef FeedTabTitleBuilder = String Function(BuildContext context);
 
@@ -50,8 +51,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    // Switching the active account speaks for a different timeline: reload the
-    // mounted feeds so the content follows the new login.
+    // Switching the active account speaks for a different timeline: drop both
+    // feeds instead of merging the new first page on top of the previous
+    // login's posts.
     accountsRevision.addListener(_onAccountsChanged);
     // Coming back to the Home tab after a while refreshes the active feed once,
     // keeping the return just as fresh as a resume.
@@ -73,8 +75,19 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   }
 
   void _onAccountsChanged() {
-    if (_followingFeed.hasItems) _followingFeed.softRefresh();
-    if (_foryouFeed.hasItems) _foryouFeed.softRefresh();
+    _foryouFeed.reset();
+    _followingFeed.reset();
+
+    if (!mounted) return;
+    // Recreating the feed widgets drops their local state too: the held-back
+    // "new posts" page, the scroll-restore flag and the scroll offset belong
+    // to the account that is gone.
+    setState(() {});
+
+    final handle = activeAccount.value?.handle;
+    if (handle != null) {
+      showSnackBar(context, icon: '👤', message: L10n.of(context).account_switched(handle));
+    }
   }
 
   @override
@@ -136,11 +149,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
               ),
             ),
             // Account switching lives here, not in Settings.
-            IconButton(
-              icon: const Icon(Icons.person_outline),
-              tooltip: L10n.of(context).account,
-              onPressed: () => showAccountSwitcher(context),
-            ),
+            const ActiveAccountButton(),
             // Settings moved out of the navbar too: the gear is its only door.
             IconButton(
               icon: const Icon(Icons.settings_outlined),
@@ -151,11 +160,16 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         );
       },
       bodyBuilder: (context) {
+        // Keyed by the account revision: on a switch the feed widgets (and
+        // their scroll offset, pill and restore flags) are built fresh for the
+        // new login instead of carrying the previous account's reading state.
+        final revision = accountsRevision.value;
+        final accountId = activeAccount.value?.id;
         return TabBarView(
           controller: tabController,
           children: [
-            ForYouTweets(_foryouFeed),
-            FollowingTweets(_followingFeed),
+            ForYouTweets(_foryouFeed, key: ValueKey('foryou.$revision'), accountId: accountId),
+            FollowingTweets(_followingFeed, key: ValueKey('following.$revision'), accountId: accountId),
           ],
         );
       },

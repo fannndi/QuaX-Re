@@ -3,6 +3,14 @@
   "@accessibility": {},
   "account": "Akun",
   "@account": {},
+  "account_switched": "Sekarang membaca akun @{handle} — timeline dimuat ulang",
+  "@account_switched": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
   "account_suspended": "Akun ditangguhkan",
   "@account_suspended": {},
   "activate_non_confirmation_bias_mode_description": "Sembunyikan pembuat cuitan. Hindari bias konfirmasi berdasarkan argumen otoritatif.",

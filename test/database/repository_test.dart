@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quax/client/accounts.dart';
 import 'package:quax/database/local_post_search.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
@@ -367,6 +368,77 @@ void main() {
 
       expect(await search('sandwich'), ['t8'],
           reason: 'One corrupt row must not break the whole tab');
+    });
+  });
+
+  group('Active account', () {
+    // Clearing the table beats deleting the database file: the factories hold
+    // on to cached connections, and a reopened database can keep pointing at a
+    // file that was only unlinked, not removed.
+    setUp(() async {
+      await Repository().migrate();
+      final db = await Repository.writable();
+      await db.delete(tableAccounts);
+      activeAccount.value = null;
+      accountsRevision.value = 0;
+    });
+
+    Future<void> addAccount(String id, String handle) async {
+      final db = await Repository.writable();
+      await db.insert(tableAccounts, {'id': id, 'auth_header': '{}', 'screen_name': handle});
+    }
+
+    test('Should remember the chosen account in memory', () async {
+      await addAccount('a1', 'first');
+      await addAccount('a2', 'second');
+
+      await setActiveAccount('a2');
+
+      expect(activeAccount.value?.id, 'a2',
+          reason: 'The home app bar shows the handle and the feeds key their scroll memory on '
+              'this value, so a switch has to publish it without a database read');
+      expect(activeAccount.value?.handle, 'second',
+          reason: 'The account button draws the initial from the handle');
+      expect((await getActiveAccount())?.id, 'a2',
+          reason: 'The next launch reads the active flag from the database, it has to agree');
+    });
+
+    test('Should not report a switch when the account is already the active one', () async {
+      await addAccount('a1', 'first');
+      await setActiveAccount('a1');
+      final revision = accountsRevision.value;
+
+      await setActiveAccount('a1');
+
+      expect(accountsRevision.value, revision,
+          reason: 'Picking the account that is already active must not drop the feeds the reader '
+              'is looking at');
+    });
+
+    test('Should promote the first account when none is flagged', () async {
+      await addAccount('a1', 'first');
+      await addAccount('a2', 'second');
+      await setActiveAccount('a2');
+      final db = await Repository.writable();
+      await db.update(tableAccounts, {'is_active': 0});
+
+      await promoteFirstAccountIfNoneActive();
+
+      expect(activeAccount.value?.id, 'a1',
+          reason: 'Deleting the active account leaves no flag behind; the app then has to adopt '
+              'another login instead of keeping a pointer to the deleted one');
+    });
+
+    test('Should forget the account when the last one is deleted', () async {
+      await addAccount('a1', 'first');
+      await setActiveAccount('a1');
+      final db = await Repository.writable();
+      await db.delete(tableAccounts);
+
+      await promoteFirstAccountIfNoneActive();
+
+      expect(activeAccount.value, isNull,
+          reason: 'With no accounts left nothing may be shown as the active login');
     });
   });
 }

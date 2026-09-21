@@ -42,6 +42,10 @@ class CursorPagingController<C, T> {
   final CursorPageFetcher<C, T> _fetch;
   C? _nextCursor;
   bool _reachedEnd = false;
+  // Identifies the current page chain: a fetch that finishes after a reset
+  // (or after the first page was replaced) belongs to the previous chain and
+  // must not hand its cursor to the next page.
+  Object _epoch = Object();
 
   CursorPagingController(this._fetch) {
     pagingController = PagingController<int, T>(
@@ -58,6 +62,7 @@ class CursorPagingController<C, T> {
   List<T>? get items => pagingController.value.items;
 
   Future<List<T>> _fetchPage(int pageKey) async {
+    final epoch = _epoch;
     if (pageKey == 0) {
       _reachedEnd = false;
       _nextCursor = null;
@@ -65,7 +70,7 @@ class CursorPagingController<C, T> {
     try {
       final cursor = pageKey == 0 ? null : _nextCursor;
       final page = await _fetch(cursor);
-      _setNextCursor(page.nextCursor);
+      if (epoch == _epoch) _setNextCursor(page.nextCursor);
       return page.items;
     } catch (e, stackTrace) {
       throw PagingError(e, stackTrace);
@@ -79,8 +84,12 @@ class CursorPagingController<C, T> {
 
   /// Replaces the first page's items in place and re-seeds the cursor, *without*
   /// resetting to the first-page spinner the way [PagingController.refresh]
-  /// does — used by pull-to-refresh so existing items stay visible.
+  /// does — used by pull-to-refresh so existing items stay visible. A page
+  /// still in flight belongs to the cursor chain being replaced, so it is
+  /// cancelled before the new page lands.
   void replaceFirstPage(List<T> items, C? nextCursor) {
+    _epoch = Object();
+    pagingController.cancel();
     _setNextCursor(nextCursor);
     pagingController.value = PagingState<int, T>(
       pages: [items],
@@ -88,6 +97,16 @@ class CursorPagingController<C, T> {
       hasNextPage: nextCursor != null,
       error: null,
     );
+  }
+
+  /// Drops the loaded pages and every fetch still in flight, then reloads the
+  /// first page (the paging layout asks for it as soon as it sees the reset
+  /// state). Used when the data underneath the feed changed: the old items
+  /// must go instead of being merged, and a late response for the previous
+  /// source must never land in the new list.
+  void reset() {
+    _epoch = Object();
+    pagingController.refresh();
   }
 
   /// Surfaces an error while keeping any already-loaded items visible.

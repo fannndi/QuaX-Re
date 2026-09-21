@@ -11,8 +11,11 @@ import 'package:quax/utils/tweet_freshness_index.dart';
 
 class FollowingTweets extends StatefulWidget {
   final TweetFeedController feed;
+  /// The login this feed belongs to; the scroll memory is kept per account so
+  /// switching back restores the right place.
+  final String? accountId;
 
-  const FollowingTweets(this.feed, {super.key});
+  const FollowingTweets(this.feed, {super.key, this.accountId});
 
   @override
   State<FollowingTweets> createState() => _FollowingTweetsState();
@@ -61,7 +64,7 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
         loadPage: _loadTweets,
         username: null,
         onRefresh: () async {},
-        scrollKey: 'home.following',
+        scrollKey: 'home.following.${widget.accountId ?? 'none'}',
         firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
         newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
         emptyMessage: L10n.of(context).unable_to_load_the_tweets_for_the_feed,

@@ -14,8 +14,11 @@ final UserWithExtra user = UserWithExtra.fromArguments(idStr: "1", possiblySensi
 
 class ForYouTweets extends StatefulWidget {
   final TweetFeedController feed;
+  /// The login this feed belongs to; the scroll memory is kept per account so
+  /// switching back restores the right place.
+  final String? accountId;
 
-  const ForYouTweets(this.feed, {super.key});
+  const ForYouTweets(this.feed, {super.key, this.accountId});
 
   @override
   State<ForYouTweets> createState() => _ForYouTweetsState();
@@ -74,7 +77,7 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
         loadPage: _loadTweets,
         username: user.screenName,
         onRefresh: () async {},
-        scrollKey: 'home.foryou',
+        scrollKey: 'home.foryou.${widget.accountId ?? 'none'}',
         firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
         newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
         emptyMessage: L10n.of(context).unable_to_load_the_tweets_for_the_feed,
