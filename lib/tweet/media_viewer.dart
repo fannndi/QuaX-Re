@@ -8,6 +8,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/_photo.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/downloads.dart';
+import 'package:quax/utils/image_decode.dart';
 import 'package:path/path.dart' as path;
 import 'package:pref/pref.dart';
 
@@ -165,7 +166,14 @@ class TweetMediaThing extends StatelessWidget {
           mediaIndex: mediaIndex);
     } else if (item.type == 'photo') {
       media = TweetPhoto(
-          size: size, uri: item.mediaUrlHttps!, fit: BoxFit.contain, pullToClose: pullToClose, inPageView: inPageView);
+          size: size,
+          uri: item.mediaUrlHttps!,
+          fit: BoxFit.contain,
+          pullToClose: pullToClose,
+          inPageView: inPageView,
+          // The feed copy only ever shows at viewport width; the fullscreen
+          // page keeps the full decode so zooming stays sharp.
+          cacheWidth: inPageView ? null : decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32));
     } else {
       media = Text(L10n.of(context).unknown);
     }

@@ -7,7 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/import_data_model.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/folder_picker.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
@@ -475,17 +474,25 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
   }
 
+// The footer buttons derive their colour from the body text colour through HSL
+// math that runs several times per card rebuild; the mapping is fixed, so one
+// entry per source colour is enough.
+final Map<Color, Color> _buttonsColors = {};
+
 Color? buttonsColor(BuildContext c) {
-  if (Theme.of(c).textTheme.bodyMedium == null || Theme.of(c).textTheme.bodyMedium!.color == null) return null;
-    final hsl = HSLColor.fromColor(Theme.of(c).textTheme.bodyMedium!.color!);
+  final color = Theme.of(c).textTheme.bodyMedium?.color;
+  if (color == null) return null;
+
+  return _buttonsColors.putIfAbsent(color, () {
+    final hsl = HSLColor.fromColor(color);
     const lightnessFactorDark = 0.5;
     const lightnessFactorLight = 4.0;
     final adjustedLightness =
         (hsl.lightness * (hsl.lightness > 0.5 ? lightnessFactorDark : lightnessFactorLight)).clamp(0.0, 1.0);
     final adjustedSaturation = (hsl.saturation * 0.2).clamp(0.0, 1.0);
-    final newHsl = hsl.withLightness(adjustedLightness).withSaturation(adjustedSaturation);
-    return newHsl.toColor();
-  }
+    return hsl.withLightness(adjustedLightness).withSaturation(adjustedSaturation).toColor();
+  });
+}
 
   Widget _buildErrorTweet(String text) {
     // create the layout of tombstones (deleted tweets) and other possible errors that we want to display as a tweet
@@ -828,69 +835,67 @@ Color? buttonsColor(BuildContext c) {
     final isThreadTile = widget.threadConnectTop || widget.threadConnectBottom;
 
     if (isThreadTile) {
-      return Consumer<ImportDataModel>(
-          builder: (context, model, child) => RepaintBoundary(
-              key: _globalKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  retweetBanner,
-                  if (!widget.threadConnectTop) replyToTile,
-                  ?pinnedBadge,
-                  ?threadBadge,
-                  _buildThreadBody(
-                      theme,
-                      avatar,
-                      InkWell(
-                        onTap: onTapProfile,
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              DefaultTextStyle.merge(style: theme.textTheme.bodyLarge, child: titleRow),
-                              DefaultTextStyle.merge(style: theme.textTheme.bodyMedium, child: subtitleRow),
-                            ],
-                          ),
-                        ),
+      return RepaintBoundary(
+          key: _globalKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              retweetBanner,
+              if (!widget.threadConnectTop) replyToTile,
+              ?pinnedBadge,
+              ?threadBadge,
+              _buildThreadBody(
+                  theme,
+                  avatar,
+                  InkWell(
+                    onTap: onTapProfile,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DefaultTextStyle.merge(style: theme.textTheme.bodyLarge, child: titleRow),
+                          DefaultTextStyle.merge(style: theme.textTheme.bodyMedium, child: subtitleRow),
+                        ],
                       ),
-                      bodyChildren,
-                      indentBody: widget.threadConnectBottom,
-                      onTapProfile: onTapProfile),
-                ],
-              )));
+                    ),
+                  ),
+                  bodyChildren,
+                  indentBody: widget.threadConnectBottom,
+                  onTapProfile: onTapProfile),
+            ],
+          ));
     }
 
-    return Consumer<ImportDataModel>(
-        builder: (context, model, child) => RepaintBoundary(
-            key: _globalKey,
-            child: Column(children: [
-              Card(
-                color: tweetCardColor(context),
-                child: Row(
+    return RepaintBoundary(
+        key: _globalKey,
+        child: Column(children: [
+          Card(
+            color: tweetCardColor(context),
+            child: Row(
+              children: [
+                retweetSidebar,
+                Expanded(
+                    child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    retweetSidebar,
-                    Expanded(
-                        child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        retweetBanner,
-                        replyToTile,
-                        ?pinnedBadge,
-                        ?threadBadge,
-                        headerTile,
-                        ...bodyChildren,
-                      ],
-                    ))
+                    retweetBanner,
+                    replyToTile,
+                    ?pinnedBadge,
+                    ?threadBadge,
+                    headerTile,
+                    ...bodyChildren,
                   ],
-                ),
-              ),
-              Divider(
-                height: 0,
-                thickness: 1,
-                color: addSeparator ? theme.colorScheme.surfaceBright.withAlpha(150) : Colors.transparent,
-              ),
-            ])));
+                ))
+              ],
+            ),
+          ),
+          Divider(
+            height: 0,
+            thickness: 1,
+            color: addSeparator ? theme.colorScheme.surfaceBright.withAlpha(150) : Colors.transparent,
+          ),
+        ]));
   }
 
   Widget _buildThreadBody(ThemeData theme, Widget avatar, Widget header, List<Widget> bodyChildren,

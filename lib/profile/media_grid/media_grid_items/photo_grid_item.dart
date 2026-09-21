@@ -15,6 +15,7 @@ class PhotoGridItem extends MediaGridItem {
     return ExtendedImage.network(
       '$thumbnailUrl:medium',
       cache: true,
+      cacheWidth: gridThumbnailCacheWidth(context),
       fit: BoxFit.cover,
     );
   }

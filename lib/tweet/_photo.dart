@@ -9,6 +9,9 @@ class TweetPhoto extends StatefulWidget {
   final String? size;
   final bool pullToClose;
   final bool inPageView;
+  // Physical width to decode at; null keeps the source resolution (the
+  // fullscreen viewer zooms, the feed copy only ever shows viewport-sized).
+  final int? cacheWidth;
 
   const TweetPhoto(
       {super.key,
@@ -16,7 +19,8 @@ class TweetPhoto extends StatefulWidget {
       this.fit = BoxFit.fitWidth,
       required this.size,
       required this.pullToClose,
-      required this.inPageView});
+      required this.inPageView,
+      this.cacheWidth});
 
   @override
   State<TweetPhoto> createState() => _TweetPhotoState();
@@ -41,6 +45,7 @@ class _TweetPhotoState extends State<TweetPhoto> with SingleTickerProviderStateM
       child: ExtendedImage.network(
         widget.size != null ? '${widget.uri}:${widget.size}' : widget.uri,
         cache: true,
+        cacheWidth: widget.cacheWidth,
         width: 5000,
         height: 5000,
         fit: widget.fit,

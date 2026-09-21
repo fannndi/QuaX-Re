@@ -19,6 +19,7 @@ class VideoGridItem extends MediaGridItem {
         ExtendedImage.network(
           thumbnailUrl,
           cache: true,
+          cacheWidth: gridThumbnailCacheWidth(context),
           fit: BoxFit.cover,
         ),
         const FritterCenterPlayButton(

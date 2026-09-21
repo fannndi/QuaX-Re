@@ -82,10 +82,16 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
 
   @override
   Widget build(BuildContext context) {
-    final textIsTruncated = _textIsTruncated(MediaQuery.of(context).size.width);
-
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Measure against the width the text is actually laid out in: using
+        // the raw screen width under-reported truncation (the card insets the
+        // text), so long posts lost their "show more" button.
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final textIsTruncated = _textIsTruncated(width);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

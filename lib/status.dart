@@ -198,6 +198,7 @@ class _StatusScreenState extends State<_StatusScreen> {
         addAutomaticKeepAlives: false,
         shrinkWrap: true,
         builderDelegate: PagedChildBuilderDelegate(
+          invisibleItemsThreshold: 8,
           itemBuilder: (context, chain, index) {
             return AutoScrollTag(
               key: ValueKey(chain.id),

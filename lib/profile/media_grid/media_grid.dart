@@ -62,6 +62,9 @@ class _MediaGridState extends State<MediaGrid> with AutomaticKeepAliveClientMixi
           crossAxisSpacing: 2,
           addAutomaticKeepAlives: false,
           builderDelegate: PagedChildBuilderDelegate<MediaGridItem>(
+            // Like the tweet feeds: fetch the next page while there is still a
+            // screen of tiles left, so a long fling never reaches the end.
+            invisibleItemsThreshold: 8,
             itemBuilder: (context, item, index) => _MediaGridTile(item: item, gifGate: _gifGate),
             firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
               error: pagingErrorOf(state)?.error,
@@ -226,7 +229,8 @@ class _GifGridCellState extends State<_GifGridCell> {
           : Stack(
               fit: StackFit.expand,
               children: [
-                ExtendedImage.network(widget.item.thumbnailUrl, cache: true, fit: BoxFit.cover),
+                ExtendedImage.network(widget.item.thumbnailUrl,
+                    cache: true, cacheWidth: gridThumbnailCacheWidth(context), fit: BoxFit.cover),
                 const Positioned(left: 6, bottom: 6, child: GifBadge()),
               ],
             ),

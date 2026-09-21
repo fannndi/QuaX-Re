@@ -1,14 +1,26 @@
 import 'package:dart_twitter_api/api/media/data/media.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pref/pref.dart';
 import 'package:quax/client/client.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/tweet/_video_overlays.dart';
+import 'package:quax/utils/image_decode.dart';
 import 'package:quax/utils/paging.dart';
 
 part 'gif_grid_item.dart';
 part 'video_grid_item.dart';
 part 'photo_grid_item.dart';
+
+/// Physical width of one grid tile: the sources are ~1200px wide, so decoding
+/// them whole for a third-of-a-screen tile costs several times the memory the
+/// tile can show.
+int gridThumbnailCacheWidth(BuildContext context) {
+  final columns = PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ?? 3;
+  final tileWidth = MediaQuery.sizeOf(context).width / (columns < 1 ? 1 : columns);
+  return decodeWidthFor(context, tileWidth, maxWidth: 1080);
+}
 
 sealed class MediaGridItem {
   final String tweetId;

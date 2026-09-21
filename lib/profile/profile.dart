@@ -14,6 +14,7 @@ import 'package:quax/profile/profile_model.dart';
 import 'package:quax/search/search.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/user.dart';
+import 'package:quax/utils/image_decode.dart';
 import 'package:quax/utils/urls.dart';
 import 'package:quax/utils/rich_text.dart';
 import 'package:intl/intl.dart';
@@ -220,7 +221,8 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
     var bannerImage = banner == null
         ? Container(height: bannerHeight, color: Colors.white)
         : GestureDetector(
-      child: ExtendedImage.network(banner, fit: BoxFit.fitWidth, height: bannerHeight),
+      child: ExtendedImage.network(banner,
+          fit: BoxFit.fitWidth, height: bannerHeight, cacheWidth: decodeWidthFor(context, deviceSize.width)),
       onTap: () {
         Navigator.push(
           context,
