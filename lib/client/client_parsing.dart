@@ -545,8 +545,52 @@ TweetStatus createUnconversationedChains(
 }
 
 
-TweetStatus createTimelineChains(
-  Map<String, dynamic> result,
+/// Decodes and parses one timeline page on a worker isolate: the body runs to
+/// hundreds of KB, and the decode plus parse takes tens of milliseconds that
+/// would otherwise land as dropped frames when the page arrives mid-scroll.
+///
+/// The "give up after repeated near-empty pages" counters belong to the feed
+/// and cannot cross an isolate boundary, so the rule they drive is applied
+/// here, on the calling isolate, once the parse is back.
+Future<TweetStatus> parseChainsOnIsolate(
+  String body, {
+  required bool conversationless,
+  required String tweetIndicator,
+  required List<String> pinnedTweets,
+  required bool mapToThreads,
+  required bool includeReplies,
+  required bool showPinnedTweet,
+  required int Function() getTweetsCounter,
+  required void Function() incrementTweetsCounter,
+}) async {
+  TweetStatus parse() {
+    final result = jsonDecode(body) as Map<String, dynamic>;
+    return conversationless
+        ? createUnconversationedChains(result, tweetIndicator, pinnedTweets, mapToThreads, includeReplies,
+            showPinnedTweet, () => 0, () {})
+        : createTimelineChains(result, tweetIndicator, pinnedTweets, mapToThreads, includeReplies, showPinnedTweet,
+            () => 0, () {});
+  }
+
+  // A tiny page (an empty one, usually) parses faster than an isolate spawns.
+  final status = body.length < 50000
+      ? parse()
+      : await Isolate.run(() async {
+          // Tombstones carry a localized message while parsing.
+          await L10n.load(Locale(Intl.getCurrentLocale()));
+          return parse();
+        });
+
+  if (status.chains.length >= 5) return status;
+
+  incrementTweetsCounter();
+  if (getTweetsCounter() > 5) {
+    return TweetStatus(chains: status.chains, cursorBottom: null, cursorTop: status.cursorTop);
+  }
+  return status;
+}
+
+TweetStatus createTimelineChains(Map<String, dynamic> result,
   String tweetIndicator,
   List<String> pinnedTweets,
   bool mapToThreads,

@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+import 'dart:ui' show Locale;
 
 import 'package:dart_twitter_api/src/utils/date_utils.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:quax/catcher/exceptions.dart';
 import 'package:quax/client/account_selector.dart';
 import 'package:quax/client/accounts.dart';
@@ -535,17 +538,17 @@ class Twitter {
       Uri.https('x.com', '/i/api/graphql/7zlnp2TxC044W4C1ZUJMHw/HomeTimeline'),
       body: jsonEncode({'variables': variables, 'features': _timelineFeatures}),
     );
-    var result = json.decode(response.body);
     // Pinned posts only belong on the first page.
-    return createTimelineChains(
-      result,
-      'tweet',
-      pinnedTweets ?? [],
-      includeReplies == false,
-      includeReplies,
-      cursor == null,
-      getTweetsCounter,
-      incrementTweetsCounter,
+    return parseChainsOnIsolate(
+      response.body,
+      conversationless: false,
+      tweetIndicator: 'tweet',
+      pinnedTweets: pinnedTweets ?? [],
+      mapToThreads: includeReplies == false,
+      includeReplies: includeReplies,
+      showPinnedTweet: cursor == null,
+      getTweetsCounter: getTweetsCounter,
+      incrementTweetsCounter: incrementTweetsCounter,
     );
   }
 
@@ -575,15 +578,16 @@ class Twitter {
       Uri.https('x.com', '/i/api/graphql/0dateTVgvXjpkf7kyBZy0g/HomeLatestTimeline'),
       body: jsonEncode({'variables': variables, 'features': _timelineFeatures}),
     );
-    return createTimelineChains(
-      json.decode(response.body) as Map<String, dynamic>,
-      'tweet',
-      const [],
-      true,
-      false,
-      false,
-      getTweetsCounter,
-      incrementTweetsCounter,
+    return parseChainsOnIsolate(
+      response.body,
+      conversationless: false,
+      tweetIndicator: 'tweet',
+      pinnedTweets: const [],
+      mapToThreads: true,
+      includeReplies: false,
+      showPinnedTweet: false,
+      getTweetsCounter: getTweetsCounter,
+      incrementTweetsCounter: incrementTweetsCounter,
     );
   }
 
@@ -640,15 +644,16 @@ class Twitter {
         'features': jsonEncode(_timelineFeatures),
       }),
     );
-    return createUnconversationedChains(
-      json.decode(response.body) as Map<String, dynamic>,
-      'tweet',
-      const [],
-      true,
-      false,
-      false,
-      getTweetsCounter,
-      incrementTweetsCounter,
+    return parseChainsOnIsolate(
+      response.body,
+      conversationless: true,
+      tweetIndicator: 'tweet',
+      pinnedTweets: const [],
+      mapToThreads: true,
+      includeReplies: false,
+      showPinnedTweet: false,
+      getTweetsCounter: getTweetsCounter,
+      incrementTweetsCounter: incrementTweetsCounter,
     );
   }
 
@@ -728,19 +733,18 @@ class Twitter {
 
     var response = await _twitterApi.client.get(Uri.https('x.com', path, defaultUserTweetsParam));
 
-    var result = json.decode(response.body);
-
     //if this page is not first one on the profile page, dont add pinned tweet
     if (variables['cursor'] != null) showPinnedTweet = false;
-    return createUnconversationedChains(
-      result,
-      'tweet',
-      pinnedTweets,
-      includeReplies == false,
-      includeReplies,
-      showPinnedTweet,
-      getTweetsCounter,
-      incrementTweetsCounter,
+    return parseChainsOnIsolate(
+      response.body,
+      conversationless: true,
+      tweetIndicator: 'tweet',
+      pinnedTweets: pinnedTweets,
+      mapToThreads: includeReplies == false,
+      includeReplies: includeReplies,
+      showPinnedTweet: showPinnedTweet,
+      getTweetsCounter: getTweetsCounter,
+      incrementTweetsCounter: incrementTweetsCounter,
     );
   }
 

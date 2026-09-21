@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:quax/client/http_client.dart';
 import 'package:quax/constants.dart';
 
 String? _guestToken;
@@ -32,7 +33,7 @@ Future<String> getToken(Logger log) async {
 
   log.info('Refreshing the X token');
 
-  var response = await http.post(Uri.parse('https://api.x.com/1.1/guest/activate.json'), headers: {
+  var response = await quaxHttpClient.post(Uri.parse('https://api.x.com/1.1/guest/activate.json'), headers: {
     'Authorization':
         'Bearer AAAAAAAAAAAAAAAAAAAAAGHtAgAAAAAA%2Bx7ILXNILCqkSGIzy6faIHZ9s3Q%3DQy97w6SIrzE7lQwPJEYQBsArEE2fC25caFwRBvAGi456G09vGR',
   });
@@ -55,7 +56,7 @@ Future<String> getToken(Logger log) async {
 Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? headers, required Logger log}) async {
   log.info('Fetching (unauthenticated) $uri');
 
-  var response = await http.get(uri, headers: {
+  var response = await quaxHttpClient.get(uri, headers: {
     ...?headers,
     'Authorization':
         'Bearer AAAAAAAAAAAAAAAAAAAAAGHtAgAAAAAA%2Bx7ILXNILCqkSGIzy6faIHZ9s3Q%3DQy97w6SIrzE7lQwPJEYQBsArEE2fC25caFwRBvAGi456G09vGR',
