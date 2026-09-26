@@ -41,7 +41,6 @@ class _FritterAppState extends State<FritterApp> {
   bool _updateDialogShown = false;
   bool _isSecure = false;
   double _textScaleFactor = 1.0;
-  Locale? _locale;
 
   @override
   void didChangeDependencies() {
@@ -49,28 +48,8 @@ class _FritterAppState extends State<FritterApp> {
 
     var prefService = PrefService.of(context);
 
-    void setLocale(String? locale) {
-      if (locale == null || locale == optionLocaleDefault) {
-        _locale = null;
-      } else {
-        var splitLocale = locale.split(RegExp(r'[-_]'));
-        if (splitLocale.length == 1) {
-          _locale = Locale(splitLocale[0]);
-        } else {
-          if (splitLocale[1].length == 4) {
-            // 4 characters -> unicode_script_subtag
-            _locale = Locale.fromSubtags(languageCode: splitLocale[0], scriptCode: splitLocale[1]);
-          } else {
-            // Other than 4 characters -> unicode_region_subtag (country)
-            _locale = Locale(splitLocale[0], splitLocale[1]);
-          }
-        }
-      }
-    }
-
     // Set any already-enabled preferences
     setState(() {
-      setLocale(prefService.get<String>(optionLocale));
       _themeMode = prefService.get(optionThemeMode);
       _themeColor = prefService.get(optionThemeColor);
       _trueBlack = prefService.get(optionThemeTrueBlack);
@@ -82,12 +61,6 @@ class _FritterAppState extends State<FritterApp> {
 
     prefService.addKeyListener(optionShouldCheckForUpdates, () {
       setState(() {});
-    });
-
-    prefService.addKeyListener(optionLocale, () {
-      setState(() {
-        setLocale(prefService.get<String>(optionLocale));
-      });
     });
 
     // Whenever the "true black" preference is toggled, apply the toggle
@@ -158,7 +131,6 @@ class _FritterAppState extends State<FritterApp> {
                     ...GlobalMaterialLocalizations.delegates,
                   ],
                   supportedLocales: L10n.delegate.supportedLocales,
-                  locale: _locale,
                   title: 'QuaX',
                   theme: buildAppTheme(
                     colorScheme: _themeColor == 'accent'

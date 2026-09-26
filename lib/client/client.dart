@@ -6,7 +6,6 @@ import 'dart:ui' show Locale;
 import 'package:dart_twitter_api/src/utils/date_utils.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
 import 'package:quax/catcher/exceptions.dart';
 import 'package:quax/client/account_selector.dart';
 import 'package:quax/client/accounts.dart';

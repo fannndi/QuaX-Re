@@ -52,7 +52,6 @@ Future<void> main() async {
     optionDisableAnimations: false,
     optionTextScaleFactor: 1.0,
     optionDisableScreenshots: false,
-    optionLocale: optionLocaleDefault,
     optionLibraryVisibleInGallery: false,
     optionAutoCacheVideos: false,
     optionAutoCacheWifiOnly: true,

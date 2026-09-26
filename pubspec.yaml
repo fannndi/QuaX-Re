@@ -67,7 +67,6 @@ dependencies:
 
   # Localization & Styling
   intl: any
-  flutter_localized_locales: ^2.0.3
   dynamic_color: ^2.1.0
 
   # State Management & Data
@@ -164,6 +163,10 @@ flutter:
 flutter_intl:
   enabled: true
   class_name: L10n
+  # English only: the app ships a single locale, and the generator would
+  # otherwise emit a supportedLocales list per `lib/l10n/intl_*.arb` file.
+  synthetic-package: false
+  output-localization-file: l10n.dart
 
 flutter_launcher_icons:
   image_path: "assets/icon.png"

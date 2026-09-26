@@ -550,12 +550,12 @@ TweetStatus createUnconversationedChains(
 enum ParseJob { tweetDetail, profile, follows, search, bookmarks }
 
 /// Decodes [body] and runs the matching parser on a worker isolate, so pages
-/// of a few hundred KB do not block the frame they arrive in. The locale is
-/// loaded there too: tombstones and other localized bits are resolved while
+/// of a few hundred KB do not block the frame they arrive in. The lone locale
+/// is loaded there too: tombstones and other localized bits are resolved while
 /// parsing, and `L10n.current` would trip in a fresh isolate.
 Future<T> parseOffThread<T>(String body, ParseJob job, {String? extra}) async {
   final result = await Isolate.run<Object>(() async {
-    await L10n.load(Locale(Intl.getCurrentLocale()));
+    await L10n.load(const Locale('en'));
     final json = jsonDecode(body) as Map<String, dynamic>;
     return switch (job) {
       ParseJob.tweetDetail => parseTweetDetail(json),
@@ -611,7 +611,7 @@ Future<TweetStatus> parseChainsOnIsolate(
       ? parse()
       : await Isolate.run(() async {
           // Tombstones carry a localized message while parsing.
-          await L10n.load(Locale(Intl.getCurrentLocale()));
+          await L10n.load(const Locale('en'));
           return parse();
         });
 

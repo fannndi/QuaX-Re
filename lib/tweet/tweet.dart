@@ -709,19 +709,13 @@ Color? buttonsColor(BuildContext c) {
           ));
     }
 
-    var localeStr = PrefService.of(context).get<String>(optionLocale);
-    final isSystemLocale = (localeStr ?? optionLocaleDefault) == optionLocaleDefault;
-    if (isSystemLocale) {
-      localeStr = Platform.localeName;
-    }
-
-    final splitLocale = localeStr!.split(RegExp(r'[-_]'));
-    late Locale locale;
-    if (splitLocale.length == 1) {
-      locale = Locale(splitLocale[0]);
-    } else {
-      locale = Locale(splitLocale[0], splitLocale[1]);
-    }
+    // The UI ships English only, so the footer's date is formatted for the
+    // device's own locale — that is the only thing the preference used to
+    // decide here.
+    final splitLocale = Platform.localeName.split(RegExp(r'[-_]'));
+    final locale = splitLocale.length == 1 && splitLocale.first.isNotEmpty
+        ? Locale(splitLocale.first)
+        : Locale(splitLocale.first, splitLocale.length > 1 ? splitLocale[1] : null);
 
     final footerBar = _buildFooterBar(tweet, tweetText, shareBaseUrl, locale, numberFormat, isArticle: tweet.article != null);
 

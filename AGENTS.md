@@ -89,6 +89,13 @@ Routes are constants in `constants.dart`, registered in `fritter_app.dart`; x.co
 parsed in `utils/urls.dart`. UI strings live in `lib/l10n/*.arb` and are reached through
 `L10n.of(context)` — never hardcode UI text; regenerate after ARB edits.
 
+This fork is **English only**. `lib/l10n/intl_en.arb` is the single ARB, and everything the upstream
+locale picker needed is gone: no `optionLocale` preference, no language dropdown in Settings, and no
+`locale:` override on `MaterialApp` (so `supportedLocales` resolves to English alone). Keep it that
+way — a new language means re-adding the picker, the preference and the locale plumbing, not just an
+ARB file. Timestamps come from the *device* locale via `Platform.localeName`, which is independent of
+the UI language, and `setTimeagoLocales()` registers English only.
+
 ## Coding style
 
 - Functional patterns: immutable data, pure functions, `map`/`where`/`fold` over loops.

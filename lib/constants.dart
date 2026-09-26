@@ -30,9 +30,6 @@ const optionAutoCacheWifiOnly = 'cache.wifiOnly';
 const optionVideoCacheLimitMb = 'cache.limitMb';
 // JSON map {fileName: lastReadMillis} — the library's resume-last-position map.
 
-const optionLocale = 'locale';
-const optionLocaleDefault = 'system';
-
 const optionShouldCheckForUpdates = 'should_check_for_updates';
 const optionConfirmClose = 'confirm_close';
 const optionOpenLinksInEmbeddedBrowser = 'open_links_in_embedded_browser';

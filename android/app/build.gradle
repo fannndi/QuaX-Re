@@ -64,6 +64,9 @@ android {
         multiDexEnabled true
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+        // The UI ships English only, so the localized resources bundled by
+        // AndroidX/Material for ~80 locales are dead weight in the APK.
+        resConfigs "en"
     }
 
     compileOptions {
