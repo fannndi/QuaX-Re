@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/utils/lru_cache.dart';
 
 const _nomedia = '.nomedia';
 const libraryFolderName = 'QuaXLibrary';
@@ -55,14 +58,55 @@ class LibraryEntry {
   final bool isVideo;
   final int size;
   final DateTime modified;
+  final String name;
+
+  /// [name] folded to lower case once, at construction: the gallery filters and
+  /// sorts by it on every keystroke, and folding thousands of names inside the
+  /// build path was the single hottest cost of typing in the search field.
+  final String nameLower;
 
   LibraryEntry(this.file, this.isVideo, {this.size = 0, DateTime? modified})
       : name = p.basename(file.path),
+        nameLower = p.basename(file.path).toLowerCase(),
         modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
 
-  final String name;
+  /// Rebuilds an entry from the plain values a worker isolate can send back —
+  /// `File` and `DateTime` do not survive the isolate boundary cheaply, so the
+  /// scan passes `(path, isVideo, size, modifiedMillis)` instead.
+  factory LibraryEntry.fromPrimitives(
+      String path, bool isVideo, int size, int modifiedMillis) {
+    return LibraryEntry(
+      File(path),
+      isVideo,
+      size: size,
+      modified: DateTime.fromMillisecondsSinceEpoch(modifiedMillis),
+    );
+  }
 
   double get sizeMb => size / 1048576;
+}
+
+/// What a gallery pass reports while it runs, streamed from the native side so
+/// the switch can show real progress instead of spinning blind. [done]/[total]
+/// count media files already pushed through the scanner; [phase] is one of
+/// `scan`, `verify`.
+class GalleryProgress {
+  const GalleryProgress({required this.done, required this.total, required this.phase});
+
+  final int done;
+  final int total;
+  final String phase;
+
+  double get fraction => total <= 0 ? 0 : (done / total).clamp(0.0, 1.0).toDouble();
+
+  static GalleryProgress? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final done = (raw['done'] as num?)?.toInt();
+    final total = (raw['total'] as num?)?.toInt();
+    if (done == null || total == null) return null;
+
+    return GalleryProgress(done: done, total: total, phase: raw['phase'] as String? ?? 'scan');
+  }
 }
 
 /// Outcome of a gallery show/hide pass: [affected] media files entered (or
@@ -72,6 +116,11 @@ class GalleryVisibilityResult {
   const GalleryVisibilityResult({required this.ok, this.affected = 0, this.remaining = 0});
 
   static const failed = GalleryVisibilityResult(ok: false);
+
+  /// Another pass was already running: this request was folded into it (the
+  /// newest intent wins), so the caller must neither report an outcome nor
+  /// treat the toggle as applied.
+  static const queued = GalleryVisibilityResult(ok: false);
 
   final bool ok;
   final int affected;
@@ -84,7 +133,20 @@ class GalleryVisibilityResult {
 class LibraryModel extends Store<List<LibraryEntry>> {
   final BasePrefService prefs;
 
-  LibraryModel(this.prefs) : super([]);
+  LibraryModel(this.prefs) : super([]) {
+    _storageChannel.setMethodCallHandler(_onNativeCall);
+  }
+
+  /// Latest reported gallery pass, kept so a rebuild mid-pass (the grid
+  /// refreshing behind the switch) does not lose the progress bar.
+  final ValueNotifier<GalleryProgress?> progress = ValueNotifier(null);
+
+  /// Serializes gallery passes: the native side scans the whole folder, so two
+  /// overlapping passes would interleave scans and report nonsense. A pass
+  /// asked for while one runs is remembered as [pendingVisible] and replayed
+  /// once the first answers — last intent wins, nothing is dropped.
+  bool _passRunning = false;
+  bool? _pendingVisible;
 
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
 
@@ -94,12 +156,71 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// marker is gone.
   bool get galleryVisible => prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
 
+  Future<void> _onNativeCall(MethodCall call) async {
+    if (call.method != 'galleryProgress') return;
+    progress.value = GalleryProgress.fromMap(call.arguments);
+  }
+
   /// Live toggle for the gallery apps: drops/creates the `.nomedia` marker and
   /// asks Android to rescan the folder, so the videos appear or disappear from
-  /// the system gallery without a restart. Resolves only after the native side
-  /// finished the whole pass (scans included), reporting how many files were
-  /// touched and how many stayed visible.
-  Future<GalleryVisibilityResult> setGalleryVisible(bool visible) async {
+  /// the system gallery without a restart.
+  ///
+  /// Passes are serialized (one scan at a time) and the newest request wins;
+  /// call [onProgress] to paint the streamed native progress. Prefer
+  /// [setGalleryVisibleInBackground] from the switch: it lets the UI flip
+  /// optimistically instead of blocking the toggle for the whole scan.
+  Future<GalleryVisibilityResult> setGalleryVisible(
+    bool visible, {
+    void Function(GalleryProgress)? onProgress,
+  }) {
+    if (onProgress == null) return _runOrQueue(visible, onProgress);
+
+    _progressSinks.add(onProgress);
+    // Detach once this pass settles, so a rebuilt screen does not keep feeding
+    // a callback whose State is gone.
+    return _runOrQueue(visible, onProgress)
+        .whenComplete(() => _progressSinks.remove(onProgress));
+  }
+
+  final Set<void Function(GalleryProgress)> _progressSinks = {};
+
+  void _emitProgress(GalleryProgress value) {
+    progress.value = value;
+    for (final sink in List.of(_progressSinks)) {
+      try {
+        sink(value);
+      } catch (_) {
+        // A listener throwing must not abort a running native pass.
+      }
+    }
+  }
+
+  Future<GalleryVisibilityResult> _runOrQueue(
+      bool visible, void Function(GalleryProgress)? onProgress) async {
+    if (_passRunning) {
+      _pendingVisible = visible;
+      return GalleryVisibilityResult.queued;
+    }
+
+    _passRunning = true;
+    _emitProgress(const GalleryProgress(done: 0, total: 0, phase: 'scan'));
+    try {
+      final result = await _applyVisibility(visible, onProgress);
+
+      final next = _pendingVisible;
+      _pendingVisible = null;
+      if (next != null && next != visible) {
+        return _runOrQueue(next, onProgress);
+      }
+      return result;
+    } finally {
+      _passRunning = false;
+      progress.value = null;
+    }
+  }
+
+  Future<GalleryVisibilityResult> _applyVisibility(
+      bool visible, void Function(GalleryProgress)? onProgress) async {
     final path = libraryPath;
     if (path.isEmpty) return GalleryVisibilityResult.failed;
 
@@ -121,10 +242,45 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
+  /// Fire-and-forget flavour of [setGalleryVisible]: returns immediately with
+  /// the pass it just started. The caller flips its switch optimistically on
+  /// that signal and awaits [onSettled] for the real outcome. A toggle that
+  /// arrives while this pass runs is folded into the running pass, so callers
+  /// that [queued] must leave their optimistic flip alone until the pass it
+  /// joined reports.
+  void setGalleryVisibleInBackground(
+    bool visible, {
+    void Function(GalleryProgress)? onProgress,
+    required void Function(GalleryVisibilityResult) onSettled,
+  }) {
+    const queuedPass = GalleryVisibilityResult.queued;
+    final pass = setGalleryVisible(visible, onProgress: onProgress);
+    unawaited(pass.then((result) {
+      if (identical(result, queuedPass)) return; // the pass it joined reports
+      onSettled(result);
+    }));
+  }
+
   /// Cached thumbnail of a video, generated once by the Android handler
   /// (MediaMetadataRetriever one second in). Serves both the grid tile and the
   /// viewer's poster, so a downloaded clip never shows as a black frame.
-  Future<String?> thumbnailFor(LibraryEntry entry) async {
+  ///
+  /// The *Future* is cached, not just the path: the tile used to call this from
+  /// `build()`, so every selection tap re-ran the `cached.exists()` probe and
+  /// could flash the placeholder. Bounded, because a library can hold thousands
+  /// of clips and each entry is a live Future.
+  final LruCache<String, Future<String?>> _thumbnailFutures = LruCache(400);
+
+  Future<String?> thumbnailFor(LibraryEntry entry) {
+    final cached = _thumbnailFutures.get(entry.file.path);
+    if (cached != null) return cached;
+
+    final future = _resolveThumbnail(entry);
+    _thumbnailFutures.set(entry.file.path, future);
+    return future;
+  }
+
+  Future<String?> _resolveThumbnail(LibraryEntry entry) async {
     try {
       final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
       await cacheDir.create(recursive: true);
@@ -138,6 +294,16 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     } on Exception {
       return null;
     }
+  }
+
+  /// Drops the cached thumbnail Futures. Called after deletions: a cached
+  /// entry would otherwise point at a file that is gone, and a later download
+  /// reusing the name must resolve fresh.
+  void forgetThumbnails() => _thumbnailFutures.clear();
+
+  void dispose() {
+    progress.dispose();
+    _storageChannel.setMethodCallHandler(null);
   }
 
   /// Opens a library file through the system player/viewer. No in-app player:
@@ -211,15 +377,30 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
     _namesBuiltAt = now;
     _localNames.clear();
+
+    final path = libraryPath;
+    if (path.isEmpty) return;
+
     try {
-      final dir = Directory(libraryPath);
-      if (!await dir.exists()) return;
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
-        if (entity is File) _localNames[p.basename(entity.path)] = entity.path;
-      }
+      // A recursive walk of a big folder is tens of milliseconds of pure I/O —
+      // enough to drop frames when it lands mid-scroll, so it runs off-thread.
+      final found = await Isolate.run(() => _indexFolder(path));
+      _localNames.addAll(found);
     } catch (_) {
       // An unreadable folder simply yields no local matches.
     }
+  }
+
+  /// Worker-isolate body of [_buildNameIndexIfStale]: basename → full path.
+  static Map<String, String> _indexFolder(String path) {
+    final dir = Directory(path);
+    if (!dir.existsSync()) return const {};
+
+    final names = <String, String>{};
+    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+      if (entity is File) names[p.basename(entity.path)] = entity.path;
+    }
+    return names;
   }
 
   /// Configures [pickedPath] into the hidden library root, without running the
@@ -353,35 +534,54 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     return _imageExtensions.contains(extension) || _videoExtensions.contains(extension);
   }
 
+  /// Rescans the library folder.
+  ///
+  /// The walk and the per-file `stat` used to run on the UI isolate — thousands
+  /// of synchronous syscalls, each one a dropped frame. They now run in a
+  /// worker isolate and come back as plain values, and [Isolate.run] keeps the
+  /// UI thread free for the grid that is about to be rebuilt.
   Future<void> refresh() async {
-    await execute(() async {
-      final dir = Directory(libraryPath);
-      if (!await dir.exists()) {
-        return <LibraryEntry>[];
+    final path = libraryPath;
+    await execute(() => _scanLibrary(path));
+  }
+
+  static Future<List<LibraryEntry>> _scanLibrary(String path) async {
+    if (path.isEmpty) return const [];
+
+    final raw = await Isolate.run(() => _scanSync(path));
+    final entries = raw
+        .map((row) => LibraryEntry.fromPrimitives(row[0] as String, row[1] as bool, row[2] as int, row[3] as int))
+        .toList();
+    entries.sort((a, b) => b.modified.compareTo(a.modified));
+    return entries;
+  }
+
+  /// Entry point of the worker isolate. Takes and returns only primitives, so
+  /// nothing but plain data crosses the isolate boundary.
+  static List<List<Object>> _scanSync(String path) {
+    final dir = Directory(path);
+    if (!dir.existsSync()) return const [];
+
+    final rows = <List<Object>>[];
+    // Recursive: imported libraries (or files the user nested) still show up.
+    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+
+      final extension = p.extension(entity.path).toLowerCase();
+      final isVideo = _videoExtensions.contains(extension);
+      if (!isVideo && !_imageExtensions.contains(extension)) continue;
+
+      var modified = 0;
+      var size = 0;
+      try {
+        final stat = entity.statSync();
+        modified = stat.modified.millisecondsSinceEpoch;
+        size = stat.size;
+      } catch (_) {
+        // Unreadable file: keep it listed with empty metadata.
       }
-
-      final entries = <LibraryEntry>[];
-      // Recursive: imported libraries (or files the user nested) still show up.
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
-        if (entity is! File) continue;
-        final extension = p.extension(entity.path).toLowerCase();
-        final isVideo = _videoExtensions.contains(extension);
-        if (!isVideo && !_imageExtensions.contains(extension)) continue;
-
-        var modified = DateTime.fromMillisecondsSinceEpoch(0);
-        var size = 0;
-        try {
-          final stat = entity.statSync();
-          modified = stat.modified;
-          size = stat.size;
-        } catch (_) {
-          // Unreadable file: keep it listed with empty metadata.
-        }
-        entries.add(LibraryEntry(entity, isVideo, size: size, modified: modified));
-      }
-
-      entries.sort((a, b) => b.modified.compareTo(a.modified));
-      return entries;
-    });
+      rows.add([entity.path, isVideo, size, modified]);
+    }
+    return rows;
   }
 }

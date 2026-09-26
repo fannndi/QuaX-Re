@@ -57,6 +57,9 @@ app.*.map.json
 .venv/
 assets/icon-*.png
 
+# Agent working notes, not project sources.
+.workbuddy-ai/
+
 .claude/tmp
 
 tool/record/.chrome-profile/

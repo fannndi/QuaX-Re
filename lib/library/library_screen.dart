@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
@@ -8,6 +9,7 @@ import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/ui/skeletons.dart';
 import 'package:share_plus/share_plus.dart';
 
 enum _LibrarySort { newest, oldest, name, size }
@@ -35,6 +37,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
   _LibrarySort _sort = _LibrarySort.newest;
   final Set<String> _selected = {};
 
+  /// Typing used to re-filter and re-sort the whole library on every keystroke,
+  /// inside `build()`. The query now settles first and only then reaches the
+  /// cache below — a 2 000-file library stops dropping frames while typing.
+  static const _searchDebounce = Duration(milliseconds: 150);
+  Timer? _queryTimer;
+
+  /// The filtered+sorted list, recomputed only when its inputs actually change
+  /// (query, sort, or the folder contents). Reading it is what `build()` does
+  /// now, so a rebuild for an unrelated reason — a selection tap, a progress
+  /// tick — costs nothing.
+  List<LibraryEntry>? _derived;
+  String _derivedQuery = '';
+  _LibrarySort? _derivedSort;
+  List<LibraryEntry>? _derivedSource;
+
   bool get _selectionActive => _selected.isNotEmpty;
 
   @override
@@ -57,9 +74,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _queryTimer?.cancel();
     _queue.removeDoneListener(_listenerKey);
     _searchController.dispose();
+    _model.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    _queryTimer?.cancel();
+    _queryTimer = Timer(_searchDebounce, () {
+      if (mounted) setState(() => _query = value);
+    });
   }
 
   Future<void> _configureOrLoad() async {
@@ -122,7 +148,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
         onRetry: _configureOrLoad,
         retryText: L10n.current.retry,
       ),
-      onLoading: (_) => const Center(child: CircularProgressIndicator()),
+      // Tiles arriving read as content loading; a lone spinner makes the same
+      // wait feel longer than it is.
+      onLoading: (_) => const MediaGridSkeleton(columns: 3, rows: 5),
       onState: (_, entries) => _buildBody(context, entries),
     );
   }
@@ -152,11 +180,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   /// Search by file name plus the sort menu (newest/oldest/name/size).
+  ///
+  /// Memoized on (query, sort, entries): `build()` calls this, and rebuilding
+  /// for a selection tap used to redo the whole filter+sort every time.
   List<LibraryEntry> _visibleEntries(List<LibraryEntry> entries) {
+    if (identical(entries, _derivedSource) && _query == _derivedQuery && _sort == _derivedSort) {
+      final cached = _derived;
+      if (cached != null) return cached;
+    }
+
     final query = _query.trim().toLowerCase();
+    // [LibraryEntry.nameLower] is folded once at construction, so neither the
+    // filter nor the name sort re-folds thousands of strings per keystroke.
     final list = query.isEmpty
         ? List.of(entries)
-        : entries.where((entry) => entry.name.toLowerCase().contains(query)).toList();
+        : entries.where((entry) => entry.nameLower.contains(query)).toList();
 
     switch (_sort) {
       case _LibrarySort.newest:
@@ -164,10 +202,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
       case _LibrarySort.oldest:
         list.sort((a, b) => a.modified.compareTo(b.modified));
       case _LibrarySort.name:
-        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        list.sort((a, b) => a.nameLower.compareTo(b.nameLower));
       case _LibrarySort.size:
         list.sort((a, b) => b.size.compareTo(a.size));
     }
+
+    _derived = list;
+    _derivedSource = entries;
+    _derivedQuery = _query;
+    _derivedSort = _sort;
     return list;
   }
 
@@ -182,7 +225,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Expanded(
             child: TextField(
               controller: _searchController,
-              onChanged: (value) => setState(() => _query = value),
+              onChanged: _onQueryChanged,
               decoration: InputDecoration(
                 hintText: l10n.search,
                 prefixIcon: const Icon(Icons.search),
@@ -191,6 +234,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     : IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () {
+                          _queryTimer?.cancel();
                           _searchController.clear();
                           setState(() => _query = '');
                         },
@@ -308,91 +352,39 @@ class _LibraryScreenState extends State<LibraryScreen> {
         // Already gone: the refresh below settles the list either way.
       }
     }
+    // Deleted files must not keep serving a cached thumbnail path.
+    _model.forgetThumbnails();
     setState(_selected.clear);
     await _model.refresh();
   }
 
   Widget _buildGrid(BuildContext context, List<LibraryEntry> entries) {
-    final theme = Theme.of(context);
-    final radius = BorderRadius.circular(12);
-
     return Stack(
       children: [
+        // `.maxCrossAxisExtent` instead of a fixed column count: the tiles keep
+        // a sane size on tablets and in landscape, and the aspect ratio leaves
+        // room for the filename strip that used to be cropped away.
         GridView.builder(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, mainAxisSpacing: 6, crossAxisSpacing: 6),
+          cacheExtent: 400,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 140,
+            childAspectRatio: 0.78,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+          ),
           itemCount: entries.length,
           itemBuilder: (context, index) {
             final entry = entries[index];
-            final selected = _selected.contains(entry.file.path);
-            return GestureDetector(
+            return LibraryTile(
+              key: ValueKey(entry.file.path),
+              entry: entry,
+              // Only the tapped tile's selection changes, so the delegate reads
+              // the flag from the parent set at build time.
+              selected: _selected.contains(entry.file.path),
+              thumbnailFor: _model.thumbnailFor,
               onTap: () => _selectionActive ? _toggleSelection(entry) : _openEntry(entry),
               onLongPress: () => _toggleSelection(entry),
-              child: ClipRRect(
-                borderRadius: radius,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (entry.isVideo)
-                      FutureBuilder<String?>(
-                        future: _model.thumbnailFor(entry),
-                        builder: (context, snapshot) {
-                          final thumbPath = snapshot.data;
-                          if (thumbPath == null) {
-                            return Container(
-                                color: theme.colorScheme.surfaceContainerHighest,
-                                child: const Center(child: Icon(Icons.play_circle_outline)));
-                          }
-                          return ExtendedImage.file(
-                            File(thumbPath),
-                            fit: BoxFit.cover,
-                            loadStateChanged: (state) {
-                              if (state.extendedImageLoadState == LoadState.failed) {
-                                return const Center(child: Icon(Icons.play_circle_outline));
-                              }
-                              return null;
-                            },
-                          );
-                        },
-                      )
-                    else
-                      ExtendedImage.file(
-                        entry.file,
-                        fit: BoxFit.cover,
-                        loadStateChanged: (state) {
-                          if (state.extendedImageLoadState == LoadState.failed) {
-                            return const Icon(Icons.broken_image_outlined);
-                          }
-                          return null;
-                        },
-                      ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        color: Colors.black38,
-                        padding: const EdgeInsets.all(4),
-                        child: Text(entry.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(color: Colors.white)),
-                      ),
-                    ),
-                    if (selected)
-                      Positioned.fill(
-                        child: ColoredBox(color: theme.colorScheme.primary.withValues(alpha: 0.35)),
-                      ),
-                    if (selected)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: Icon(Icons.check_circle, color: theme.colorScheme.primary),
-                      ),
-                  ],
-                ),
-              ),
             );
           },
         ),
@@ -420,6 +412,134 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final ok = await _model.importExisting();
     if (!mounted || !ok) return;
     await _model.refresh();
+  }
+}
+
+/// A single media tile.
+///
+/// Extracted from the grid's `itemBuilder` so it can be wrapped in a
+/// [RepaintBoundary]: toggling one tile's selection repaints that tile instead
+/// of the whole grid. [thumbnailFor] is the model's cached Future lookup, so a
+/// rebuild never re-probes the filesystem or flashes the placeholder.
+class LibraryTile extends StatelessWidget {
+  final LibraryEntry entry;
+  final bool selected;
+  final Future<String?> Function(LibraryEntry) thumbnailFor;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const LibraryTile({
+    super.key,
+    required this.entry,
+    required this.selected,
+    required this.thumbnailFor,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (entry.isVideo) _buildVideoThumbnail(context) else _buildImage(context),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black38,
+                  padding: const EdgeInsets.all(4),
+                  child: Text(entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(color: Colors.white)),
+                ),
+              ),
+              // Fade, not a hard colour swap: opacity-only changes stay on the
+              // compositor and never re-run layout for the tile.
+              AnimatedOpacity(
+                opacity: selected ? 1 : 0,
+                duration: const Duration(milliseconds: 120),
+                child: IgnorePointer(
+                  child: ColoredBox(color: theme.colorScheme.primary.withValues(alpha: 0.35)),
+                ),
+              ),
+              AnimatedOpacity(
+                opacity: selected ? 1 : 0,
+                duration: const Duration(milliseconds: 120),
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.check_circle,
+                        size: 20, color: theme.colorScheme.primary),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Decoding is capped to roughly the tile's on-screen size: a 4K video frame
+  /// is ~33 MB as a full bitmap, and the grid only ever shows ~140 px of it.
+  int _decodeWidth(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return (140 * dpr).round();
+  }
+
+  Widget _buildVideoThumbnail(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return FutureBuilder<String?>(
+      // A stable Future from the model's cache, not one built in `build()`.
+      future: thumbnailFor(entry),
+      builder: (context, snapshot) {
+        final thumbPath = snapshot.data;
+        if (thumbPath == null) {
+          return ColoredBox(
+            color: theme.colorScheme.surfaceContainerHighest,
+            child: const Center(child: Icon(Icons.play_circle_outline)),
+          );
+        }
+        return ExtendedImage.file(
+          File(thumbPath),
+          fit: BoxFit.cover,
+          cacheWidth: _decodeWidth(context),
+          loadStateChanged: (state) {
+            if (state.extendedImageLoadState == LoadState.failed) {
+              return const Center(child: Icon(Icons.play_circle_outline));
+            }
+            return null;
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildImage(BuildContext context) {
+    return ExtendedImage.file(
+      entry.file,
+      fit: BoxFit.cover,
+      cacheWidth: _decodeWidth(context),
+      loadStateChanged: (state) {
+        if (state.extendedImageLoadState == LoadState.failed) {
+          return const Icon(Icons.broken_image_outlined);
+        }
+        return null;
+      },
+    );
   }
 }
 

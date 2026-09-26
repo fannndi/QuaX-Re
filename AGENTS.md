@@ -131,6 +131,14 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   and its notification actions; the queue is persisted (`downloads.json`), one transfer at a time,
   with pause/resume, Range resume, retries, space and integrity checks. No in-app player: gallery
   media opens in the system viewer through a FileProvider.
+- The gallery show/hide switch (`setGalleryVisibility` in `QuaxApplication.kt`) must rescan every
+  media *file*, not just the `.nomedia` marker: MIUI keeps already-indexed media rows when the
+  marker alone is scanned, so the gallery kept showing the library. With the marker in place a
+  per-file rescan drops the files from the media collections (they survive as plain file rows),
+  and removing the marker plus a rescan puts them back. The pass reports only rows whose
+  `media_type != 0` as leftovers — counting all rows would always report the library as visible —
+  and it never deletes a MediaStore row (that deletes the file). Verify with
+  `content query --uri content://media/<volume>/images/media --where "_data LIKE '%QuaXLibrary%'"`.
 - Offline mode: `TimelineCache` (first page, 12h Ttl) paints feeds instantly, `NetworkStatus`
   (DNS probe) retries when the connection returns, and downloaded clips play from disk.
 - Local search (search screen's 5th tab) matches saved/liked posts in Dart

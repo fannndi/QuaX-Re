@@ -197,38 +197,61 @@ class _GalleryTabState extends State<_GalleryTab> {
   late bool _visible = _model.galleryVisible;
   bool _busy = false;
 
-  Future<void> _toggle(bool value) async {
-    if (_busy) return;
-    setState(() => _busy = true);
+  @override
+  void dispose() {
+    _model.dispose();
+    super.dispose();
+  }
 
-    final result = await _model.setGalleryVisible(value);
+  /// Flips the switch first and lets the native pass finish behind it.
+  ///
+  /// The pass scans every media file, which is inherently slow; blocking the
+  /// switch for it made a 500-clip library feel broken. The optimistic flip is
+  /// rolled back only if the pass actually fails, and the model serializes
+  /// passes so a fast double-toggle cannot interleave two scans.
+  void _toggle(bool value) {
+    setState(() {
+      _visible = value;
+      _busy = true;
+    });
+
+    _model.setGalleryVisibleInBackground(
+      value,
+      onProgress: (p) => setState(() {}),
+      onSettled: (result) => _settle(value, result),
+    );
+  }
+
+  Future<void> _settle(bool requested, GalleryVisibilityResult result) async {
     if (!mounted) return;
-    setState(() => _busy = false);
+    _busy = false;
 
-    final l10n = L10n.of(context);
     if (!result.ok) {
-      showSnackBar(context, icon: '🙊', message: l10n.library_storage_permission_needed);
+      // Roll the optimistic flip back: the folder still holds the old state.
+      setState(() => _visible = !requested);
+      showSnackBar(context, icon: '🙊', message: L10n.of(context).library_storage_permission_needed);
       return;
     }
 
-    setState(() => _visible = value);
+    setState(() {});
 
-    if (!value && result.remaining > 0) {
+    if (!requested && result.remaining > 0) {
       // The marker is in place, but rows the app no longer owns survived: the
       // gallery may keep showing those files until it rescans. The sync
       // action re-applies the pass for galleries that need another nudge.
       showSnackBar(
         context,
         icon: '⚠️',
-        message: l10n.gallery_hide_incomplete.replaceFirst('%d', '${result.remaining}'),
+        message: L10n.of(context).gallery_hide_incomplete.replaceFirst('%d', '${result.remaining}'),
       );
       return;
     }
 
-    final message = value
+    final l10n = L10n.of(context);
+    final message = requested
         ? l10n.gallery_shown_count.replaceFirst('%d', '${result.affected}')
         : l10n.gallery_hidden_count.replaceFirst('%d', '${result.affected}');
-    showSnackBar(context, icon: value ? '👀' : '🙈', message: message);
+    showSnackBar(context, icon: requested ? '👀' : '🙈', message: message);
   }
 
   @override
@@ -237,43 +260,90 @@ class _GalleryTabState extends State<_GalleryTab> {
     final path = _model.libraryPath;
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        Card(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: SwitchListTile(
-                  value: _visible,
-                  onChanged: configured && !_busy ? _toggle : null,
-                  secondary: Icon(_visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                  title: Text(L10n.of(context).show_in_gallery),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(L10n.of(context).download_path, style: theme.textTheme.labelSmall),
-                      Text(configured ? path : L10n.of(context).not_set,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
+    // Rebuilds as the native pass reports progress; the model keeps the latest
+    // value so a rebuild for any other reason does not blank the bar.
+    return ValueListenableBuilder<GalleryProgress?>(
+      valueListenable: _model.progress,
+      builder: (context, progress, _) => Column(
+        children: [
+          Card(
+            margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: SwitchListTile(
+                        value: _visible,
+                        // Stays live during a pass: the model queues the new
+                        // intent instead of dropping it, so the user is never
+                        // locked out of the switch they just flipped.
+                        onChanged: configured ? _toggle : null,
+                        secondary:
+                            Icon(_visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        title: Text(L10n.of(context).show_in_gallery),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(L10n.of(context).download_path, style: theme.textTheme.labelSmall),
+                            Text(configured ? path : L10n.of(context).not_set,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Applies the current state again without flipping the
+                    // switch: a gallery with its own index sometimes needs the
+                    // marker/scan pass twice before it lets go.
+                    IconButton(
+                      icon: _busy
+                          ? const SizedBox(
+                              width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.sync),
+                      tooltip: L10n.of(context).refresh,
+                      onPressed: configured && !_busy ? () => _toggle(_visible) : null,
+                    ),
+                  ],
                 ),
-              ),
-              // Applies the current state again without flipping the switch:
-              // a gallery with its own index sometimes needs the marker/scan
-              // pass twice before it lets go.
-              IconButton(
-                icon: _busy
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sync),
-                tooltip: L10n.of(context).refresh,
-                onPressed: configured && !_busy ? () => _toggle(_visible) : null,
-              ),
-            ],
+                _buildProgress(context, progress),
+              ],
+            ),
           ),
-        ),
-        Expanded(child: LibraryScreen(prefs: widget.prefs)),
-      ],
+          Expanded(child: LibraryScreen(prefs: widget.prefs)),
+        ],
+      ),
+    );
+  }
+
+  /// The native pass streams how many files it has pushed through the scanner,
+  /// so the wait reads as work happening rather than a frozen switch.
+  Widget _buildProgress(BuildContext context, GalleryProgress? progress) {
+    if (!_busy || progress == null) return const SizedBox.shrink();
+
+    final l10n = L10n.of(context);
+    final label = switch (progress.phase) {
+      'verify' => l10n.gallery_progress_verifying,
+      _ => _visible ? l10n.gallery_progress_showing : l10n.gallery_progress_hiding,
+    };
+    final text = label
+        .replaceFirst('%d', '${progress.done}')
+        .replaceFirst('%d', '${progress.total}');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LinearProgressIndicator(
+            // A pass that has not reported its file count yet shows an
+            // indeterminate bar rather than a stuck 0%.
+            value: progress.total > 0 ? progress.fraction : null,
+            minHeight: 3,
+          ),
+          const SizedBox(height: 6),
+          Text(text, style: Theme.of(context).textTheme.labelSmall),
+        ],
+      ),
     );
   }
 }

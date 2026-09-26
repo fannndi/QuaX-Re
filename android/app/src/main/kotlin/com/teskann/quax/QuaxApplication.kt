@@ -16,6 +16,7 @@ import android.os.Looper
 import android.os.StatFs
 import android.provider.MediaStore
 import android.provider.Settings
+import android.util.Log
 import android.view.WindowManager
 import androidx.core.content.FileProvider
 import androidx.multidex.MultiDex
@@ -52,6 +53,17 @@ class QuaxApplication : android.app.Application() {
         // A gallery pass must always answer, even when the system scanner stays
         // silent (an OEM provider with its own index, a headless emulator).
         private const val SCAN_TIMEOUT_MS = 10_000L
+
+        // MediaScannerConnection is fire-and-forget with no progress: handing it
+        // thousands of paths at once makes MediaProvider queue them all before
+        // it indexes anything, and the switch sat blind for the whole wait. The
+        // pass now walks the list in batches and reports each one, and the
+        // short breather between batches lets the provider flush — a large
+        // hidden pass also finishes sooner than it did in one lump.
+        private const val SCAN_BATCH = 40
+        private const val SCAN_BATCH_GAP_MS = 25L
+
+        private const val TAG = "QuaX"
     }
 
     lateinit var engine: FlutterEngine
@@ -93,15 +105,19 @@ class QuaxApplication : android.app.Application() {
      * how many files were affected so the UI can confirm the outcome instead of
      * guessing.
      *
-     * Showing removes the `.nomedia` marker and scans every media file, so the
-     * gallery finds them again. Hiding writes the marker and scans it, which
-     * makes MediaProvider re-read the folder rule and drop the indexed entries;
-     * the rows that survive (a gallery app with its own index, an OEM provider)
-     * are only counted, never deleted, because deleting a MediaStore row
-     * deletes the file it points at.
+     * The files themselves are never touched. MediaProvider decides what the
+     * gallery lists, so the pass works on it: hiding writes the `.nomedia`
+     * marker and then rescans every media file — the rescan is what makes the
+     * provider re-read the folder rule and drop them from the media collections
+     * (they stay reachable as plain files). Scanning only the marker is not
+     * enough on MIUI, where rows indexed before survive it; that was why the
+     * switch looked broken. Showing deletes the marker and rescans the files,
+     * which puts them back.
      *
-     * Answers at most [SCAN_TIMEOUT_MS] after the request even if the system
-     * scanner never calls back, so the switch can never hang.
+     * Whatever the provider still lists as media after both passes is counted,
+     * never deleted — deleting a MediaStore row deletes the file it points at —
+     * and reported as `remaining`. Answers at most [SCAN_TIMEOUT_MS] per pass,
+     * so the switch can never hang.
      */
     private fun setGalleryVisibility(dirPath: String, visible: Boolean, result: MethodChannel.Result) {
         val dir = File(dirPath)
@@ -130,9 +146,12 @@ class QuaxApplication : android.app.Application() {
                 return
             }
 
-            scanMedia(media.toTypedArray(), result) {
-                val indexed = countMediaStoreRows(media)
-                mapOf("affected" to indexed, "remaining" to (media.size - indexed).coerceAtLeast(0))
+            scanPaths(media, onProgress = { done, total ->
+                emitProgress(done, total, "scan")
+            }) {
+                val indexed = visibleMediaUnder(dir).size
+                Log.i(TAG, "gallery show: ${media.size} files, $indexed in the gallery")
+                result.success(mapOf("affected" to indexed, "remaining" to (media.size - indexed).coerceAtLeast(0)))
             }
             return
         }
@@ -144,31 +163,117 @@ class QuaxApplication : android.app.Application() {
             return
         }
 
-        scanMedia(arrayOf(nomedia.absolutePath), result) {
-            mapOf("affected" to media.size, "remaining" to countMediaStoreRows(media))
+        if (media.isEmpty()) {
+            result.success(mapOf("affected" to 0, "remaining" to 0))
+            return
+        }
+
+        // The marker goes through the scanner as well: on stock Android its scan
+        // is what removes rows for the whole folder, the per-file scans cover
+        // the providers that ignore it.
+        scanPaths(media + nomedia.absolutePath, onProgress = { done, total ->
+            emitProgress(done, total, "scan")
+        }) {
+            hideLeftovers(dir, media, result)
+        }
+    }
+
+    /** Streams a pass' progress to Dart, which owns the switch's progress bar. */
+    private fun emitProgress(done: Int, total: Int, phase: String) {
+        mainHandler.post {
+            try {
+                channel?.invokeMethod("galleryProgress", mapOf("done" to done, "total" to total, "phase" to phase))
+            } catch (e: Exception) {
+                // No engine attached: progress is cosmetic, never fatal.
+            }
         }
     }
 
     /**
-     * Hands [paths] to the system media scanner and answers with [answer] once
-     * the scanner reported every path — or when [SCAN_TIMEOUT_MS] passes, so a
-     * scanner that stays silent cannot leave the switch spinning forever.
+     * Second chance for the providers that answer the first rescan from a cache:
+     * whatever is still listed in the gallery is scanned once more, then the
+     * outcome is reported.
      */
-    private fun scanMedia(paths: Array<String>, result: MethodChannel.Result, answer: () -> Map<String, Any>) {
-        var replied = false
+    private fun hideLeftovers(dir: File, media: List<String>, result: MethodChannel.Result) {
+        val left = visibleMediaUnder(dir)
+        if (left.isEmpty()) {
+            Log.i(TAG, "gallery hide: all ${media.size} files left the gallery")
+            result.success(mapOf("affected" to media.size, "remaining" to 0))
+            return
+        }
+
+        scanPaths(left, onProgress = { done, total ->
+            emitProgress(done, total, "verify")
+        }) {
+            val remaining = visibleMediaUnder(dir).size
+            Log.i(TAG, "gallery hide: ${media.size - remaining} of ${media.size} left the gallery, $remaining still visible")
+            result.success(
+                mapOf("affected" to (media.size - remaining).coerceAtLeast(0), "remaining" to remaining)
+            )
+        }
+    }
+
+    /**
+     * Runs [paths] through the system media scanner and calls [done] once every
+     * path was reported — or when [SCAN_TIMEOUT_MS] passes without any new
+     * callback, so a scanner that stays silent cannot leave the switch spinning
+     * forever.
+     *
+     * Paths go out in [SCAN_BATCH]-sized chunks with [onProgress] reporting the
+     * running count, which is what lets the Dart switch show a real bar instead
+     * of a blind spinner; the caller labels the phase it belongs to.
+     */
+    private fun scanPaths(
+        paths: List<String>,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+        done: () -> Unit,
+    ) {
+        if (paths.isEmpty()) {
+            mainHandler.post(done)
+            return
+        }
+
+        val total = paths.size
+        var finished = false
+        var next = 0
         val scanned = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
-        fun reply() {
-            if (replied) return
-            replied = true
-            result.success(answer())
+        fun finish() {
+            if (finished) return
+            finished = true
+            done()
         }
 
-        mainHandler.postDelayed({ reply() }, SCAN_TIMEOUT_MS)
-        MediaScannerConnection.scanFile(this, paths, null) { path, _ ->
-            if (path != null) scanned.add(path)
-            if (scanned.size >= paths.size) mainHandler.post { reply() }
+        // Inactivity timeout, not a budget for the whole walk: every batch we
+        // hand over pushes it back, so a slow-but-alive provider is never cut
+        // off while a silent one still answers within SCAN_TIMEOUT_MS.
+        val timeout = Runnable { finish() }
+
+        fun pump() {
+            if (finished) return
+            if (next >= total) {
+                // Every batch was handed over; a provider may still owe us the
+                // last callbacks, so let the timeout collect them.
+                mainHandler.postDelayed(timeout, SCAN_TIMEOUT_MS)
+                return
+            }
+
+            val end = minOf(next + SCAN_BATCH, total)
+            val batch = paths.subList(next, end).toTypedArray()
+            next = end
+
+            mainHandler.removeCallbacks(timeout)
+            mainHandler.postDelayed(timeout, SCAN_TIMEOUT_MS)
+
+            MediaScannerConnection.scanFile(this, batch, null) { path, _ ->
+                if (path != null) scanned.add(path)
+                if (scanned.size >= total) finish()
+            }
+            onProgress(next, total)
+            mainHandler.postDelayed({ pump() }, SCAN_BATCH_GAP_MS)
         }
+
+        pump()
     }
 
     private fun mediaFilesUnder(dir: File): List<String> =
@@ -190,23 +295,39 @@ class QuaxApplication : android.app.Application() {
         }
     }
 
-    private fun countMediaStoreRows(paths: List<String>): Int {
-        var remaining = 0
+    /**
+     * The folder's media as the gallery sees it: rows of the media collections,
+     * so the plain file rows MIUI leaves behind while hidden do not count as
+     * leftovers.
+     */
+    private fun visibleMediaUnder(dir: File): List<String> {
+        val selection = "${MediaStore.Files.FileColumns.DATA} LIKE ? ESCAPE '\\' AND " +
+            "${MediaStore.Files.FileColumns.MEDIA_TYPE} != ${MediaStore.Files.FileColumns.MEDIA_TYPE_NONE}"
+        val args = arrayOf("${escapeLike(dir.absolutePath)}/%")
+        val paths = mutableListOf<String>()
+
         for (volume in externalVolumeNames()) {
-            val collection = MediaStore.Files.getContentUri(volume)
-            for (path in paths) {
-                try {
-                    contentResolver.query(
-                        collection, arrayOf(MediaStore.MediaColumns._ID),
-                        MediaStore.MediaColumns.DATA + " = ?", arrayOf(path), null
-                    )?.use { remaining += it.count }
-                } catch (e: Exception) {
-                    // An unreadable volume simply cannot report leftovers.
+            try {
+                contentResolver.query(
+                    MediaStore.Files.getContentUri(volume),
+                    arrayOf(MediaStore.Files.FileColumns.DATA),
+                    selection,
+                    args,
+                    null
+                )?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        cursor.getString(0)?.let { paths.add(it) }
+                    }
                 }
+            } catch (e: Exception) {
+                // An unreadable volume simply cannot report what it lists.
             }
         }
-        return remaining
+        return paths
     }
+
+    private fun escapeLike(value: String): String =
+        value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     private fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (call.method == "downloadNotification") {
