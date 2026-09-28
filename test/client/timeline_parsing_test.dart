@@ -10,7 +10,8 @@ import 'package:quax/client/client.dart';
 ///
 /// Payloads go through jsonDecode(jsonEncode(..)) so they carry the exact types
 /// the real responses have (jsonDecode maps), not test-literal types.
-Map<String, dynamic> payload(Object o) => jsonDecode(jsonEncode(o)) as Map<String, dynamic>;
+Map<String, dynamic> payload(Object o) =>
+    jsonDecode(jsonEncode(o)) as Map<String, dynamic>;
 
 void main() {
   setUpAll(() async {
@@ -21,46 +22,77 @@ void main() {
   group('createTimelineChains', () {
     test('Should return an empty status instead of throwing when the home shape changed', () {
       final status = createTimelineChains(
-        payload({'data': {'home': {}}}),
+        payload({
+          'data': {'home': {}},
+        }),
         'tweet',
         const [],
         true,
         false,
-        false,
-        () => 0,
-        () {},
       );
 
-      expect(status.chains, isEmpty,
-          reason: 'A changed response shape should degrade to an empty feed, not crash the whole timeline');
-      expect(status.cursorBottom, isNull, reason: 'No entries means there is no cursor to paginate with');
+      expect(
+        status.chains,
+        isEmpty,
+        reason: 'A changed response shape should degrade to an empty feed, not crash the whole timeline',
+      );
+      expect(
+        status.cursorBottom,
+        isNull,
+        reason: 'No entries means there is no cursor to paginate with',
+      );
     });
   });
 
   group('createTweets', () {
     test('Should skip an entry without an entryId', () {
-      final chains = createTweets([payload({'content': {}})]);
+      final chains = createTweets([
+        payload({'content': {}}),
+      ]);
 
-      expect(chains, isEmpty, reason: 'One malformed entry should be skipped, not kill the whole page');
+      expect(
+        chains,
+        isEmpty,
+        reason:
+            'One malformed entry should be skipped, not kill the whole page',
+      );
     });
 
     test('Should skip a tweet entry whose tweet_results is missing (deleted tweet)', () {
       final chains = createTweets([
-        payload({'entryId': 'tweet-1', 'content': {'itemContent': {}}}),
+        payload({
+          'entryId': 'tweet-1',
+          'content': {'itemContent': {}},
+        }),
       ]);
 
-      expect(chains, isEmpty, reason: 'A deleted tweet should be omitted from the feed, not crash parsing');
+      expect(
+        chains,
+        isEmpty,
+        reason: 'A deleted tweet should be omitted from the feed, not crash parsing',
+      );
     });
 
     test('Should skip a tweet entry that carries no rest_id', () {
       final chains = createTweets([
         payload({
           'entryId': 'tweet-1',
-          'content': {'itemContent': {'tweet_results': {'result': {'legacy': {}}}}},
+          'content': {
+            'itemContent': {
+              'tweet_results': {
+                'result': {'legacy': {}},
+              },
+            },
+          },
         }),
       ]);
 
-      expect(chains, isEmpty, reason: 'An entry without a tweet id can neither be displayed nor opened');
+      expect(
+        chains,
+        isEmpty,
+        reason:
+            'An entry without a tweet id can neither be displayed nor opened',
+      );
     });
 
     test('Should skip a tweet whose payload cannot be parsed, keeping the page alive', () {
@@ -74,16 +106,25 @@ void main() {
                   'rest_id': '1',
                   'legacy': {},
                   // a card binding value without a key makes the card parsing throw
-                  'card': {'legacy': {'binding_values': [{'value': {}}]}},
-                }
-              }
-            }
-          }
+                  'card': {
+                    'legacy': {
+                      'binding_values': [
+                        {'value': {}},
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
         }),
       ]);
 
-      expect(chains, isEmpty,
-          reason: 'One unparseable tweet should be dropped, not crash the whole page with it');
+      expect(
+        chains,
+        isEmpty,
+        reason: 'One unparseable tweet should be dropped, not crash the whole page with it',
+      );
     });
 
     test('Should keep a tweet whose quoted tweet is unavailable', () {
@@ -96,44 +137,74 @@ void main() {
                 'result': {
                   'rest_id': '1',
                   'legacy': {},
-                  'quoted_status_result': {'result': {'__typename': 'TweetWithVisibilityResults'}},
-                }
-              }
-            }
-          }
+                  'quoted_status_result': {
+                    'result': {'__typename': 'TweetWithVisibilityResults'},
+                  },
+                },
+              },
+            },
+          },
         }),
       ]);
 
-      expect(chains, hasLength(1),
-          reason: 'The quoted post being unavailable must not take the quoting post down with it');
-      expect(chains.first.tweets.first.quotedStatusWithCard, isNull,
-          reason: 'The quote is simply not rendered when its payload is missing');
+      expect(
+        chains,
+        hasLength(1),
+        reason: 'The quoted post being unavailable must not take the quoting post down with it',
+      );
+      expect(
+        chains.first.tweets.first.quotedStatusWithCard,
+        isNull,
+        reason: 'The quote is simply not rendered when its payload is missing',
+      );
     });
   });
 
   group('createTweetChains', () {
     test('Should skip a tweet entry without tweet_results', () {
       final chains = createTweetChains([
-        payload({'entryId': 'tweet-1', 'content': {'itemContent': {}}}),
-      ]);
-
-      expect(chains, isEmpty, reason: 'A tweet x.com cannot open should be skipped, not crash the thread');
-    });
-
-    test('Should fall back to a tombstone when a tweet result carries no rest_id', () {
-      final chains = createTweetChains([
         payload({
-          'entryId': 'tweet-123',
-          'content': {'itemContent': {'tweet_results': {'result': {'legacy': null}}}},
+          'entryId': 'tweet-1',
+          'content': {'itemContent': {}},
         }),
       ]);
 
-      expect(chains, hasLength(1),
-          reason: 'The entry stays visible so the user knows a post exists there');
-      expect(chains.first.tweets.first.isTombstone, isTrue,
-          reason: 'Without a rest_id the tweet can only render as a tombstone');
+      expect(
+        chains,
+        isEmpty,
+        reason:
+            'A tweet x.com cannot open should be skipped, not crash the thread',
+      );
     });
+
+    test(
+      'Should fall back to a tombstone when a tweet result carries no rest_id',
+      () {
+        final chains = createTweetChains([
+          payload({
+            'entryId': 'tweet-123',
+            'content': {
+              'itemContent': {
+                'tweet_results': {
+                  'result': {'legacy': null},
+                },
+              },
+            },
+          }),
+        ]);
+
+        expect(
+          chains,
+          hasLength(1),
+          reason:
+              'The entry stays visible so the user knows a post exists there',
+        );
+        expect(
+          chains.first.tweets.first.isTombstone,
+          isTrue,
+          reason: 'Without a rest_id the tweet can only render as a tombstone',
+        );
+      },
+    );
   });
 }
-
-

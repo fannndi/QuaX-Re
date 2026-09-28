@@ -21,13 +21,14 @@ class ProfileLikes extends StatelessWidget {
     return ProfileTweetFeed(
       user: user,
       emptyMessage: L10n.of(context).no_liked_posts_yet,
-      loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getLikes(
-        user.idStr!,
-        cursor: cursor,
-        count: 20,
-        getTweetsCounter: getTweetsCounter,
-        incrementTweetsCounter: incrementTweetsCounter,
-      ),
+      loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) =>
+          Twitter.getLikes(
+            user.idStr!,
+            cursor: cursor,
+            count: 20,
+            getTweetsCounter: getTweetsCounter,
+            incrementTweetsCounter: incrementTweetsCounter,
+          ),
     );
   }
 }

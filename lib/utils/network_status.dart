@@ -34,7 +34,8 @@ class NetworkStatus {
   Future<bool> _probe() async {
     var reachable = false;
     try {
-      final addresses = await InternetAddress.lookup('x.com').timeout(const Duration(seconds: 5));
+      final addresses = await InternetAddress.lookup('x.com')
+          .timeout(const Duration(seconds: 5));
       reachable = addresses.isNotEmpty && addresses.first.rawAddress.isNotEmpty;
     } on Exception {
       reachable = false;

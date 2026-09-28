@@ -14,11 +14,17 @@ import 'package:quax/utils/network_status.dart';
 ///
 /// Skipped while offline, on metered connections, and when media autoload is
 /// off, so it never spends data behind the reader's back.
-Future<void> prefetchChainImages(BuildContext context, List<TweetChain> chains,
-    {int limit = 8}) async {
+Future<void> prefetchChainImages(
+  BuildContext context,
+  List<TweetChain> chains, {
+  int limit = 8,
+}) async {
   final prefs = PrefService.of(context, listen: false);
   if (prefs.get<bool>(optionMediaDisableAutoload) ?? false) return;
-  final decodeWidth = decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
+  final decodeWidth = decodeWidthFor(
+    context,
+    MediaQuery.sizeOf(context).width - 32,
+  );
   if (!NetworkStatus().online.value) return;
   if (await isMeteredConnection() == true) return;
 
@@ -52,16 +58,17 @@ Future<void> prefetchChainImages(BuildContext context, List<TweetChain> chains,
     if (!context.mounted) return;
     try {
       await precacheImage(
-          ExtendedResizeImage.resizeIfNeeded(
-            provider: ExtendedNetworkImageProvider(url, cache: true),
-            compressionRatio: null,
-            maxBytes: null,
-            cacheWidth: decodeWidth,
-            cacheHeight: null,
-            cacheRawData: false,
-            imageCacheName: null,
-          ),
-          context);
+        ExtendedResizeImage.resizeIfNeeded(
+          provider: ExtendedNetworkImageProvider(url, cache: true),
+          compressionRatio: null,
+          maxBytes: null,
+          cacheWidth: decodeWidth,
+          cacheHeight: null,
+          cacheRawData: false,
+          imageCacheName: null,
+        ),
+        context,
+      );
     } catch (_) {
       // A failed prefetch only means the normal lazy load does the work.
     }

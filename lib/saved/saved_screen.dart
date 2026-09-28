@@ -25,7 +25,8 @@ class SavedView extends StatefulWidget {
   State<SavedView> createState() => _SavedViewState();
 }
 
-class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixin<SavedView> {
+class _SavedViewState extends State<SavedView>
+    with AutomaticKeepAliveClientMixin<SavedView> {
   String _filter = savedTabAll;
 
   @override
@@ -96,12 +97,17 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
   }
 
   Widget _folderChip(String token, List<SavedTweetFolder> folders) {
-    var isFolder = token != savedTabAll && token != savedTabUnfiled && token != savedTabFavorites;
+    var isFolder =
+        token != savedTabAll &&
+        token != savedTabUnfiled &&
+        token != savedTabFavorites;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
-        onLongPress: isFolder ? () => _showFolderMenu(token, _tokenLabel(token, folders)) : null,
+        onLongPress: isFolder
+            ? () => _showFolderMenu(token, _tokenLabel(token, folders))
+            : null,
         child: Theme(
           data: Theme.of(context).copyWith(
             splashFactory: NoSplash.splashFactory,
@@ -157,7 +163,11 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
               title: Text(L10n.of(sheetContext).delete),
               onTap: () async {
                 Navigator.pop(sheetContext);
-                var deleted = await showDeleteFolderDialog(context, folderModel, folder);
+                var deleted = await showDeleteFolderDialog(
+                  context,
+                  folderModel,
+                  folder,
+                );
                 if (deleted && mounted && _filter == folderId) {
                   setState(() => _filter = savedTabAll);
                 }
@@ -178,7 +188,10 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
     );
   }
 
-  Widget _buildFolderStrip(List<String> tokens, List<SavedTweetFolder> folders) {
+  Widget _buildFolderStrip(
+    List<String> tokens,
+    List<SavedTweetFolder> folders,
+  ) {
     return SizedBox(
       height: 52,
       child: Align(
@@ -189,7 +202,11 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(children: [for (var token in tokens) _folderChip(token, folders)]),
+                child: Row(
+                  children: [
+                    for (var token in tokens) _folderChip(token, folders),
+                  ],
+                ),
               ),
             ),
             IconButton(
@@ -215,7 +232,10 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
     );
   }
 
-  Widget _buildList({required int itemCount, required SavedTweetTile Function(int) tileAt}) {
+  Widget _buildList({
+    required int itemCount,
+    required SavedTweetTile Function(int) tileAt,
+  }) {
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(top: 4),
@@ -245,7 +265,11 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
               ? _buildEmptyState(filter)
               : _buildList(
                   itemCount: filtered.length,
-                  tileAt: (i) => SavedTweetTile(id: filtered[i].id, content: filtered[i].content)),
+                  tileAt: (i) => SavedTweetTile(
+                    id: filtered[i].id,
+                    content: filtered[i].content,
+                  ),
+                ),
         );
       },
     );
@@ -269,7 +293,9 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
             ? _buildEmptyState(savedTabFavorites)
             : _buildList(
                 itemCount: data.length,
-                tileAt: (i) => SavedTweetTile(id: data[i].id, content: data[i].content)),
+                tileAt: (i) =>
+                    SavedTweetTile(id: data[i].id, content: data[i].content),
+              ),
       ),
     );
   }
@@ -284,16 +310,19 @@ class _SavedViewState extends State<SavedView> with AutomaticKeepAliveClientMixi
     return ScopedBuilder<SavedTweetFolderModel, List<SavedTweetFolder>>(
       store: folderModel,
       onState: (context, folders) {
-        var tokens = orderedSavedTabs(folders, prefs.get(optionSavedTabOrder))
-            .where((token) => _isTokenVisible(token, prefs))
-            .toList();
+        var tokens = orderedSavedTabs(
+          folders,
+          prefs.get(optionSavedTabOrder),
+        ).where((token) => _isTokenVisible(token, prefs)).toList();
         var filter = tokens.contains(_filter) ? _filter : savedTabAll;
 
         return Column(
           children: [
             _buildFolderStrip(tokens, folders),
             Expanded(
-              child: filter == savedTabFavorites ? _buildFavoritesBody() : _buildSavedBody(filter),
+              child: filter == savedTabFavorites
+                  ? _buildFavoritesBody()
+                  : _buildSavedBody(filter),
             ),
           ],
         );

@@ -37,8 +37,7 @@ class ClientTransaction {
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
         'Referer': 'https://x.com',
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
         'X-Twitter-Active-User': 'yes',
         'X-Twitter-Client-Language': 'en',
       },
@@ -105,11 +104,11 @@ class ClientTransaction {
   }
 
   static String _getKey(html_dom.Document doc) {
-    final element =
-        doc.querySelector("meta[name='twitter-site-verification']");
+    final element = doc.querySelector("meta[name='twitter-site-verification']");
     if (element == null) {
       throw Exception(
-          "Couldn't get [twitter-site-verification] key from the page source");
+        "Couldn't get [twitter-site-verification] key from the page source",
+      );
     }
     return element.attributes['content']!;
   }
@@ -118,7 +117,9 @@ class ClientTransaction {
 
   static String _getOndemandFileUrl(String html) {
     final indexMatch = onDemandFileRegex.firstMatch(html);
-    if (indexMatch == null) throw Exception("Couldn't find ondemand file index");
+    if (indexMatch == null) {
+      throw Exception("Couldn't find ondemand file index");
+    }
     final fileIndex = indexMatch.group(1)!;
     final hashRegex = RegExp(',${RegExp.escape(fileIndex)}:"([0-9a-f]+)"');
     final hashMatch = hashRegex.firstMatch(html);
@@ -128,7 +129,9 @@ class ClientTransaction {
   }
 
   static List<List<int>> _get2dArray(
-      List<int> keyBytes, html_dom.Document doc) {
+    List<int> keyBytes,
+    html_dom.Document doc,
+  ) {
     final frames = doc.querySelectorAll('[id^="loading-x-anim"]');
     final frame = frames[keyBytes[5] % 4];
     final pathElement = frame.children[0].children[1];
@@ -149,19 +152,27 @@ class ClientTransaction {
   }
 
   static double _solve(
-      double value, double minVal, double maxVal, bool rounding) {
+    double value,
+    double minVal,
+    double maxVal,
+    bool rounding,
+  ) {
     final result = value * (maxVal - minVal) / 255.0 + minVal;
     return rounding ? result.floor().toDouble() : roundTo2(result);
   }
 
   static String _animate(List<int> frames, double targetTime) {
     final fromColor = [
-      frames[0].toDouble(), frames[1].toDouble(),
-      frames[2].toDouble(), 1.0,
+      frames[0].toDouble(),
+      frames[1].toDouble(),
+      frames[2].toDouble(),
+      1.0,
     ];
     final toColor = [
-      frames[3].toDouble(), frames[4].toDouble(),
-      frames[5].toDouble(), 1.0,
+      frames[3].toDouble(),
+      frames[4].toDouble(),
+      frames[5].toDouble(),
+      1.0,
     ];
     final fromRotation = [0.0];
     final toRotation = [_solve(frames[6].toDouble(), 60.0, 360.0, true)];
@@ -211,8 +222,10 @@ class ClientTransaction {
   }) {
     const totalTime = 4096;
     final frameRowIndex = keyBytes[rowIndex] % 16;
-    final frameTimeProduct = keyBytesIndices
-        .fold<int>(1, (acc, idx) => acc * (keyBytes[idx] % 16));
+    final frameTimeProduct = keyBytesIndices.fold<int>(
+      1,
+      (acc, idx) => acc * (keyBytes[idx] % 16),
+    );
     final frameTime = jsRound(frameTimeProduct / 10.0) * 10;
 
     final arr = _get2dArray(keyBytes, homePageDoc);

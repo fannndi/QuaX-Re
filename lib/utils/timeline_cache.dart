@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -21,10 +22,11 @@ class TimelineCache {
     return dir;
   }
 
-  /// Hashes the key into a safe file name (keys contain dots and dots are fine,
-  /// but account-scoped keys can carry arbitrary characters).
+  /// Hashes the key into a safe file name. The keys are feed identifiers plus
+  /// account ids; merely replacing characters could collide two different keys
+  /// into one file, so the name is a real hash of the key.
   static String _fileName(String key) =>
-      key.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      sha1.convert(utf8.encode(key)).toString();
 
   /// The cached body, or null when it is missing or unreadable. [maxAge] bounds
   /// what counts as fresh; null shows the stored page regardless of age (the
@@ -34,9 +36,12 @@ class TimelineCache {
       final file = File(p.join((await directory()).path, _fileName(key)));
       if (!await file.exists()) return null;
 
-      final decoded = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       if (maxAge != null) {
-        final savedAt = DateTime.fromMillisecondsSinceEpoch(decoded['at'] as int? ?? 0);
+        final savedAt = DateTime.fromMillisecondsSinceEpoch(
+          decoded['at'] as int? ?? 0,
+        );
         if (DateTime.now().difference(savedAt) > maxAge) return null;
       }
       return decoded['body'] as String?;
@@ -48,7 +53,9 @@ class TimelineCache {
   static Future<void> write(String key, String body) async {
     try {
       final file = File(p.join((await directory()).path, _fileName(key)));
-      await file.writeAsString(jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}));
+      await file.writeAsString(
+        jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}),
+      );
     } catch (_) {
       // The cache is best-effort.
     }
@@ -67,4 +74,3 @@ class TimelineCache {
     }
   }
 }
-

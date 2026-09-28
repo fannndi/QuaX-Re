@@ -16,14 +16,22 @@ class DownloadsTab extends StatefulWidget {
   final BasePrefService prefs;
   final ScrollController scrollController;
 
-  const DownloadsTab({super.key, required this.prefs, required this.scrollController});
+  const DownloadsTab({
+    super.key,
+    required this.prefs,
+    required this.scrollController,
+  });
 
   @override
   State<DownloadsTab> createState() => _DownloadsTabState();
 }
 
-class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+class _DownloadsTabState extends State<DownloadsTab>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
   late final DownloadsModel _queue = DownloadsModel();
   final Set<String> _selected = {};
 
@@ -56,9 +64,12 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
 
   void _resumeSelected() {
     final resumable = _queue.state
-        .where((item) =>
-            _selected.contains(item.fileName) &&
-            (item.status == DownloadStatus.paused || item.status == DownloadStatus.error))
+        .where(
+          (item) =>
+              _selected.contains(item.fileName) &&
+              (item.status == DownloadStatus.paused ||
+                  item.status == DownloadStatus.error),
+        )
         .toList();
     for (final item in resumable) {
       retryDownload(context, item, prefs: widget.prefs);
@@ -67,7 +78,9 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
   }
 
   void _deleteSelected() {
-    final victims = _queue.state.where((item) => _selected.contains(item.fileName)).toList();
+    final victims = _queue.state
+        .where((item) => _selected.contains(item.fileName))
+        .toList();
     for (final item in victims) {
       if (item.status == DownloadStatus.running) {
         _queue.cancel(item.fileName);
@@ -80,8 +93,13 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
 
   /// The queue app bar: queue-wide actions normally, selection actions while
   /// entries are selected.
-  List<Widget> _buildActions(BuildContext context, List<DownloadQueueItem> queue, bool hasActive,
-      bool hasResumable, bool hasFinished) {
+  List<Widget> _buildActions(
+    BuildContext context,
+    List<DownloadQueueItem> queue,
+    bool hasActive,
+    bool hasResumable,
+    bool hasFinished,
+  ) {
     if (_selectionActive) {
       return [
         IconButton(
@@ -120,8 +138,11 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
           tooltip: L10n.of(context).resume_all,
           onPressed: () {
             final resumable = queue
-                .where((item) =>
-                    item.status == DownloadStatus.paused || item.status == DownloadStatus.error)
+                .where(
+                  (item) =>
+                      item.status == DownloadStatus.paused ||
+                      item.status == DownloadStatus.error,
+                )
                 .toList();
             for (final item in resumable) {
               retryDownload(context, item, prefs: widget.prefs);
@@ -144,11 +165,19 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
       onError: (_, e) => Center(child: Text(e.toString())),
       onLoading: (_) => const Center(child: CircularProgressIndicator()),
       onState: (_, queue) {
-        final hasFinished = queue.any((item) => item.status == DownloadStatus.done);
-        final hasActive = queue.any((item) =>
-            item.status == DownloadStatus.running || item.status == DownloadStatus.queued);
-        final hasResumable = queue.any((item) =>
-            item.status == DownloadStatus.paused || item.status == DownloadStatus.error);
+        final hasFinished = queue.any(
+          (item) => item.status == DownloadStatus.done,
+        );
+        final hasActive = queue.any(
+          (item) =>
+              item.status == DownloadStatus.running ||
+              item.status == DownloadStatus.queued,
+        );
+        final hasResumable = queue.any(
+          (item) =>
+              item.status == DownloadStatus.paused ||
+              item.status == DownloadStatus.error,
+        );
         return Scaffold(
           appBar: AppBar(
             automaticallyImplyLeading: false,
@@ -161,7 +190,13 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
                       Tab(text: L10n.of(context).gallery),
                     ],
                   ),
-            actions: _buildActions(context, queue, hasActive, hasResumable, hasFinished),
+            actions: _buildActions(
+              context,
+              queue,
+              hasActive,
+              hasResumable,
+              hasFinished,
+            ),
           ),
           body: TabBarView(
             controller: _tabController,
@@ -207,7 +242,11 @@ class _GalleryTabState extends State<_GalleryTab> {
 
     final l10n = L10n.of(context);
     if (!result.ok) {
-      showSnackBar(context, icon: '🙊', message: l10n.library_storage_permission_needed);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: l10n.library_storage_permission_needed,
+      );
       return;
     }
 
@@ -220,7 +259,10 @@ class _GalleryTabState extends State<_GalleryTab> {
       showSnackBar(
         context,
         icon: '⚠️',
-        message: l10n.gallery_hide_incomplete.replaceFirst('%d', '${result.remaining}'),
+        message: l10n.gallery_hide_incomplete.replaceFirst(
+          '%d',
+          '${result.remaining}',
+        ),
       );
       return;
     }
@@ -247,14 +289,24 @@ class _GalleryTabState extends State<_GalleryTab> {
                 child: SwitchListTile(
                   value: _visible,
                   onChanged: configured && !_busy ? _toggle : null,
-                  secondary: Icon(_visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  secondary: Icon(
+                    _visible
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
                   title: Text(L10n.of(context).show_in_gallery),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(L10n.of(context).download_path, style: theme.textTheme.labelSmall),
-                      Text(configured ? path : L10n.of(context).not_set,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        L10n.of(context).download_path,
+                        style: theme.textTheme.labelSmall,
+                      ),
+                      Text(
+                        configured ? path : L10n.of(context).not_set,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -264,10 +316,16 @@ class _GalleryTabState extends State<_GalleryTab> {
               // pass twice before it lets go.
               IconButton(
                 icon: _busy
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.sync),
                 tooltip: L10n.of(context).refresh,
-                onPressed: configured && !_busy ? () => _toggle(_visible) : null,
+                onPressed: configured && !_busy
+                    ? () => _toggle(_visible)
+                    : null,
               ),
             ],
           ),
@@ -304,7 +362,10 @@ class _QueueList extends StatelessWidget {
           children: [
             const Icon(Icons.download_for_offline_outlined, size: 48),
             const SizedBox(height: 12),
-            Text(L10n.of(context).downloads_empty, style: theme.textTheme.bodyMedium),
+            Text(
+              L10n.of(context).downloads_empty,
+              style: theme.textTheme.bodyMedium,
+            ),
           ],
         ),
       );
@@ -314,7 +375,8 @@ class _QueueList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       buildDefaultDragHandles: false,
       itemCount: queue.length,
-      onReorder: (oldIndex, newIndex) => DownloadsModel().moveItem(oldIndex, newIndex),
+      onReorderItem: (oldIndex, newIndex) =>
+          DownloadsModel().moveItem(oldIndex, newIndex),
       itemBuilder: (context, index) {
         final item = queue[index];
         final scheme = Theme.of(context).colorScheme;
@@ -346,9 +408,15 @@ class _QueueList extends StatelessWidget {
             child: Stack(
               children: [
                 switch (item.status) {
-                  DownloadStatus.queued => _QueuedCard(item: item, dragIndex: index),
+                  DownloadStatus.queued => _QueuedCard(
+                    item: item,
+                    dragIndex: index,
+                  ),
                   DownloadStatus.running => _RunningCard(item: item),
-                  DownloadStatus.paused => _PausedCard(item: item, prefs: prefs),
+                  DownloadStatus.paused => _PausedCard(
+                    item: item,
+                    prefs: prefs,
+                  ),
                   DownloadStatus.error => _ErrorCard(item: item, prefs: prefs),
                   DownloadStatus.done => _DoneCard(item: item, prefs: prefs),
                 },
@@ -368,7 +436,11 @@ class _QueueList extends StatelessWidget {
                   Positioned(
                     top: 14,
                     right: 18,
-                    child: Icon(Icons.check_circle, color: scheme.primary, size: 20),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: scheme.primary,
+                      size: 20,
+                    ),
                   ),
               ],
             ),
@@ -423,7 +495,11 @@ class _QueuedCard extends StatelessWidget {
             if (dragIndex != null)
               ReorderableDelayedDragStartListener(
                 index: dragIndex!,
-                child: Icon(Icons.drag_indicator, size: 20, color: theme.colorScheme.outline),
+                child: Icon(
+                  Icons.drag_indicator,
+                  size: 20,
+                  color: theme.colorScheme.outline,
+                ),
               ),
             _TypeAvatar(item: item, color: theme.colorScheme.tertiary),
             const SizedBox(width: 14),
@@ -431,9 +507,17 @@ class _QueuedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 4),
-                  Text(L10n.of(context).queue, style: theme.textTheme.labelSmall),
+                  Text(
+                    L10n.of(context).queue,
+                    style: theme.textTheme.labelSmall,
+                  ),
                 ],
               ),
             ),
@@ -457,11 +541,15 @@ class _RunningCard extends StatelessWidget {
   String get _details {
     final parts = <String>[];
     if (item.totalBytes != null && item.totalBytes! > 0) {
-      parts.add('${(item.receivedBytes / item.totalBytes! * 100).clamp(0, 100).toStringAsFixed(0)}%');
+      parts.add(
+        '${(item.receivedBytes / item.totalBytes! * 100).clamp(0, 100).toStringAsFixed(0)}%',
+      );
     }
-    parts.add(item.totalMb == null
-        ? '${item.receivedMb.toStringAsFixed(1)} MB'
-        : '${item.receivedMb.toStringAsFixed(1)} / ${item.totalMb!.toStringAsFixed(1)} MB');
+    parts.add(
+      item.totalMb == null
+          ? '${item.receivedMb.toStringAsFixed(1)} MB'
+          : '${item.receivedMb.toStringAsFixed(1)} / ${item.totalMb!.toStringAsFixed(1)} MB',
+    );
     if (item.speedMbPerSec > 0.05) {
       parts.add('${item.speedMbPerSec.toStringAsFixed(1)} MB/s');
     }
@@ -471,8 +559,9 @@ class _RunningCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fraction =
-        item.totalBytes == null || item.totalBytes == 0 ? null : (item.receivedBytes / item.totalBytes!).clamp(0.0, 1.0);
+    final fraction = item.totalBytes == null || item.totalBytes == 0
+        ? null
+        : (item.receivedBytes / item.totalBytes!).clamp(0.0, 1.0);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
@@ -486,11 +575,19 @@ class _RunningCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(value: fraction, minHeight: 6),
+                    child: LinearProgressIndicator(
+                      value: fraction,
+                      minHeight: 6,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(_details, style: theme.textTheme.labelSmall),
@@ -537,7 +634,12 @@ class _PausedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     item.totalMb == null
@@ -590,12 +692,21 @@ class _ErrorCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 4),
-                  Text(message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.error)),
+                  Text(
+                    message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -629,7 +740,11 @@ class _DoneCard extends StatelessWidget {
     final path = p.join(libraryPath, item.fileName);
     final ok = await LibraryModel(prefs).openExternally(path);
     if (!ok && context.mounted) {
-      showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: L10n.of(context).oops_something_went_wrong,
+      );
     }
   }
 
@@ -645,15 +760,27 @@ class _DoneCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
           child: Row(
             children: [
-              Icon(Icons.check_circle_outline, color: Colors.green.shade400, size: 32),
+              Icon(
+                Icons.check_circle_outline,
+                color: Colors.green.shade400,
+                size: 32,
+              ),
               const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                    Text(
+                      item.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
                     const SizedBox(height: 4),
-                    Text(L10n.of(context).successfully_saved_the_media, style: theme.textTheme.labelSmall),
+                    Text(
+                      L10n.of(context).successfully_saved_the_media,
+                      style: theme.textTheme.labelSmall,
+                    ),
                   ],
                 ),
               ),

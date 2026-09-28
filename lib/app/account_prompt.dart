@@ -3,23 +3,31 @@ import 'package:logging/logging.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/login_webview.dart';
 import 'package:quax/generated/l10n.dart';
+
 Future<void> checkForAccounts(BuildContext context) async {
   Logger.root.info('Checking for accounts');
 
   final accounts = await getAccounts();
-  if (accounts.isEmpty) {
+  if (accounts.isEmpty && context.mounted) {
     await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text("⚠️ ${L10n.of(context).not_logged_in}"),
-          content: Text(L10n.of(context).quax_doesnt_work_without_account_please_login),
+          content: Text(
+            L10n.of(context).quax_doesnt_work_without_account_please_login,
+          ),
           actions: [
             TextButton(
               child: Text(L10n.of(context).login),
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TwitterLoginWebview(),
+                  ),
+                );
               },
             ),
           ],
@@ -28,5 +36,3 @@ Future<void> checkForAccounts(BuildContext context) async {
     );
   }
 }
-
-

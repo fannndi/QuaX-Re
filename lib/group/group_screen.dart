@@ -52,7 +52,8 @@ class _GroupScreenState extends State<GroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as GroupScreenArguments;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as GroupScreenArguments;
     return SubscriptionGroupScreen(
       scrollController: _scrollController,
       id: args.id,
@@ -70,13 +71,19 @@ class SubscriptionGroupScreenContent extends StatefulWidget {
   final String id;
   final String? cacheKey;
 
-  const SubscriptionGroupScreenContent({super.key, required this.id, this.cacheKey});
+  const SubscriptionGroupScreenContent({
+    super.key,
+    required this.id,
+    this.cacheKey,
+  });
 
   @override
-  State<SubscriptionGroupScreenContent> createState() => _SubscriptionGroupScreenContentState();
+  State<SubscriptionGroupScreenContent> createState() =>
+      _SubscriptionGroupScreenContentState();
 }
 
-class _SubscriptionGroupScreenContentState extends State<SubscriptionGroupScreenContent> {
+class _SubscriptionGroupScreenContentState
+    extends State<SubscriptionGroupScreenContent> {
   // Cached tweets shown while the group's subscriptions load, so the feed
   // reveals its content instead of a full-screen spinner on cold start.
   List<TweetChain>? _preview;
@@ -112,19 +119,32 @@ class _SubscriptionGroupScreenContentState extends State<SubscriptionGroupScreen
     return ScopedBuilder<GroupModel, SubscriptionGroupGet>.transition(
       store: context.read<GroupModel>(),
       onLoading: (_) => _loadingView(),
-      onError: (_, error) =>
-          ScaffoldErrorWidget(error: error, stackTrace: null, prefix: L10n.current.unable_to_load_the_group),
+      onError: (_, error) => ScaffoldErrorWidget(
+        error: error,
+        stackTrace: null,
+        prefix: L10n.current.unable_to_load_the_group,
+      ),
       onState: (_, group) {
         // TODO: This is pretty gross. Figure out how to have a "no data" state
         if (group.id.isEmpty) {
           return _loadingView();
         }
         // Split the users into chunks, oldest first, to prevent thrashing of all groups when a new user is added
-        final filteredUsers = group.id == '-1' ? group.subscriptions.where((elm) => elm.inFeed) : group.subscriptions;
-        final users = filteredUsers.sorted((a, b) => a.createdAt.compareTo(b.createdAt)).toList();
+        final filteredUsers = group.id == '-1'
+            ? group.subscriptions.where((elm) => elm.inFeed)
+            : group.subscriptions;
+        final users = filteredUsers
+            .sorted((a, b) => a.createdAt.compareTo(b.createdAt))
+            .toList();
 
         var chunks = partition(users, 16)
-            .map((e) => SubscriptionGroupFeedChunk(e, group.includeReplies, group.includeRetweets))
+            .map(
+              (e) => SubscriptionGroupFeedChunk(
+                e,
+                group.includeReplies,
+                group.includeRetweets,
+              ),
+            )
             .toList();
 
         return SubscriptionGroupFeed(
@@ -145,10 +165,15 @@ class SubscriptionGroupFeedChunk {
   final bool includeReplies;
   final bool includeRetweets;
 
-  SubscriptionGroupFeedChunk(this.users, this.includeReplies, this.includeRetweets);
+  SubscriptionGroupFeedChunk(
+    this.users,
+    this.includeReplies,
+    this.includeRetweets,
+  );
 
   String get hash {
-    var toHash = '${users.map((e) => e.id).join(', ')}$includeReplies$includeRetweets';
+    var toHash =
+        '${users.map((e) => e.id).join(', ')}$includeReplies$includeRetweets';
 
     return sha1.convert(toHash.codeUnits).toString();
   }
@@ -162,13 +187,14 @@ class SubscriptionGroupScreen extends StatelessWidget {
   // Forwarded to SubscriptionGroupFeed — see its docs. Null disables caching.
   final String? cacheKey;
 
-  const SubscriptionGroupScreen(
-      {super.key,
-      required this.scrollController,
-      required this.id,
-      required this.name,
-      this.actions,
-      this.cacheKey});
+  const SubscriptionGroupScreen({
+    super.key,
+    required this.scrollController,
+    required this.id,
+    required this.name,
+    this.actions,
+    this.cacheKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +202,8 @@ class SubscriptionGroupScreen extends StatelessWidget {
       scrollController: scrollController,
       groupId: id,
       titleBuilder: (context) => Text(name),
-      bodyBuilder: (context) => SubscriptionGroupScreenContent(id: id, cacheKey: cacheKey),
+      bodyBuilder: (context) =>
+          SubscriptionGroupScreenContent(id: id, cacheKey: cacheKey),
       actionsBuilder: (context) => defaultGroupActions(
         context,
         model: context.read<GroupModel>(),

@@ -1,6 +1,7 @@
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:quax/tweet/video_quality.dart';
 import 'package:quax/utils/iterables.dart';
+
 class TweetVideoUrls {
   final String streamUrl;
   final String? downloadUrl;
@@ -15,9 +16,16 @@ class TweetVideoMetadata {
   final Future<TweetVideoUrls> Function() streamUrlsBuilder;
   final int? durationMillis;
 
-  TweetVideoMetadata(this.aspectRatio, this.imageUrl, this.streamUrlsBuilder, {this.durationMillis});
+  TweetVideoMetadata(
+    this.aspectRatio,
+    this.imageUrl,
+    this.streamUrlsBuilder, {
+    this.durationMillis,
+  });
 
-  static Future<TweetVideoUrls> Function() streamUrlsBuilderFromVariants(List<Variant> variants) {
+  static Future<TweetVideoUrls> Function() streamUrlsBuilderFromVariants(
+    List<Variant> variants,
+  ) {
     // Use the progressive MP4 variants (highest bitrate first), not X's HLS
     // master playlist (variants[0]): the MP4 list is what powers the in-player
     // quality picker. Fall back to variants[0] only when no MP4 exists (e.g.
@@ -29,11 +37,13 @@ class TweetVideoMetadata {
         .sorted((a, b) => -(a.bitrate!.compareTo(b.bitrate!)))
         .toList();
 
-    var qualities =
-        mp4Variants.map((e) => TweetVideoQuality(e.url!, _qualityLabel(e.url!, e.bitrate))).toList();
+    var qualities = mp4Variants
+        .map((e) => TweetVideoQuality(e.url!, _qualityLabel(e.url!, e.bitrate)))
+        .toList();
 
     var mp4Url = qualities.isNotEmpty ? qualities.first.url : null;
-    var streamUrl = mp4Url ?? variants.firstWhereOrNull((e) => e.url != null)?.url ?? '';
+    var streamUrl =
+        mp4Url ?? variants.firstWhereOrNull((e) => e.url != null)?.url ?? '';
 
     return () async => TweetVideoUrls(streamUrl, mp4Url, qualities: qualities);
   }
@@ -58,10 +68,15 @@ class TweetVideoMetadata {
     var variants = media.videoInfo?.variants ?? [];
     var imageUrl = media.mediaUrlHttps!;
 
-    return TweetVideoMetadata(aspectRatio, imageUrl, streamUrlsBuilderFromVariants(variants),
-        durationMillis: media.videoInfo?.durationMillis);
+    return TweetVideoMetadata(
+      aspectRatio,
+      imageUrl,
+      streamUrlsBuilderFromVariants(variants),
+      durationMillis: media.videoInfo?.durationMillis,
+    );
   }
 }
+
 /// X-style duration label for a video: `0:42`, `4:05`, `1:02:09`. Empty when
 /// the duration is unknown, so callers can hide their chip.
 String formatVideoDuration(int? millis) {

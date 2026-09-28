@@ -23,12 +23,24 @@ class NavigationPage {
 /// with Home centered like a home button. Settings and search live in the
 /// screen app bars — the app stays three tabs wide.
 final List<NavigationPage> defaultHomePages = [
-  NavigationPage('downloads', (c) => L10n.of(c).downloads,
-      const DownloadsNavBadge(child: Icon(Icons.download_outlined)),
-      const DownloadsNavBadge(child: Icon(Icons.download))),
-  NavigationPage('feed', (c) => L10n.of(c).home, const Icon(Icons.home_outlined), const Icon(Icons.home)),
-  NavigationPage('likes', (c) => L10n.of(c).likes,
-      const Icon(Icons.favorite_border_outlined), const Icon(Icons.favorite)),
+  NavigationPage(
+    'downloads',
+    (c) => L10n.of(c).downloads,
+    const DownloadsNavBadge(child: Icon(Icons.download_outlined)),
+    const DownloadsNavBadge(child: Icon(Icons.download)),
+  ),
+  NavigationPage(
+    'feed',
+    (c) => L10n.of(c).home,
+    const Icon(Icons.home_outlined),
+    const Icon(Icons.home),
+  ),
+  NavigationPage(
+    'likes',
+    (c) => L10n.of(c).likes,
+    const Icon(Icons.favorite_border_outlined),
+    const Icon(Icons.favorite),
+  ),
 ];
 
 class HomeScreen extends StatelessWidget {
@@ -74,7 +86,10 @@ class _HomeScreenState extends State<_HomeScreen> {
                 id: '-1',
               );
             case 'downloads':
-              return DownloadsTab(prefs: widget.prefs, scrollController: scrollControllers[index]!);
+              return DownloadsTab(
+                prefs: widget.prefs,
+                scrollController: scrollControllers[index]!,
+              );
             case 'likes':
               return LikesScreen(scrollController: scrollControllers[index]!);
             default:
@@ -90,16 +105,24 @@ class ScaffoldWithBottomNavigation extends StatefulWidget {
   final List<NavigationPage> pages;
   final BasePrefService prefs;
   final int initialPage;
-  final List<Widget> Function(Map<int, ScrollController> scrollControllers) builder;
+  final List<Widget> Function(Map<int, ScrollController> scrollControllers)
+  builder;
 
-  const ScaffoldWithBottomNavigation(
-      {super.key, required this.pages, required this.prefs, required this.initialPage, required this.builder});
+  const ScaffoldWithBottomNavigation({
+    super.key,
+    required this.pages,
+    required this.prefs,
+    required this.initialPage,
+    required this.builder,
+  });
 
   @override
-  State<ScaffoldWithBottomNavigation> createState() => _ScaffoldWithBottomNavigationState();
+  State<ScaffoldWithBottomNavigation> createState() =>
+      _ScaffoldWithBottomNavigationState();
 }
 
-class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigation> {
+class _ScaffoldWithBottomNavigationState
+    extends State<ScaffoldWithBottomNavigation> {
   late PageController _pageController;
   late int _currentPage;
   final Map<int, ScrollController> _scrollControllers = {};
@@ -119,10 +142,13 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
     super.didUpdateWidget(oldWidget);
     if (widget.pages.length != oldWidget.pages.length) {
       // Dispose controllers that are no longer needed.
-      _scrollControllers.keys.where((k) => k >= widget.pages.length).toList().forEach((k) {
-        _scrollControllers[k]?.dispose();
-        _scrollControllers.remove(k);
-      });
+      _scrollControllers.keys
+          .where((k) => k >= widget.pages.length)
+          .toList()
+          .forEach((k) {
+            _scrollControllers[k]?.dispose();
+            _scrollControllers.remove(k);
+          });
       // Create controllers for new pages.
       for (int i = 0; i < widget.pages.length; i++) {
         if (!_scrollControllers.containsKey(i)) {
@@ -156,39 +182,44 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
         backgroundColor: Colors.transparent,
         indicatorColor: Colors.transparent,
         height: 64,
-        destinations: widget.pages.asMap().entries
-            .map(
-              (e) {
-                final index = e.key;
-                final page = e.value;
-                final isSelected = _currentPage == index;
-                final scale = widget.prefs.get(optionShowNavigationLabels) ? 1.0 : (isSelected ? 1.2 : 1.2);
-                return NavigationDestination(
-                  icon: AnimatedScale(
-                    scale: scale,
-                    duration: const Duration(milliseconds: 0),
-                    curve: Curves.easeOut,
-                    child: page.icon,
-                  ),
-                  selectedIcon: AnimatedScale(
-                    scale: scale,
-                    duration: const Duration(milliseconds: 0),
-                    curve: Curves.easeOut,
-                    child: page.selectedIcon,
-                  ),
-                  label: page.titleBuilder(context),
-                );
-              })
-            .toList(),
+        destinations: widget.pages.asMap().entries.map((e) {
+          final index = e.key;
+          final page = e.value;
+          final isSelected = _currentPage == index;
+          final scale = widget.prefs.get(optionShowNavigationLabels)
+              ? 1.0
+              : (isSelected ? 1.2 : 1.2);
+          return NavigationDestination(
+            icon: AnimatedScale(
+              scale: scale,
+              duration: const Duration(milliseconds: 0),
+              curve: Curves.easeOut,
+              child: page.icon,
+            ),
+            selectedIcon: AnimatedScale(
+              scale: scale,
+              duration: const Duration(milliseconds: 0),
+              curve: Curves.easeOut,
+              child: page.selectedIcon,
+            ),
+            label: page.titleBuilder(context),
+          );
+        }).toList(),
         onDestinationSelected: (index) async {
           if (index == _currentPage) {
             final tappedId = widget.pages[index].id;
-            if (tappedId == "feed" || tappedId == "likes" || tappedId.startsWith("group-")) {
+            if (tappedId == "feed" ||
+                tappedId == "likes" ||
+                tappedId.startsWith("group-")) {
               final scrollController = _scrollControllers[_currentPage];
               // A tab whose list is not mounted (the Like tab showing another
               // sub-tab) has nothing to scroll back up.
               if (scrollController != null && scrollController.hasClients) {
-                await scrollController.animateTo(0, duration: const Duration(seconds: 1), curve: Curves.easeInOut);
+                await scrollController.animateTo(
+                  0,
+                  duration: const Duration(seconds: 1),
+                  curve: Curves.easeInOut,
+                );
               }
             }
           }

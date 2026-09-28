@@ -11,14 +11,15 @@ class TweetConversation extends StatefulWidget {
   final bool tweetOpened;
   final int initialMediaIndex;
 
-  const TweetConversation(
-      {super.key,
-      required this.id,
-      required this.username,
-      required this.isPinned,
-      required this.tweets,
-      this.tweetOpened = false,
-      this.initialMediaIndex = 0});
+  const TweetConversation({
+    super.key,
+    required this.id,
+    required this.username,
+    required this.isPinned,
+    required this.tweets,
+    this.tweetOpened = false,
+    this.initialMediaIndex = 0,
+  });
 
   @override
   State<TweetConversation> createState() => _TweetConversationState();
@@ -29,8 +30,9 @@ class _TweetConversationState extends State<TweetConversation> {
   // a chain only changes when a different chain is handed to this element.
   late List<TweetWithCard> _sorted = _sortTweets(widget.tweets);
 
-  static List<TweetWithCard> _sortTweets(List<TweetWithCard> tweets) =>
-      tweets.sorted((a, b) => a.idStr!.compareTo(b.idStr!)).toList(growable: false);
+  static List<TweetWithCard> _sortTweets(List<TweetWithCard> tweets) => tweets
+      .sorted((a, b) => a.idStr!.compareTo(b.idStr!))
+      .toList(growable: false);
 
   @override
   void didUpdateWidget(TweetConversation oldWidget) {
@@ -44,19 +46,21 @@ class _TweetConversationState extends State<TweetConversation> {
   Widget build(BuildContext context) {
     if (widget.tweets.length == 1) {
       return TweetTile(
-          clickable: true,
-          tweet: widget.tweets.first,
-          currentUsername: widget.username,
-          isPinned: widget.isPinned,
-          tweetOpened: widget.tweetOpened,
-          initialMediaIndex: widget.initialMediaIndex);
+        clickable: true,
+        tweet: widget.tweets.first,
+        currentUsername: widget.username,
+        isPinned: widget.isPinned,
+        tweetOpened: widget.tweetOpened,
+        initialMediaIndex: widget.initialMediaIndex,
+      );
     }
 
     var tweets = _sorted;
     var tiles = <Widget>[];
 
     for (var i = 0; i < tweets.length; i++) {
-      tiles.add(TweetTile(
+      tiles.add(
+        TweetTile(
           clickable: true,
           tweet: tweets[i],
           currentUsername: widget.username,
@@ -64,7 +68,11 @@ class _TweetConversationState extends State<TweetConversation> {
           isThread: i == 0,
           threadConnectTop: i > 0,
           threadConnectBottom: i < tweets.length - 1,
-          initialMediaIndex: tweets[i].idStr == widget.id ? widget.initialMediaIndex : 0));
+          initialMediaIndex: tweets[i].idStr == widget.id
+              ? widget.initialMediaIndex
+              : 0,
+        ),
+      );
     }
 
     // One rounded card for the whole thread, so its tweets read as a single surface. The trailing
@@ -74,11 +82,7 @@ class _TweetConversationState extends State<TweetConversation> {
         Card(
           clipBehavior: Clip.antiAlias,
           color: tweetCardColor(context),
-          child: Column(
-            children: [
-              ...tiles,
-            ],
-          ),
+          child: Column(children: [...tiles]),
         ),
         Divider(
           height: 0,

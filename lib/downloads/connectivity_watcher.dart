@@ -24,6 +24,7 @@ class ConnectivityWatcher {
   final Map<String, int> _autoResumes = {};
   Timer? _timer;
   BasePrefService? _prefs;
+  Future<void>? _probing;
 
   /// Called at startup: remembers the preferences and starts probing when the
   /// persisted history already holds retryable failures.
@@ -35,10 +36,12 @@ class ConnectivityWatcher {
   }
 
   /// Called whenever an entry leaves the running state: keeps the probe alive
-  /// while candidates remain, and stops it when there are none.
+  /// while candidates remain, and stops it when there are none. One probe at a
+  /// time — every status transition fires this, and concurrent probes could
+  /// resume the same entry twice.
   void scheduleCheck() {
-    _timer ??= Timer.periodic(_probeInterval, (_) => _probe());
-    unawaited(_probe());
+    _timer ??= Timer.periodic(_probeInterval, (_) => scheduleCheck());
+    _probing ??= _probe().whenComplete(() => _probing = null);
   }
 
   bool _isCandidate(DownloadQueueItem item) =>
@@ -68,9 +71,12 @@ class ConnectivityWatcher {
 
   Future<bool> _reachable() async {
     try {
-      final addresses = await InternetAddress.lookup('x.com').timeout(const Duration(seconds: 5));
+      final addresses = await InternetAddress.lookup('x.com')
+          .timeout(const Duration(seconds: 5));
       return addresses.isNotEmpty && addresses.first.rawAddress.isNotEmpty;
-    } on Exception {
+    } catch (_) {
+      // A probe that cannot run (no network stack, plugin error…) means "not
+      // reachable", never a crash.
       return false;
     }
   }

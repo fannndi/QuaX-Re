@@ -28,22 +28,30 @@ class TwitterHeaders {
   // a stale generator self-heals on the next request without hammering x.com.
   static const _stalenessCooldown = Duration(minutes: 10);
 
-  static Future<Map<String, String>?> getXClientTransactionIdHeader(Uri? uri) async {
+  static Future<Map<String, String>?> getXClientTransactionIdHeader(
+    Uri? uri, {
+    String method = 'GET',
+  }) async {
     if (uri == null) {
       return null;
     }
 
     try {
-      _initFuture ??= ClientTransaction.initialize().timeout(_initTimeout).then((ct) {
-        _initializedAt = DateTime.now();
-        return ct;
-      });
+      _initFuture ??= ClientTransaction.initialize().timeout(_initTimeout).then(
+        (ct) {
+          _initializedAt = DateTime.now();
+          return ct;
+        },
+      );
       final ct = await _initFuture!;
-      return {'x-client-transaction-id': ct.generateTransactionId('GET', uri.path)};
-    } on Exception {
+      return {
+        'x-client-transaction-id': ct.generateTransactionId(method, uri.path),
+      };
+    } catch (_) {
       // A failed (or timed out) initialization must not stay cached: futures
       // keep their error, so every later request would fail the same way until
-      // the app restarts. Drop it and let the next request try afresh.
+      // the app restarts. Script parsing can also throw Error subtypes, which
+      // a catch of Exception alone would leave cached forever.
       _initFuture = null;
       _initializedAt = null;
       rethrow;
@@ -64,12 +72,25 @@ class TwitterHeaders {
     }
   }
 
-  static Future<Map<String, String>> getHeaders(Uri? uri, Map<dynamic, dynamic>? authHeader) async {
-    final xClientTransactionIdHeader = await getXClientTransactionIdHeader(uri);
+  static Future<Map<String, String>> getHeaders(
+    Uri? uri,
+    Map<dynamic, dynamic>? authHeader, {
+    String method = 'GET',
+  }) async {
+    final xClientTransactionIdHeader = await getXClientTransactionIdHeader(
+      uri,
+      method: method,
+    );
     return {
       ..._baseHeaders,
-      if (authHeader != null) ...Map<String, String>.from(authHeader),
-      ...?xClientTransactionIdHeader
+      // Auth values come from a stored JSON decode: a non-string value (a
+      // number after an X change) must not kill the request here.
+      if (authHeader != null) ...{
+        for (final entry in authHeader.entries)
+          if (entry.key is String && entry.value is String)
+            entry.key as String: entry.value as String,
+      },
+      ...?xClientTransactionIdHeader,
     };
   }
 }

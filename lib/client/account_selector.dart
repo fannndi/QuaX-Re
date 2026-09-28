@@ -14,10 +14,14 @@ class AccountSelector {
   final DateTime now;
   final bool Function(Account) isRateLimited;
 
-  AccountSelector(this.accounts, this.now, {bool Function(Account)? isRateLimited})
-      : isRateLimited = isRateLimited ?? ((_) => false);
+  AccountSelector(
+    this.accounts,
+    this.now, {
+    bool Function(Account)? isRateLimited,
+  }) : isRateLimited = isRateLimited ?? ((_) => false);
 
-  bool _notFoundFlagged(Account a) => a.lastNotFoundAt?.add(notFoundCooldown).isAfter(now) ?? false;
+  bool _notFoundFlagged(Account a) =>
+      a.lastNotFoundAt?.add(notFoundCooldown).isAfter(now) ?? false;
 
   bool _healthy(Account a) => !_notFoundFlagged(a) && !isRateLimited(a);
 

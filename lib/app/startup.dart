@@ -1,6 +1,7 @@
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
 void setTimeagoLocales() {
   timeago.setLocaleMessages('ar', timeago.ArMessages());
   timeago.setLocaleMessages('az', timeago.AzMessages());
@@ -59,4 +60,3 @@ Future<void> migrateMediaQualityPrefs(BasePrefService prefs) async {
   await prefs.set(optionMediaVideoQuality, quality);
   await prefs.set(optionMediaQualitySplitMigrated, true);
 }
-

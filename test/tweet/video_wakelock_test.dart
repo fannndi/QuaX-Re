@@ -26,24 +26,36 @@ void main() {
 
   // The two media kinds as they are built in _media.dart.
   TweetVideo tweetMedia({required bool isGif}) => TweetVideo(
-        username: 'quax',
-        metadata: TweetVideoMetadata(1.0, null, () async => TweetVideoUrls('', null)),
-        loop: isGif,
-        alwaysPlay: isGif,
-        disableControls: isGif,
-      );
+    username: 'quax',
+    metadata: TweetVideoMetadata(
+      1.0,
+      null,
+      () async => TweetVideoUrls('', null),
+    ),
+    loop: isGif,
+    alwaysPlay: isGif,
+    disableControls: isGif,
+  );
 
   group('TweetVideo.keepsScreenAwake', () {
     test('Should keep the screen awake for a video', () {
-      expect(tweetMedia(isGif: false).keepsScreenAwake, isTrue,
-          reason: 'Watching a video without touching the device must not let it dim: that is the '
-              'whole point of holding the wakelock');
+      expect(
+        tweetMedia(isGif: false).keepsScreenAwake,
+        isTrue,
+        reason:
+            'Watching a video without touching the device must not let it dim: that is the '
+            'whole point of holding the wakelock',
+      );
     });
 
     test('Should let the screen sleep for a GIF', () {
-      expect(tweetMedia(isGif: true).keepsScreenAwake, isFalse,
-          reason: 'GIFs play on their own, silently and on a loop, all over the timeline. Keeping '
-              'the screen on for them would mean it never sleeps as long as one is on screen');
+      expect(
+        tweetMedia(isGif: true).keepsScreenAwake,
+        isFalse,
+        reason:
+            'GIFs play on their own, silently and on a loop, all over the timeline. Keeping '
+            'the screen on for them would mean it never sleeps as long as one is on screen',
+      );
     });
   });
 
@@ -52,7 +64,11 @@ void main() {
       final video = Object();
       VideoWakelock.acquire(video);
 
-      expect(wakelock.isEnabled, isTrue, reason: 'A video is playing, so the screen has to stay on');
+      expect(
+        wakelock.isEnabled,
+        isTrue,
+        reason: 'A video is playing, so the screen has to stay on',
+      );
 
       VideoWakelock.release(video);
     });
@@ -62,15 +78,23 @@ void main() {
       VideoWakelock.acquire(video);
       VideoWakelock.acquire(video);
 
-      expect(wakelock.toggles, [true],
-          reason: 'The player posts a play event again on a resume or on the way back from '
-              'fullscreen, and that is the same video, not a second one');
+      expect(
+        wakelock.toggles,
+        [true],
+        reason:
+            'The player posts a play event again on a resume or on the way back from '
+            'fullscreen, and that is the same video, not a second one',
+      );
 
       VideoWakelock.release(video);
 
-      expect(wakelock.isEnabled, isFalse,
-          reason: 'One release has to undo any number of acquires from the same video, otherwise '
-              'the screen would stay on for good once it stops');
+      expect(
+        wakelock.isEnabled,
+        isFalse,
+        reason:
+            'One release has to undo any number of acquires from the same video, otherwise '
+            'the screen would stay on for good once it stops',
+      );
     });
   });
 
@@ -83,14 +107,22 @@ void main() {
 
       VideoWakelock.release(scrolledPast);
 
-      expect(wakelock.isEnabled, isTrue,
-          reason: 'The wakelock is a single process-wide switch. A second video being paused by '
-              'the single-audible-video policy, finishing or being disposed by a scroll must not '
-              'let the screen sleep on the video the user is actually watching');
+      expect(
+        wakelock.isEnabled,
+        isTrue,
+        reason:
+            'The wakelock is a single process-wide switch. A second video being paused by '
+            'the single-audible-video policy, finishing or being disposed by a scroll must not '
+            'let the screen sleep on the video the user is actually watching',
+      );
 
       VideoWakelock.release(watched);
 
-      expect(wakelock.isEnabled, isFalse, reason: 'The last holder let go, so nothing is playing');
+      expect(
+        wakelock.isEnabled,
+        isFalse,
+        reason: 'The last holder let go, so nothing is playing',
+      );
     });
 
     test('Should do nothing when the same video releases twice', () {
@@ -99,10 +131,14 @@ void main() {
       VideoWakelock.release(video);
       VideoWakelock.release(video);
 
-      expect(wakelock.toggles, [true, false],
-          reason: 'A video that stops is released from several places (pause, dispose, a restart '
-              'after an error), and those overlap. Every release past the first is not this '
-              'video letting go again, so it must change nothing');
+      expect(
+        wakelock.toggles,
+        [true, false],
+        reason:
+            'A video that stops is released from several places (pause, dispose, a restart '
+            'after an error), and those overlap. Every release past the first is not this '
+            'video letting go again, so it must change nothing',
+      );
     });
 
     test('Should ignore a release from a video that never held it', () {
@@ -111,29 +147,40 @@ void main() {
 
       VideoWakelock.release(Object());
 
-      expect(wakelock.isEnabled, isTrue,
-          reason: 'A GIF, or a player that never started, gets released on dispose too, and that '
-              'must not turn off a wakelock it never acquired');
+      expect(
+        wakelock.isEnabled,
+        isTrue,
+        reason:
+            'A GIF, or a player that never started, gets released on dispose too, and that '
+            'must not turn off a wakelock it never acquired',
+      );
 
       VideoWakelock.release(playing);
     });
   });
 
   group('VideoWakelock.reapply()', () {
-    test('Should restore the wakelock after it was disabled from the outside', () async {
-      final video = Object();
-      VideoWakelock.acquire(video);
+    test(
+      'Should restore the wakelock after it was disabled from the outside',
+      () async {
+        final video = Object();
+        VideoWakelock.acquire(video);
 
-      // What better_player does on its way out of fullscreen, even though
-      // playback carries on inline.
-      await WakelockPlus.disable();
-      VideoWakelock.reapply();
+        // What better_player does on its way out of fullscreen, even though
+        // playback carries on inline.
+        await WakelockPlus.disable();
+        VideoWakelock.reapply();
 
-      expect(wakelock.isEnabled, isTrue,
-          reason: 'The video is still playing after leaving fullscreen, so the screen must stay '
-              'on. Nothing else would turn it back on: no new play event is emitted');
+        expect(
+          wakelock.isEnabled,
+          isTrue,
+          reason:
+              'The video is still playing after leaving fullscreen, so the screen must stay '
+              'on. Nothing else would turn it back on: no new play event is emitted',
+        );
 
-      VideoWakelock.release(video);
-    });
+        VideoWakelock.release(video);
+      },
+    );
   });
 }

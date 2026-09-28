@@ -38,8 +38,12 @@ Future<StorageBreakdown> computeStorageBreakdown(BasePrefService prefs) async {
   return StorageBreakdown(
     libraryBytes: await directorySize(prefs.get<String>(optionLibraryPath)),
     videoCacheBytes: await directorySize((await videoCache.directory()).path),
-    timelineCacheBytes: await directorySize((await TimelineCache.directory()).path),
-    thumbnailBytes: await directorySize(p.join((await getTemporaryDirectory()).path, 'thumbs')),
+    timelineCacheBytes: await directorySize(
+      (await TimelineCache.directory()).path,
+    ),
+    thumbnailBytes: await directorySize(
+      p.join((await getTemporaryDirectory()).path, 'thumbs'),
+    ),
     videoCount: videoCache.count,
   );
 }

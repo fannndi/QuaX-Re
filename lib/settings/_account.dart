@@ -27,8 +27,11 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
   void _openProfile(Account account) {
     final screenName = account.screenName;
     if (screenName == null) return;
-    Navigator.pushNamed(context, routeProfile,
-        arguments: ProfileScreenArguments.fromScreenName(screenName, 0));
+    Navigator.pushNamed(
+      context,
+      routeProfile,
+      arguments: ProfileScreenArguments.fromScreenName(screenName, 0),
+    );
   }
 
   /// Opens the X likes timeline of the active account (private data: X answers
@@ -40,7 +43,10 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
 
     final profile = await Twitter.getProfileByScreenName(screenName);
     if (!mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileLikesScreen(user: profile.user)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ProfileLikesScreen(user: profile.user)),
+    );
   }
 
   @override
@@ -51,49 +57,64 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
         title: Text(L10n.current.account),
         actions: [
           IconButton(
-              icon: const Icon(Icons.favorite_border),
-              tooltip: L10n.current.favorites,
-              onPressed: _openMyLikes),
+            icon: const Icon(Icons.favorite_border),
+            tooltip: L10n.current.favorites,
+            onPressed: _openMyLikes,
+          ),
           IconButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview())),
-              icon: const Icon(Icons.add))
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TwitterLoginWebview()),
+            ),
+            icon: const Icon(Icons.add),
+          ),
         ],
       ),
       body: FutureBuilder(
-          future: getAccounts(),
-          builder: (BuildContext listContext, AsyncSnapshot snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const LinearProgressIndicator();
-            }
+        future: getAccounts(),
+        builder: (BuildContext listContext, AsyncSnapshot snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const LinearProgressIndicator();
+          }
 
-            List<Account> data = snapshot.data;
-            if (data.isEmpty) {
-              return const SizedBox.shrink();
-            }
+          List<Account> data = snapshot.data;
+          if (data.isEmpty) {
+            return const SizedBox.shrink();
+          }
 
-            return ListView.builder(
-                itemCount: data.length,
-                itemBuilder: (BuildContext itemContext, int index) {
-                  final account = data[index];
-                  return Dismissible(
-                      key: ValueKey(account.id),
-                      onDismissed: (DismissDirection direction) async {
-                        await model.deleteAccount(account.id);
-                        setState(() {});
-                      },
-                      child: Card(
-                          child: ListTile(
-                        title: Text(account.screenName ?? L10n.of(context).unknown_username),
-                        leading: Icon(account.isActive ? Icons.radio_button_checked : Icons.account_circle),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.person_outline),
-                          onPressed: () => _openProfile(account),
-                        ),
-                        selected: account.isActive,
-                        onTap: account.isActive ? null : () => _activate(account),
-                      )));
-                });
-          }),
+          return ListView.builder(
+            itemCount: data.length,
+            itemBuilder: (BuildContext itemContext, int index) {
+              final account = data[index];
+              return Dismissible(
+                key: ValueKey(account.id),
+                onDismissed: (DismissDirection direction) async {
+                  await model.deleteAccount(account.id);
+                  setState(() {});
+                },
+                child: Card(
+                  child: ListTile(
+                    title: Text(
+                      account.screenName ?? L10n.of(context).unknown_username,
+                    ),
+                    leading: Icon(
+                      account.isActive
+                          ? Icons.radio_button_checked
+                          : Icons.account_circle,
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.person_outline),
+                      onPressed: () => _openProfile(account),
+                    ),
+                    selected: account.isActive,
+                    onTap: account.isActive ? null : () => _activate(account),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

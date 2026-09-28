@@ -14,29 +14,31 @@ class ProfileTweets extends StatelessWidget {
   final List<String> pinnedTweets;
   final BasePrefService pref;
 
-  const ProfileTweets(
-      {super.key,
-      required this.user,
-      required this.type,
-      required this.includeReplies,
-      required this.pinnedTweets,
-      required this.pref});
+  const ProfileTweets({
+    super.key,
+    required this.user,
+    required this.type,
+    required this.includeReplies,
+    required this.pinnedTweets,
+    required this.pref,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ProfileTweetFeed(
       user: user,
       emptyMessage: L10n.of(context).could_not_find_any_tweets_by_this_user,
-      loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getTweets(
-        user.idStr!,
-        type,
-        pinnedTweets,
-        cursor: cursor,
-        count: 20,
-        includeReplies: includeReplies,
-        getTweetsCounter: getTweetsCounter,
-        incrementTweetsCounter: incrementTweetsCounter,
-      ),
+      loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) =>
+          Twitter.getTweets(
+            user.idStr!,
+            type,
+            pinnedTweets,
+            cursor: cursor,
+            count: 20,
+            includeReplies: includeReplies,
+            getTweetsCounter: getTweetsCounter,
+            incrementTweetsCounter: incrementTweetsCounter,
+          ),
     );
   }
 }

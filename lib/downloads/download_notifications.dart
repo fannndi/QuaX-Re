@@ -63,7 +63,9 @@ class DownloadNotifications {
     if (!_ready) return;
     _lastNotifyAt = 0;
 
-    final remaining = DownloadsModel().state.where((e) => e.status == DownloadStatus.running).length;
+    final remaining = DownloadsModel().state
+        .where((e) => e.status == DownloadStatus.running)
+        .length;
     if (remaining == 0) {
       await clear();
       return;
@@ -82,13 +84,16 @@ class DownloadNotifications {
   }
 
   static Future<void> _stopIfIdle() async {
-    final remaining = DownloadsModel().state.where((e) => e.status == DownloadStatus.running).length;
+    final remaining = DownloadsModel().state
+        .where((e) => e.status == DownloadStatus.running)
+        .length;
     if (remaining == 0) await clear();
   }
 
   static Future<void> _push(DownloadQueueItem item) async {
     final l10n = L10n.current;
-    final body = '${item.receivedMb.toStringAsFixed(1)} MB'
+    final body =
+        '${item.receivedMb.toStringAsFixed(1)} MB'
         '${item.totalMb == null ? '' : ' / ${item.totalMb!.toStringAsFixed(1)} MB'}'
         '\u00b7 ${item.speedMbPerSec.toStringAsFixed(1)} MB/s';
     final percent = (item.totalBytes == null || item.totalBytes == 0)

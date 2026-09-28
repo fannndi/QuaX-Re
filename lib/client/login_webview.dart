@@ -52,16 +52,21 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       NavigationDelegate(
         onUrlChange: (change) async {
           if (change.url == "https://x.com/home") {
-            final cookies = await webviewCookieManager.getCookies("https://x.com/i/flow/login");
-            String screenName = (await webviewController.runJavaScriptReturningResult(
-              "document.documentElement.outerHTML.match(/\"screen_name\":\"([^\"]+)\"/)?.[1] ?? '';",
-            )).toString();
+            final cookies = await webviewCookieManager.getCookies(
+              "https://x.com/i/flow/login",
+            );
+            String screenName =
+                (await webviewController.runJavaScriptReturningResult(
+                  "document.documentElement.outerHTML.match(/\"screen_name\":\"([^\"]+)\"/)?.[1] ?? '';",
+                )).toString();
             screenName = screenName.replaceAll('"', '');
             if (screenName == "") return;
 
             try {
               final expCt0 = RegExp(r'(ct0=(.+?));');
-              final RegExpMatch? matchCt0 = expCt0.firstMatch(cookies.toString());
+              final RegExpMatch? matchCt0 = expCt0.firstMatch(
+                cookies.toString(),
+              );
               final csrfToken = matchCt0?.group(2);
               if (csrfToken != null) {
                 final Map<String, String> authHeader = {
@@ -83,12 +88,17 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
                 final database = await Repository.writable();
                 // Re-logging into the same account must refresh its cookies
                 // (the id = csrfToken), not crash on the UNIQUE constraint.
-                database.insert(
+                await database.insert(
                   tableAccounts,
-                  Account(id: csrfToken, screenName: screenName, authHeader: json.encode(authHeader)).toMap(),
+                  Account(
+                    id: csrfToken,
+                    screenName: screenName,
+                    authHeader: json.encode(authHeader),
+                  ).toMap(),
                   conflictAlgorithm: ConflictAlgorithm.replace,
                 );
-                database.close();
+                // The connection is the shared single instance the rest of the
+                // app uses: leave it open.
 
                 // A freshly added account becomes the one used everywhere, so
                 // the timelines immediately speak for the new login.

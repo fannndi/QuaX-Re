@@ -19,12 +19,13 @@ class StatusScreenArguments {
   final int initialMediaIndex;
   final TweetWithCard? initialTweet;
 
-  StatusScreenArguments(
-      {required this.id,
-      required this.username,
-      this.tweetOpened = false,
-      this.initialMediaIndex = 0,
-      this.initialTweet});
+  StatusScreenArguments({
+    required this.id,
+    required this.username,
+    this.tweetOpened = false,
+    this.initialMediaIndex = 0,
+    this.initialTweet,
+  });
 
   @override
   String toString() {
@@ -37,14 +38,16 @@ class StatusScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as StatusScreenArguments;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as StatusScreenArguments;
 
     return _StatusScreen(
-        username: args.username,
-        id: args.id,
-        tweetOpened: args.tweetOpened,
-        initialMediaIndex: args.initialMediaIndex,
-        initialTweet: args.initialTweet);
+      username: args.username,
+      id: args.id,
+      tweetOpened: args.tweetOpened,
+      initialMediaIndex: args.initialMediaIndex,
+      initialTweet: args.initialTweet,
+    );
   }
 }
 
@@ -55,12 +58,13 @@ class _StatusScreen extends StatefulWidget {
   final int initialMediaIndex;
   final TweetWithCard? initialTweet;
 
-  const _StatusScreen(
-      {required this.username,
-      required this.id,
-      required this.tweetOpened,
-      this.initialMediaIndex = 0,
-      this.initialTweet});
+  const _StatusScreen({
+    required this.username,
+    required this.id,
+    required this.tweetOpened,
+    this.initialMediaIndex = 0,
+    this.initialTweet,
+  });
 
   @override
   _StatusScreenState createState() => _StatusScreenState();
@@ -68,7 +72,8 @@ class _StatusScreen extends StatefulWidget {
 
 class _StatusScreenState extends State<_StatusScreen> {
   late final CursorPagingController<String, TweetChain> _paging;
-  PagingController<int, TweetChain> get _pagingController => _paging.pagingController;
+  PagingController<int, TweetChain> get _pagingController =>
+      _paging.pagingController;
   final _scrollController = AutoScrollController();
 
   final _seenAlready = <String>{};
@@ -98,7 +103,9 @@ class _StatusScreenState extends State<_StatusScreen> {
 
   bool get _showingPreview {
     final state = _pagingController.value;
-    return widget.initialTweet != null && state.items == null && state.error == null;
+    return widget.initialTweet != null &&
+        state.items == null &&
+        state.error == null;
   }
 
   void _maybeStartFirstLoad() {
@@ -117,14 +124,19 @@ class _StatusScreenState extends State<_StatusScreen> {
     // Find the chain holding the opened tweet. Ancestors arrive as earlier
     // chains, so index 0 means there's nothing above it (a top-level tweet,
     // already at the top) — leave the view and highlight alone.
-    final index = chains.indexWhere((c) => c.tweets.any((t) => t.idStr == widget.id));
+    final index = chains.indexWhere(
+      (c) => c.tweets.any((t) => t.idStr == widget.id),
+    );
     if (index <= 0) return;
     // Defer one frame: the instant preview is still on screen here; the
     // PagedListView (and its scroll controller) only mounts after the rebuild
     // triggered by the new items. scrollToIndex then handles lazy-list scrolling.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || !_scrollController.hasClients) return;
-      await _scrollController.scrollToIndex(index, preferPosition: AutoScrollPosition.begin);
+      await _scrollController.scrollToIndex(
+        index,
+        preferPosition: AutoScrollPosition.begin,
+      );
       await _scrollController.highlight(index);
     });
   }
@@ -138,7 +150,9 @@ class _StatusScreenState extends State<_StatusScreen> {
     }
 
     // Twitter sometimes sends the original replies with all pages, so we need to manually exclude ones that we've already seen
-    var chains = result.chains.skipWhile((element) => _seenAlready.contains(element.id)).toList();
+    var chains = result.chains
+        .skipWhile((element) => _seenAlready.contains(element.id))
+        .toList();
 
     for (var chain in chains) {
       _seenAlready.add(chain.id);
@@ -160,8 +174,12 @@ class _StatusScreenState extends State<_StatusScreen> {
     return Scaffold(
       appBar: AppBar(),
       body: ChangeNotifierProvider<TweetContextState>(
-        create: (context) => TweetContextState(PrefService.of(context, listen: false).get(optionTweetsHideSensitive)),
-        child: _showingPreview ? _buildPreview(context) : _buildConversation(context),
+        create: (context) => TweetContextState(
+          PrefService.of(context, listen: false).get(optionTweetsHideSensitive),
+        ),
+        child: _showingPreview
+            ? _buildPreview(context)
+            : _buildConversation(context),
       ),
     );
   }
@@ -191,52 +209,60 @@ class _StatusScreenState extends State<_StatusScreen> {
   Widget _buildConversation(BuildContext context) {
     return PagingListener<int, TweetChain>(
       controller: _pagingController,
-      builder: (context, state, fetchNextPage) => PagedListView<int, TweetChain>(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-        state: state,
-        fetchNextPage: fetchNextPage,
-        scrollController: _scrollController,
-        addAutomaticKeepAlives: false,
-        shrinkWrap: true,
-        builderDelegate: PagedChildBuilderDelegate(
-          invisibleItemsThreshold: 8,
-          firstPageProgressIndicatorBuilder: (context) => const TweetListSkeleton(),
-          itemBuilder: (context, chain, index) {
-            return AutoScrollTag(
-              key: ValueKey(chain.id),
-              controller: _scrollController,
-              index: index,
-              highlightColor: Theme.of(context).colorScheme.primary,
-              child: TweetConversation(
-                  id: chain.id,
-                  tweets: chain.tweets,
-                  username: null,
-                  isPinned: chain.isPinned,
-                  tweetOpened: widget.tweetOpened,
-                  initialMediaIndex: chain.id == widget.id ? widget.initialMediaIndex : 0),
-            );
-          },
-          firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
-            error: pagingErrorOf(state)?.error,
-            stackTrace: pagingErrorOf(state)?.stackTrace,
-            prefix: L10n.of(context).unable_to_load_the_tweet,
-            onRetry: fetchNextPage,
-          ),
-          newPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
-            error: pagingErrorOf(state)?.error,
-            stackTrace: pagingErrorOf(state)?.stackTrace,
-            prefix: L10n.of(context).unable_to_load_the_next_page_of_replies,
-            onRetry: fetchNextPage,
-          ),
-          noItemsFoundIndicatorBuilder: (context) {
-            return Center(
-              child: Text(
-                L10n.of(context).could_not_find_any_tweets_by_this_user,
+      builder: (context, state, fetchNextPage) =>
+          PagedListView<int, TweetChain>(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom,
+            ),
+            state: state,
+            fetchNextPage: fetchNextPage,
+            scrollController: _scrollController,
+            addAutomaticKeepAlives: false,
+            shrinkWrap: true,
+            builderDelegate: PagedChildBuilderDelegate(
+              invisibleItemsThreshold: 8,
+              firstPageProgressIndicatorBuilder: (context) =>
+                  const TweetListSkeleton(),
+              itemBuilder: (context, chain, index) {
+                return AutoScrollTag(
+                  key: ValueKey(chain.id),
+                  controller: _scrollController,
+                  index: index,
+                  highlightColor: Theme.of(context).colorScheme.primary,
+                  child: TweetConversation(
+                    id: chain.id,
+                    tweets: chain.tweets,
+                    username: null,
+                    isPinned: chain.isPinned,
+                    tweetOpened: widget.tweetOpened,
+                    initialMediaIndex: chain.id == widget.id
+                        ? widget.initialMediaIndex
+                        : 0,
+                  ),
+                );
+              },
+              firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
+                error: pagingErrorOf(state)?.error,
+                stackTrace: pagingErrorOf(state)?.stackTrace,
+                prefix: L10n.of(context).unable_to_load_the_tweet,
+                onRetry: fetchNextPage,
               ),
-            );
-          },
-        ),
-      ),
+              newPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
+                error: pagingErrorOf(state)?.error,
+                stackTrace: pagingErrorOf(state)?.stackTrace,
+                prefix: L10n.of(context)
+                    .unable_to_load_the_next_page_of_replies,
+                onRetry: fetchNextPage,
+              ),
+              noItemsFoundIndicatorBuilder: (context) {
+                return Center(
+                  child: Text(
+                    L10n.of(context).could_not_find_any_tweets_by_this_user,
+                  ),
+                );
+              },
+            ),
+          ),
     );
   }
 }

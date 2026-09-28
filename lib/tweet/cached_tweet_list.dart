@@ -18,7 +18,12 @@ class CachedTweetList extends StatelessWidget {
       itemCount: chains.length,
       itemBuilder: (context, index) {
         var chain = chains[index];
-        return TweetConversation(id: chain.id, tweets: chain.tweets, username: username, isPinned: chain.isPinned);
+        return TweetConversation(
+          id: chain.id,
+          tweets: chain.tweets,
+          username: username,
+          isPinned: chain.isPinned,
+        );
       },
     );
   }

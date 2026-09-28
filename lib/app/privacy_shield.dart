@@ -23,7 +23,8 @@ class PrivacyShield extends StatefulWidget {
   State<PrivacyShield> createState() => _PrivacyShieldState();
 }
 
-class _PrivacyShieldState extends State<PrivacyShield> with WidgetsBindingObserver {
+class _PrivacyShieldState extends State<PrivacyShield>
+    with WidgetsBindingObserver {
   static const _channel = MethodChannel('browser_resolver');
 
   bool _obscured = false;
@@ -33,7 +34,8 @@ class _PrivacyShieldState extends State<PrivacyShield> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _obscured = WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+    _obscured =
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
   }
 
   @override
@@ -45,10 +47,16 @@ class _PrivacyShieldState extends State<PrivacyShield> with WidgetsBindingObserv
   }
 
   bool _screenshotsDisabled() =>
-      PrefService.of(context, listen: false).get<bool>(optionDisableScreenshots) ?? false;
+      PrefService.of(
+        context,
+        listen: false,
+      ).get<bool>(optionDisableScreenshots) ??
+      false;
 
   void _applyRecentsSecurity(bool secure) {
-    _channel.invokeMethod('setRecentsSecure', {'secure': secure}).catchError((Object _) => null);
+    _channel
+        .invokeMethod('setRecentsSecure', {'secure': secure})
+        .catchError((Object _) => null);
   }
 
   @override
@@ -83,7 +91,11 @@ class _PrivacyShieldState extends State<PrivacyShield> with WidgetsBindingObserv
                 child: ColoredBox(
                   color: colors.surface.withValues(alpha: 0.55),
                   child: Center(
-                    child: Icon(Icons.lock_outline, size: 56, color: colors.primary),
+                    child: Icon(
+                      Icons.lock_outline,
+                      size: 56,
+                      color: colors.primary,
+                    ),
                   ),
                 ),
               ),

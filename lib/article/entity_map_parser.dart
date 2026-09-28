@@ -7,7 +7,12 @@ import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/iterables.dart';
 
 class EntityMapParser {
-  static Map<int, EntityValue> parse(dynamic json, List<dynamic> mediaEntitiesJson, String tweetIdStr, String user) {
+  static Map<int, EntityValue> parse(
+    dynamic json,
+    List<dynamic> mediaEntitiesJson,
+    String tweetIdStr,
+    String user,
+  ) {
     final List<dynamic> entityList;
 
     if (json is String) {
@@ -59,7 +64,9 @@ class EntityMapParser {
             if (firstItem is Map<String, dynamic>) {
               final mediaId = firstItem['mediaId']?.toString();
               if (mediaId != null && mediaId.isNotEmpty) {
-                final res = mediaEntitiesJson.firstWhereOrNull((e) => e["media_id"] == mediaId);
+                final res = mediaEntitiesJson.firstWhereOrNull(
+                  (e) => e["media_id"] == mediaId,
+                );
                 if (res == null) {
                   break;
                 }
@@ -70,17 +77,25 @@ class EntityMapParser {
                   final variantsJson = res["media_info"]?["variants"];
                   List<Variant> variants = [];
                   if (variantsJson is List<dynamic>) {
-                    variants = List.from(variantsJson.map((e) =>
-                      Variant()
-                        ..bitrate = e['bit_rate'] as int?
-                        ..contentType = e['content_type'] as String?
-                        ..url = e['url'] as String?));
+                    variants = List.from(
+                      variantsJson.map(
+                        (e) => Variant()
+                          ..bitrate = e['bit_rate'] as int?
+                          ..contentType = e['content_type'] as String?
+                          ..url = e['url'] as String?,
+                      ),
+                    );
                   }
                   result[key] = VideoEntity(
                     metadata: TweetVideoMetadata(
-                      (res["media_info"]?["aspect_ratio"]?["numerator"] ?? 1.0) / (res["media_info"]?["aspect_ratio"]?["denominator"] ?? 1.0),
+                      (res["media_info"]?["aspect_ratio"]?["numerator"] ??
+                              1.0) /
+                          (res["media_info"]?["aspect_ratio"]?["denominator"] ??
+                              1.0),
                       res["media_info"]?["preview_image"]?["original_img_url"],
-                      TweetVideoMetadata.streamUrlsBuilderFromVariants(variants),
+                      TweetVideoMetadata.streamUrlsBuilderFromVariants(
+                        variants,
+                      ),
                     ),
                   );
                 }

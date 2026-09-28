@@ -6,6 +6,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/video_quality.dart';
 import 'package:quax/tweet/_video_controls.dart';
 import 'package:quax/utils/downloads.dart';
+
 class VideoMoreButton extends StatefulWidget {
   final BetterPlayerController controller;
   final String username;
@@ -13,6 +14,7 @@ class VideoMoreButton extends StatefulWidget {
   final String? downloadUrl;
 
   const VideoMoreButton({
+    super.key,
     required this.controller,
     required this.username,
     required this.qualities,
@@ -75,12 +77,20 @@ class _VideoMoreButtonState extends State<VideoMoreButton> {
                 title: Text(L10n.of(sheetContext).quality),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  _openQualitySheet(context, widget.controller, widget.qualities);
+                  _openQualitySheet(
+                    context,
+                    widget.controller,
+                    widget.qualities,
+                  );
                 },
               ),
             if (_hasSubtitles)
               ListTile(
-                leading: Icon(_subtitlesEnabled ? Icons.closed_caption : Icons.closed_caption_off),
+                leading: Icon(
+                  _subtitlesEnabled
+                      ? Icons.closed_caption
+                      : Icons.closed_caption_off,
+                ),
                 title: Text(L10n.of(sheetContext).subtitles),
                 trailing: _subtitlesEnabled ? const Icon(Icons.check) : null,
                 onTap: () {
@@ -93,7 +103,11 @@ class _VideoMoreButtonState extends State<VideoMoreButton> {
               title: Text(L10n.of(sheetContext).download),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                downloadTweetVideo(context, widget.username, widget.downloadUrl);
+                downloadTweetVideo(
+                  context,
+                  widget.username,
+                  widget.downloadUrl,
+                );
               },
             ),
           ],
@@ -105,7 +119,10 @@ class _VideoMoreButtonState extends State<VideoMoreButton> {
 
 const _kSpeeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
-Future<void> _openSpeedSheet(BuildContext context, BetterPlayerController controller) async {
+Future<void> _openSpeedSheet(
+  BuildContext context,
+  BetterPlayerController controller,
+) async {
   final current = videoValueOf(controller).speed;
   final chosen = await showModalBottomSheet<double>(
     context: context,
@@ -119,7 +136,10 @@ Future<void> _openSpeedSheet(BuildContext context, BetterPlayerController contro
 }
 
 Future<void> _openQualitySheet(
-    BuildContext context, BetterPlayerController controller, List<TweetVideoQuality> qualities) async {
+  BuildContext context,
+  BetterPlayerController controller,
+  List<TweetVideoQuality> qualities,
+) async {
   final chosen = await showModalBottomSheet<TweetVideoQuality>(
     context: context,
     isScrollControlled: true,
@@ -139,18 +159,27 @@ Future<void> _openQualitySheet(
   await controller.setVolume(volume);
 }
 
-Future<void> downloadTweetVideo(BuildContext context, String username, String? downloadUrl) async {
+Future<void> downloadTweetVideo(
+  BuildContext context,
+  String username,
+  String? downloadUrl,
+) async {
   if (downloadUrl == null) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(L10n.current.download_media_no_url),
-    ));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(L10n.current.download_media_no_url)));
     return;
   }
 
   final videoUri = Uri.parse(downloadUrl);
   final fileName = '$username-${p.basename(videoUri.path)}';
 
-  await downloadUriToPickedFile(context, videoUri, fileName, prefs: PrefService.of(context));
+  await downloadUriToPickedFile(
+    context,
+    videoUri,
+    fileName,
+    prefs: PrefService.of(context),
+  );
 }
 
 class _SpeedSheet extends StatelessWidget {
@@ -167,7 +196,9 @@ class _SpeedSheet extends StatelessWidget {
         children: speeds.reversed.map((speed) {
           final isSelected = (speed - selected).abs() < 0.01;
           return ListTile(
-            leading: isSelected ? const Icon(Icons.check) : const SizedBox(width: 24),
+            leading: isSelected
+                ? const Icon(Icons.check)
+                : const SizedBox(width: 24),
             title: Text('${speed}x'),
             onTap: () => Navigator.of(context).pop(speed),
           );
@@ -191,7 +222,9 @@ class _QualitySheet extends StatelessWidget {
         children: qualities.map((quality) {
           final isSelected = quality.url == selectedUrl;
           return ListTile(
-            leading: isSelected ? const Icon(Icons.check) : const SizedBox(width: 24),
+            leading: isSelected
+                ? const Icon(Icons.check)
+                : const SizedBox(width: 24),
             title: Text(quality.label),
             onTap: () => Navigator.of(context).pop(quality),
           );
@@ -199,6 +232,4 @@ class _QualitySheet extends StatelessWidget {
       ),
     );
   }
-
 }
-

@@ -11,6 +11,7 @@ import 'package:quax/utils/tweet_freshness_index.dart';
 
 class FollowingTweets extends StatefulWidget {
   final TweetFeedController feed;
+
   /// The login this feed belongs to; the scroll memory is kept per account so
   /// switching back restores the right place.
   final String? accountId;
@@ -21,7 +22,8 @@ class FollowingTweets extends StatefulWidget {
   State<FollowingTweets> createState() => _FollowingTweetsState();
 }
 
-class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAliveClientMixin<FollowingTweets> {
+class _FollowingTweetsState extends State<FollowingTweets>
+    with AutomaticKeepAliveClientMixin<FollowingTweets> {
   static const int pageSize = 20;
   int loadTweetsCounter = 0;
   @override
@@ -45,7 +47,9 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
     if (kDebugMode) {
       // An empty page here is normal for a quiet following list; the feed
       // keeps its items instead of blanking (see applyFirstPage).
-      debugPrint('QuaX following entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}');
+      debugPrint(
+        'QuaX following entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}',
+      );
     }
     TweetFreshnessIndex().note(result.chains.map((chain) => chain.id));
     if (mounted) {
@@ -66,10 +70,10 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
         onRefresh: () async {},
         scrollKey: 'home.following.${widget.accountId ?? 'none'}',
         firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
-        newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
+        newPageErrorPrefix: L10n.of(context)
+            .unable_to_load_the_next_page_of_tweets,
         emptyMessage: L10n.of(context).unable_to_load_the_tweets_for_the_feed,
       ),
     );
   }
 }
-

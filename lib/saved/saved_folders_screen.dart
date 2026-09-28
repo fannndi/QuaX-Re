@@ -27,10 +27,14 @@ class _SavedFoldersScreenState extends State<SavedFoldersScreen> {
     context.read<SavedTweetModel>().listSavedTweets();
   }
 
-  SavedTweetFolderModel get _folderModel => context.read<SavedTweetFolderModel>();
+  SavedTweetFolderModel get _folderModel =>
+      context.read<SavedTweetFolderModel>();
 
-  int _countIn(String folderId) =>
-      context.read<SavedTweetModel>().state.where((e) => e.folderId == folderId).length;
+  int _countIn(String folderId) => context
+      .read<SavedTweetModel>()
+      .state
+      .where((e) => e.folderId == folderId)
+      .length;
 
   Future<void> _rename(SavedTweetFolder folder) async {
     await showCreateFolderDialog(context, _folderModel, existing: folder);
@@ -40,30 +44,55 @@ class _SavedFoldersScreenState extends State<SavedFoldersScreen> {
     await showDeleteFolderDialog(context, _folderModel, folder);
   }
 
-  Future<void> _onReorder(List<String> tokens, int oldIndex, int newIndex) async {
+  Future<void> _onReorder(
+    List<String> tokens,
+    int oldIndex,
+    int newIndex,
+  ) async {
     var reordered = [...tokens];
     reordered.insert(newIndex, reordered.removeAt(oldIndex));
 
-    await PrefService.of(context, listen: false).set(optionSavedTabOrder, jsonEncode(reordered));
+    await PrefService.of(
+      context,
+      listen: false,
+    ).set(optionSavedTabOrder, jsonEncode(reordered));
     if (mounted) setState(() {});
   }
 
   Widget _dragHandle(int index) {
     return ReorderableDragStartListener(
       index: index,
-      child: const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.drag_handle)),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Icon(Icons.drag_handle),
+      ),
     );
   }
 
   Widget _tabRow(String token, List<SavedTweetFolder> folders, int index) {
     if (token == savedTabAll) {
-      return _builtInRow(token, L10n.of(context).all, optionSavedShowAllTab, index);
+      return _builtInRow(
+        token,
+        L10n.of(context).all,
+        optionSavedShowAllTab,
+        index,
+      );
     }
     if (token == savedTabUnfiled) {
-      return _builtInRow(token, L10n.of(context).unfiled, optionSavedShowUnfiledTab, index);
+      return _builtInRow(
+        token,
+        L10n.of(context).unfiled,
+        optionSavedShowUnfiledTab,
+        index,
+      );
     }
     if (token == savedTabFavorites) {
-      return _builtInRow(token, L10n.of(context).favorites, optionSavedShowFavoritesTab, index);
+      return _builtInRow(
+        token,
+        L10n.of(context).favorites,
+        optionSavedShowFavoritesTab,
+        index,
+      );
     }
 
     var folder = folders.firstWhere((f) => f.id == token);
@@ -131,13 +160,18 @@ class _SavedFoldersScreenState extends State<SavedFoldersScreen> {
         store: _folderModel,
         onLoading: (_) => const Center(child: CircularProgressIndicator()),
         onState: (context, folders) {
-          var tokens = orderedSavedTabs(folders, PrefService.of(context, listen: false).get(optionSavedTabOrder));
+          var tokens = orderedSavedTabs(
+            folders,
+            PrefService.of(context, listen: false).get(optionSavedTabOrder),
+          );
 
           return ReorderableListView.builder(
             buildDefaultDragHandles: false,
             itemCount: tokens.length,
-            onReorderItem: (oldIndex, newIndex) => _onReorder(tokens, oldIndex, newIndex),
-            itemBuilder: (context, index) => _tabRow(tokens[index], folders, index),
+            onReorderItem: (oldIndex, newIndex) =>
+                _onReorder(tokens, oldIndex, newIndex),
+            itemBuilder: (context, index) =>
+                _tabRow(tokens[index], folders, index),
           );
         },
       ),

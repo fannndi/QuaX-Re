@@ -34,10 +34,14 @@ class ResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final arguments = ModalRoute.of(context)!.settings.arguments as SearchArguments;
+    final arguments =
+        ModalRoute.of(context)!.settings.arguments as SearchArguments;
 
     return _ResultsScreen(
-        initialTab: arguments.initialTab, query: arguments.query, focusInputOnOpen: arguments.focusInputOnOpen);
+      initialTab: arguments.initialTab,
+      query: arguments.query,
+      focusInputOnOpen: arguments.focusInputOnOpen,
+    );
   }
 }
 
@@ -46,13 +50,18 @@ class _ResultsScreen extends StatefulWidget {
   final String? query;
   final bool focusInputOnOpen;
 
-  const _ResultsScreen({required this.initialTab, this.query, this.focusInputOnOpen = false});
+  const _ResultsScreen({
+    required this.initialTab,
+    this.query,
+    this.focusInputOnOpen = false,
+  });
 
   @override
   State<_ResultsScreen> createState() => _ResultsScreenState();
 }
 
-class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProviderStateMixin {
+class _ResultsScreenState extends State<_ResultsScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _queryController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
@@ -70,14 +79,26 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
   void initState() {
     super.initState();
 
-    _tabController = TabController(length: 5, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(
+      length: 5,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
 
     final initialQuery = widget.query ?? '';
-    _topTweets = SearchTweetsPagination(product: 'Top', initialQuery: initialQuery);
-    _latestTweets = SearchTweetsPagination(product: 'Latest', initialQuery: initialQuery);
+    _topTweets = SearchTweetsPagination(
+      product: 'Top',
+      initialQuery: initialQuery,
+    );
+    _latestTweets = SearchTweetsPagination(
+      product: 'Latest',
+      initialQuery: initialQuery,
+    );
     _mediaResults = SearchMediaPagination(initialQuery: initialQuery);
     _searchUsersModel = SearchUsersModel();
-    _localSearchModel = LocalSearchModel(PrefService.of(context, listen: false));
+    _localSearchModel = LocalSearchModel(
+      PrefService.of(context, listen: false),
+    );
 
     _queryController.text = initialQuery;
     _lastDispatchedQuery = initialQuery;
@@ -138,9 +159,17 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
             controller: _queryController,
             focusNode: _focusNode,
             textInputAction: TextInputAction.search,
-            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.pop(context),
+            ),
             trailing: [
-              FollowButton(user: SearchSubscription(id: _queryController.text, createdAt: DateTime.now())),
+              FollowButton(
+                user: SearchSubscription(
+                  id: _queryController.text,
+                  createdAt: DateTime.now(),
+                ),
+              ),
             ],
           ),
         ),
@@ -155,15 +184,19 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
           ],
           labelColor: Theme.of(context).appBarTheme.foregroundColor,
           indicatorColor: Theme.of(context).appBarTheme.foregroundColor,
-          dividerColor: Theme.of(context).colorScheme.surfaceBright.withAlpha(150),
+          dividerColor: Theme.of(context).colorScheme.surfaceBright
+              .withAlpha(150),
         ),
       ),
       body: MultiProvider(
         providers: [
           ChangeNotifierProvider<TweetContextState>(
-              create: (_) => TweetContextState(prefs.get(optionTweetsHideSensitive))),
+            create: (_) =>
+                TweetContextState(prefs.get(optionTweetsHideSensitive)),
+          ),
           ChangeNotifierProvider<VideoContextState>(
-              create: (_) => VideoContextState(prefs.get(optionMediaDefaultMute))),
+            create: (_) => VideoContextState(prefs.get(optionMediaDefaultMute)),
+          ),
         ],
         child: TabBarView(
           controller: _tabController,
@@ -172,21 +205,31 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
               feed: _topTweets.feed,
               loadPage: _topTweets.loadPage,
               username: null,
-              firstPageErrorPrefix: L10n.of(context).unable_to_load_the_search_results,
-              newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
+              firstPageErrorPrefix: L10n.of(context)
+                  .unable_to_load_the_search_results,
+              newPageErrorPrefix: L10n.of(context)
+                  .unable_to_load_the_next_page_of_tweets,
               emptyMessage: L10n.of(context).no_results,
             ),
             PaginatedTweetList(
               feed: _latestTweets.feed,
               loadPage: _latestTweets.loadPage,
               username: null,
-              firstPageErrorPrefix: L10n.of(context).unable_to_load_the_search_results,
-              newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
+              firstPageErrorPrefix: L10n.of(context)
+                  .unable_to_load_the_search_results,
+              newPageErrorPrefix: L10n.of(context)
+                  .unable_to_load_the_next_page_of_tweets,
               emptyMessage: L10n.of(context).no_results,
             ),
             SearchMediaGrid(model: _mediaResults),
-            _UserSearchResultList(store: _searchUsersModel, onRetry: _dispatchQuery),
-            _LocalSearchResultList(model: _localSearchModel, onRetry: _dispatchQuery),
+            _UserSearchResultList(
+              store: _searchUsersModel,
+              onRetry: _dispatchQuery,
+            ),
+            _LocalSearchResultList(
+              model: _localSearchModel,
+              onRetry: _dispatchQuery,
+            ),
           ],
         ),
       ),
@@ -216,7 +259,9 @@ class _UserSearchResultList extends StatelessWidget {
           return Center(child: Text(L10n.of(context).no_results));
         }
         return ListView.builder(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
           itemCount: items.length,
           itemBuilder: (context, index) {
             return UserTile(user: UserSubscription.fromUser(items[index]));
@@ -251,7 +296,10 @@ class _LocalSearchResultList extends StatelessWidget {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
-              child: Text(L10n.of(context).local_search_hint, textAlign: TextAlign.center),
+              child: Text(
+                L10n.of(context).local_search_hint,
+                textAlign: TextAlign.center,
+              ),
             ),
           );
         }
@@ -264,7 +312,9 @@ class _LocalSearchResultList extends StatelessWidget {
 
         return ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
           itemCount: posts.length + (media.isEmpty ? 0 : media.length + 1),
           itemBuilder: (context, index) {
             if (index < posts.length) {
@@ -276,10 +326,16 @@ class _LocalSearchResultList extends StatelessWidget {
             if (mediaIndex < 0) {
               return Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-                child: Text(L10n.of(context).library, style: Theme.of(context).textTheme.titleSmall),
+                child: Text(
+                  L10n.of(context).library,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               );
             }
-            return _LocalMediaTile(model: model, entry: media[mediaIndex].entry);
+            return _LocalMediaTile(
+              model: model,
+              entry: media[mediaIndex].entry,
+            );
           },
         );
       },
@@ -303,7 +359,9 @@ class _LocalMediaTile extends StatelessWidget {
         child: SizedBox(
           width: 48,
           height: 48,
-          child: entry.isVideo ? _buildVideoThumb(decodeWidth) : _buildImageThumb(decodeWidth),
+          child: entry.isVideo
+              ? _buildVideoThumb(decodeWidth)
+              : _buildImageThumb(decodeWidth),
         ),
       ),
       title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -312,7 +370,11 @@ class _LocalMediaTile extends StatelessWidget {
       onTap: () async {
         final opened = await model.openExternally(entry.file.path);
         if (!opened && context.mounted) {
-          showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+          showSnackBar(
+            context,
+            icon: '🙊',
+            message: L10n.of(context).oops_something_went_wrong,
+          );
         }
       },
     );

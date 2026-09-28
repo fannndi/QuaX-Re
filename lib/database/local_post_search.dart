@@ -18,17 +18,32 @@ class LocalPost {
   final Set<String> sources;
   final DateTime? keptAt;
 
-  const LocalPost({required this.id, required this.content, required this.sources, required this.keptAt});
+  const LocalPost({
+    required this.id,
+    required this.content,
+    required this.sources,
+    required this.keptAt,
+  });
 }
 
 /// Every saved and liked post, most recently kept first. These are the rows the
 /// Saved tab shows, so a post kept in both places is one entry.
-Future<List<LocalPost>> loadLocalPosts(DatabaseExecutor db, {int limit = 2000}) async {
+Future<List<LocalPost>> loadLocalPosts(
+  DatabaseExecutor db, {
+  int limit = 2000,
+}) async {
   final posts = <String, LocalPost>{};
 
-  for (final (source, timestamp) in [(tableSavedTweet, 'saved_at'), (tableLikedTweet, 'liked_at')]) {
-    final rows =
-        await db.query(source, columns: ['id', 'content', timestamp], orderBy: '$timestamp DESC', limit: limit);
+  for (final (source, timestamp) in [
+    (tableSavedTweet, 'saved_at'),
+    (tableLikedTweet, 'liked_at'),
+  ]) {
+    final rows = await db.query(
+      source,
+      columns: ['id', 'content', timestamp],
+      orderBy: '$timestamp DESC',
+      limit: limit,
+    );
     for (final row in rows) {
       final id = row['id'];
       if (id is! String) continue;
@@ -43,7 +58,8 @@ Future<List<LocalPost>> loadLocalPosts(DatabaseExecutor db, {int limit = 2000}) 
     }
   }
 
-  return posts.values.toList()..sort((a, b) => (b.keptAt ?? _epoch).compareTo(a.keptAt ?? _epoch));
+  return posts.values.toList()
+    ..sort((a, b) => (b.keptAt ?? _epoch).compareTo(a.keptAt ?? _epoch));
 }
 
 DateTime? _newest(DateTime? a, DateTime? b) {
@@ -52,7 +68,8 @@ DateTime? _newest(DateTime? a, DateTime? b) {
   return a.isAfter(b) ? a : b;
 }
 
-DateTime? _parseTimestamp(Object? value) => value is String ? DateTime.tryParse(value) : null;
+DateTime? _parseTimestamp(Object? value) =>
+    value is String ? DateTime.tryParse(value) : null;
 
 /// A post ready to be matched: [body] is its lowercased searchable text.
 class SearchDoc {
@@ -104,7 +121,8 @@ Iterable<String> _authorOf(Map<dynamic, dynamic> content) sync* {
 }
 
 Iterable<String> _retweetedOf(Map<dynamic, dynamic> content) sync* {
-  final retweeted = content['retweetedStatusWithCard'] ?? content['retweeted_status'];
+  final retweeted =
+      content['retweetedStatusWithCard'] ?? content['retweeted_status'];
   if (retweeted is! Map) return;
   yield* _textsOf(retweeted);
   yield* _authorOf(retweeted);
@@ -120,8 +138,15 @@ class LocalPostMatch {
 /// Matches [docs] against [query]. Every typed word has to appear somewhere,
 /// a word that starts a word in the post scores above one buried inside
 /// another, and equal posts are ordered newest first.
-List<LocalPostMatch> rankLocalPosts(Iterable<SearchDoc> docs, String query, {int limit = 60}) {
-  final terms = query.toLowerCase().split(RegExp(r'\s+')).where((term) => term.isNotEmpty);
+List<LocalPostMatch> rankLocalPosts(
+  Iterable<SearchDoc> docs,
+  String query, {
+  int limit = 60,
+}) {
+  final terms = query
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((term) => term.isNotEmpty);
   if (terms.isEmpty) return const [];
 
   final matches = <LocalPostMatch>[];
@@ -151,7 +176,8 @@ List<LocalPostMatch> rankLocalPosts(Iterable<SearchDoc> docs, String query, {int
   return matches.length > limit ? matches.sublist(0, limit) : matches;
 }
 
-bool _startsWord(String body, int index) => index == 0 || !_isWordChar(body.codeUnitAt(index - 1));
+bool _startsWord(String body, int index) =>
+    index == 0 || !_isWordChar(body.codeUnitAt(index - 1));
 
 bool _isWordChar(int codeUnit) {
   final isDigit = codeUnit >= 0x30 && codeUnit <= 0x39;

@@ -37,7 +37,9 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
     if (!mounted || widget.maxLines == null) return false;
 
     final scale = MediaQuery.of(context).textScaler.scale(1.0);
-    if (_measuredTruncated != null && _measuredAtWidth == width && _measuredScale == scale) {
+    if (_measuredTruncated != null &&
+        _measuredAtWidth == width &&
+        _measuredScale == scale) {
       return _measuredTruncated!;
     }
 
@@ -61,7 +63,8 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
   void didUpdateWidget(ExpandableTweetText oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!identical(oldWidget.textSpans, widget.textSpans) || oldWidget.maxLines != widget.maxLines) {
+    if (!identical(oldWidget.textSpans, widget.textSpans) ||
+        oldWidget.maxLines != widget.maxLines) {
       _measuredTruncated = null;
     }
   }
@@ -75,7 +78,10 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
-        child: Text.rich(TextSpan(children: widget.textSpans), maxLines: maxLines),
+        child: Text.rich(
+          TextSpan(children: widget.textSpans),
+          maxLines: maxLines,
+        ),
       ),
     );
   }
@@ -114,7 +120,11 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
                 child: _buildText(maxLines: widget.maxLines),
               )
             else
-              _buildText(maxLines: _isExpanded || !textIsTruncated ? null : widget.maxLines),
+              _buildText(
+                maxLines: _isExpanded || !textIsTruncated
+                    ? null
+                    : widget.maxLines,
+              ),
             if (!_isExpanded && textIsTruncated)
               Align(
                 alignment: Alignment.centerLeft,

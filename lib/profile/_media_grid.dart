@@ -63,23 +63,26 @@ class _ProfileMediaGridState extends State<ProfileMediaGrid> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TweetContextState>(builder: (context, model, child) {
-      if (model.hideSensitive && (widget.user.possiblySensitive ?? false)) {
-        return EmojiErrorWidget(
-          emoji: '🍆🙈🍆',
-          message: L10n.current.possibly_sensitive,
-          errorMessage: L10n.current.possibly_sensitive_profile,
-          onRetry: () async => model.setHideSensitive(false),
-          retryText: L10n.current.yes_please,
-        );
-      }
+    return Consumer<TweetContextState>(
+      builder: (context, model, child) {
+        if (model.hideSensitive && (widget.user.possiblySensitive ?? false)) {
+          return EmojiErrorWidget(
+            emoji: '🍆🙈🍆',
+            message: L10n.current.possibly_sensitive,
+            errorMessage: L10n.current.possibly_sensitive_profile,
+            onRetry: () async => model.setHideSensitive(false),
+            retryText: L10n.current.yes_please,
+          );
+        }
 
-      return MediaGrid(
-        controller: _paging.pagingController,
-        firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
-        newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
-        emptyMessage: L10n.of(context).could_not_find_any_tweets_by_this_user,
-      );
-    });
+        return MediaGrid(
+          controller: _paging.pagingController,
+          firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
+          newPageErrorPrefix: L10n.of(context)
+              .unable_to_load_the_next_page_of_tweets,
+          emptyMessage: L10n.of(context).could_not_find_any_tweets_by_this_user,
+        );
+      },
+    );
   }
 }

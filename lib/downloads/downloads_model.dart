@@ -47,36 +47,38 @@ class DownloadQueueItem {
     DownloadStatus? status,
     String? error,
     bool clearError = false,
-  }) =>
-      DownloadQueueItem(
-        fileName: fileName,
-        url: url,
-        isVideo: isVideo,
-        receivedBytes: receivedBytes ?? this.receivedBytes,
-        totalBytes: totalBytes ?? this.totalBytes,
-        speedMbPerSec: speedMbPerSec ?? this.speedMbPerSec,
-        status: status ?? this.status,
-        error: clearError ? null : (error ?? this.error),
-      );
+  }) => DownloadQueueItem(
+    fileName: fileName,
+    url: url,
+    isVideo: isVideo,
+    receivedBytes: receivedBytes ?? this.receivedBytes,
+    totalBytes: totalBytes ?? this.totalBytes,
+    speedMbPerSec: speedMbPerSec ?? this.speedMbPerSec,
+    status: status ?? this.status,
+    error: clearError ? null : (error ?? this.error),
+  );
 
   Map<String, dynamic> toJson() => {
-        'fileName': fileName,
-        'url': url,
-        'isVideo': isVideo,
-        'receivedBytes': receivedBytes,
-        'totalBytes': totalBytes,
-        'status': status.name,
-        'error': error,
-      };
+    'fileName': fileName,
+    'url': url,
+    'isVideo': isVideo,
+    'receivedBytes': receivedBytes,
+    'totalBytes': totalBytes,
+    'status': status.name,
+    'error': error,
+  };
 
-  factory DownloadQueueItem.fromJson(Map<String, dynamic> json) => DownloadQueueItem(
+  factory DownloadQueueItem.fromJson(Map<String, dynamic> json) =>
+      DownloadQueueItem(
         fileName: json['fileName'] as String? ?? '',
         url: json['url'] as String? ?? '',
         isVideo: json['isVideo'] as bool? ?? false,
         receivedBytes: json['receivedBytes'] as int? ?? 0,
         totalBytes: json['totalBytes'] as int?,
-        status: DownloadStatus.values.firstWhere((s) => s.name == json['status'],
-            orElse: () => DownloadStatus.error),
+        status: DownloadStatus.values.firstWhere(
+          (s) => s.name == json['status'],
+          orElse: () => DownloadStatus.error,
+        ),
         error: json['error'] as String?,
       );
 }
@@ -108,7 +110,8 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   // re-scans the library folder through these.
   final Map<String, void Function()> _doneListeners = {};
 
-  void addDoneListener(String key, void Function() listener) => _doneListeners[key] = listener;
+  void addDoneListener(String key, void Function() listener) =>
+      _doneListeners[key] = listener;
 
   void removeDoneListener(String key) => _doneListeners.remove(key);
 
@@ -132,9 +135,13 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
           .whereType<Map<String, dynamic>>()
           .map(DownloadQueueItem.fromJson)
           .where((item) => item.fileName.isNotEmpty && item.url.isNotEmpty)
-          .map((item) => item.status == DownloadStatus.running || item.status == DownloadStatus.queued
-              ? item.copyWith(status: DownloadStatus.paused, speedMbPerSec: 0)
-              : item)
+          .map(
+            (item) =>
+                item.status == DownloadStatus.running ||
+                    item.status == DownloadStatus.queued
+                ? item.copyWith(status: DownloadStatus.paused, speedMbPerSec: 0)
+                : item,
+          )
           .toList();
       update(items, force: true);
     } catch (e) {
@@ -150,7 +157,9 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _lastSaveAt = now;
     try {
       final file = await _ledgerFile();
-      await file.writeAsString(jsonEncode(state.map((e) => e.toJson()).toList()));
+      await file.writeAsString(
+        jsonEncode(state.map((e) => e.toJson()).toList()),
+      );
     } catch (e) {
       debugPrint('DownloadsModel save failed: $e');
     }
@@ -163,13 +172,16 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     existing.removeWhere((item) => item.fileName == fileName);
     // Appended: the list reads top-to-bottom exactly as transfers run, so
     // dragging an entry changes its execution order.
-    existing.add(DownloadQueueItem(
+    existing.add(
+      DownloadQueueItem(
         fileName: fileName,
         url: url,
         isVideo: isVideo,
         receivedBytes: 0,
         totalBytes: null,
-        status: DownloadStatus.queued));
+        status: DownloadStatus.queued,
+      ),
+    );
     _pruneFinished(existing);
     update(existing, force: true);
     _save(force: true);
@@ -184,16 +196,14 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     return null;
   }
 
-  /// Moves an entry to another position (drag & drop); waiting entries then run
-  /// in their new order.
+  /// Moves an entry to [newIndex] (already adjusted by [onReorderItem] for the
+  /// removal at [oldIndex]); waiting entries then run in their new order.
   void moveItem(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= state.length) return;
 
     final updated = List.of(state);
     final item = updated.removeAt(oldIndex);
-    var target = newIndex;
-    if (target > oldIndex) target -= 1;
-    updated.insert(target.clamp(0, updated.length), item);
+    updated.insert(newIndex.clamp(0, updated.length), item);
     update(updated, force: true);
     _save(force: true);
   }
@@ -201,17 +211,23 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   /// Bounds the finished history so the ledger stays small and startup fast:
   /// at most [_maxFinishedHistory] done rows, newest first.
   void _pruneFinished(List<DownloadQueueItem> items) {
-    var finished = items.where((item) => item.status == DownloadStatus.done).length;
+    var finished = items
+        .where((item) => item.status == DownloadStatus.done)
+        .length;
     if (finished <= _maxFinishedHistory) return;
 
     items.removeWhere((item) {
-      if (item.status != DownloadStatus.done || finished <= _maxFinishedHistory) return false;
+      if (item.status != DownloadStatus.done ||
+          finished <= _maxFinishedHistory) {
+        return false;
+      }
       finished--;
       return true;
     });
   }
 
-  bool contains(String fileName) => state.any((item) => item.fileName == fileName);
+  bool contains(String fileName) =>
+      state.any((item) => item.fileName == fileName);
 
   /// The live entry for [fileName], or null when it is not in the queue.
   DownloadQueueItem? itemFor(String fileName) {
@@ -239,11 +255,18 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     update([], force: true);
   }
 
-  int _indexOf(String fileName) => state.indexWhere((item) => item.fileName == fileName);
+  int _indexOf(String fileName) =>
+      state.indexWhere((item) => item.fileName == fileName);
 
-  void attachCancel(String fileName, void Function() abort) => _cancelHooks[fileName] = abort;
+  void attachCancel(String fileName, void Function() abort) =>
+      _cancelHooks[fileName] = abort;
 
-  void progress(String fileName, int receivedBytes, int? totalBytes, double speedBytesPerSec) {
+  void progress(
+    String fileName,
+    int receivedBytes,
+    int? totalBytes,
+    double speedBytesPerSec,
+  ) {
     if (_cancelled.contains(fileName) || _paused.contains(fileName)) return;
     final index = _indexOf(fileName);
     if (index < 0) return;
@@ -252,8 +275,11 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
       for (final item in state)
         item.fileName == fileName
             ? item.copyWith(
-                receivedBytes: receivedBytes, totalBytes: totalBytes, speedMbPerSec: speedBytesPerSec / 1048576)
-            : item
+                receivedBytes: receivedBytes,
+                totalBytes: totalBytes,
+                speedMbPerSec: speedBytesPerSec / 1048576,
+              )
+            : item,
     ];
     update(updated, force: true);
     DownloadsModel._pumpNotification(updated[index]);
@@ -279,7 +305,11 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   /// in order (each resuming from its partial bytes).
   void pauseAll() {
     final names = state
-        .where((item) => item.status == DownloadStatus.running || item.status == DownloadStatus.queued)
+        .where(
+          (item) =>
+              item.status == DownloadStatus.running ||
+              item.status == DownloadStatus.queued,
+        )
         .map((item) => item.fileName)
         .toList();
     for (final name in names) {
@@ -300,7 +330,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
       for (final item in state)
         item.fileName == fileName
             ? item.copyWith(status: DownloadStatus.paused, speedMbPerSec: 0)
-            : item
+            : item,
     ];
     update(updated, force: true);
     DownloadsModel._pumpNotification(updated[index]);
@@ -318,8 +348,12 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     final updated = [
       for (final item in state)
         item.fileName == fileName
-            ? item.copyWith(status: DownloadStatus.running, speedMbPerSec: 0, clearError: true)
-            : item
+            ? item.copyWith(
+                status: DownloadStatus.running,
+                speedMbPerSec: 0,
+                clearError: true,
+              )
+            : item,
     ];
     update(updated, force: true);
     _save(force: true);
@@ -336,8 +370,12 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     final updated = [
       for (final item in state)
         item.fileName == fileName
-            ? item.copyWith(status: DownloadStatus.queued, speedMbPerSec: 0, clearError: true)
-            : item
+            ? item.copyWith(
+                status: DownloadStatus.queued,
+                speedMbPerSec: 0,
+                clearError: true,
+              )
+            : item,
     ];
     update(updated, force: true);
     _save(force: true);
@@ -353,7 +391,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
       for (final item in state)
         item.fileName == fileName
             ? item.copyWith(status: DownloadStatus.done, clearError: true)
-            : item
+            : item,
     ];
     update(updated, force: true);
     DownloadsModel._pumpFinalize(updated[index]);
@@ -375,7 +413,9 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
     final updated = [
       for (final item in state)
-        item.fileName == fileName ? item.copyWith(status: DownloadStatus.error, error: error) : item
+        item.fileName == fileName
+            ? item.copyWith(status: DownloadStatus.error, error: error)
+            : item,
     ];
     update(updated, force: true);
     DownloadsModel._pumpNotification(updated[index]);
@@ -403,14 +443,18 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   }
 
   void clearFinished() {
-    final updated = state.where((item) => item.status != DownloadStatus.done).toList();
+    final updated = state
+        .where((item) => item.status != DownloadStatus.done)
+        .toList();
     update(updated, force: true);
     _save(force: true);
   }
 
-  static void _pumpNotification(DownloadQueueItem item) => DownloadNotifications.update(item);
+  static void _pumpNotification(DownloadQueueItem item) =>
+      DownloadNotifications.update(item);
 
-  static void _pumpFinalize(DownloadQueueItem item) => DownloadNotifications.finalize(item);
+  static void _pumpFinalize(DownloadQueueItem item) =>
+      DownloadNotifications.finalize(item);
 
   static void _clearIfIdle(List<DownloadQueueItem> items) {
     if (!items.any((item) => item.status == DownloadStatus.running)) {

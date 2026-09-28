@@ -26,9 +26,7 @@ class ActiveAccountButton extends StatelessWidget {
                   backgroundColor: scheme.primaryContainer,
                   child: Text(
                     handle == null ? '?' : handle[0].toUpperCase(),
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
+                    style: Theme.of(context).textTheme.labelLarge
                         ?.copyWith(color: scheme.onPrimaryContainer),
                   ),
                 ),

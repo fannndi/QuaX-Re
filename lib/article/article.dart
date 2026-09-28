@@ -12,7 +12,13 @@ class Article {
   Map<int, EntityValue> entities;
   ImageEntity? coverMedia;
 
-  Article(this.title, this.previewText, this.textParts, this.entities, this.coverMedia);
+  Article(
+    this.title,
+    this.previewText,
+    this.textParts,
+    this.entities,
+    this.coverMedia,
+  );
 
   Map<String, dynamic> toJson() {
     return {
@@ -33,14 +39,21 @@ class Article {
     );
   }
 
-  factory Article.fromGraphqlJson(Map<String, dynamic> articleResult, String tweetIdStr, String user) {
+  factory Article.fromGraphqlJson(
+    Map<String, dynamic> articleResult,
+    String tweetIdStr,
+    String user,
+  ) {
     final title = articleResult["title"] ?? "";
     final previewText = articleResult["preview_text"] ?? "";
 
     Map<int, EntityValue> entities = {};
-    if (articleResult["content_state"]?["entityMap"] != null && articleResult["media_entities"] != null) {
+    if (articleResult["content_state"]?["entityMap"] != null &&
+        articleResult["media_entities"] != null) {
       entities = EntityMapParser.parse(
-        articleResult["content_state"]["entityMap"] is List<dynamic> ? articleResult["content_state"]["entityMap"] : [],
+        articleResult["content_state"]["entityMap"] is List<dynamic>
+            ? articleResult["content_state"]["entityMap"]
+            : [],
         articleResult["media_entities"],
         tweetIdStr,
         user,
@@ -48,10 +61,19 @@ class Article {
     }
 
     final blocks = articleResult["content_state"]?["blocks"] ?? [];
-    final coverMediaJson = articleResult["cover_media"]?["media_info"]?["original_img_url"];
+    final coverMediaJson =
+        articleResult["cover_media"]?["media_info"]?["original_img_url"];
 
-    final coverMedia = coverMediaJson == null ? null : ImageEntity(imageUrl: coverMediaJson);
-    return Article(title, previewText, List.from(blocks.map((e) => blockToRichText(e))), entities, coverMedia);
+    final coverMedia = coverMediaJson == null
+        ? null
+        : ImageEntity(imageUrl: coverMediaJson);
+    return Article(
+      title,
+      previewText,
+      List.from(blocks.map((e) => blockToRichText(e))),
+      entities,
+      coverMedia,
+    );
   }
 }
 
@@ -89,17 +111,29 @@ class ArticleWidget extends StatelessWidget {
       style: style?.copyWith(
         color: Theme.of(context).colorScheme.primary,
         decoration: underline ? TextDecoration.underline : TextDecoration.none,
-        decorationColor: underline ? Theme.of(context).colorScheme.primary : null,
+        decorationColor: underline
+            ? Theme.of(context).colorScheme.primary
+            : null,
       ),
       recognizer: TapGestureRecognizer()..onTap = onTap,
     );
   }
 
-  TextSpan _linkSpan(BuildContext context, {required String? text, required TextStyle? style, required String url}) {
+  TextSpan _linkSpan(
+    BuildContext context, {
+    required String? text,
+    required TextStyle? style,
+    required String url,
+  }) {
     if (!url.startsWith('https://') && !url.startsWith('http://')) {
       url = 'https://$url';
     }
-    return _tapSpan(context, text: text, style: style, onTap: () => openUri(context, url));
+    return _tapSpan(
+      context,
+      text: text,
+      style: style,
+      onTap: () => openUri(context, url),
+    );
   }
 
   TextSpan _mentionSpan(
@@ -114,12 +148,19 @@ class ArticleWidget extends StatelessWidget {
       style: style,
       underline: false,
       onTap: () {
-        Navigator.pushNamed(context, routeProfile, arguments: ProfileScreenArguments(null, screenName, null));
+        Navigator.pushNamed(
+          context,
+          routeProfile,
+          arguments: ProfileScreenArguments(null, screenName, null),
+        );
       },
     );
   }
 
-  InlineSpan entityPlaceHolderReplace(BuildContext context, EntityPlaceHolderTextSpan placeHolder) {
+  InlineSpan entityPlaceHolderReplace(
+    BuildContext context,
+    EntityPlaceHolderTextSpan placeHolder,
+  ) {
     final key = placeHolder.entityKey;
     if (!article.entities.containsKey(key)) {
       return placeHolder;
@@ -127,7 +168,12 @@ class ArticleWidget extends StatelessWidget {
 
     final entity = article.entities[key];
     if (entity is LinkEntity) {
-      return _linkSpan(context, text: placeHolder.text, style: placeHolder.style, url: entity.url);
+      return _linkSpan(
+        context,
+        text: placeHolder.text,
+        style: placeHolder.style,
+        url: entity.url,
+      );
     }
     return placeHolder;
   }
@@ -139,16 +185,32 @@ class ArticleWidget extends StatelessWidget {
       }
 
       if (span is DataUrlTextSpan) {
-        return _linkSpan(context, text: span.text, style: span.style, url: span.url);
+        return _linkSpan(
+          context,
+          text: span.text,
+          style: span.style,
+          url: span.url,
+        );
       }
 
       if (span is DataMentionTextSpan) {
-        return _mentionSpan(context, text: span.text, style: span.style, screenName: span.screenName);
+        return _mentionSpan(
+          context,
+          text: span.text,
+          style: span.style,
+          screenName: span.screenName,
+        );
       }
 
       if (span.children != null && span.children!.isNotEmpty) {
-        final newChildren = span.children!.map((child) => replacePlaceHolders(context, child)).toList();
-        return TextSpan(text: span.text, style: span.style, children: newChildren);
+        final newChildren = span.children!
+            .map((child) => replacePlaceHolders(context, child))
+            .toList();
+        return TextSpan(
+          text: span.text,
+          style: span.style,
+          children: newChildren,
+        );
       }
 
       return span;
@@ -171,14 +233,19 @@ class ArticleWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 prefix,
-                Expanded(child: SelectableText.rich(TextSpan(children: [textSpan]))),
+                Expanded(
+                  child: SelectableText.rich(TextSpan(children: [textSpan])),
+                ),
               ],
             ),
           ),
         );
       }
 
-      final spans = replacePlaceHolders(context, article.textParts[i].inlineSpan);
+      final spans = replacePlaceHolders(
+        context,
+        article.textParts[i].inlineSpan,
+      );
 
       switch (article.textParts[i].type) {
         case ArticleTextBlockType.unorderedListItem:
@@ -242,7 +309,12 @@ class ArticleWidget extends StatelessWidget {
       for (final entityRange in article.textParts[i].entityRanges) {
         final w = article.entities[entityRange["key"]];
         if (w == null || w is LinkEntity) continue;
-        result.add(Padding(padding: EdgeInsets.symmetric(vertical: 4.0), child: w.toWidget(context)));
+        result.add(
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.0),
+            child: w.toWidget(context),
+          ),
+        );
       }
     }
 
@@ -260,14 +332,17 @@ class ArticleWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
           clipBehavior: Clip.hardEdge,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (article.coverMedia != null) article.coverMedia!.toWidget(context),
+              if (article.coverMedia != null)
+                article.coverMedia!.toWidget(context),
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -275,7 +350,11 @@ class ArticleWidget extends StatelessWidget {
                   children: [
                     Text(
                       article.title,
-                      style: titleStyle ?? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style:
+                          titleStyle ??
+                          theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -283,7 +362,11 @@ class ArticleWidget extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         article.previewText,
-                        style: previewStyle ?? theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style:
+                            previewStyle ??
+                            theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -311,18 +394,28 @@ class ArticleWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (article.coverMedia != null) ...[
-            Padding(padding: const EdgeInsets.only(bottom: 16.0), child: article.coverMedia!.toWidget(context)),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: article.coverMedia!.toWidget(context),
+            ),
           ],
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Text(
               article.title,
-              style: titleStyle ?? theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              style:
+                  titleStyle ??
+                  theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
           ),
           if (bottomBar != null) ...[
             bottomBar!,
-            Divider(height: 1, color: theme.colorScheme.surfaceBright.withAlpha(150)),
+            Divider(
+              height: 1,
+              color: theme.colorScheme.surfaceBright.withAlpha(150),
+            ),
             const SizedBox(height: 16),
           ],
           ..._buildParagraphSpans(context),

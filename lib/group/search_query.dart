@@ -9,9 +9,14 @@ String buildFeedSearchQuery(
   required bool includeReplies,
   required bool includeRetweets,
 }) {
-  final subscriptionsQuery = subscriptions.map((subscription) => subscription.searchTerm).join(' OR ');
+  final subscriptionsQuery = subscriptions
+      .map((subscription) => subscription.searchTerm)
+      .join(' OR ');
 
-  assert(subscriptionsQuery.length <= _maxQueryLength, 'A chunk should hold few enough subscriptions to fit one query');
+  assert(
+    subscriptionsQuery.length <= _maxQueryLength,
+    'A chunk should hold few enough subscriptions to fit one query',
+  );
 
   return [
     if (subscriptionsQuery.isNotEmpty) '($subscriptionsQuery)',

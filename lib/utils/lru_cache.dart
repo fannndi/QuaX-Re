@@ -7,7 +7,8 @@ class LruCache<K, V> {
   final int capacity;
   final LinkedHashMap<K, V> _entries = LinkedHashMap<K, V>();
 
-  LruCache(this.capacity) : assert(capacity > 0, 'A zero-capacity cache would drop every entry');
+  LruCache(this.capacity)
+    : assert(capacity > 0, 'A zero-capacity cache would drop every entry');
 
   V? get(K key) {
     final value = _entries.remove(key);

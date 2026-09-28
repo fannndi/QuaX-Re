@@ -34,33 +34,39 @@ class MarkdownEntity extends EntityValue {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-            Container(
-              color: Color.alphaBlend(colorScheme.onSurface.withValues(alpha: 0.08), colorScheme.surfaceContainer),
-              padding: const EdgeInsets.only(left: 12.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      language,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Tooltip(
-                    message: 'Copy',
-                    child: InkWell(
-                      onTap: () => Clipboard.setData(ClipboardData(text: code)),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                        child: Icon(Icons.copy, size: 16),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          Container(
+            color: Color.alphaBlend(
+              colorScheme.onSurface.withValues(alpha: 0.08),
+              colorScheme.surfaceContainer,
             ),
+            padding: const EdgeInsets.only(left: 12.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    language,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: 'Copy',
+                  child: InkWell(
+                    onTap: () => Clipboard.setData(ClipboardData(text: code)),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
+                      child: Icon(Icons.copy, size: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Container(
             color: colorScheme.surfaceContainer,
             padding: const EdgeInsets.all(16.0),

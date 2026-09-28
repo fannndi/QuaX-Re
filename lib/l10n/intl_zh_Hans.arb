@@ -1,4 +1,5 @@
 {
+  "@@locale": "zh_Hans",
   "accessibility": "无障碍",
   "@accessibility": {},
   "account": "账户",
@@ -620,5 +621,15 @@
   "you_have_not_saved_any_tweets_yet": "您尚未保存任何推文！",
   "@you_have_not_saved_any_tweets_yet": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "你的个人资料必须是公开的，否则无法导入",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "local_search_hint": "Search the posts you saved or liked, and the media you downloaded. Everything stays on this device.",
+  "@local_search_hint": {},
+  "account_switched": "Now reading @{handle} — timelines were reloaded",
+  "@account_switched": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -23,12 +23,12 @@ class VideoGridItem extends MediaGridItem {
           fit: BoxFit.cover,
         ),
         const FritterCenterPlayButton(
-            backgroundColor: Colors.black54,
-            iconColor: Colors.white,
-            show: true,
-            isPlaying: false,
-            isFinished: false,
-            size: 40
+          backgroundColor: Colors.black54,
+          iconColor: Colors.white,
+          show: true,
+          isPlaying: false,
+          isFinished: false,
+          size: 40,
         ),
       ],
     );

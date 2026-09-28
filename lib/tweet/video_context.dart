@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+
 /// Mute is an app-wide toggle: muting one video keeps the next one muted, on
 /// every screen. Tweet tiles each sit under their own [VideoContextState]
 /// provider, so a single shared [ValueNotifier] is the source of truth and every
@@ -32,4 +33,3 @@ class VideoContextState extends ChangeNotifier {
     }
   }
 }
-

@@ -87,14 +87,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(L10n.of(context).library_setup_title),
-          content: Text(L10n.of(dialogContext).library_storage_permission_needed),
+          content: Text(
+            L10n.of(dialogContext).library_storage_permission_needed,
+          ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(L10n.of(dialogContext).retry)),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(L10n.of(dialogContext).retry),
+            ),
             TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(L10n.of(dialogContext).close)),
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(L10n.of(dialogContext).close),
+            ),
           ],
         ),
       );
@@ -129,10 +133,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _buildBody(BuildContext context, List<LibraryEntry> entries) {
     if (!_model.isConfigured) {
-      return _SetupView(onSetup: () async {
-        final ok = await _model.setupLibrary();
-        if (ok && mounted) await _model.refresh();
-      });
+      return _SetupView(
+        onSetup: () async {
+          final ok = await _model.setupLibrary();
+          if (ok && mounted) await _model.refresh();
+        },
+      );
     }
 
     final visible = _visibleEntries(entries);
@@ -144,8 +150,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
           child: entries.isEmpty
               ? Center(child: Text(L10n.of(context).library_is_empty))
               : visible.isEmpty
-                  ? Center(child: Text(L10n.of(context).library_is_empty))
-                  : _buildGrid(context, visible),
+              ? Center(child: Text(L10n.of(context).library_is_empty))
+              : _buildGrid(context, visible),
         ),
       ],
     );
@@ -156,7 +162,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final query = _query.trim().toLowerCase();
     final list = query.isEmpty
         ? List.of(entries)
-        : entries.where((entry) => entry.name.toLowerCase().contains(query)).toList();
+        : entries
+              .where((entry) => entry.name.toLowerCase().contains(query))
+              .toList();
 
     switch (_sort) {
       case _LibrarySort.newest:
@@ -164,7 +172,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       case _LibrarySort.oldest:
         list.sort((a, b) => a.modified.compareTo(b.modified));
       case _LibrarySort.name:
-        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        list.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
       case _LibrarySort.size:
         list.sort((a, b) => b.size.compareTo(a.size));
     }
@@ -210,8 +220,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
             initialValue: _sort,
             onSelected: (value) => setState(() => _sort = value),
             itemBuilder: (context) => [
-              PopupMenuItem(value: _LibrarySort.newest, child: Text(l10n.newest)),
-              PopupMenuItem(value: _LibrarySort.oldest, child: Text(l10n.oldest)),
+              PopupMenuItem(
+                value: _LibrarySort.newest,
+                child: Text(l10n.newest),
+              ),
+              PopupMenuItem(
+                value: _LibrarySort.oldest,
+                child: Text(l10n.oldest),
+              ),
               PopupMenuItem(value: _LibrarySort.name, child: Text(l10n.name)),
               PopupMenuItem(value: _LibrarySort.size, child: Text(l10n.size)),
             ],
@@ -225,7 +241,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   /// and delete for the whole selection.
   Widget _buildSelectionBar(BuildContext context, List<LibraryEntry> entries) {
     final l10n = L10n.of(context);
-    final allSelected = entries.isNotEmpty && _selected.length == entries.length;
+    final allSelected =
+        entries.isNotEmpty && _selected.length == entries.length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
@@ -237,7 +254,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             onPressed: () => setState(_selected.clear),
           ),
           Expanded(
-            child: Text('${_selected.length}', style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              '${_selected.length}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           IconButton(
             icon: Icon(allSelected ? Icons.deselect : Icons.select_all),
@@ -321,13 +341,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
         GridView.builder(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, mainAxisSpacing: 6, crossAxisSpacing: 6),
+            crossAxisCount: 3,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+          ),
           itemCount: entries.length,
           itemBuilder: (context, index) {
             final entry = entries[index];
             final selected = _selected.contains(entry.file.path);
             return GestureDetector(
-              onTap: () => _selectionActive ? _toggleSelection(entry) : _openEntry(entry),
+              onTap: () => _selectionActive
+                  ? _toggleSelection(entry)
+                  : _openEntry(entry),
               onLongPress: () => _toggleSelection(entry),
               child: ClipRRect(
                 borderRadius: radius,
@@ -341,15 +366,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           final thumbPath = snapshot.data;
                           if (thumbPath == null) {
                             return Container(
-                                color: theme.colorScheme.surfaceContainerHighest,
-                                child: const Center(child: Icon(Icons.play_circle_outline)));
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              child: const Center(
+                                child: Icon(Icons.play_circle_outline),
+                              ),
+                            );
                           }
                           return ExtendedImage.file(
                             File(thumbPath),
                             fit: BoxFit.cover,
                             loadStateChanged: (state) {
-                              if (state.extendedImageLoadState == LoadState.failed) {
-                                return const Center(child: Icon(Icons.play_circle_outline));
+                              if (state.extendedImageLoadState ==
+                                  LoadState.failed) {
+                                return const Center(
+                                  child: Icon(Icons.play_circle_outline),
+                                );
                               }
                               return null;
                             },
@@ -361,7 +392,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         entry.file,
                         fit: BoxFit.cover,
                         loadStateChanged: (state) {
-                          if (state.extendedImageLoadState == LoadState.failed) {
+                          if (state.extendedImageLoadState ==
+                              LoadState.failed) {
                             return const Icon(Icons.broken_image_outlined);
                           }
                           return null;
@@ -374,21 +406,32 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       child: Container(
                         color: Colors.black38,
                         padding: const EdgeInsets.all(4),
-                        child: Text(entry.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(color: Colors.white)),
+                        child: Text(
+                          entry.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                     if (selected)
                       Positioned.fill(
-                        child: ColoredBox(color: theme.colorScheme.primary.withValues(alpha: 0.35)),
+                        child: ColoredBox(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.35,
+                          ),
+                        ),
                       ),
                     if (selected)
                       Positioned(
                         top: 4,
                         right: 4,
-                        child: Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                        child: Icon(
+                          Icons.check_circle,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
                   ],
                 ),
@@ -412,7 +455,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _openEntry(LibraryEntry entry) async {
     final ok = await _model.openExternally(entry.file.path);
     if (!ok && mounted) {
-      showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: L10n.of(context).oops_something_went_wrong,
+      );
     }
   }
 
@@ -442,10 +489,16 @@ class _SetupView extends StatelessWidget {
           children: [
             const Icon(Icons.video_library_outlined, size: 48),
             const SizedBox(height: 16),
-            Text(L10n.of(context).library_setup_title, style: theme.textTheme.titleMedium),
+            Text(
+              L10n.of(context).library_setup_title,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text(L10n.of(context).library_setup_description, textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium),
+            Text(
+              L10n.of(context).library_setup_description,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onSetup,
@@ -458,7 +511,3 @@ class _SetupView extends StatelessWidget {
     );
   }
 }
-
-
-
-

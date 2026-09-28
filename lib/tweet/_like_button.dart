@@ -13,23 +13,43 @@ class LikeButton extends StatefulWidget {
   final Color? color;
   final VoidCallback onPressed;
 
-  const LikeButton(
-      {super.key, required this.isLiked, required this.label, required this.color, required this.onPressed});
+  const LikeButton({
+    super.key,
+    required this.isLiked,
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
 
   @override
   State<LikeButton> createState() => _LikeButtonState();
 }
 
-class _LikeButtonState extends State<LikeButton> with SingleTickerProviderStateMixin {
+class _LikeButtonState extends State<LikeButton>
+    with SingleTickerProviderStateMixin {
   static const double _iconSize = 20;
   static const double _burstSize = 46;
 
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1000),
+  );
 
   late final Animation<double> _scale = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35).chain(CurveTween(curve: Curves.easeOut)), weight: 35),
-    TweenSequenceItem(tween: Tween(begin: 1.35, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)), weight: 65),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 1.35,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 35,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.35,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.elasticOut)),
+      weight: 65,
+    ),
   ]).animate(_controller);
 
   @override
@@ -48,7 +68,9 @@ class _LikeButtonState extends State<LikeButton> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     var scheme = Theme.of(context).colorScheme;
-    var ringColor = widget.isLiked ? (widget.color ?? scheme.primary) : widget.color;
+    var ringColor = widget.isLiked
+        ? (widget.color ?? scheme.primary)
+        : widget.color;
 
     return TextButton.icon(
       onPressed: _handleTap,
@@ -67,18 +89,28 @@ class _LikeButtonState extends State<LikeButton> with SingleTickerProviderStateM
               child: IgnorePointer(
                 child: CustomPaint(
                   size: const Size.square(_burstSize),
-                  painter: _BurstPainter(animation: _controller, color: ringColor ?? scheme.primary),
+                  painter: _BurstPainter(
+                    animation: _controller,
+                    color: ringColor ?? scheme.primary,
+                  ),
                 ),
               ),
             ),
             ScaleTransition(
               scale: _scale,
-              child: Icon(widget.isLiked ? Icons.favorite : Icons.favorite_border, size: _iconSize, color: widget.color),
+              child: Icon(
+                widget.isLiked ? Icons.favorite : Icons.favorite_border,
+                size: _iconSize,
+                color: widget.color,
+              ),
             ),
           ],
         ),
       ),
-      label: Text(widget.label, style: TextStyle(color: widget.color, fontSize: 14)),
+      label: Text(
+        widget.label,
+        style: TextStyle(color: widget.color, fontSize: 14),
+      ),
     );
   }
 }
@@ -87,7 +119,8 @@ class _BurstPainter extends CustomPainter {
   final Animation<double> animation;
   final Color color;
 
-  _BurstPainter({required this.animation, required this.color}) : super(repaint: animation);
+  _BurstPainter({required this.animation, required this.color})
+    : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -125,7 +158,12 @@ class _BurstPainter extends CustomPainter {
     canvas.drawCircle(center, radius, paint);
   }
 
-  void _paintConfetti(Canvas canvas, Offset center, double maxRadius, double t) {
+  void _paintConfetti(
+    Canvas canvas,
+    Offset center,
+    double maxRadius,
+    double t,
+  ) {
     const start = 0.3;
     if (t < start) {
       return;
@@ -140,18 +178,38 @@ class _BurstPainter extends CustomPainter {
     }
 
     // Two interleaved rings of dots, offset in angle and reach.
-    _paintRingOfDots(canvas, center, count: 6, angleOffset: 0, reach: maxRadius, dotRadius: dotRadius, ease: ease, fade: fade);
-    _paintRingOfDots(canvas, center, count: 6, angleOffset: math.pi / 6, reach: maxRadius * 0.72,
-        dotRadius: dotRadius * 0.7, ease: ease, fade: fade);
+    _paintRingOfDots(
+      canvas,
+      center,
+      count: 6,
+      angleOffset: 0,
+      reach: maxRadius,
+      dotRadius: dotRadius,
+      ease: ease,
+      fade: fade,
+    );
+    _paintRingOfDots(
+      canvas,
+      center,
+      count: 6,
+      angleOffset: math.pi / 6,
+      reach: maxRadius * 0.72,
+      dotRadius: dotRadius * 0.7,
+      ease: ease,
+      fade: fade,
+    );
   }
 
-  void _paintRingOfDots(Canvas canvas, Offset center,
-      {required int count,
-      required double angleOffset,
-      required double reach,
-      required double dotRadius,
-      required double ease,
-      required double fade}) {
+  void _paintRingOfDots(
+    Canvas canvas,
+    Offset center, {
+    required int count,
+    required double angleOffset,
+    required double reach,
+    required double dotRadius,
+    required double ease,
+    required double fade,
+  }) {
     var distance = lerpDouble(reach * 0.28, reach, ease)!;
 
     for (var i = 0; i < count; i++) {

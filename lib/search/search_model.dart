@@ -15,13 +15,18 @@ class SearchTweetsPagination {
   final String product;
   String _query;
 
-  SearchTweetsPagination({required this.product, String initialQuery = ''}) : _query = initialQuery;
+  SearchTweetsPagination({required this.product, String initialQuery = ''})
+    : _query = initialQuery;
 
   Future<TweetPageResult> loadPage(String? cursor) async {
     if (_query.isEmpty) {
       return (chains: <TweetChain>[], nextCursor: null);
     }
-    final result = await Twitter.searchTweets(_query, product: product, cursor: cursor);
+    final result = await Twitter.searchTweets(
+      _query,
+      product: product,
+      cursor: cursor,
+    );
     return (chains: result.chains, nextCursor: result.cursorBottom);
   }
 
@@ -37,18 +42,24 @@ class SearchTweetsPagination {
 }
 
 class SearchMediaPagination {
-  late final CursorPagingController<String, MediaGridItem> _paging = CursorPagingController(_loadPage);
+  late final CursorPagingController<String, MediaGridItem> _paging =
+      CursorPagingController(_loadPage);
   String _query;
 
   SearchMediaPagination({String initialQuery = ''}) : _query = initialQuery;
 
-  PagingController<int, MediaGridItem> get pagingController => _paging.pagingController;
+  PagingController<int, MediaGridItem> get pagingController =>
+      _paging.pagingController;
 
   Future<CursorPage<String, MediaGridItem>> _loadPage(String? cursor) async {
     if (_query.isEmpty) {
       return (items: const <MediaGridItem>[], nextCursor: null);
     }
-    final result = await Twitter.searchTweets(_query, product: 'Media', cursor: cursor);
+    final result = await Twitter.searchTweets(
+      _query,
+      product: 'Media',
+      cursor: cursor,
+    );
     return mediaPageFromStatus(result, cursor);
   }
 

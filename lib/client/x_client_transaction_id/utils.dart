@@ -25,7 +25,10 @@ String floatToHex(double x) {
   while (quotient > 0) {
     quotient = (current / 16).toInt();
     final remainder = (current - quotient * 16).toInt();
-    result.insert(0, remainder > 9 ? String.fromCharCode(remainder + 55) : '$remainder');
+    result.insert(
+      0,
+      remainder > 9 ? String.fromCharCode(remainder + 55) : '$remainder',
+    );
     current = quotient.toDouble();
   }
 

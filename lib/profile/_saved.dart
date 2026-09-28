@@ -21,7 +21,8 @@ class ProfileSaved extends StatefulWidget {
 
 class _ProfileSavedState extends State<ProfileSaved> {
   late final CursorPagingController<int, SavedTweet> _paging;
-  PagingController<int, SavedTweet> get _pagingController => _paging.pagingController;
+  PagingController<int, SavedTweet> get _pagingController =>
+      _paging.pagingController;
 
   @override
   void initState() {
@@ -40,54 +41,65 @@ class _ProfileSavedState extends State<ProfileSaved> {
     var model = context.read<SavedTweetModel>();
     await model.listSavedTweets();
 
-    final saved = model.state.where((tweet) => tweet.user == widget.user.idStr).toList();
+    final saved = model.state
+        .where((tweet) => tweet.user == widget.user.idStr)
+        .toList();
     return (items: saved, nextCursor: null);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TweetContextState>(builder: (context, model, child) {
-      if (model.hideSensitive && (widget.user.possiblySensitive ?? false)) {
-        return EmojiErrorWidget(
-          emoji: '🍆🙈🍆',
-          message: L10n.current.possibly_sensitive,
-          errorMessage: L10n.current.possibly_sensitive_profile,
-          onRetry: () async => model.setHideSensitive(false),
-          retryText: L10n.current.yes_please,
-        );
-      }
+    return Consumer<TweetContextState>(
+      builder: (context, model, child) {
+        if (model.hideSensitive && (widget.user.possiblySensitive ?? false)) {
+          return EmojiErrorWidget(
+            emoji: '🍆🙈🍆',
+            message: L10n.current.possibly_sensitive,
+            errorMessage: L10n.current.possibly_sensitive_profile,
+            onRetry: () async => model.setHideSensitive(false),
+            retryText: L10n.current.yes_please,
+          );
+        }
 
-      return PagingListener<int, SavedTweet>(
-        controller: _pagingController,
-        builder: (context, state, fetchNextPage) => PagedListView<int, SavedTweet>(
-          padding: EdgeInsets.zero,
-          state: state,
-          fetchNextPage: fetchNextPage,
-          addAutomaticKeepAlives: false,
-          builderDelegate: PagedChildBuilderDelegate(
-            itemBuilder: (context, savedTweet, index) => SavedTweetTile(id: savedTweet.id, content: savedTweet.content),
-            firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
-              error: pagingErrorOf(state)?.error,
-              stackTrace: pagingErrorOf(state)?.stackTrace,
-              prefix: L10n.of(context).unable_to_load_the_tweets,
-              onRetry: fetchNextPage,
-            ),
-            newPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
-              error: pagingErrorOf(state)?.error,
-              stackTrace: pagingErrorOf(state)?.stackTrace,
-              prefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
-              onRetry: fetchNextPage,
-            ),
-            noItemsFoundIndicatorBuilder: (context) {
-              return Center(
-                child: Text(
-                  L10n.of(context).you_have_not_saved_any_tweets_yet,
+        return PagingListener<int, SavedTweet>(
+          controller: _pagingController,
+          builder: (context, state, fetchNextPage) =>
+              PagedListView<int, SavedTweet>(
+                padding: EdgeInsets.zero,
+                state: state,
+                fetchNextPage: fetchNextPage,
+                addAutomaticKeepAlives: false,
+                builderDelegate: PagedChildBuilderDelegate(
+                  itemBuilder: (context, savedTweet, index) => SavedTweetTile(
+                    id: savedTweet.id,
+                    content: savedTweet.content,
+                  ),
+                  firstPageErrorIndicatorBuilder: (context) =>
+                      FullPageErrorWidget(
+                        error: pagingErrorOf(state)?.error,
+                        stackTrace: pagingErrorOf(state)?.stackTrace,
+                        prefix: L10n.of(context).unable_to_load_the_tweets,
+                        onRetry: fetchNextPage,
+                      ),
+                  newPageErrorIndicatorBuilder: (context) =>
+                      FullPageErrorWidget(
+                        error: pagingErrorOf(state)?.error,
+                        stackTrace: pagingErrorOf(state)?.stackTrace,
+                        prefix: L10n.of(context)
+                            .unable_to_load_the_next_page_of_tweets,
+                        onRetry: fetchNextPage,
+                      ),
+                  noItemsFoundIndicatorBuilder: (context) {
+                    return Center(
+                      child: Text(
+                        L10n.of(context).you_have_not_saved_any_tweets_yet,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-        ),
-      );
-    });
+              ),
+        );
+      },
+    );
   }
 }

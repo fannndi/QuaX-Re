@@ -13,35 +13,41 @@ class TweetPhoto extends StatefulWidget {
   // fullscreen viewer zooms, the feed copy only ever shows viewport-sized).
   final int? cacheWidth;
 
-  const TweetPhoto(
-      {super.key,
-      required this.uri,
-      this.fit = BoxFit.fitWidth,
-      required this.size,
-      required this.pullToClose,
-      required this.inPageView,
-      this.cacheWidth});
+  const TweetPhoto({
+    super.key,
+    required this.uri,
+    this.fit = BoxFit.fitWidth,
+    required this.size,
+    required this.pullToClose,
+    required this.inPageView,
+    this.cacheWidth,
+  });
 
   @override
   State<TweetPhoto> createState() => _TweetPhotoState();
 }
 
-class _TweetPhotoState extends State<TweetPhoto> with SingleTickerProviderStateMixin {
+class _TweetPhotoState extends State<TweetPhoto>
+    with SingleTickerProviderStateMixin {
   Animation<double>? _doubleClickAnimation;
   late void Function() _doubleClickAnimationListener;
   late final AnimationController _doubleClickAnimationController =
-      AnimationController(duration: const Duration(milliseconds: 150), vsync: this);
+      AnimationController(
+        duration: const Duration(milliseconds: 150),
+        vsync: this,
+      );
 
   @override
   Widget build(BuildContext context) {
     return ExtendedImageSlidePage(
       slideAxis: SlideAxis.vertical,
-      slidePageBackgroundHandler: (offset, pageSize) => defaultSlidePageBackgroundHandler(
-        offset: offset,
-        pageSize: pageSize,
-        color: Theme.of(context).scaffoldBackgroundColor,
-        pageGestureAxis: SlideAxis.vertical,
-      ),
+      slidePageBackgroundHandler: (offset, pageSize) =>
+          defaultSlidePageBackgroundHandler(
+            offset: offset,
+            pageSize: pageSize,
+            color: Theme.of(context).scaffoldBackgroundColor,
+            pageGestureAxis: SlideAxis.vertical,
+          ),
       child: ExtendedImage.network(
         widget.size != null ? '${widget.uri}:${widget.size}' : widget.uri,
         cache: true,
@@ -81,10 +87,15 @@ class _TweetPhotoState extends State<TweetPhoto> with SingleTickerProviderStateM
           }
 
           _doubleClickAnimationListener = () {
-            state.handleDoubleTap(scale: _doubleClickAnimation!.value, doubleTapPosition: pointerDownPosition);
+            state.handleDoubleTap(
+              scale: _doubleClickAnimation!.value,
+              doubleTapPosition: pointerDownPosition,
+            );
           };
 
-          _doubleClickAnimation = _doubleClickAnimationController.drive(Tween<double>(begin: begin, end: end));
+          _doubleClickAnimation = _doubleClickAnimationController.drive(
+            Tween<double>(begin: begin, end: end),
+          );
           _doubleClickAnimation!.addListener(_doubleClickAnimationListener);
           _doubleClickAnimationController.forward();
         },

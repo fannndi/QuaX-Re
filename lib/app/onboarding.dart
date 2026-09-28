@@ -18,7 +18,8 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBindingObserver {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with WidgetsBindingObserver {
   static const _storageChannel = MethodChannel('browser_resolver');
   static const _steps = 4;
 
@@ -67,7 +68,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
   Future<void> _refreshAccess() async {
     try {
-      final granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      final granted = await _storageChannel.invokeMethod<bool>(
+        'hasAllFilesAccess',
+      );
       if (mounted) setState(() => _hasAccess = granted == true);
     } on Exception {
       if (mounted) setState(() => _hasAccess = false);
@@ -102,7 +105,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     if (error.value == 'storage_permission_needed') {
       await _refreshAccess();
       if (mounted) {
-        showSnackBar(context, icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+        showSnackBar(
+          context,
+          icon: '🔒',
+          message: L10n.of(context).library_storage_permission_needed,
+        );
       }
       return;
     }
@@ -150,15 +157,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   }
 
   bool get _canAdvance => switch (_step) {
-        0 => true,
-        1 => _hasAccess,
-        2 => _configured,
-        _ => true,
-      };
+    0 => true,
+    1 => _hasAccess,
+    2 => _configured,
+    _ => true,
+  };
 
-  void _next() => _controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  void _next() => _controller.nextPage(
+    duration: const Duration(milliseconds: 250),
+    curve: Curves.easeOut,
+  );
 
-  void _back() => _controller.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  void _back() => _controller.previousPage(
+    duration: const Duration(milliseconds: 250),
+    curve: Curves.easeOut,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -213,10 +226,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               label: Text(l10n.setup_permission_grant),
             ),
           const SizedBox(height: 8),
-          TextButton(
-            onPressed: _refreshAccess,
-            child: Text(l10n.retry),
-          ),
+          TextButton(onPressed: _refreshAccess, child: Text(l10n.retry)),
         ],
       ),
     );
@@ -238,7 +248,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               children: [
                 Chip(
                   avatar: const Icon(Icons.check_circle_outline, size: 18),
-                  label: Text(_library.libraryPath, overflow: TextOverflow.ellipsis),
+                  label: Text(
+                    _library.libraryPath,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 TextButton(
                   onPressed: _pickFolder,
@@ -269,7 +282,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         child: SwitchListTile(
           value: _visibleInGallery,
           onChanged: _configured ? _toggleGalleryVisible : null,
-          secondary: Icon(_visibleInGallery ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+          secondary: Icon(
+            _visibleInGallery
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+          ),
           title: Text(l10n.show_in_gallery),
         ),
       ),
@@ -308,14 +325,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Row(
         children: [
-          if (_step > 0)
-            TextButton(
-              onPressed: _back,
-              child: Text(l10n.back),
-            ),
+          if (_step > 0) TextButton(onPressed: _back, child: Text(l10n.back)),
           const Spacer(),
           FilledButton(
-            onPressed: _canAdvance ? (isLast ? widget.onFinished : _next) : null,
+            onPressed: _canAdvance
+                ? (isLast ? widget.onFinished : _next)
+                : null,
             child: Text(isLast ? l10n.setup_finish : l10n.next),
           ),
         ],
@@ -330,7 +345,12 @@ class _StepView extends StatelessWidget {
   final String body;
   final Widget? extra;
 
-  const _StepView({required this.icon, required this.title, required this.body, this.extra});
+  const _StepView({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.extra,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -342,13 +362,18 @@ class _StepView extends StatelessWidget {
         children: [
           Icon(icon, size: 64, color: theme.colorScheme.primary),
           const SizedBox(height: 24),
-          Text(title, style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
+          Text(
+            title,
+            style: theme.textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
-          Text(body, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
-          if (extra != null) ...[
-            const SizedBox(height: 24),
-            extra!,
-          ],
+          Text(
+            body,
+            style: theme.textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          if (extra != null) ...[const SizedBox(height: 24), extra!],
         ],
       ),
     );

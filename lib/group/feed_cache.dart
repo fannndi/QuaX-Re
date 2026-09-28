@@ -9,7 +9,9 @@ import 'package:sqflite/sqflite.dart';
 /// feed loader and the "show cached tweets while loading" previews build their
 /// chains identically.
 
-List<TweetChain> chainsFromStoredChunks(List<Map<String, Object?>> storedChunks) {
+List<TweetChain> chainsFromStoredChunks(
+  List<Map<String, Object?>> storedChunks,
+) {
   return storedChunks
       .map((e) => jsonDecode(e['response'] as String))
       .map((e) => List.from(e))
@@ -31,11 +33,18 @@ List<TweetChain> sortChainsNewestFirst(List<TweetChain> chains) {
 }
 
 /// Cached tweets for the given chunk [hashes], newest first.
-Future<List<TweetChain>> readCachedChainsForHashes(Database repository, Iterable<String> hashes) async {
+Future<List<TweetChain>> readCachedChainsForHashes(
+  Database repository,
+  Iterable<String> hashes,
+) async {
   var chains = <TweetChain>[];
   for (var hash in hashes) {
-    var storedChunks = await repository.query(tableFeedGroupChunk,
-        where: 'hash = ?', whereArgs: [hash], orderBy: 'created_at DESC');
+    var storedChunks = await repository.query(
+      tableFeedGroupChunk,
+      where: 'hash = ?',
+      whereArgs: [hash],
+      orderBy: 'created_at DESC',
+    );
     chains.addAll(chainsFromStoredChunks(storedChunks));
   }
   return sortChainsNewestFirst(chains);
@@ -45,8 +54,13 @@ Future<List<TweetChain>> readCachedChainsForHashes(Database repository, Iterable
 /// preview the combined "All"/Following feed while its subscription list loads,
 /// before the per-chunk hashes are known.
 Future<List<TweetChain>> readAllCachedChains(Database repository) async {
-  var storedChunks = await repository.query(tableFeedGroupChunk, orderBy: 'created_at DESC');
+  var storedChunks = await repository.query(
+    tableFeedGroupChunk,
+    orderBy: 'created_at DESC',
+  );
   var seen = <String>{};
-  var chains = chainsFromStoredChunks(storedChunks).where((c) => seen.add(c.id)).toList();
+  var chains = chainsFromStoredChunks(storedChunks)
+      .where((c) => seen.add(c.id))
+      .toList();
   return sortChainsNewestFirst(chains);
 }

@@ -15,31 +15,50 @@ class SavedTweet with ToMappable {
   final String? content;
   final String? folderId;
 
-  SavedTweet({required this.id, required this.user, required this.content, this.folderId});
+  SavedTweet({
+    required this.id,
+    required this.user,
+    required this.content,
+    this.folderId,
+  });
 
   factory SavedTweet.fromMap(Map<String, Object?> map) {
     return SavedTweet(
-        id: map['id'] as String,
-        user: map['user_id'] as String?,
-        content: map['content'] as String?,
-        folderId: map['folder_id'] as String?);
+      id: map['id'] as String,
+      user: map['user_id'] as String?,
+      content: map['content'] as String?,
+      folderId: map['folder_id'] as String?,
+    );
   }
 
   // `folderId` is nullable and null is meaningful ("unfiled"), so the sentinel lets
   // callers distinguish "leave unchanged" from "clear the folder".
   static const _unset = Object();
 
-  SavedTweet copyWith({String? id, String? user, String? content, Object? folderId = _unset}) {
+  SavedTweet copyWith({
+    String? id,
+    String? user,
+    String? content,
+    Object? folderId = _unset,
+  }) {
     return SavedTweet(
-        id: id ?? this.id,
-        user: user ?? this.user,
-        content: content ?? this.content,
-        folderId: identical(folderId, _unset) ? this.folderId : folderId as String?);
+      id: id ?? this.id,
+      user: user ?? this.user,
+      content: content ?? this.content,
+      folderId: identical(folderId, _unset)
+          ? this.folderId
+          : folderId as String?,
+    );
   }
 
   @override
   Map<String, dynamic> toMap() {
-    return {'id': id, 'content': content, 'user_id': user, 'folder_id': folderId};
+    return {
+      'id': id,
+      'content': content,
+      'user_id': user,
+      'folder_id': folderId,
+    };
   }
 }
 
@@ -52,7 +71,10 @@ class LikedTweet with ToMappable {
 
   factory LikedTweet.fromMap(Map<String, Object?> map) {
     return LikedTweet(
-        id: map['id'] as String, user: map['user_id'] as String?, content: map['content'] as String?);
+      id: map['id'] as String,
+      user: map['user_id'] as String?,
+      content: map['content'] as String?,
+    );
   }
 
   @override
@@ -67,24 +89,39 @@ class SavedTweetFolder with ToMappable {
   final int position;
   final DateTime createdAt;
 
-  SavedTweetFolder({required this.id, required this.name, this.position = 0, required this.createdAt});
+  SavedTweetFolder({
+    required this.id,
+    required this.name,
+    this.position = 0,
+    required this.createdAt,
+  });
 
   factory SavedTweetFolder.fromMap(Map<String, Object?> map) {
     return SavedTweetFolder(
-        id: map['id'] as String,
-        name: map['name'] as String,
-        position: (map['position'] as int?) ?? 0,
-        createdAt: DateTime.parse(map['created_at'] as String));
+      id: map['id'] as String,
+      name: map['name'] as String,
+      position: (map['position'] as int?) ?? 0,
+      createdAt: DateTime.parse(map['created_at'] as String),
+    );
   }
 
   SavedTweetFolder copyWith({String? name, int? position}) {
     return SavedTweetFolder(
-        id: id, name: name ?? this.name, position: position ?? this.position, createdAt: createdAt);
+      id: id,
+      name: name ?? this.name,
+      position: position ?? this.position,
+      createdAt: createdAt,
+    );
   }
 
   @override
   Map<String, dynamic> toMap() {
-    return {'id': id, 'name': name, 'position': position, 'created_at': createdAt.toIso8601String()};
+    return {
+      'id': id,
+      'name': name,
+      'position': position,
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 }
 
@@ -97,15 +134,15 @@ abstract class Subscription with ToMappable {
   final DateTime createdAt;
   final bool inFeed;
 
-  Subscription(
-      {required this.id,
-      required this.screenName,
-      required this.name,
-      required this.profileImageUrlHttps,
-      required this.verified,
-      required this.createdAt,
-      required this.inFeed,
-      });
+  Subscription({
+    required this.id,
+    required this.screenName,
+    required this.name,
+    required this.profileImageUrlHttps,
+    required this.verified,
+    required this.createdAt,
+    required this.inFeed,
+  });
 
   /// How X looks this subscription up in a search query.
   String get searchTerm;
@@ -113,15 +150,27 @@ abstract class Subscription with ToMappable {
 
 class SearchSubscription extends Subscription {
   SearchSubscription({required super.id, required super.createdAt})
-      : super(name: id, screenName: id, verified: false, profileImageUrlHttps: null, inFeed: true);
+    : super(
+        name: id,
+        screenName: id,
+        verified: false,
+        profileImageUrlHttps: null,
+        inFeed: true,
+      );
 
   factory SearchSubscription.fromMap(Map<String, Object?> map) {
-    return SearchSubscription(id: map['id'] as String, createdAt: DateTime.parse(map['created_at'] as String));
+    return SearchSubscription(
+      id: map['id'] as String,
+      createdAt: DateTime.parse(map['created_at'] as String),
+    );
   }
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is SearchSubscription && runtimeType == other.runtimeType && id == other.id;
+      identical(this, other) ||
+      other is SearchSubscription &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;
@@ -137,47 +186,52 @@ class SearchSubscription extends Subscription {
 }
 
 class UserSubscription extends Subscription {
-  UserSubscription(
-      {required super.id,
-      required super.screenName,
-      required super.name,
-      required super.profileImageUrlHttps,
-      required super.verified,
-      required super.createdAt,
-      required super.inFeed
-      });
+  UserSubscription({
+    required super.id,
+    required super.screenName,
+    required super.name,
+    required super.profileImageUrlHttps,
+    required super.verified,
+    required super.createdAt,
+    required super.inFeed,
+  });
 
   factory UserSubscription.fromMap(Map<String, Object?> map) {
     var verified = map['verified'] is int;
-    var createdAt = map['created_at'] == null ? DateTime.now() : DateTime.parse(map['created_at'] as String);
+    var createdAt = map['created_at'] == null
+        ? DateTime.now()
+        : DateTime.parse(map['created_at'] as String);
     var inFeed = map['in_feed'] is int;
 
     return UserSubscription(
-        id: map['id'] as String,
-        screenName: map['screen_name'] as String,
-        name: map['name'] as String,
-        profileImageUrlHttps: map['profile_image_url_https'] as String?,
-        verified: verified ? map['verified'] == 1 : false,
-        createdAt: createdAt,
-        inFeed: inFeed ? map['in_feed'] == 1 : false
+      id: map['id'] as String,
+      screenName: map['screen_name'] as String,
+      name: map['name'] as String,
+      profileImageUrlHttps: map['profile_image_url_https'] as String?,
+      verified: verified ? map['verified'] == 1 : false,
+      createdAt: createdAt,
+      inFeed: inFeed ? map['in_feed'] == 1 : false,
     );
   }
 
   factory UserSubscription.fromUser(UserWithExtra user) {
     return UserSubscription(
-        id: user.idStr!,
-        screenName: user.screenName!,
-        name: user.name!,
-        profileImageUrlHttps: user.profileImageUrlHttps,
-        verified: user.verified!,
-        createdAt: user.createdAt!,
-        inFeed: true
+      id: user.idStr!,
+      screenName: user.screenName!,
+      name: user.name!,
+      profileImageUrlHttps: user.profileImageUrlHttps,
+      verified: user.verified!,
+      createdAt: user.createdAt!,
+      inFeed: true,
     );
   }
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is UserSubscription && runtimeType == other.runtimeType && id == other.id;
+      identical(this, other) ||
+      other is UserSubscription &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;
@@ -204,7 +258,7 @@ class UserSubscription extends Subscription {
       'screen_name': screenName,
       'name': name,
       'profile_image_url_https': profileImageUrlHttps,
-      'verified': verified
+      'verified': verified,
     });
   }
 }
@@ -219,13 +273,14 @@ class SubscriptionGroup with ToMappable {
 
   IconData get iconData => deserializeIconData(icon);
 
-  SubscriptionGroup(
-      {required this.id,
-      required this.name,
-      required this.icon,
-      required this.color,
-      required this.numberOfMembers,
-      required this.createdAt});
+  SubscriptionGroup({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.color,
+    required this.numberOfMembers,
+    required this.createdAt,
+  });
 
   factory SubscriptionGroup.fromMap(Map<String, Object?> json) {
     // This is here to handle imports of data from before v2.15.0
@@ -235,17 +290,26 @@ class SubscriptionGroup with ToMappable {
     }
 
     return SubscriptionGroup(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        icon: icon,
-        color: json['color'] == null ? null : Color(json['color'] as int),
-        numberOfMembers: json['number_of_members'] == null ? 0 : json['number_of_members'] as int,
-        createdAt: DateTime.parse(json['created_at'] as String));
+      id: json['id'] as String,
+      name: json['name'] as String,
+      icon: icon,
+      color: json['color'] == null ? null : Color(json['color'] as int),
+      numberOfMembers: json['number_of_members'] == null
+          ? 0
+          : json['number_of_members'] as int,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
   }
 
   @override
   Map<String, dynamic> toMap() {
-    return {'id': id, 'name': name, 'icon': icon, 'color': color?.toARGB32(), 'created_at': createdAt.toIso8601String()};
+    return {
+      'id': id,
+      'name': name,
+      'icon': icon,
+      'color': color?.toARGB32(),
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 }
 
@@ -257,13 +321,14 @@ class SubscriptionGroupGet {
   bool includeReplies;
   bool includeRetweets;
 
-  SubscriptionGroupGet(
-      {required this.id,
-      required this.name,
-      required this.icon,
-      required this.subscriptions,
-      required this.includeReplies,
-      required this.includeRetweets});
+  SubscriptionGroupGet({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.subscriptions,
+    required this.includeReplies,
+    required this.includeRetweets,
+  });
 }
 
 class SubscriptionGroupEdit {
@@ -273,8 +338,13 @@ class SubscriptionGroupEdit {
   Color? color;
   Set<String> members;
 
-  SubscriptionGroupEdit(
-      {required this.id, required this.name, required this.icon, required this.color, required this.members});
+  SubscriptionGroupEdit({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.color,
+    required this.members,
+  });
 }
 
 class SubscriptionGroupMember with ToMappable {
@@ -284,7 +354,10 @@ class SubscriptionGroupMember with ToMappable {
   SubscriptionGroupMember({required this.group, required this.profile});
 
   factory SubscriptionGroupMember.fromMap(Map<String, Object?> json) {
-    return SubscriptionGroupMember(group: json['group_id'] as String, profile: json['profile_id'] as String);
+    return SubscriptionGroupMember(
+      group: json['group_id'] as String,
+      profile: json['profile_id'] as String,
+    );
   }
 
   @override
@@ -303,32 +376,36 @@ class Account with ToMappable {
   // active one is rate-limited or flagged.
   final bool isActive;
 
-  Account(
-      {required this.id,
-      required this.authHeader,
-      required this.screenName,
-      this.lastNotFoundAt,
-      this.consecutiveNotFound = 0,
-      this.isActive = false});
+  Account({
+    required this.id,
+    required this.authHeader,
+    required this.screenName,
+    this.lastNotFoundAt,
+    this.consecutiveNotFound = 0,
+    this.isActive = false,
+  });
 
-  static DateTime? _date(Object? value) => value == null ? null : DateTime.parse(value as String);
+  static DateTime? _date(Object? value) =>
+      value == null ? null : DateTime.parse(value as String);
 
   /// No flag set, so a successful response needs no database write (hot-path guard).
   bool get isClean => consecutiveNotFound == 0 && lastNotFoundAt == null;
 
   factory Account.fromMap(Map<String, Object?> map) {
     return Account(
-        id: map['id'] as String,
-        authHeader: map['auth_header'],
-        screenName: map['screen_name'] as String?,
-        lastNotFoundAt: _date(map['last_not_found_at']),
-        consecutiveNotFound: (map['consecutive_not_found'] as int?) ?? 0,
-        isActive: (map['is_active'] as int?) == 1);
+      id: map['id'] as String,
+      authHeader: map['auth_header'],
+      screenName: map['screen_name'] as String?,
+      lastNotFoundAt: _date(map['last_not_found_at']),
+      consecutiveNotFound: (map['consecutive_not_found'] as int?) ?? 0,
+      isActive: (map['is_active'] as int?) == 1,
+    );
   }
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is Account && runtimeType == other.runtimeType && id == other.id;
+      identical(this, other) ||
+      other is Account && runtimeType == other.runtimeType && id == other.id;
 
   @override
   int get hashCode => id.hashCode;
@@ -341,7 +418,7 @@ class Account with ToMappable {
       'screen_name': screenName,
       'last_not_found_at': lastNotFoundAt?.toIso8601String(),
       'consecutive_not_found': consecutiveNotFound,
-      'is_active': isActive ? 1 : 0
+      'is_active': isActive ? 1 : 0,
     };
   }
 }

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:ui' show Locale;
 
+// The package does not export this helper publicly.
+// ignore: implementation_imports
 import 'package:dart_twitter_api/src/utils/date_utils.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:flutter/foundation.dart';
@@ -32,7 +34,8 @@ const Duration _defaultTimeout = Duration(seconds: 30);
 class _QuackerTwitterClient extends TwitterClient {
   static final log = Logger('_QuackerTwitterClient');
 
-  _QuackerTwitterClient() : super(consumerKey: '', consumerSecret: '', token: '', secret: '');
+  _QuackerTwitterClient()
+    : super(consumerKey: '', consumerSecret: '', token: '', secret: '');
 
   // Identical requests flying at the same time (two tabs refreshing, a soft
   // refresh racing the pager) share one response instead of burning another
@@ -40,21 +43,28 @@ class _QuackerTwitterClient extends TwitterClient {
   static final Map<String, Future<http.Response>> _inflight = {};
 
   @override
-  Future<http.Response> get(Uri uri, {Map<String, String>? headers, Duration? timeout}) {
+  Future<http.Response> get(
+    Uri uri, {
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) {
     final key = uri.toString();
     final running = _inflight[key];
     if (running != null) return running;
 
     late final Future<http.Response> future;
-    future = fetch(uri, headers: headers).timeout(timeout ?? _defaultTimeout).then<http.Response>((response) {
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return response;
-      } else {
-        return Future.error(HttpException(response));
-      }
-    }).whenComplete(() {
-      if (identical(_inflight[key], future)) _inflight.remove(key);
-    });
+    future = fetch(uri, headers: headers)
+        .timeout(timeout ?? _defaultTimeout)
+        .then<http.Response>((response) {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return response;
+          } else {
+            return Future.error(HttpException(response));
+          }
+        })
+        .whenComplete(() {
+          if (identical(_inflight[key], future)) _inflight.remove(key);
+        });
 
     _inflight[key] = future;
     return future;
@@ -64,8 +74,12 @@ class _QuackerTwitterClient extends TwitterClient {
   /// (HomeTimeline, HomeLatestTimeline). Mirrors [get]'s status handling and
   /// request coalescing. Static because `TwitterApi.client` is typed as the
   /// package's AbstractTwitterClient, which has no such helper.
-  static Future<http.Response> postJson(Uri uri,
-      {Map<String, String>? headers, required String body, Duration? timeout}) {
+  static Future<http.Response> postJson(
+    Uri uri, {
+    Map<String, String>? headers,
+    required String body,
+    Duration? timeout,
+  }) {
     final key = '${uri.toString()}|$body';
     final running = _inflight[key];
     if (running != null) return running;
@@ -74,14 +88,15 @@ class _QuackerTwitterClient extends TwitterClient {
     future = fetch(uri, headers: headers, body: body)
         .timeout(timeout ?? _defaultTimeout)
         .then<http.Response>((response) {
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return response;
-      } else {
-        return Future.error(HttpException(response));
-      }
-    }).whenComplete(() {
-      if (identical(_inflight[key], future)) _inflight.remove(key);
-    });
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return response;
+          } else {
+            return Future.error(HttpException(response));
+          }
+        })
+        .whenComplete(() {
+          if (identical(_inflight[key], future)) _inflight.remove(key);
+        });
 
     _inflight[key] = future;
     return future;
@@ -101,12 +116,21 @@ class _QuackerTwitterClient extends TwitterClient {
   /// and the guest request also failed. Network-level failures (socket, timeout,
   /// TLS) are absorbed once per fetch with a short pause, since they never
   /// reached X and are no account's fault; a second one is surfaced as-is.
-  static Future<http.Response> fetch(Uri uri, {Map<String, String>? headers, String? body}) async {
+  static Future<http.Response> fetch(
+    Uri uri, {
+    Map<String, String>? headers,
+    String? body,
+  }) async {
     final endpoint = uri.path;
-    final now = DateTime.now();
     final accounts = await getAccounts();
-    final selector = AccountSelector(accounts, now,
-        isRateLimited: (a) => RateLimitTracker.isLimited(a.id, endpoint, now));
+    // The selector is re-read on every pick: a limit that expires while this
+    // loop is still rotating accounts must lift for the later picks.
+    final selector = AccountSelector(
+      accounts,
+      DateTime.now(),
+      isRateLimited: (a) =>
+          RateLimitTracker.isLimited(a.id, endpoint, DateTime.now()),
+    );
     final tried = <String>{};
     var authFailures = 0;
     var networkFailures = 0;
@@ -121,11 +145,25 @@ class _QuackerTwitterClient extends TwitterClient {
       }
       tried.add(account.id);
 
-      final authHeader = json.decode(account.authHeader);
+      Map<dynamic, dynamic>? authHeader;
+      try {
+        final decoded = json.decode(account.authHeader);
+        if (decoded is Map) {
+          authHeader = decoded;
+        }
+      } on FormatException {
+        // A corrupt stored header is this account's failure: try the next one.
+        continue;
+      }
       http.Response response;
       try {
-        response =
-            await XRegularAccount().fetch(uri, headers: headers, body: body, log: log, authHeader: authHeader);
+        response = await XRegularAccount().fetch(
+          uri,
+          headers: headers,
+          body: body,
+          log: log,
+          authHeader: authHeader,
+        );
       } on Exception catch (e, st) {
         lastNetworkError = e;
         lastNetworkStackTrace = st;
@@ -133,7 +171,9 @@ class _QuackerTwitterClient extends TwitterClient {
           break;
         }
         await Future<void>.delayed(const Duration(seconds: 1));
-        tried.remove(account.id); // the network failed, not the account: it may be retried
+        tried.remove(
+          account.id,
+        ); // the network failed, not the account: it may be retried
         continue;
       }
       final code = response.statusCode;
@@ -148,7 +188,11 @@ class _QuackerTwitterClient extends TwitterClient {
         if (response.headers['x-rate-limit-remaining'] == '0') {
           // That was the last call allowed on this endpoint for the window:
           // flag now so the next request rotates instead of eating a 429.
-          RateLimitTracker.flag(account.id, endpoint, _resetFromHeaders(response));
+          RateLimitTracker.flag(
+            account.id,
+            endpoint,
+            _resetFromHeaders(response),
+          );
         } else {
           RateLimitTracker.clear(account.id, endpoint);
         }
@@ -159,7 +203,11 @@ class _QuackerTwitterClient extends TwitterClient {
       }
       lastError = response;
       if (code == 429) {
-        RateLimitTracker.flag(account.id, endpoint, _resetFromHeaders(response));
+        RateLimitTracker.flag(
+          account.id,
+          endpoint,
+          _resetFromHeaders(response),
+        );
         continue;
       }
       if (code == 404 || code == 401) {
@@ -170,7 +218,8 @@ class _QuackerTwitterClient extends TwitterClient {
         // endpoint's queryId, not that this account's auth is broken — don't
         // taint account health for it (see getHomeLatestTimeline). A 401 is X
         // rejecting the session, so it counts as broken auth.
-        final staleQueryId = code == 404 && uri.path.contains('/i/api/graphql/');
+        final staleQueryId =
+            code == 404 && uri.path.contains('/i/api/graphql/');
         if (!staleQueryId) {
           await recordNotFound(account.id);
         }
@@ -198,26 +247,35 @@ class _QuackerTwitterClient extends TwitterClient {
       }
       throw NoAccountAvailableException();
     }
-    if (lastError?.statusCode == 429) {
+    if (lastError == null) {
+      // Accounts were tried but none got far enough to record a response
+      // (e.g. every stored header is corrupt): the accounts are unusable.
+      throw NoWorkingAccountException();
+    }
+    if (lastError.statusCode == 429) {
       throw RateLimitedException(); // every account was rate-limited on this endpoint
     }
-    if (lastError?.statusCode == 404) {
+    if (lastError.statusCode == 404) {
       throw NoWorkingAccountException(); // accounts tried all returned 404 (likely broken auth)
     }
-    return lastError!; // surface the real error
+    return lastError; // surface the real error
   }
 
   static DateTime _resetFromHeaders(http.Response response) {
     final reset = response.headers['x-rate-limit-reset']; // epoch seconds
-    if (reset != null) {
-      return DateTime.fromMillisecondsSinceEpoch(int.parse(reset) * 1000);
+    final seconds = reset == null ? null : int.tryParse(reset);
+    if (seconds != null) {
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
     }
+    // A malformed header must not discard an otherwise-good response.
     return DateTime.now().add(rateLimitFallback);
   }
 }
 
 class Twitter {
-  static final TwitterApi _twitterApi = TwitterApi(client: _QuackerTwitterClient());
+  static final TwitterApi _twitterApi = TwitterApi(
+    client: _QuackerTwitterClient(),
+  );
 
   static const Map<String, bool> _timelineFeatures = {
     "articles_preview_enabled": true,
@@ -255,7 +313,8 @@ class Twitter {
     "rweb_tipjar_consumption_enabled": false,
     "rweb_video_screen_enabled": false,
     "standardized_nudges_misinfo": true,
-    "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": true,
+    "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":
+        true,
     "verified_phone_label_enabled": false,
     "view_counts_everywhere_api_enabled": true,
   };
@@ -276,15 +335,19 @@ class Twitter {
   };
 
   static Future<Profile> getProfileById(String id) async {
-    var uri = Uri.https('twitter.com', '/i/api/graphql/XIpMDIi_YoVzXeoON-cfAQ/UserByRestId', {
-      'variables': jsonEncode({
-        'userId': id,
-        'withHighlightedLabel': true,
-        'withSafetyModeUserFields': true,
-        'withSuperFollowsUserFields': true,
-      }),
-      'features': jsonEncode(_profileFeatures),
-    });
+    var uri = Uri.https(
+      'twitter.com',
+      '/i/api/graphql/XIpMDIi_YoVzXeoON-cfAQ/UserByRestId',
+      {
+        'variables': jsonEncode({
+          'userId': id,
+          'withHighlightedLabel': true,
+          'withSafetyModeUserFields': true,
+          'withSuperFollowsUserFields': true,
+        }),
+        'features': jsonEncode(_profileFeatures),
+      },
+    );
 
     return _getProfile(uri);
   }
@@ -293,35 +356,54 @@ class Twitter {
     if (screenName.startsWith('@')) {
       screenName = screenName.substring(1);
     }
-    var uri = Uri.https('twitter.com', '/i/api/graphql/IGgvgiOx4QZndDHuD3x9TQ/UserByScreenName', {
-      'variables': jsonEncode({'screen_name': screenName, "withSafetyModeUserFields": true}),
-      'features': jsonEncode(_profileFeatures),
-    });
+    var uri = Uri.https(
+      'twitter.com',
+      '/i/api/graphql/IGgvgiOx4QZndDHuD3x9TQ/UserByScreenName',
+      {
+        'variables': jsonEncode({
+          'screen_name': screenName,
+          "withSafetyModeUserFields": true,
+        }),
+        'features': jsonEncode(_profileFeatures),
+      },
+    );
 
     return _getProfile(uri);
   }
 
   static Future<Profile> _getProfile(Uri uri) async {
     var response = await _twitterApi.client.get(uri);
-    return parseOffThread<Profile>(response.body, ParseJob.profile, extra: uri.toString());
+    return parseOffThread<Profile>(
+      response.body,
+      ParseJob.profile,
+      extra: uri.toString(),
+    );
   }
 
-  static Future<PaginatedUsers> friendsList(String userId, int count, {String? cursor}) => _graphqlFollows(
-        userId,
-        count,
-        cursor: cursor,
-        queryId: 'F42cDX8PDFxkbjjq6JrM2w',
-        operation: 'Following',
-      );
+  static Future<PaginatedUsers> friendsList(
+    String userId,
+    int count, {
+    String? cursor,
+  }) => _graphqlFollows(
+    userId,
+    count,
+    cursor: cursor,
+    queryId: 'F42cDX8PDFxkbjjq6JrM2w',
+    operation: 'Following',
+  );
 
   // GraphQL "Followers"
-  static Future<PaginatedUsers> followersList(String userId, int count, {String? cursor}) => _graphqlFollows(
-        userId,
-        count,
-        cursor: cursor,
-        queryId: '_orfRBQae57vylFPH0Huhg',
-        operation: 'Followers',
-      );
+  static Future<PaginatedUsers> followersList(
+    String userId,
+    int count, {
+    String? cursor,
+  }) => _graphqlFollows(
+    userId,
+    count,
+    cursor: cursor,
+    queryId: '_orfRBQae57vylFPH0Huhg',
+    operation: 'Followers',
+  );
 
   // Shared cursor-paginated GraphQL user-list fetch (Following / Followers share
   // the same timeline shape; only the query id, operation and feature flags differ).
@@ -345,7 +427,10 @@ class Twitter {
 
     return _twitterApi.client
         .get(uri)
-        .then((response) => parseOffThread<PaginatedUsers>(response.body, ParseJob.follows));
+        .then(
+          (response) =>
+              parseOffThread<PaginatedUsers>(response.body, ParseJob.follows),
+        );
   }
 
   static Future<Follows> getProfileFollows(
@@ -363,7 +448,11 @@ class Twitter {
     return Follows(
       cursorBottom: response.nextCursorStr,
       cursorTop: response.previousCursorStr,
-      users: response.users?.map((e) => UserWithExtra.fromJson(e.toJson())).toList() ?? [],
+      users:
+          response.users
+              ?.map((e) => UserWithExtra.fromJson(e.toJson()))
+              .toList() ??
+          [],
     );
   }
 
@@ -390,7 +479,9 @@ class Twitter {
       }),
     };
 
-    Map<String, dynamic> variables = json.decode(defaultParam["variables"].toString());
+    Map<String, dynamic> variables = json.decode(
+      defaultParam["variables"].toString(),
+    );
     variables["focalTweetId"] = id;
 
     if (cursor != null) {
@@ -402,19 +493,29 @@ class Twitter {
     final cacheKey = TimelineCache.keyFor('thread.$id');
     try {
       var response = await _twitterApi.client.get(
-        Uri.https('x.com', '/i/api/graphql/oCon7R-cgWRFy6EfZjaKfg/TweetDetail', defaultParam),
+        Uri.https(
+          'x.com',
+          '/i/api/graphql/oCon7R-cgWRFy6EfZjaKfg/TweetDetail',
+          defaultParam,
+        ),
       );
       if (cursor == null) {
         // The opened conversation is now readable offline, replies included.
         unawaited(TimelineCache.write(cacheKey, response.body));
       }
-      return await parseOffThread<TweetStatus>(response.body, ParseJob.tweetDetail);
+      return await parseOffThread<TweetStatus>(
+        response.body,
+        ParseJob.tweetDetail,
+      );
     } catch (e) {
       // Offline (or X unreachable): serve the stored conversation, if any.
       if (cursor == null) {
         final cached = await TimelineCache.read(cacheKey);
         if (cached != null) {
-          return await parseOffThread<TweetStatus>(cached, ParseJob.tweetDetail);
+          return await parseOffThread<TweetStatus>(
+            cached,
+            ParseJob.tweetDetail,
+          );
         }
       }
       rethrow;
@@ -436,21 +537,32 @@ class Twitter {
       "withQuickPromoteEligibilityTweetFields": false,
     };
 
-
     if (cursor != null) {
       variables['cursor'] = cursor;
     }
 
-    var uri = Uri.https('x.com', '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline', {
-      'variables': jsonEncode(variables),
-      'features': jsonEncode(_timelineFeatures),
-    });
+    var uri = Uri.https(
+      'x.com',
+      '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline',
+      {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+      },
+    );
 
     var response = await _twitterApi.client.get(uri);
-    return parseOffThread<TweetStatus>(response.body, ParseJob.search, extra: product);
+    return parseOffThread<TweetStatus>(
+      response.body,
+      ParseJob.search,
+      extra: product,
+    );
   }
 
-  static Future<List<UserWithExtra>> searchUsers(String query, {int limit = 25, String? cursor}) async {
+  static Future<List<UserWithExtra>> searchUsers(
+    String query, {
+    int limit = 25,
+    String? cursor,
+  }) async {
     var variables = {
       "rawQuery": query,
       "count": limit.toString(),
@@ -461,15 +573,18 @@ class Twitter {
       "withReactionsPerspective": false,
     };
 
-
     if (cursor != null) {
       variables['cursor'] = cursor;
     }
 
-    var uri = Uri.https('twitter.com', '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline', {
-      'variables': jsonEncode(variables),
-      'features': jsonEncode(_timelineFeatures),
-    });
+    var uri = Uri.https(
+      'twitter.com',
+      '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline',
+      {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+      },
+    );
 
     var response = await _twitterApi.client.get(uri);
     if (response.body.isEmpty) {
@@ -482,13 +597,18 @@ class Twitter {
     }
 
     List instructions = List.from(
-      result?['data']?['search_by_raw_query']?['search_timeline']?['timeline']?['instructions'] ?? [],
+      result?['data']?['search_by_raw_query']?['search_timeline']?['timeline']?['instructions'] ??
+          [],
     );
     if (instructions.isEmpty) {
       return [];
     }
     List addEntries = List.from(
-      instructions.firstWhere((e) => e['type'] == 'TimelineAddEntries', orElse: () => null)?['entries'] ?? [],
+      instructions.firstWhere(
+            (e) => e['type'] == 'TimelineAddEntries',
+            orElse: () => null,
+          )?['entries'] ??
+          [],
     );
     if (addEntries.isEmpty) {
       return [];
@@ -496,7 +616,10 @@ class Twitter {
 
     return addEntries
         .where((entry) => entry['entryId']?.startsWith('user-'))
-        .map((entry) => entry['content']?['itemContent']?['user_results']?['result'])
+        .map(
+          (entry) =>
+              entry['content']?['itemContent']?['user_results']?['result'],
+        )
         .whereType<Map<String, dynamic>>()
         .where((result) => result['rest_id'] != null)
         .map(UserWithExtra.fromNonLegacyJson)
@@ -526,7 +649,8 @@ class Twitter {
       "latestControlAvailable": true,
       "withCommunity": true,
       if (cursor == null) "requestContext": "launch" else "cursor": cursor,
-      if (cursor == null && seenTweetIds != null && seenTweetIds.isNotEmpty) "seenTweetIds": seenTweetIds,
+      if (cursor == null && seenTweetIds != null && seenTweetIds.isNotEmpty)
+        "seenTweetIds": seenTweetIds,
     };
 
     // X serves HomeTimeline as a POST now; the old GET queryId (wp06oo3f…)
@@ -572,7 +696,10 @@ class Twitter {
     // HomeLatestTimeline is a POST too; the old GET shape is what X keeps in
     // its compatibility cache, which is why Following could look frozen.
     final response = await _QuackerTwitterClient.postJson(
-      Uri.https('x.com', '/i/api/graphql/0dateTVgvXjpkf7kyBZy0g/HomeLatestTimeline'),
+      Uri.https(
+        'x.com',
+        '/i/api/graphql/0dateTVgvXjpkf7kyBZy0g/HomeLatestTimeline',
+      ),
       body: jsonEncode({'variables': variables, 'features': _timelineFeatures}),
     );
     return parseChainsOnIsolate(
@@ -595,20 +722,25 @@ class Twitter {
   /// data.viewer_v2.user_results.result.notification_timeline. The queryId
   /// below comes from the recorded fixture (see tool/record) — refresh the
   /// fixture there when a 404 appears.
-  static Future<NotificationsPage> getNotificationsTimeline({int count = 20, String? cursor}) async {
-    var variables = {
-      "timeline_type": "All",
-      "count": count,
-      if (cursor != null) "cursor": cursor,
-    };
+  static Future<NotificationsPage> getNotificationsTimeline({
+    int count = 20,
+    String? cursor,
+  }) async {
+    var variables = {"timeline_type": "All", "count": count, "cursor": ?cursor};
 
     var response = await _twitterApi.client.get(
-      Uri.https('x.com', '/i/api/graphql/gzC0OYBCnfdYS4M4Gue7BA/NotificationsTimeline', {
-        'variables': jsonEncode(variables),
-        'features': jsonEncode(_timelineFeatures),
-      }),
+      Uri.https(
+        'x.com',
+        '/i/api/graphql/gzC0OYBCnfdYS4M4Gue7BA/NotificationsTimeline',
+        {
+          'variables': jsonEncode(variables),
+          'features': jsonEncode(_timelineFeatures),
+        },
+      ),
     );
-    return parseNotifications(json.decode(response.body) as Map<String, dynamic>);
+    return parseNotifications(
+      json.decode(response.body) as Map<String, dynamic>,
+    );
   }
 
   /// The posts an account liked, served by X's Likes endpoint — usable for the
@@ -668,7 +800,7 @@ class Twitter {
     var variables = {
       "count": count,
       "includePromotedContent": true,
-      if (cursor != null) "cursor": cursor,
+      "cursor": ?cursor,
     };
 
     var response = await _twitterApi.client.get(
@@ -706,7 +838,9 @@ class Twitter {
       "fieldToggles": jsonEncode({"withArticlePlainText": false}),
     };
 
-    Map<String, dynamic> variables = json.decode(defaultUserTweetsParam["variables"].toString());
+    Map<String, dynamic> variables = json.decode(
+      defaultUserTweetsParam["variables"].toString(),
+    );
     variables["userId"] = id;
     if (cursor != null) {
       variables['cursor'] = cursor;
@@ -723,7 +857,9 @@ class Twitter {
           : '/i/api/graphql/36rb3Xj3iJ64Q-9wKDjCcQ/UserTweets';
     }
 
-    var response = await _twitterApi.client.get(Uri.https('x.com', path, defaultUserTweetsParam));
+    var response = await _twitterApi.client.get(
+      Uri.https('x.com', path, defaultUserTweetsParam),
+    );
 
     //if this page is not first one on the profile page, dont add pinned tweet
     if (variables['cursor'] != null) showPinnedTweet = false;
@@ -741,11 +877,10 @@ class Twitter {
   }
 
   static Future<Map<String, dynamic>> getBroadcastDetails(String key) async {
-    var response = await _twitterApi.client.get(Uri.https('twitter.com', '/i/api/1.1/live_video_stream/status/$key'));
+    var response = await _twitterApi.client.get(
+      Uri.https('twitter.com', '/i/api/1.1/live_video_stream/status/$key'),
+    );
 
     return json.decode(response.body);
   }
 }
-
-
-

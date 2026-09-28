@@ -65,17 +65,26 @@ class _DefaultPageState extends State<DefaultPage> {
 
   void handleInitialLink(Uri link) async {
     final parsed = await parseUri(link);
+    // The await above may outlive this State; a link arriving after the home
+    // screen was torn down must not use its context.
+    if (!mounted) return;
     switch (parsed) {
-      case ProfileUriInfo(screenName: final screenName, profileTabIndex: final tab):
-        Navigator.pushNamed(context, routeProfile,
-            arguments: ProfileScreenArguments.fromScreenName(screenName, tab));
+      case ProfileUriInfo(
+        screenName: final screenName,
+        profileTabIndex: final tab,
+      ):
+        Navigator.pushNamed(
+          context,
+          routeProfile,
+          arguments: ProfileScreenArguments.fromScreenName(screenName, tab),
+        );
         return;
-      case PostUriInfo(screenName: final screenName, id: final id, direct: final direct, photoNumber: final photoNumber):
-        Navigator.pushNamed(context, routeStatus,
-            arguments: StatusScreenArguments(
-              id: id,
-              username: screenName,
-            ));
+      case PostUriInfo(screenName: final screenName, id: final id):
+        Navigator.pushNamed(
+          context,
+          routeStatus,
+          arguments: StatusScreenArguments(id: id, username: screenName),
+        );
         return;
       case UnknownResult():
         showDialog(
@@ -88,14 +97,27 @@ class _DefaultPageState extends State<DefaultPage> {
               actions: [
                 TextButton(
                   child: Text(L10n.of(context).report),
-                  onPressed:  () => openUri(context, 'https://github.com/teskann/quax/issues'),
+                  onPressed: () => openUri(
+                    context,
+                    'https://github.com/teskann/quax/issues',
+                  ),
                 ),
                 TextButton(
                   child: Text(L10n.of(context).open_in_browser),
-                  onPressed: () {
-                    openInDefaultBrowser(link.toString());
-                    if(context.mounted) {
-                      Navigator.of(context).pop();
+                  onPressed: () async {
+                    // Captured before the gap: the dialog may already be gone.
+                    final navigator = Navigator.of(context);
+                    try {
+                      await openInDefaultBrowser(link.toString());
+                    } catch (_) {
+                      if (context.mounted) {
+                        // No plugin handler or no default browser: still open
+                        // the link, just without the native resolver.
+                        await openUri(context, link.toString());
+                      }
+                    }
+                    if (context.mounted) {
+                      navigator.pop();
                     }
                   },
                 ),
@@ -124,59 +146,65 @@ class _DefaultPageState extends State<DefaultPage> {
     final appLinks = AppLinks();
 
     // Attach a listener to the stream
-    _sub = appLinks.uriLinkStream.listen((link) => handleInitialLink(link), onError: (err) {
-      // TODO: Handle exception by warning the user their action did not succeed
-    });
+    _sub = appLinks.uriLinkStream.listen(
+      (link) => handleInitialLink(link),
+      onError: (err) {
+        // TODO: Handle exception by warning the user their action did not succeed
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_migrationError != null || _migrationStackTrace != null) {
       return ScaffoldErrorWidget(
-          error: _migrationError,
-          stackTrace: _migrationStackTrace,
-          prefix: L10n.of(context).unable_to_run_the_database_migrations);
+        error: _migrationError,
+        stackTrace: _migrationStackTrace,
+        prefix: L10n.of(context).unable_to_run_the_database_migrations,
+      );
     }
 
     return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, result) async {
-          if (didPop) return;
-          var prefService = PrefService.of(context);
-          if (!prefService.get(optionConfirmClose)) {
-            SystemNavigator.pop();
-            return;
-          }
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        var prefService = PrefService.of(context);
+        if (!prefService.get(optionConfirmClose)) {
+          SystemNavigator.pop();
+          return;
+        }
 
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (c) => AlertDialog(
-              title: Text(L10n.current.are_you_sure),
-              content: Text(L10n.current.confirm_close_fritter),
-              actions: [
-                TextButton(
-                  child: Text(L10n.current.no),
-                  onPressed: () => Navigator.pop(c, false),
-                ),
-                TextButton(
-                  child: Text(L10n.current.yes),
-                  onPressed: () => Navigator.pop(c, true),
-                ),
-              ],
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text(L10n.current.are_you_sure),
+            content: Text(L10n.current.confirm_close_fritter),
+            actions: [
+              TextButton(
+                child: Text(L10n.current.no),
+                onPressed: () => Navigator.pop(c, false),
+              ),
+              TextButton(
+                child: Text(L10n.current.yes),
+                onPressed: () => Navigator.pop(c, true),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed == true && context.mounted) {
+          SystemNavigator.pop();
+        }
+      },
+      child: _setupDone
+          ? const HomeScreen()
+          : OnboardingScreen(
+              onFinished: () {
+                setState(() => _setupDone = true);
+                _maybePromptForAccount();
+              },
             ),
-          );
-
-          if (confirmed == true && context.mounted) {
-            SystemNavigator.pop();
-          }
-        },
-        child: _setupDone
-            ? const HomeScreen()
-            : OnboardingScreen(
-                onFinished: () {
-                  setState(() => _setupDone = true);
-                  _maybePromptForAccount();
-                }));
+    );
   }
 
   @override
@@ -185,4 +213,3 @@ class _DefaultPageState extends State<DefaultPage> {
     super.dispose();
   }
 }
-

@@ -30,21 +30,30 @@ final List<FeedTabOption> feedTabs = [
   FeedTabOption(FeedTab.following, (c) => L10n.of(c).following),
 ];
 
-FeedTab feedTabFromId(String? id) =>
-    FeedTab.values.firstWhere((e) => e.name == id, orElse: () => FeedTab.foryou);
+FeedTab feedTabFromId(String? id) => FeedTab.values.firstWhere(
+  (e) => e.name == id,
+  orElse: () => FeedTab.foryou,
+);
 
 class FeedScreen extends StatefulWidget {
   final ScrollController scrollController;
   final String id;
 
-  const FeedScreen({super.key, required this.scrollController, required this.id});
+  const FeedScreen({
+    super.key,
+    required this.scrollController,
+    required this.id,
+  });
 
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateMixin {
-  final TweetFeedController _followingFeed = TweetFeedController(mergeOnRefresh: true);
+class _FeedScreenState extends State<FeedScreen>
+    with SingleTickerProviderStateMixin {
+  final TweetFeedController _followingFeed = TweetFeedController(
+    mergeOnRefresh: true,
+  );
   final TweetFeedController _foryouFeed = TweetFeedController();
   TabController? _tabController;
 
@@ -63,15 +72,21 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   DateTime _lastAutoRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _onHomeSelected() {
-    if (DateTime.now().difference(_lastAutoRefreshAt) < const Duration(minutes: 1)) return;
-    _lastAutoRefreshAt = DateTime.now();
+    if (DateTime.now().difference(_lastAutoRefreshAt) <
+        const Duration(minutes: 1)) {
+      return;
+    }
 
     final controller = _tabController;
     if (controller == null) return;
     final feed = controller.index == 0 ? _foryouFeed : _followingFeed;
-    if (feed.hasItems) {
-      feed.softRefresh();
-    }
+    if (!feed.hasItems) return;
+
+    // Stamped after the refresh attempt, not before: softRefresh is silent
+    // about failures, and stamping early would suppress a retry for a minute
+    // whenever the first attempt ran offline.
+    _lastAutoRefreshAt = DateTime.now();
+    feed.softRefresh();
   }
 
   void _onAccountsChanged() {
@@ -86,7 +101,11 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
     final handle = activeAccount.value?.handle;
     if (handle != null) {
-      showSnackBar(context, icon: '👤', message: L10n.of(context).account_switched(handle));
+      showSnackBar(
+        context,
+        icon: '👤',
+        message: L10n.of(context).account_switched(handle),
+      );
     }
   }
 
@@ -102,11 +121,20 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
   TabController _createTabController(BasePrefService prefs) {
     final stored = feedTabFromId(prefs.get<String>(optionHomeDefaultFeedTab));
-    final initialIndex = feedTabs.indexWhere((e) => e.id == stored).clamp(0, feedTabs.length - 1);
-    final controller = TabController(length: feedTabs.length, vsync: this, initialIndex: initialIndex);
+    final initialIndex = feedTabs
+        .indexWhere((e) => e.id == stored)
+        .clamp(0, feedTabs.length - 1);
+    final controller = TabController(
+      length: feedTabs.length,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
     controller.addListener(() {
       if (!controller.indexIsChanging) {
-        prefs.set<String>(optionHomeDefaultFeedTab, feedTabs[controller.index].id.name);
+        prefs.set<String>(
+          optionHomeDefaultFeedTab,
+          feedTabs[controller.index].id.name,
+        );
       }
     });
     return controller;
@@ -126,7 +154,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         tabs: feedTabs.map((e) => Tab(text: e.titleBuilder(context))).toList(),
         onTap: (index) {
           // Tapping the already-active tab refreshes that feed (X-style).
-          if (index != tabController.index || tabController.indexIsChanging) return;
+          if (index != tabController.index || tabController.indexIsChanging) {
+            return;
+          }
           (index == 0 ? _foryouFeed : _followingFeed).softRefresh();
         },
       ),
@@ -168,8 +198,16 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         return TabBarView(
           controller: tabController,
           children: [
-            ForYouTweets(_foryouFeed, key: ValueKey('foryou.$revision'), accountId: accountId),
-            FollowingTweets(_followingFeed, key: ValueKey('following.$revision'), accountId: accountId),
+            ForYouTweets(
+              _foryouFeed,
+              key: ValueKey('foryou.$revision'),
+              accountId: accountId,
+            ),
+            FollowingTweets(
+              _followingFeed,
+              key: ValueKey('following.$revision'),
+              accountId: accountId,
+            ),
           ],
         );
       },

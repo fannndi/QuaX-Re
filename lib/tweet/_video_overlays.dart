@@ -18,7 +18,12 @@ class GifBadge extends StatelessWidget {
       ),
       child: const Text(
         'GIF',
-        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, height: 1.0),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          height: 1.0,
+        ),
       ),
     );
   }
@@ -65,7 +70,11 @@ class FritterCenterPlayButton extends StatelessWidget {
                 iconSize: size / 2,
                 icon: isFinished
                     ? Icon(Icons.replay, color: iconColor)
-                    : AnimatedPlayPause(playing: isPlaying, color: iconColor, size: size / 2),
+                    : AnimatedPlayPause(
+                        playing: isPlaying,
+                        color: iconColor,
+                        size: size / 2,
+                      ),
                 onPressed: onPressed,
               ),
             ),
@@ -75,6 +84,7 @@ class FritterCenterPlayButton extends StatelessWidget {
     );
   }
 }
+
 /// The small duration chip X shows in the corner of every video.
 class VideoDurationBadge extends StatelessWidget {
   final int? durationMillis;
@@ -93,8 +103,14 @@ class VideoDurationBadge extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(label,
-          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

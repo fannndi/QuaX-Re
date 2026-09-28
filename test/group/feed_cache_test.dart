@@ -6,15 +6,18 @@ import 'package:quax/group/feed_cache.dart';
 
 void main() {
   Map<String, Object?> chainJson(String id, String createdAt) => {
-        'id': id,
-        'tweets': [
-          {'id_str': '${id}_tweet', 'created_at': createdAt},
-        ],
-        'isPinned': false,
-      };
+    'id': id,
+    'tweets': [
+      {'id_str': '${id}_tweet', 'created_at': createdAt},
+    ],
+    'isPinned': false,
+  };
 
-  Map<String, Object?> storedChunk(List<Map<String, Object?>> chains) =>
-      {'response': jsonEncode(chains), 'hash': 'h', 'created_at': '2026-01-01 00:00:00'};
+  Map<String, Object?> storedChunk(List<Map<String, Object?>> chains) => {
+    'response': jsonEncode(chains),
+    'hash': 'h',
+    'created_at': '2026-01-01 00:00:00',
+  };
 
   group('chainsFromStoredChunks()', () {
     test('Should read every chain of every stored chunk in order', () {
@@ -26,9 +29,13 @@ void main() {
         ]),
       ]);
 
-      expect(chains.map((chain) => chain.id), ['c1', 'c2', 'c3'],
-          reason: 'The DB rows are the source of the offline feed, so a chunk that silently drops '
-              'chains would leave holes in the timeline that was just read back');
+      expect(
+        chains.map((chain) => chain.id),
+        ['c1', 'c2', 'c3'],
+        reason:
+            'The DB rows are the source of the offline feed, so a chunk that silently drops '
+            'chains would leave holes in the timeline that was just read back',
+      );
     });
 
     test('Should keep the tweets of each chain, not only its id', () {
@@ -36,9 +43,13 @@ void main() {
         storedChunk([chainJson('c1', '2026-01-01T10:00:00.000Z')]),
       ]);
 
-      expect(chains.single.tweets.single.idStr, 'c1_tweet',
-          reason: 'The response is re-parsed from JSON, so the embedded tweet should survive with '
-              'the fields the card needs to render');
+      expect(
+        chains.single.tweets.single.idStr,
+        'c1_tweet',
+        reason:
+            'The response is re-parsed from JSON, so the embedded tweet should survive with '
+            'the fields the card needs to render',
+      );
     });
   });
 
@@ -55,9 +66,13 @@ void main() {
         chain('middle', DateTime(2026, 1, 2)),
       ]);
 
-      expect(sorted.map((c) => c.id), ['new', 'middle', 'old'],
-          reason: 'Chunks are read oldest-first from the DB, so this sort is what makes the joined '
-              'offline feed read like a timeline instead of a reversed one');
+      expect(
+        sorted.map((c) => c.id),
+        ['new', 'middle', 'old'],
+        reason:
+            'Chunks are read oldest-first from the DB, so this sort is what makes the joined '
+            'offline feed read like a timeline instead of a reversed one',
+      );
     });
 
     test('Should leave chains without a creation date where they are', () {
@@ -66,9 +81,13 @@ void main() {
         chain('dated', DateTime(2026, 1, 1)),
       ]);
 
-      expect(sorted.map((c) => c.id), ['undated', 'dated'],
-          reason: 'A chain missing created_at cannot be compared to anything, and dropping it would '
-              'hide a cached tweet forever');
+      expect(
+        sorted.map((c) => c.id),
+        ['undated', 'dated'],
+        reason:
+            'A chain missing created_at cannot be compared to anything, and dropping it would '
+            'hide a cached tweet forever',
+      );
     });
   });
 }

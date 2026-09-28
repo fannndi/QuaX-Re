@@ -4,15 +4,15 @@ import 'package:material_ui/material_ui.dart';
 
 abstract class Entity {
   List<int>? indices;
-  
+
   Entity(this.indices);
-  
+
   InlineSpan getContent();
-  
+
   int getEntityStart() {
     return indices![0];
   }
-  
+
   int getEntityEnd() {
     return indices![1];
   }
@@ -27,12 +27,13 @@ class HashtagEntity extends Entity {
   @override
   InlineSpan getContent() {
     return TextSpan(
-        text: '#${hashtag.text}',
-        style: const TextStyle(color: Colors.blue),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            onTap();
-          });
+      text: '#${hashtag.text}',
+      style: const TextStyle(color: Colors.blue),
+      recognizer: TapGestureRecognizer()
+        ..onTap = () {
+          onTap();
+        },
+    );
   }
 }
 
@@ -45,12 +46,13 @@ class UserMentionEntity extends Entity {
   @override
   InlineSpan getContent() {
     return TextSpan(
-        text: '@${mention.screenName}',
-        style: const TextStyle(color: Colors.blue),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            onTap();
-          });
+      text: '@${mention.screenName}',
+      style: const TextStyle(color: Colors.blue),
+      recognizer: TapGestureRecognizer()
+        ..onTap = () {
+          onTap();
+        },
+    );
   }
 }
 
@@ -63,12 +65,13 @@ class UrlEntity extends Entity {
   @override
   InlineSpan getContent() {
     return TextSpan(
-        text: url.displayUrl,
-        style: const TextStyle(color: Colors.blue),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            onTap();
-          });
+      text: url.displayUrl,
+      style: const TextStyle(color: Colors.blue),
+      recognizer: TapGestureRecognizer()
+        ..onTap = () {
+          onTap();
+        },
+    );
   }
 }
 

@@ -31,7 +31,8 @@ class GroupFeedShell extends StatefulWidget {
   State<GroupFeedShell> createState() => _GroupFeedShellState();
 }
 
-class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAliveClientMixin<GroupFeedShell> {
+class _GroupFeedShellState extends State<GroupFeedShell>
+    with AutomaticKeepAliveClientMixin<GroupFeedShell> {
   late final GroupModel _groupModel;
   final FeedRefreshController _feedRefreshController = FeedRefreshController();
   int _refreshCounter = 0;
@@ -41,7 +42,8 @@ class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAlive
   SubscriptionsModel? _subscriptionsModel;
   GroupsModel? _groupsModel;
 
-  late final String _callbackKey = 'GroupFeedShell-${widget.groupId}-${identityHashCode(this)}';
+  late final String _callbackKey =
+      'GroupFeedShell-${widget.groupId}-${identityHashCode(this)}';
 
   @override
   bool get wantKeepAlive => true;
@@ -57,7 +59,8 @@ class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAlive
     super.didChangeDependencies();
     final newSubs = context.read<SubscriptionsModel>();
     final newGroups = context.read<GroupsModel>();
-    if (!identical(newSubs, _subscriptionsModel) || !identical(newGroups, _groupsModel)) {
+    if (!identical(newSubs, _subscriptionsModel) ||
+        !identical(newGroups, _groupsModel)) {
       _subscriptionsModel?.removeReloadListener(_callbackKey);
       _groupsModel?.removeReloadListener(_callbackKey);
       _subscriptionsModel = newSubs;
@@ -136,23 +139,37 @@ List<Widget> defaultGroupActions(
 }) {
   return [
     if (showMore)
-      IconButton(icon: const Icon(Icons.more_vert), onPressed: () => showFeedSettings(context, model)),
+      IconButton(
+        icon: const Icon(Icons.more_vert),
+        onPressed: () => showFeedSettings(context, model),
+      ),
     if (scrollToTopController != null)
       IconButton(
-          icon: const Icon(Icons.arrow_upward),
-          onPressed: () async {
-            final disableAnimations = PrefService.of(context).get(optionDisableAnimations) == true;
-            await scrollToTopController.animateTo(0,
-                duration: disableAnimations ? Duration.zero : const Duration(seconds: 1),
-                curve: Curves.easeInOut);
-          }),
+        icon: const Icon(Icons.arrow_upward),
+        onPressed: () async {
+          final disableAnimations =
+              PrefService.of(context).get(optionDisableAnimations) == true;
+          await scrollToTopController.animateTo(
+            0,
+            duration: disableAnimations
+                ? Duration.zero
+                : const Duration(seconds: 1),
+            curve: Curves.easeInOut,
+          );
+        },
+      ),
     if (showRefresh)
       IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: onRefresh ?? () async => await context.read<FeedRefreshController>().refresh()),
+        icon: const Icon(Icons.refresh),
+        onPressed:
+            onRefresh ??
+            () async => await context.read<FeedRefreshController>().refresh(),
+      ),
     if (showSettings)
       IconButton(
-          icon: const Icon(Icons.settings), onPressed: () => Navigator.pushNamed(context, routeSettings)),
+        icon: const Icon(Icons.settings),
+        onPressed: () => Navigator.pushNamed(context, routeSettings),
+      ),
     ...extra,
   ];
 }

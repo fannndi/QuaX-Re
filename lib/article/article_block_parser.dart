@@ -2,11 +2,16 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:quax/article/article_text_block.dart';
 
-ArticleTextBlock blockToRichText(Map<String, dynamic> block, {TextStyle? baseStyle}) {
+ArticleTextBlock blockToRichText(
+  Map<String, dynamic> block, {
+  TextStyle? baseStyle,
+}) {
   final String text = (block['text'] ?? '') as String;
   final String type = (block['type'] ?? 'unstyled') as String;
-  final List<dynamic> inlineStyleRanges = (block['inlineStyleRanges'] ?? []) as List<dynamic>;
-  final List<dynamic> entityRanges = (block['entityRanges'] ?? []) as List<dynamic>;
+  final List<dynamic> inlineStyleRanges =
+      (block['inlineStyleRanges'] ?? []) as List<dynamic>;
+  final List<dynamic> entityRanges =
+      (block['entityRanges'] ?? []) as List<dynamic>;
   final Map<String, dynamic>? data = block['data'] as Map<String, dynamic>?;
   final List<dynamic> dataUrls = (data?['urls'] ?? []) as List<dynamic>;
   final List<dynamic> dataMentions = (data?['mentions'] ?? []) as List<dynamic>;
@@ -14,11 +19,22 @@ ArticleTextBlock blockToRichText(Map<String, dynamic> block, {TextStyle? baseSty
   final TextStyle defaultStyle = baseStyle ?? const TextStyle();
   final TextStyle blockStyle = _styleForBlockType(type, defaultStyle);
 
-  final List<TextSpan> children = _buildStyledTextSpans(text, inlineStyleRanges, entityRanges, dataUrls, dataMentions, blockStyle);
+  final List<TextSpan> children = _buildStyledTextSpans(
+    text,
+    inlineStyleRanges,
+    entityRanges,
+    dataUrls,
+    dataMentions,
+    blockStyle,
+  );
 
   switch (type) {
     case 'atomic':
-      return ArticleTextBlock(TextSpan(), entityRanges, ArticleTextBlockType.atomic);
+      return ArticleTextBlock(
+        TextSpan(),
+        entityRanges,
+        ArticleTextBlockType.atomic,
+      );
     case 'unordered-list-item':
       return ArticleTextBlock(
         TextSpan(style: blockStyle, children: children),
@@ -32,20 +48,35 @@ ArticleTextBlock blockToRichText(Map<String, dynamic> block, {TextStyle? baseSty
         ArticleTextBlockType.orderedListItem,
       );
     case 'header-two':
-      return ArticleTextBlock(TextSpan(style: blockStyle, children: children), entityRanges, ArticleTextBlockType.headerTwo);
+      return ArticleTextBlock(
+        TextSpan(style: blockStyle, children: children),
+        entityRanges,
+        ArticleTextBlockType.headerTwo,
+      );
     case 'blockquote':
-      return ArticleTextBlock(TextSpan(style: blockStyle, children: children), entityRanges, ArticleTextBlockType.blockquote);
+      return ArticleTextBlock(
+        TextSpan(style: blockStyle, children: children),
+        entityRanges,
+        ArticleTextBlockType.blockquote,
+      );
     case 'unstyled':
     default:
-      return ArticleTextBlock(TextSpan(style: blockStyle, children: children), entityRanges, ArticleTextBlockType.unstyled);
-
+      return ArticleTextBlock(
+        TextSpan(style: blockStyle, children: children),
+        entityRanges,
+        ArticleTextBlockType.unstyled,
+      );
   }
 }
 
 TextStyle _styleForBlockType(String type, TextStyle baseStyle) {
   switch (type) {
     case 'header-two':
-      return baseStyle.copyWith(fontSize: 22, fontWeight: FontWeight.w700, height: 1.4);
+      return baseStyle.copyWith(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        height: 1.4,
+      );
     case 'unordered-list-item':
     case 'ordered-list-item':
       return baseStyle.copyWith(fontSize: 14, height: 1.5);
@@ -55,7 +86,14 @@ TextStyle _styleForBlockType(String type, TextStyle baseStyle) {
   }
 }
 
-List<TextSpan> _buildStyledTextSpans(String text, List<dynamic> inlineStyleRanges, List<dynamic> entityRanges, List<dynamic> dataUrls, List<dynamic> dataMentions, TextStyle baseStyle) {
+List<TextSpan> _buildStyledTextSpans(
+  String text,
+  List<dynamic> inlineStyleRanges,
+  List<dynamic> entityRanges,
+  List<dynamic> dataUrls,
+  List<dynamic> dataMentions,
+  TextStyle baseStyle,
+) {
   if (text.isEmpty) return [TextSpan(text: '', style: baseStyle)];
 
   final markers = _parseStyleMarkers(text, inlineStyleRanges);
@@ -63,17 +101,37 @@ List<TextSpan> _buildStyledTextSpans(String text, List<dynamic> inlineStyleRange
   final urlMarkers = _parseUrlMarkers(text, dataUrls);
   final mentionMarkers = _parseMentionMarkers(text, dataMentions);
 
-  if (markers.isEmpty && entityMarkers.isEmpty && urlMarkers.isEmpty && mentionMarkers.isEmpty) return [TextSpan(text: text, style: baseStyle)];
+  if (markers.isEmpty &&
+      entityMarkers.isEmpty &&
+      urlMarkers.isEmpty &&
+      mentionMarkers.isEmpty) {
+    return [TextSpan(text: text, style: baseStyle)];
+  }
 
   final List<TextSpan> spans = [];
   int current = 0;
 
   while (current < text.length) {
-    final activeStyles = markers.where((m) => current >= m.start && current < m.end).toList();
-    final activeEntities = entityMarkers.where((m) => current >= m.start && current < m.end).toList();
-    final activeUrls = urlMarkers.where((m) => current >= m.start && current < m.end).toList();
-    final activeMentions = mentionMarkers.where((m) => current >= m.start && current < m.end).toList();
-    final nextBreak = _findNextBreak(current, text.length, markers, entityMarkers, urlMarkers, mentionMarkers);
+    final activeStyles = markers
+        .where((m) => current >= m.start && current < m.end)
+        .toList();
+    final activeEntities = entityMarkers
+        .where((m) => current >= m.start && current < m.end)
+        .toList();
+    final activeUrls = urlMarkers
+        .where((m) => current >= m.start && current < m.end)
+        .toList();
+    final activeMentions = mentionMarkers
+        .where((m) => current >= m.start && current < m.end)
+        .toList();
+    final nextBreak = _findNextBreak(
+      current,
+      text.length,
+      markers,
+      entityMarkers,
+      urlMarkers,
+      mentionMarkers,
+    );
 
     final String segment = text.substring(current, nextBreak);
     TextStyle segmentStyle = baseStyle;
@@ -81,7 +139,15 @@ List<TextSpan> _buildStyledTextSpans(String text, List<dynamic> inlineStyleRange
       segmentStyle = _applyInlineStyle(segmentStyle, marker.style);
     }
 
-    spans.add(_buildSegmentSpan(segment, segmentStyle, activeEntities, activeUrls, activeMentions));
+    spans.add(
+      _buildSegmentSpan(
+        segment,
+        segmentStyle,
+        activeEntities,
+        activeUrls,
+        activeMentions,
+      ),
+    );
     current = nextBreak;
   }
 
@@ -102,7 +168,10 @@ int _cpToUtf16(String text, int cpOffset) {
   return utf16;
 }
 
-List<_StyleMarker> _parseStyleMarkers(String text, List<dynamic> inlineStyleRanges) {
+List<_StyleMarker> _parseStyleMarkers(
+  String text,
+  List<dynamic> inlineStyleRanges,
+) {
   final markers = <_StyleMarker>[];
   for (final dynamic range in inlineStyleRanges) {
     if (range is! Map<String, dynamic>) continue;
@@ -117,7 +186,10 @@ List<_StyleMarker> _parseStyleMarkers(String text, List<dynamic> inlineStyleRang
   return markers;
 }
 
-List<_EntityMarker> _parseEntityMarkers(String text, List<dynamic> entityRanges) {
+List<_EntityMarker> _parseEntityMarkers(
+  String text,
+  List<dynamic> entityRanges,
+) {
   final entityMarkers = <_EntityMarker>[];
   for (final dynamic range in entityRanges) {
     if (range is! Map<String, dynamic>) continue;
@@ -147,28 +219,49 @@ List<_UrlMarker> _parseUrlMarkers(String text, List<dynamic> dataUrls) {
   return urlMarkers;
 }
 
-int _findNextBreak(int current, int textLength, List<_StyleMarker> markers, List<_EntityMarker> entityMarkers, [List<_UrlMarker> urlMarkers = const [], List<_MentionMarker> mentionMarkers = const []]) {
+int _findNextBreak(
+  int current,
+  int textLength,
+  List<_StyleMarker> markers,
+  List<_EntityMarker> entityMarkers, [
+  List<_UrlMarker> urlMarkers = const [],
+  List<_MentionMarker> mentionMarkers = const [],
+]) {
   int nextBreak = textLength;
   for (final marker in markers) {
-    if (marker.start > current && marker.start < nextBreak) nextBreak = marker.start;
+    if (marker.start > current && marker.start < nextBreak) {
+      nextBreak = marker.start;
+    }
     if (marker.end > current && marker.end < nextBreak) nextBreak = marker.end;
   }
   for (final marker in entityMarkers) {
-    if (marker.start > current && marker.start < nextBreak) nextBreak = marker.start;
+    if (marker.start > current && marker.start < nextBreak) {
+      nextBreak = marker.start;
+    }
     if (marker.end > current && marker.end < nextBreak) nextBreak = marker.end;
   }
   for (final marker in urlMarkers) {
-    if (marker.start > current && marker.start < nextBreak) nextBreak = marker.start;
+    if (marker.start > current && marker.start < nextBreak) {
+      nextBreak = marker.start;
+    }
     if (marker.end > current && marker.end < nextBreak) nextBreak = marker.end;
   }
   for (final marker in mentionMarkers) {
-    if (marker.start > current && marker.start < nextBreak) nextBreak = marker.start;
+    if (marker.start > current && marker.start < nextBreak) {
+      nextBreak = marker.start;
+    }
     if (marker.end > current && marker.end < nextBreak) nextBreak = marker.end;
   }
   return nextBreak;
 }
 
-TextSpan _buildSegmentSpan(String segment, TextStyle style, List<_EntityMarker> activeEntities, [List<_UrlMarker> activeUrls = const [], List<_MentionMarker> activeMentions = const []]) {
+TextSpan _buildSegmentSpan(
+  String segment,
+  TextStyle style,
+  List<_EntityMarker> activeEntities, [
+  List<_UrlMarker> activeUrls = const [],
+  List<_MentionMarker> activeMentions = const [],
+]) {
   if (activeEntities.isNotEmpty) {
     return EntityPlaceHolderTextSpan(
       entityText: segment,
@@ -230,7 +323,10 @@ class _UrlMarker {
   _UrlMarker({required this.start, required this.end, required this.url});
 }
 
-List<_MentionMarker> _parseMentionMarkers(String text, List<dynamic> dataMentions) {
+List<_MentionMarker> _parseMentionMarkers(
+  String text,
+  List<dynamic> dataMentions,
+) {
   final mentionMarkers = <_MentionMarker>[];
   for (final dynamic entry in dataMentions) {
     if (entry is! Map<String, dynamic>) continue;
@@ -240,7 +336,9 @@ List<_MentionMarker> _parseMentionMarkers(String text, List<dynamic> dataMention
     final int start = _cpToUtf16(text, cpStart);
     final int end = _cpToUtf16(text, cpEnd);
     if (start < 0 || end > text.length || start >= end) continue;
-    mentionMarkers.add(_MentionMarker(start: start, end: end, screenName: screenName));
+    mentionMarkers.add(
+      _MentionMarker(start: start, end: end, screenName: screenName),
+    );
   }
   return mentionMarkers;
 }
@@ -250,5 +348,9 @@ class _MentionMarker {
   final int end;
   final String screenName;
 
-  _MentionMarker({required this.start, required this.end, required this.screenName});
+  _MentionMarker({
+    required this.start,
+    required this.end,
+    required this.screenName,
+  });
 }

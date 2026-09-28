@@ -8,8 +8,12 @@ import 'package:quax/saved/saved_tweet_folder_model.dart';
 import 'package:quax/saved/saved_tweet_model.dart';
 
 /// Opens the "save to folder" bottom sheet for a post, saving it first if needed.
-Future<void> showSaveToFolderSheet(BuildContext context,
-    {required String tweetId, String? userId, required Map<String, dynamic> content}) async {
+Future<void> showSaveToFolderSheet(
+  BuildContext context, {
+  required String tweetId,
+  String? userId,
+  required Map<String, dynamic> content,
+}) async {
   var savedModel = context.read<SavedTweetModel>();
   var folderModel = context.read<SavedTweetFolderModel>();
   var messenger = ScaffoldMessenger.of(context);
@@ -25,12 +29,13 @@ Future<void> showSaveToFolderSheet(BuildContext context,
     context: context,
     showDragHandle: true,
     builder: (_) => _SaveToFolderSheet(
-        tweetId: tweetId,
-        userId: userId,
-        content: content,
-        savedModel: savedModel,
-        folderModel: folderModel,
-        messenger: messenger),
+      tweetId: tweetId,
+      userId: userId,
+      content: content,
+      savedModel: savedModel,
+      folderModel: folderModel,
+      messenger: messenger,
+    ),
   );
 }
 
@@ -42,15 +47,20 @@ class _SaveToFolderSheet extends StatelessWidget {
   final SavedTweetFolderModel folderModel;
   final ScaffoldMessengerState messenger;
 
-  const _SaveToFolderSheet(
-      {required this.tweetId,
-      required this.userId,
-      required this.content,
-      required this.savedModel,
-      required this.folderModel,
-      required this.messenger});
+  const _SaveToFolderSheet({
+    required this.tweetId,
+    required this.userId,
+    required this.content,
+    required this.savedModel,
+    required this.folderModel,
+    required this.messenger,
+  });
 
-  Future<void> _file(BuildContext context, String? folderId, String label) async {
+  Future<void> _file(
+    BuildContext context,
+    String? folderId,
+    String label,
+  ) async {
     Navigator.pop(context);
 
     if (savedModel.isSaved(tweetId)) {
@@ -59,10 +69,12 @@ class _SaveToFolderSheet extends StatelessWidget {
       await savedModel.saveTweet(tweetId, userId, content, folderId: folderId);
     }
 
-    messenger.showSnackBar(SnackBar(
-      content: Text(L10n.current.saved_to_folder(label)),
-      duration: const Duration(seconds: 3),
-    ));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(L10n.current.saved_to_folder(label)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _createAndFile(BuildContext context) async {
@@ -90,7 +102,10 @@ class _SaveToFolderSheet extends StatelessWidget {
                   children: [
                     Icon(Icons.bookmark_add_outlined),
                     const SizedBox(width: 12),
-                    Text(L10n.of(context).save_to_folder, style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      L10n.of(context).save_to_folder,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ],
                 ),
               ),
@@ -101,11 +116,18 @@ class _SaveToFolderSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _FolderTile(
-                          label: L10n.of(context).unfiled,
-                          selected: current == null,
-                          onTap: () => _file(context, null, L10n.of(context).unfiled)),
-                      ...folders.map((f) => _FolderTile(
-                          label: f.name, selected: current == f.id, onTap: () => _file(context, f.id, f.name))),
+                        label: L10n.of(context).unfiled,
+                        selected: current == null,
+                        onTap: () =>
+                            _file(context, null, L10n.of(context).unfiled),
+                      ),
+                      ...folders.map(
+                        (f) => _FolderTile(
+                          label: f.name,
+                          selected: current == f.id,
+                          onTap: () => _file(context, f.id, f.name),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -130,31 +152,44 @@ class _FolderTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _FolderTile({required this.label, required this.selected, required this.onTap});
+  const _FolderTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 24),
       title: Text(label),
-      trailing: selected ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
+      trailing: selected
+          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+          : null,
       onTap: onTap,
     );
   }
 }
 
-Future<SavedTweetFolder?> showCreateFolderDialog(BuildContext context, SavedTweetFolderModel folderModel,
-    {SavedTweetFolder? existing}) {
+Future<SavedTweetFolder?> showCreateFolderDialog(
+  BuildContext context,
+  SavedTweetFolderModel folderModel, {
+  SavedTweetFolder? existing,
+}) {
   return showDialog<SavedTweetFolder>(
     context: context,
-    builder: (_) => _EditFolderDialog(folderModel: folderModel, existing: existing),
+    builder: (_) =>
+        _EditFolderDialog(folderModel: folderModel, existing: existing),
   );
 }
 
 /// Confirms deletion of [folder]; on confirm, deletes it (its posts return to
 /// "unfiled") and reloads the saved list. Returns true if it was deleted.
 Future<bool> showDeleteFolderDialog(
-    BuildContext context, SavedTweetFolderModel folderModel, SavedTweetFolder folder) async {
+  BuildContext context,
+  SavedTweetFolderModel folderModel,
+  SavedTweetFolder folder,
+) async {
   var savedModel = context.read<SavedTweetModel>();
 
   var confirmed = await showDialog<bool>(
@@ -163,8 +198,14 @@ Future<bool> showDeleteFolderDialog(
       title: Text(L10n.of(context).delete_folder),
       content: Text(L10n.of(context).delete_folder_description),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(L10n.of(context).cancel)),
-        TextButton(onPressed: () => Navigator.pop(context, true), child: Text(L10n.of(context).delete)),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(L10n.of(context).cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(L10n.of(context).delete),
+        ),
       ],
     ),
   );
@@ -224,7 +265,11 @@ class _EditFolderDialogState extends State<_EditFolderDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existing == null ? L10n.of(context).create_new_folder : L10n.of(context).edit_folder),
+      title: Text(
+        widget.existing == null
+            ? L10n.of(context).create_new_folder
+            : L10n.of(context).edit_folder,
+      ),
       content: TextField(
         controller: _controller,
         autofocus: true,
@@ -233,10 +278,18 @@ class _EditFolderDialogState extends State<_EditFolderDialog> {
         onSubmitted: (_) => _submit(),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text(L10n.of(context).cancel)),
         TextButton(
-            onPressed: _submit,
-            child: Text(widget.existing == null ? L10n.of(context).create : L10n.of(context).save)),
+          onPressed: () => Navigator.pop(context),
+          child: Text(L10n.of(context).cancel),
+        ),
+        TextButton(
+          onPressed: _submit,
+          child: Text(
+            widget.existing == null
+                ? L10n.of(context).create
+                : L10n.of(context).save,
+          ),
+        ),
       ],
     );
   }

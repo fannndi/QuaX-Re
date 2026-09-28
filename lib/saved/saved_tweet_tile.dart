@@ -58,8 +58,12 @@ class SavedTweetTooLarge extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
-              leading:
-                  Icon(Icons.error_outline, color: Colors.red.harmonizeWith(Theme.of(context).colorScheme.primary)),
+              leading: Icon(
+                Icons.error_outline,
+                color: Colors.red.harmonizeWith(
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
               title: Text(L10n.current.oops_something_went_wrong),
               subtitle: Text(L10n.current.saved_tweet_too_large),
             ),

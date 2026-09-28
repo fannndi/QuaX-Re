@@ -18,12 +18,20 @@ void main() {
         controller.pagingController.fetchNextPage();
         await pumpEventQueue();
 
-        expect(seen, [null, 'cursor-1'],
-            reason: 'Version 5 counts pages with numbers, so this class should carry the real API '
-                'cursor between calls. Losing it loads the first page again and again');
-        expect(controller.items, [1, 2],
-            reason: 'Pages should be added and not replaced, so scrolling keeps the tweets that '
-                'are already loaded');
+        expect(
+          seen,
+          [null, 'cursor-1'],
+          reason:
+              'Version 5 counts pages with numbers, so this class should carry the real API '
+              'cursor between calls. Losing it loads the first page again and again',
+        );
+        expect(
+          controller.items,
+          [1, 2],
+          reason:
+              'Pages should be added and not replaced, so scrolling keeps the tweets that '
+              'are already loaded',
+        );
       });
 
       test('Should stop loading pages when a page returns no next cursor', () async {
@@ -39,70 +47,117 @@ void main() {
         controller.pagingController.fetchNextPage();
         await pumpEventQueue();
 
-        expect(fetches, 1,
-            reason: 'A null cursor means the end of the feed, so no second call should be made. '
-                'Asking again spends one of the limited number of requests for nothing');
-        expect(controller.pagingController.value.hasNextPage, isFalse,
-            reason: 'The list should stop showing the loading spinner at the bottom');
+        expect(
+          fetches,
+          1,
+          reason:
+              'A null cursor means the end of the feed, so no second call should be made. '
+              'Asking again spends one of the limited number of requests for nothing',
+        );
+        expect(
+          controller.pagingController.value.hasNextPage,
+          isFalse,
+          reason:
+              'The list should stop showing the loading spinner at the bottom',
+        );
       });
 
-      test('Should wrap an error so the stack trace reaches the error widget', () async {
-        final controller = CursorPagingController<String, int>((cursor) async {
-          throw StateError('boom');
-        });
-        addTearDown(controller.dispose);
+      test(
+        'Should wrap an error so the stack trace reaches the error widget',
+        () async {
+          final controller = CursorPagingController<String, int>((
+            cursor,
+          ) async {
+            throw StateError('boom');
+          });
+          addTearDown(controller.dispose);
 
-        controller.pagingController.fetchNextPage();
-        await pumpEventQueue();
+          controller.pagingController.fetchNextPage();
+          await pumpEventQueue();
 
-        final error = pagingErrorOf(controller.pagingController.value);
-        expect(error, isNotNull,
-            reason: 'PagingController version 5 keeps only the error and drops the stack trace, '
-                'so fetchPage should wrap both itself');
-        expect(error!.error, isStateError,
-            reason: 'The original error should be kept inside the wrapper, so the error widget '
-                'can tell a rate limit from a broken account and show the right message');
-        expect(error.stackTrace, isNotNull,
-            reason: 'The error widgets show the stack trace, so it should survive. Without it a '
-                'crash report is useless');
-      });
+          final error = pagingErrorOf(controller.pagingController.value);
+          expect(
+            error,
+            isNotNull,
+            reason:
+                'PagingController version 5 keeps only the error and drops the stack trace, '
+                'so fetchPage should wrap both itself',
+          );
+          expect(
+            error!.error,
+            isStateError,
+            reason:
+                'The original error should be kept inside the wrapper, so the error widget '
+                'can tell a rate limit from a broken account and show the right message',
+          );
+          expect(
+            error.stackTrace,
+            isNotNull,
+            reason:
+                'The error widgets show the stack trace, so it should survive. Without it a '
+                'crash report is useless',
+          );
+        },
+      );
     });
 
     group('replaceFirstPage()', () {
-      test('Should swap the items without going back to the loading spinner', () async {
-        final controller =
-            CursorPagingController<String, int>((cursor) async => (items: [1], nextCursor: 'next'));
-        addTearDown(controller.dispose);
+      test(
+        'Should swap the items without going back to the loading spinner',
+        () async {
+          final controller = CursorPagingController<String, int>(
+            (cursor) async => (items: [1], nextCursor: 'next'),
+          );
+          addTearDown(controller.dispose);
 
-        controller.pagingController.fetchNextPage();
-        await pumpEventQueue();
+          controller.pagingController.fetchNextPage();
+          await pumpEventQueue();
 
-        controller.replaceFirstPage([9, 8], 'refreshed');
+          controller.replaceFirstPage([9, 8], 'refreshed');
 
-        expect(controller.items, [9, 8],
-            reason: 'Pull to refresh should keep the list on screen and only swap its items. '
-                'PagingController.refresh would clear it and show a spinner instead');
-        expect(controller.pagingController.value.hasNextPage, isTrue,
-            reason: 'A new cursor was given, so scrolling down should still be able to load more');
-      });
+          expect(
+            controller.items,
+            [9, 8],
+            reason:
+                'Pull to refresh should keep the list on screen and only swap its items. '
+                'PagingController.refresh would clear it and show a spinner instead',
+          );
+          expect(
+            controller.pagingController.value.hasNextPage,
+            isTrue,
+            reason: 'A new cursor was given, so scrolling down should still be able to load more',
+          );
+        },
+      );
     });
 
     group('setError()', () {
-      test('Should show the error while keeping the items already loaded', () async {
-        final controller = CursorPagingController<String, int>(
-            (cursor) async => (items: [1, 2], nextCursor: 'next'));
-        addTearDown(controller.dispose);
+      test(
+        'Should show the error while keeping the items already loaded',
+        () async {
+          final controller = CursorPagingController<String, int>(
+            (cursor) async => (items: [1, 2], nextCursor: 'next'),
+          );
+          addTearDown(controller.dispose);
 
-        controller.pagingController.fetchNextPage();
-        await pumpEventQueue();
-        controller.setError(StateError('refresh failed'), StackTrace.current);
+          controller.pagingController.fetchNextPage();
+          await pumpEventQueue();
+          controller.setError(StateError('refresh failed'), StackTrace.current);
 
-        expect(controller.items, [1, 2],
-            reason: 'A refresh that fails should leave the tweets the user is reading in place');
-        expect(pagingErrorOf(controller.pagingController.value), isNotNull,
-            reason: 'The error should still be shown, otherwise a failed refresh looks like it '
-                'worked');
-      });
+          expect(
+            controller.items,
+            [1, 2],
+            reason: 'A refresh that fails should leave the tweets the user is reading in place',
+          );
+          expect(
+            pagingErrorOf(controller.pagingController.value),
+            isNotNull,
+            reason:
+                'The error should still be shown, otherwise a failed refresh looks like it '
+                'worked',
+          );
+        },
+      );
     });
   });
 
@@ -110,9 +165,13 @@ void main() {
     test('Should return null when the saved error is not a PagingError', () {
       final state = PagingState<int, int>(error: StateError('raw'));
 
-      expect(pagingErrorOf(state), isNull,
-          reason: 'The paging package can store errors the app never wrapped, so this should give '
-              'null and let the error widgets keep working instead of crashing on a cast');
+      expect(
+        pagingErrorOf(state),
+        isNull,
+        reason:
+            'The paging package can store errors the app never wrapped, so this should give '
+            'null and let the error widgets keep working instead of crashing on a cast',
+      );
     });
   });
 }

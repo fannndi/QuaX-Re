@@ -19,9 +19,12 @@ class TweetContextScope extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<TweetContextState>(
-            create: (_) => TweetContextState(prefs.get(optionTweetsHideSensitive))),
+          create: (_) =>
+              TweetContextState(prefs.get(optionTweetsHideSensitive)),
+        ),
         ChangeNotifierProvider<VideoContextState>(
-            create: (_) => VideoContextState(prefs.get(optionMediaDefaultMute))),
+          create: (_) => VideoContextState(prefs.get(optionMediaDefaultMute)),
+        ),
       ],
       child: child,
     );

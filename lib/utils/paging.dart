@@ -111,7 +111,9 @@ class CursorPagingController<C, T> {
 
   /// Surfaces an error while keeping any already-loaded items visible.
   void setError(Object error, StackTrace stackTrace) {
-    pagingController.value = pagingController.value.copyWith(error: PagingError(error, stackTrace));
+    pagingController.value = pagingController.value.copyWith(
+      error: PagingError(error, stackTrace),
+    );
   }
 
   void dispose() => pagingController.dispose();

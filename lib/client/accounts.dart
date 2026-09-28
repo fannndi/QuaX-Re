@@ -21,10 +21,12 @@ class ActiveAccount {
 
   const ActiveAccount({required this.id, this.screenName});
 
-  String? get handle => screenName == null || screenName!.isEmpty ? null : screenName;
+  String? get handle =>
+      screenName == null || screenName!.isEmpty ? null : screenName;
 }
 
-final ValueNotifier<ActiveAccount?> activeAccount = ValueNotifier<ActiveAccount?>(null);
+final ValueNotifier<ActiveAccount?> activeAccount =
+    ValueNotifier<ActiveAccount?>(null);
 
 Future<List<Account>> getAccounts() async {
   var database = await Repository.readOnly();
@@ -47,8 +49,9 @@ Future<Account?> getActiveAccount() async {
 /// reload over a value that was only being restored.
 Future<void> loadActiveAccount() async {
   final account = await getActiveAccount();
-  activeAccount.value =
-      account == null ? null : ActiveAccount(id: account.id, screenName: account.screenName);
+  activeAccount.value = account == null
+      ? null
+      : ActiveAccount(id: account.id, screenName: account.screenName);
 }
 
 /// Switches the preferred account. The app then sends every request through it
@@ -60,10 +63,20 @@ Future<void> setActiveAccount(String id) async {
   var database = await Repository.writable();
   await database.transaction((txn) async {
     await txn.update(tableAccounts, {'is_active': 0}, where: 'is_active = 1');
-    await txn.update(tableAccounts, {'is_active': 1}, where: 'id = ?', whereArgs: [id]);
+    await txn.update(
+      tableAccounts,
+      {'is_active': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   });
 
-  final rows = await database.query(tableAccounts, columns: ['screen_name'], where: 'id = ?', whereArgs: [id]);
+  final rows = await database.query(
+    tableAccounts,
+    columns: ['screen_name'],
+    where: 'id = ?',
+    whereArgs: [id],
+  );
   final screenName = rows.isEmpty ? null : rows.first['screen_name'] as String?;
 
   activeAccount.value = ActiveAccount(id: id, screenName: screenName);
@@ -86,34 +99,44 @@ Future<void> promoteFirstAccountIfNoneActive() async {
 /// Used by one-shot requests (e.g. translation) that don't drive the retry loop.
 Future<Map<dynamic, dynamic>?> pickAuthHeader() async {
   final accounts = await getAccounts();
-  final account = AccountSelector(accounts, DateTime.now()).pick(exclude: <String>{});
+  final account = AccountSelector(
+    accounts,
+    DateTime.now(),
+  ).pick(exclude: <String>{});
   if (account == null) {
     return null;
   }
-  return json.decode(account.authHeader);
+  try {
+    final decoded = json.decode(account.authHeader);
+    return decoded is Map ? decoded : null;
+  } on FormatException {
+    // A corrupt header means no auth, not a crash.
+    return null;
+  }
 }
 
 /// Increment the consecutive-404 counter, flagging the account as not found only
 /// once it has thrown [notFoundThreshold] 404s in a row.
 Future<void> recordNotFound(String id) async {
   var database = await Repository.writable();
-  await database.rawUpdate('''
+  await database.rawUpdate(
+    '''
     UPDATE $tableAccounts SET
       consecutive_not_found = consecutive_not_found + 1,
       last_not_found_at = CASE WHEN consecutive_not_found + 1 >= $notFoundThreshold
         THEN ? ELSE last_not_found_at END
-    WHERE id = ?''', [DateTime.now().toIso8601String(), id]);
+    WHERE id = ?''',
+    [DateTime.now().toIso8601String(), id],
+  );
 }
 
 /// Clear the not-found flag after a successful response for the account.
 Future<void> recordAccountSuccess(String id) async {
   var database = await Repository.writable();
   await database.update(
-      tableAccounts,
-      {
-        'consecutive_not_found': 0,
-        'last_not_found_at': null,
-      },
-      where: 'id = ?',
-      whereArgs: [id]);
+    tableAccounts,
+    {'consecutive_not_found': 0, 'last_not_found_at': null},
+    where: 'id = ?',
+    whereArgs: [id],
+  );
 }

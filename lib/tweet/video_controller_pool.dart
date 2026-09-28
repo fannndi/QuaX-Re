@@ -103,7 +103,10 @@ class VideoControllerPool {
     }
   }
 
-  Future<PooledVideo> acquire(String key, Future<PooledVideo> Function() create) {
+  Future<PooledVideo> acquire(
+    String key,
+    Future<PooledVideo> Function() create,
+  ) {
     var entry = _entries.remove(key) ?? _Entry(create());
     _entries[key] = entry;
     entry.refCount++;

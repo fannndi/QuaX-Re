@@ -6,7 +6,7 @@ enum ArticleTextBlockType {
   headerTwo,
   unstyled,
   atomic,
-  blockquote
+  blockquote,
 }
 
 class ArticleTextBlock {
@@ -31,11 +31,8 @@ class EntityPlaceHolderTextSpan extends TextSpan {
 class DataUrlTextSpan extends TextSpan {
   final String url;
 
-  const DataUrlTextSpan({
-    required String text,
-    required this.url,
-    super.style,
-  }) : super(text: text);
+  const DataUrlTextSpan({required String text, required this.url, super.style})
+    : super(text: text);
 }
 
 class DataMentionTextSpan extends TextSpan {

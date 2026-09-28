@@ -52,7 +52,9 @@ class LocalSearchModel extends Store<List<LocalSearchHit>> {
       // read-only connection per query would pile up open handles.
       final database = await Repository.writable();
       final posts = await loadLocalPosts(database);
-      final matches = rankLocalPosts([for (final post in posts) SearchDoc(post, _bodyFor(post))], trimmed);
+      final matches = rankLocalPosts([
+        for (final post in posts) SearchDoc(post, _bodyFor(post)),
+      ], trimmed);
       final files = await _library.searchByName(trimmed);
 
       // Another keystroke landed while the query ran: drop this answer instead
@@ -79,7 +81,8 @@ class LocalSearchModel extends Store<List<LocalSearchHit>> {
     return body;
   }
 
-  Future<String?> thumbnailFor(LibraryEntry entry) => _library.thumbnailFor(entry);
+  Future<String?> thumbnailFor(LibraryEntry entry) =>
+      _library.thumbnailFor(entry);
 
   Future<bool> openExternally(String path) => _library.openExternally(path);
 }

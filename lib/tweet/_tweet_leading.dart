@@ -7,7 +7,12 @@ class TweetTileLeading extends StatelessWidget {
   final IconData icon;
   final Iterable<InlineSpan> children;
 
-  const TweetTileLeading({super.key, this.onTap, required this.icon, required this.children});
+  const TweetTileLeading({
+    super.key,
+    this.onTap,
+    required this.icon,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -17,15 +22,27 @@ class TweetTileLeading extends StatelessWidget {
         onTap: onTap,
         child: Container(
           alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.only(bottom: 0, left: 52, right: 16, top: 0),
+          padding: const EdgeInsets.only(
+            bottom: 0,
+            left: 52,
+            right: 16,
+            top: 0,
+          ),
           child: RichText(
-            text: TextSpan(children: [
-              WidgetSpan(
-                  child: Icon(icon, size: 12, color: Theme.of(context).hintColor),
-                  alignment: PlaceholderAlignment.middle),
-              const WidgetSpan(child: SizedBox(width: 16)),
-              ...children
-            ]),
+            text: TextSpan(
+              children: [
+                WidgetSpan(
+                  child: Icon(
+                    icon,
+                    size: 12,
+                    color: Theme.of(context).hintColor,
+                  ),
+                  alignment: PlaceholderAlignment.middle,
+                ),
+                const WidgetSpan(child: SizedBox(width: 16)),
+                ...children,
+              ],
+            ),
           ),
         ),
       ),

@@ -10,7 +10,17 @@ class RateLimitTracker {
 
   static bool isLimited(String accountId, String endpoint, DateTime now) {
     final reset = _resetByAccountEndpoint[accountId]?[endpoint];
-    return reset != null && reset.isAfter(now);
+    if (reset == null) return false;
+    if (!reset.isAfter(now)) {
+      // Expired windows are dead weight: drop them instead of letting every
+      // account-endpoint pair accumulate for the whole session.
+      _resetByAccountEndpoint[accountId]!.remove(endpoint);
+      if (_resetByAccountEndpoint[accountId]!.isEmpty) {
+        _resetByAccountEndpoint.remove(accountId);
+      }
+      return false;
+    }
+    return true;
   }
 
   static void flag(String accountId, String endpoint, DateTime resetAt) {

@@ -17,13 +17,19 @@ class DownloadsNavBadge extends StatelessWidget {
       onLoading: (_) => child,
       onState: (_, items) {
         final active = items
-            .where((item) =>
-                item.status == DownloadStatus.running ||
-                item.status == DownloadStatus.queued ||
-                item.status == DownloadStatus.paused)
+            .where(
+              (item) =>
+                  item.status == DownloadStatus.running ||
+                  item.status == DownloadStatus.queued ||
+                  item.status == DownloadStatus.paused,
+            )
             .length;
 
-        return Badge.count(count: active, isLabelVisible: active > 0, child: child);
+        return Badge.count(
+          count: active,
+          isLabelVisible: active > 0,
+          child: child,
+        );
       },
     );
   }

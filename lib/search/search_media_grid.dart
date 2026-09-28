@@ -13,7 +13,8 @@ class SearchMediaGrid extends StatelessWidget {
     return MediaGrid(
       controller: model.pagingController,
       firstPageErrorPrefix: L10n.of(context).unable_to_load_the_search_results,
-      newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
+      newPageErrorPrefix: L10n.of(context)
+          .unable_to_load_the_next_page_of_tweets,
       emptyMessage: L10n.of(context).no_results,
     );
   }

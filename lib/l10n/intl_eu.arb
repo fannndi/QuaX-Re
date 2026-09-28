@@ -1,4 +1,5 @@
 {
+  "@@locale": "eu",
   "accessibility": "Irisgarritasuna",
   "@accessibility": {},
   "account": "Kontuak",
@@ -620,5 +621,15 @@
   "you_have_not_saved_any_tweets_yet": "Oraindik ez duzu txiorik gorde!",
   "@you_have_not_saved_any_tweets_yet": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "Zure profilak publikoa izan behar du, bestela inportazioak ez du funtzionatuko",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "local_search_hint": "Search the posts you saved or liked, and the media you downloaded. Everything stays on this device.",
+  "@local_search_hint": {},
+  "account_switched": "Now reading @{handle} — timelines were reloaded",
+  "@account_switched": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  }
 }

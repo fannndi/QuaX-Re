@@ -39,13 +39,16 @@ class TweetListSkeleton extends StatelessWidget {
     final block = Theme.of(context).colorScheme.surfaceContainerHighest;
 
     Widget bar(double widthFactor, double height) => FractionallySizedBox(
-          alignment: Alignment.centerLeft,
-          widthFactor: widthFactor,
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(6)),
-          ),
-        );
+      alignment: Alignment.centerLeft,
+      widthFactor: widthFactor,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: block,
+          borderRadius: BorderRadius.circular(6),
+        ),
+      ),
+    );
 
     return ListView.builder(
       physics: const NeverScrollableScrollPhysics(),
@@ -81,7 +84,10 @@ class TweetListSkeleton extends StatelessWidget {
               Container(
                 height: 140,
                 width: double.infinity,
-                decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: block,
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ],
           ),

@@ -32,7 +32,8 @@ class MediaGrid extends StatefulWidget {
   State<MediaGrid> createState() => _MediaGridState();
 }
 
-class _MediaGridState extends State<MediaGrid> with AutomaticKeepAliveClientMixin<MediaGrid> {
+class _MediaGridState extends State<MediaGrid>
+    with AutomaticKeepAliveClientMixin<MediaGrid> {
   @override
   bool get wantKeepAlive => true;
 
@@ -54,35 +55,40 @@ class _MediaGridState extends State<MediaGrid> with AutomaticKeepAliveClientMixi
       onRefresh: () async => widget.controller.refresh(),
       child: PagingListener<int, MediaGridItem>(
         controller: widget.controller,
-        builder: (context, state, fetchNextPage) => PagedMasonryGridView<int, MediaGridItem>.count(
-          state: state,
-          fetchNextPage: fetchNextPage,
-          padding: const EdgeInsets.all(2),
-          crossAxisCount: columns,
-          mainAxisSpacing: 2,
-          crossAxisSpacing: 2,
-          addAutomaticKeepAlives: false,
-          builderDelegate: PagedChildBuilderDelegate<MediaGridItem>(
-            // Like the tweet feeds: fetch the next page while there is still a
-            // screen of tiles left, so a long fling never reaches the end.
-            invisibleItemsThreshold: 8,
-            firstPageProgressIndicatorBuilder: (context) => MediaGridSkeleton(columns: columns),
-            itemBuilder: (context, item, index) => _MediaGridTile(item: item, gifGate: _gifGate),
-            firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
-              error: pagingErrorOf(state)?.error,
-              stackTrace: pagingErrorOf(state)?.stackTrace,
-              prefix: widget.firstPageErrorPrefix,
-              onRetry: fetchNextPage,
+        builder: (context, state, fetchNextPage) =>
+            PagedMasonryGridView<int, MediaGridItem>.count(
+              state: state,
+              fetchNextPage: fetchNextPage,
+              padding: const EdgeInsets.all(2),
+              crossAxisCount: columns,
+              mainAxisSpacing: 2,
+              crossAxisSpacing: 2,
+              addAutomaticKeepAlives: false,
+              builderDelegate: PagedChildBuilderDelegate<MediaGridItem>(
+                // Like the tweet feeds: fetch the next page while there is still a
+                // screen of tiles left, so a long fling never reaches the end.
+                invisibleItemsThreshold: 8,
+                firstPageProgressIndicatorBuilder: (context) =>
+                    MediaGridSkeleton(columns: columns),
+                itemBuilder: (context, item, index) =>
+                    _MediaGridTile(item: item, gifGate: _gifGate),
+                firstPageErrorIndicatorBuilder: (context) =>
+                    FullPageErrorWidget(
+                      error: pagingErrorOf(state)?.error,
+                      stackTrace: pagingErrorOf(state)?.stackTrace,
+                      prefix: widget.firstPageErrorPrefix,
+                      onRetry: fetchNextPage,
+                    ),
+                newPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
+                  error: pagingErrorOf(state)?.error,
+                  stackTrace: pagingErrorOf(state)?.stackTrace,
+                  prefix: widget.newPageErrorPrefix,
+                  onRetry: fetchNextPage,
+                ),
+                noItemsFoundIndicatorBuilder: (context) =>
+                    Center(child: Text(widget.emptyMessage)),
+              ),
             ),
-            newPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
-              error: pagingErrorOf(state)?.error,
-              stackTrace: pagingErrorOf(state)?.stackTrace,
-              prefix: widget.newPageErrorPrefix,
-              onRetry: fetchNextPage,
-            ),
-            noItemsFoundIndicatorBuilder: (context) => Center(child: Text(widget.emptyMessage)),
-          ),
-        ),
       ),
     );
   }
@@ -105,7 +111,12 @@ class _MediaGridTileState extends State<_MediaGridTile> {
   void initState() {
     super.initState();
 
-    var disableAutoload = PrefService.of(context, listen: false).get<bool>(optionMediaDisableAutoload) ?? false;
+    var disableAutoload =
+        PrefService.of(
+          context,
+          listen: false,
+        ).get<bool>(optionMediaDisableAutoload) ??
+        false;
     if (disableAutoload) {
       cachedImageExists(widget.item.thumbnailUrl).then((value) {
         if (mounted) {
@@ -162,7 +173,8 @@ class _MediaGridTileState extends State<_MediaGridTile> {
           alignment: Alignment.center,
           padding: const EdgeInsets.all(8),
           child: Text(
-            L10n.of(context).tap_to_show_getMediaType_item_type(_getMediaTypeLabel(item)),
+            L10n.of(context)
+                .tap_to_show_getMediaType_item_type(_getMediaTypeLabel(item)),
             textAlign: TextAlign.center,
           ),
         ),
@@ -171,10 +183,7 @@ class _MediaGridTileState extends State<_MediaGridTile> {
 
     return AspectRatio(
       aspectRatio: item.aspectRatio,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: body,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(8), child: body),
     );
   }
 }
@@ -205,7 +214,8 @@ class _GifGridCellState extends State<_GifGridCell> {
     // The gate can notify from another cell's dispose(), i.e. while the tree is
     // locked during the build/finalize phase — calling setState() then throws.
     // Defer the rebuild to after the frame in that case.
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() {});
       });
@@ -225,18 +235,22 @@ class _GifGridCellState extends State<_GifGridCell> {
   Widget build(BuildContext context) {
     return VisibilityDetector(
       key: _visibilityKey,
-      onVisibilityChanged: (info) => widget.gate.report(this, info.visibleFraction),
+      onVisibilityChanged: (info) =>
+          widget.gate.report(this, info.visibleFraction),
       child: widget.gate.isGranted(this)
           ? widget.item.toWidget(context)
           : Stack(
               fit: StackFit.expand,
               children: [
-                ExtendedImage.network(widget.item.thumbnailUrl,
-                    cache: true, cacheWidth: gridThumbnailCacheWidth(context), fit: BoxFit.cover),
+                ExtendedImage.network(
+                  widget.item.thumbnailUrl,
+                  cache: true,
+                  cacheWidth: gridThumbnailCacheWidth(context),
+                  fit: BoxFit.cover,
+                ),
                 const Positioned(left: 6, bottom: 6, child: GifBadge()),
               ],
             ),
     );
   }
 }
-

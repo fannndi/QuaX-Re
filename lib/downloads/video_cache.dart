@@ -12,11 +12,22 @@ class VideoCacheEntry {
   final int size;
   int touchedAt;
 
-  VideoCacheEntry({required this.name, required this.url, required this.size, required this.touchedAt});
+  VideoCacheEntry({
+    required this.name,
+    required this.url,
+    required this.size,
+    required this.touchedAt,
+  });
 
-  Map<String, dynamic> toJson() => {'name': name, 'url': url, 'size': size, 'at': touchedAt};
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'url': url,
+    'size': size,
+    'at': touchedAt,
+  };
 
-  factory VideoCacheEntry.fromJson(Map<String, dynamic> json) => VideoCacheEntry(
+  factory VideoCacheEntry.fromJson(Map<String, dynamic> json) =>
+      VideoCacheEntry(
         name: json['name'] as String? ?? '',
         url: json['url'] as String? ?? '',
         size: json['size'] as int? ?? 0,
@@ -43,18 +54,17 @@ class VideoCache {
   static const maxDurationMillis = 5 * 60 * 1000;
 
   final Map<String, VideoCacheEntry> _entries = {};
-  bool _loaded = false;
 
   static bool isEligibleDuration(int? durationMillis) =>
-      durationMillis != null && durationMillis > 0 && durationMillis <= maxDurationMillis;
-
-  /// Whether a completed cache file exists (sync view of [load]'s index).
-  bool isCached(String url) => _entries.containsKey(fileNameFor(url));
+      durationMillis != null &&
+      durationMillis > 0 &&
+      durationMillis <= maxDurationMillis;
 
   /// Usage stats for the settings screen.
   int get count => _entries.length;
 
-  int get totalBytes => _entries.values.fold(0, (sum, entry) => sum + entry.size);
+  int get totalBytes =>
+      _entries.values.fold(0, (sum, entry) => sum + entry.size);
 
   Future<Directory> directory() async {
     final root = await getApplicationDocumentsDirectory();
@@ -63,12 +73,16 @@ class VideoCache {
     return dir;
   }
 
-  Future<File> _ledger() async => File(p.join((await directory()).path, _ledgerFile));
+  Future<File> _ledger() async =>
+      File(p.join((await directory()).path, _ledgerFile));
 
-  Future<void> load() async {
-    if (_loaded) return;
-    _loaded = true;
+  Future<void>? _loadFuture;
 
+  /// Memoized: a concurrent caller while the ledger is still being read waits
+  /// for it instead of seeing an empty index.
+  Future<void> load() => _loadFuture ??= _doLoad();
+
+  Future<void> _doLoad() async {
     try {
       final file = await _ledger();
       if (!await file.exists()) return;
@@ -90,7 +104,9 @@ class VideoCache {
   Future<void> _save() async {
     try {
       final file = await _ledger();
-      await file.writeAsString(jsonEncode(_entries.values.map((e) => e.toJson()).toList()));
+      await file.writeAsString(
+        jsonEncode(_entries.values.map((e) => e.toJson()).toList()),
+      );
     } catch (_) {
       // Best-effort.
     }
@@ -118,7 +134,11 @@ class VideoCache {
   }
 
   /// Registers a finished auto-cache fetch and enforces the size limit.
-  Future<void> put(String url, File file, {required BasePrefService prefs}) async {
+  Future<void> put(
+    String url,
+    File file, {
+    required BasePrefService prefs,
+  }) async {
     await load();
 
     final name = fileNameFor(url);
@@ -137,6 +157,10 @@ class VideoCache {
       touchedAt: DateTime.now().millisecondsSinceEpoch,
     );
     await enforceLimit(prefs);
+    // enforceLimit only persists when something was evicted; the new entry
+    // must be ledgered too, or it stays invisible to the size accounting and
+    // the same clip is re-fetched after every restart.
+    await _save();
   }
 
   Future<void> remove(String url) async {
@@ -150,7 +174,8 @@ class VideoCache {
 
   Future<void> clear() async {
     _entries.clear();
-    _loaded = true;
+    // A later load() re-reads the (now missing) ledger and finds nothing.
+    _loadFuture = null;
 
     try {
       final dir = await directory();
@@ -182,8 +207,12 @@ class VideoCache {
   }
 
   /// Pure LRU planner: the oldest entries to drop so the rest fits [capBytes].
-  static List<String> planEviction(List<VideoCacheEntry> entries, int capBytes) {
-    final sorted = [...entries]..sort((a, b) => a.touchedAt.compareTo(b.touchedAt));
+  static List<String> planEviction(
+    List<VideoCacheEntry> entries,
+    int capBytes,
+  ) {
+    final sorted = [...entries]
+      ..sort((a, b) => a.touchedAt.compareTo(b.touchedAt));
     var total = sorted.fold<int>(0, (sum, entry) => sum + entry.size);
 
     final evicted = <String>[];
@@ -202,6 +231,6 @@ class VideoCache {
     final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     if (safe.isEmpty) return 'video-${url.hashCode}';
     if (safe.length <= 120) return safe;
-    return '${safe.substring(safe.length - 120)}';
+    return safe.substring(safe.length - 120);
   }
 }

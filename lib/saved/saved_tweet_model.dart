@@ -4,6 +4,7 @@ import 'package:flutter_triple/flutter_triple.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
 import 'package:logging/logging.dart';
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 
 class SavedTweetModel extends Store<List<SavedTweet>> {
   static final log = Logger('SavedTweetModel');
@@ -22,9 +23,19 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
   Future<void> setFolder(String id, String? folderId) async {
     var database = await Repository.writable();
 
-    await database.update(tableSavedTweet, {'folder_id': folderId}, where: 'id = ?', whereArgs: [id]);
+    await database.update(
+      tableSavedTweet,
+      {'folder_id': folderId},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
 
-    update(state.map((e) => e.id == id ? e.copyWith(folderId: folderId) : e).toList(), force: true);
+    update(
+      state
+          .map((e) => e.id == id ? e.copyWith(folderId: folderId) : e)
+          .toList(),
+      force: true,
+    );
   }
 
   Future<void> deleteSavedTweet(String id) async {
@@ -42,9 +53,10 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
     await execute(() async {
       var database = await Repository.readOnly();
 
-      return (await database.query(tableSavedTweet, orderBy: 'saved_at DESC'))
-          .map((e) => SavedTweet.fromMap(e))
-          .toList();
+      return (await database.query(
+        tableSavedTweet,
+        orderBy: 'saved_at DESC',
+      )).map((e) => SavedTweet.fromMap(e)).toList();
     });
   }
 
@@ -55,14 +67,20 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
 
     var database = await Repository.readOnly();
 
-    var tweets = (await database.query(tableSavedTweet, orderBy: 'saved_at DESC'))
-        .map((e) => SavedTweet.fromMap(e))
-        .toList();
+    var tweets = (await database.query(
+      tableSavedTweet,
+      orderBy: 'saved_at DESC',
+    )).map((e) => SavedTweet.fromMap(e)).toList();
 
     update(tweets, force: true);
   }
 
-  Future<void> saveTweet(String id, String? user, Map<String, dynamic> content, {String? folderId}) async {
+  Future<void> saveTweet(
+    String id,
+    String? user,
+    Map<String, dynamic> content, {
+    String? folderId,
+  }) async {
     log.info('Saving tweet with the ID $id');
 
     await execute(() async {
@@ -70,9 +88,23 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
 
       var encodedContent = jsonEncode(content);
 
-      await database.insert(
-          tableSavedTweet, {'id': id, 'user_id': user, 'content': encodedContent, 'folder_id': folderId});
-      state.add(SavedTweet(id: id, user: user, content: encodedContent, folderId: folderId));
+      // Idempotent like likeTweet: a stale model state (e.g. the folder sheet
+      // or a double tap) must not crash on the primary key.
+      await database.insert(tableSavedTweet, {
+        'id': id,
+        'user_id': user,
+        'content': encodedContent,
+        'folder_id': folderId,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      state.removeWhere((e) => e.id == id);
+      state.add(
+        SavedTweet(
+          id: id,
+          user: user,
+          content: encodedContent,
+          folderId: folderId,
+        ),
+      );
 
       return state;
     });

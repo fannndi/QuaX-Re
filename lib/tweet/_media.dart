@@ -21,13 +21,14 @@ class _TweetMediaItem extends StatefulWidget {
   final String username;
   final String? tweetId;
 
-  const _TweetMediaItem(
-      {required this.index,
-      required this.mediaIndex,
-      required this.total,
-      required this.media,
-      required this.username,
-      this.tweetId});
+  const _TweetMediaItem({
+    required this.index,
+    required this.mediaIndex,
+    required this.total,
+    required this.media,
+    required this.username,
+    this.tweetId,
+  });
 
   @override
   State<_TweetMediaItem> createState() => _TweetMediaItemState();
@@ -40,7 +41,12 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
   void initState() {
     super.initState();
 
-    var disableAutoload = PrefService.of(context, listen: false).get<bool>(optionMediaDisableAutoload) ?? false;
+    var disableAutoload =
+        PrefService.of(
+          context,
+          listen: false,
+        ).get<bool>(optionMediaDisableAutoload) ??
+        false;
     if (disableAutoload) {
       // If the image is cached already, show the media
       cachedImageExists(widget.media.mediaUrlHttps!).then((value) {
@@ -81,20 +87,22 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
 
     if (_showMedia) {
       media = TweetMediaThing(
-          item: item,
-          username: widget.username,
-          size: size,
-          pullToClose: false,
-          inPageView: false,
-          tweetId: widget.tweetId,
-          mediaIndex: widget.mediaIndex);
+        item: item,
+        username: widget.username,
+        size: size,
+        pullToClose: false,
+        inPageView: false,
+        tweetId: widget.tweetId,
+        mediaIndex: widget.mediaIndex,
+      );
     } else {
       media = GestureDetector(
         child: Container(
           color: Colors.black26,
           child: Center(
             child: Text(
-              L10n.of(context).tap_to_show_getMediaType_item_type(getMediaType(item.type)),
+              L10n.of(context)
+                  .tap_to_show_getMediaType_item_type(getMediaType(item.type)),
             ),
           ),
         ),
@@ -121,7 +129,7 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
             padding: const EdgeInsets.all(8),
             child: Text('${widget.index} / ${widget.total}'),
           ),
-        )
+        ),
       ],
     );
   }
@@ -135,13 +143,14 @@ class TweetMedia extends StatefulWidget {
   // Used (with the media index) to cache/reuse video controllers across screens.
   final String? tweetId;
 
-  const TweetMedia(
-      {super.key,
-      required this.sensitive,
-      required this.media,
-      required this.username,
-      this.initialMediaIndex = 0,
-      this.tweetId});
+  const TweetMedia({
+    super.key,
+    required this.sensitive,
+    required this.media,
+    required this.username,
+    this.initialMediaIndex = 0,
+    this.tweetId,
+  });
 
   @override
   State<TweetMedia> createState() => _TweetMediaState();
@@ -158,75 +167,84 @@ class _TweetMediaState extends State<TweetMedia> {
 
   @override
   Widget build(BuildContext context) {
-    var largestAspectRatio =
-    widget.media.map((e) => ((e.sizes!.large!.w) ?? 1) / ((e.sizes!.large!.h) ?? 1)).reduce(math.min);
+    var largestAspectRatio = widget.media
+        .map((e) => ((e.sizes!.large!.w) ?? 1) / ((e.sizes!.large!.h) ?? 1))
+        .reduce(math.min);
 
-    return Consumer<TweetContextState>(builder: (context, model, child) {
-      if (model.hideSensitive && (widget.sensitive ?? false)) {
-        return Card(
-          child: Center(
+    return Consumer<TweetContextState>(
+      builder: (context, model, child) {
+        if (model.hideSensitive && (widget.sensitive ?? false)) {
+          return Card(
+            child: Center(
               child: EmojiErrorWidget(
-            emoji: '🍆🙈🍆',
-            message: L10n.current.possibly_sensitive,
-            errorMessage: L10n.current.possibly_sensitive_tweet,
-            retryText: L10n.current.yes_please,
-            onRetry: () async => model.setHideSensitive(false),
-          )),
-        );
-      }
+                emoji: '🍆🙈🍆',
+                message: L10n.current.possibly_sensitive,
+                errorMessage: L10n.current.possibly_sensitive_tweet,
+                retryText: L10n.current.yes_please,
+                onRetry: () async => model.setHideSensitive(false),
+              ),
+            ),
+          );
+        }
 
-      return Container(
-        margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
-        child: AspectRatio(
-          aspectRatio: largestAspectRatio,
-          child: PageView.builder(
-            controller: _controller,
-            scrollDirection: Axis.horizontal,
-            itemCount: widget.media.length,
-            itemBuilder: (context, index) {
-              var item = widget.media[index];
+        return Container(
+          margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
+          child: AspectRatio(
+            aspectRatio: largestAspectRatio,
+            child: PageView.builder(
+              controller: _controller,
+              scrollDirection: Axis.horizontal,
+              itemCount: widget.media.length,
+              itemBuilder: (context, index) {
+                var item = widget.media[index];
 
-              // A video has its own tap controls and must never open the
-              // fullscreen media viewer. Photos and GIFs still open it.
-              final isVideo = item.type == 'video';
+                // A video has its own tap controls and must never open the
+                // fullscreen media viewer. Photos and GIFs still open it.
+                final isVideo = item.type == 'video';
 
-              return GestureDetector(
-                onTap: isVideo
-                    ? null
-                    : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
+                return GestureDetector(
+                  onTap: isVideo
+                      ? null
+                      : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
                             builder: (context) => TweetMediaView(
-                                initialIndex: index,
-                                media: widget.media,
-                                username: widget.username,
-                                tweetId: widget.tweetId))),
-                onLongPress: () => showMediaActionsSheet(context, item, widget.username),
-                child: Stack(
-                  children: [
-                    _TweetMediaItem(
+                              initialIndex: index,
+                              media: widget.media,
+                              username: widget.username,
+                              tweetId: widget.tweetId,
+                            ),
+                          ),
+                        ),
+                  onLongPress: () =>
+                      showMediaActionsSheet(context, item, widget.username),
+                  child: Stack(
+                    children: [
+                      _TweetMediaItem(
                         media: item,
                         index: index + 1,
                         mediaIndex: index,
                         total: widget.media.length,
                         username: widget.username,
-                        tweetId: widget.tweetId),
-                    // Every video carries its length, exactly like the X app.
-                    if (isVideo)
-                      Positioned(
-                        left: 6,
-                        bottom: 6,
-                        child: VideoDurationBadge(durationMillis: item.videoInfo?.durationMillis),
+                        tweetId: widget.tweetId,
                       ),
-                  ],
-                ),
-              );
-            },
+                      // Every video carries its length, exactly like the X app.
+                      if (isVideo)
+                        Positioned(
+                          left: 6,
+                          bottom: 6,
+                          child: VideoDurationBadge(
+                            durationMillis: item.videoInfo?.durationMillis,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
-
-

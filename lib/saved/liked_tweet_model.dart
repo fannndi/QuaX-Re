@@ -21,9 +21,10 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
     await execute(() async {
       var database = await Repository.readOnly();
 
-      return (await database.query(tableLikedTweet, orderBy: 'liked_at DESC'))
-          .map((e) => LikedTweet.fromMap(e))
-          .toList();
+      return (await database.query(
+        tableLikedTweet,
+        orderBy: 'liked_at DESC',
+      )).map((e) => LikedTweet.fromMap(e)).toList();
     });
   }
 
@@ -34,13 +35,19 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
 
     var database = await Repository.readOnly();
 
-    var tweets =
-        (await database.query(tableLikedTweet, orderBy: 'liked_at DESC')).map((e) => LikedTweet.fromMap(e)).toList();
+    var tweets = (await database.query(
+      tableLikedTweet,
+      orderBy: 'liked_at DESC',
+    )).map((e) => LikedTweet.fromMap(e)).toList();
 
     update(tweets, force: true);
   }
 
-  Future<void> likeTweet(String id, String? user, Map<String, dynamic> content) async {
+  Future<void> likeTweet(
+    String id,
+    String? user,
+    Map<String, dynamic> content,
+  ) async {
     log.info('Liking tweet with the ID $id');
 
     var database = await Repository.writable();
@@ -49,9 +56,15 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
     // Idempotent: the same tweet can surface twice in a feed (e.g. a pinned/retweeted
     // copy and its older chronological one), so a second "like" of an id already present
     // must not throw on the primary key nor duplicate the in-memory entry.
-    await database.insert(tableLikedTweet, {'id': id, 'user_id': user, 'content': encodedContent},
-        conflictAlgorithm: ConflictAlgorithm.replace);
-    update([LikedTweet(id: id, user: user, content: encodedContent), ...state.where((e) => e.id != id)], force: true);
+    await database.insert(tableLikedTweet, {
+      'id': id,
+      'user_id': user,
+      'content': encodedContent,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    update([
+      LikedTweet(id: id, user: user, content: encodedContent),
+      ...state.where((e) => e.id != id),
+    ], force: true);
   }
 
   Future<void> unlikeTweet(String id) async {

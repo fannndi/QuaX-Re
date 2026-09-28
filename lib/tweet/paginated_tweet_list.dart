@@ -49,7 +49,10 @@ class TweetFeedController {
   Future<CursorPage<String, TweetChain>> _fetch(String? cursor) async {
     final result = await _loader!(cursor);
     final next = result.nextCursor;
-    return (items: _dedupe(result.chains, cursor), nextCursor: _isLastPage(result.chains, next, cursor) ? null : next);
+    return (
+      items: _dedupe(result.chains, cursor),
+      nextCursor: _isLastPage(result.chains, next, cursor) ? null : next,
+    );
   }
 
   // Ranked feeds can repeat a tweet across pages; a repeated chain would render
@@ -59,7 +62,9 @@ class TweetFeedController {
   List<TweetChain> _dedupe(List<TweetChain> chains, String? cursor) {
     if (cursor == null) return chains;
 
-    final seen = (_paging.items ?? const <TweetChain>[]).map((chain) => chain.id).toSet();
+    final seen = (_paging.items ?? const <TweetChain>[])
+        .map((chain) => chain.id)
+        .toSet();
     final fresh = <TweetChain>[];
     for (final chain in chains) {
       if (seen.add(chain.id)) fresh.add(chain);
@@ -111,7 +116,8 @@ class TweetFeedController {
     return result.chains.isNotEmpty;
   }
 
-  void setError(Object error, StackTrace stackTrace) => _paging.setError(error, stackTrace);
+  void setError(Object error, StackTrace stackTrace) =>
+      _paging.setError(error, stackTrace);
 
   /// Reloads the first page and replaces the items in place, *without* resetting
   /// to the first-page spinner the way [PagingController.refresh] does. Used by
@@ -175,8 +181,10 @@ class PaginatedTweetList extends StatefulWidget {
   State<PaginatedTweetList> createState() => _PaginatedTweetListState();
 }
 
-class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBindingObserver {
-  final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
+class _PaginatedTweetListState extends State<PaginatedTweetList>
+    with WidgetsBindingObserver {
+  final GlobalKey<RefreshIndicatorState> _refreshKey =
+      GlobalKey<RefreshIndicatorState>();
   final ScrollController _scrollController = ScrollController();
   FeedRefreshController? _refreshController;
   bool _firstLoadStarted = false;
@@ -339,7 +347,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     await _refreshKey.currentState?.show();
   }
 
-  Widget _buildChain(BuildContext context, TweetChain chain) => TweetConversation(
+  Widget _buildChain(BuildContext context, TweetChain chain) =>
+      TweetConversation(
         // Keyed by chain: refreshed pages shift indices, and without the key a
         // recycled element would keep rendering the tweet it held before.
         key: ValueKey(chain.id),
@@ -362,7 +371,9 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       if (!mounted) return;
 
       final after = result.chains.isEmpty ? null : result.chains.first.id;
-      final scrolledDown = _scrollController.hasClients && _scrollController.offset > _pillThreshold;
+      final scrolledDown =
+          _scrollController.hasClients &&
+          _scrollController.offset > _pillThreshold;
       if (before != null && after != null && before != after && scrolledDown) {
         _pendingFirstPage = result;
         setState(() => _newPostsAvailable = true);
@@ -410,8 +421,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     setState(() => _newPostsAvailable = false);
 
     if (_scrollController.hasClients) {
-      await _scrollController.animateTo(0,
-          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      await _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -448,13 +462,18 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     if (saved <= 0) return;
 
     if (savedAt != null) {
-      final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(savedAt));
+      final age = DateTime.now().difference(
+        DateTime.fromMillisecondsSinceEpoch(savedAt),
+      );
       if (age > _scrollRestoreMaxAge) return;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
-      final target = saved.clamp(0.0, _scrollController.position.maxScrollExtent);
+      final target = saved.clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
       if (target > 0) _scrollController.jumpTo(target);
     });
   }
@@ -473,13 +492,17 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.arrow_upward, size: 18, color: scheme.onSecondaryContainer),
+              Icon(
+                Icons.arrow_upward,
+                size: 18,
+                color: scheme.onSecondaryContainer,
+              ),
               const SizedBox(width: 6),
-              Text(L10n.of(context).new_posts,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: scheme.onSecondaryContainer)),
+              Text(
+                L10n.of(context).new_posts,
+                style: Theme.of(context).textTheme.labelLarge
+                    ?.copyWith(color: scheme.onSecondaryContainer),
+              ),
             ],
           ),
         ),
@@ -492,7 +515,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   bool get _showingPreview {
     final preview = widget.firstPagePreview;
     final state = _controller.value;
-    return preview != null && preview.isNotEmpty && state.items == null && state.error == null;
+    return preview != null &&
+        preview.isNotEmpty &&
+        state.items == null &&
+        state.error == null;
   }
 
   // The PagedListView normally kicks off the first page when it mounts. While
@@ -537,7 +563,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
 
   Widget _wrapWithRefresh(Widget child) {
     if (widget.onRefresh == null) return child;
-    return RefreshIndicator(key: _refreshKey, onRefresh: _onRefreshTriggered, child: child);
+    return RefreshIndicator(
+      key: _refreshKey,
+      onRefresh: _onRefreshTriggered,
+      child: child,
+    );
   }
 
   @override
@@ -546,11 +576,15 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
 
     if (_showingPreview) {
       _maybeStartFirstLoad();
-      return _wrapWithRefresh(CachedTweetList(widget.firstPagePreview!, username: widget.username));
+      return _wrapWithRefresh(
+        CachedTweetList(widget.firstPagePreview!, username: widget.username),
+      );
     }
 
     final state = _controller.value;
-    if (!NetworkStatus().online.value && state.items == null && state.error == null) {
+    if (!NetworkStatus().online.value &&
+        state.items == null &&
+        state.error == null) {
       NetworkStatus().check();
       return _buildOffline(context);
     }
@@ -558,7 +592,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     final list = PagingListener<int, TweetChain>(
       controller: _controller,
       builder: (context, state, fetchNextPage) => PagedListView<int, TweetChain>(
-        padding: EdgeInsets.only(top: 4, bottom: MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.only(
+          top: 4,
+          bottom: MediaQuery.of(context).padding.bottom,
+        ),
         state: state,
         fetchNextPage: fetchNextPage,
         scrollController: _scrollController,
@@ -573,8 +610,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
           // long fling keeps rolling instead of stalling on the spinner.
           invisibleItemsThreshold: 8,
           itemBuilder: (context, chain, index) => _buildChain(context, chain),
-          firstPageProgressIndicatorBuilder: (context) => const TweetListSkeleton(),
-          firstPageErrorIndicatorBuilder: (context) => NetworkStatus().online.value
+          firstPageProgressIndicatorBuilder: (context) =>
+              const TweetListSkeleton(),
+          firstPageErrorIndicatorBuilder: (context) =>
+              NetworkStatus().online.value
               ? FullPageErrorWidget(
                   error: pagingErrorOf(state)?.error,
                   stackTrace: pagingErrorOf(state)?.stackTrace,
@@ -588,7 +627,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
             prefix: widget.newPageErrorPrefix,
             onRetry: fetchNextPage,
           ),
-          noItemsFoundIndicatorBuilder: (context) => Center(child: Text(widget.emptyMessage)),
+          noItemsFoundIndicatorBuilder: (context) =>
+              Center(child: Text(widget.emptyMessage)),
         ),
       ),
     );
@@ -597,7 +637,12 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       children: [
         _wrapWithRefresh(list),
         if (_newPostsAvailable)
-          Positioned(top: 12, left: 0, right: 0, child: Center(child: _buildNewPostsPill())),
+          Positioned(
+            top: 12,
+            left: 0,
+            right: 0,
+            child: Center(child: _buildNewPostsPill()),
+          ),
       ],
     );
   }

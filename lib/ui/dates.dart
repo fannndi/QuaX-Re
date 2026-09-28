@@ -5,29 +5,38 @@ import 'package:timeago/timeago.dart' as timeago;
 final absoluteDateFormat = DateFormat.yMMMd().add_Hms();
 
 String createRelativeDate(DateTime dateTime) {
-  return timeago.format(dateTime, locale: Intl.shortLocale(Intl.getCurrentLocale()));
+  return timeago.format(
+    dateTime,
+    locale: Intl.shortLocale(Intl.getCurrentLocale()),
+  );
 }
 
 class Timestamp extends StatefulWidget {
   final DateTime? timestamp;
   final bool absoluteTimestamp;
 
-  const Timestamp({super.key, required this.timestamp, this.absoluteTimestamp = false});
+  const Timestamp({
+    super.key,
+    required this.timestamp,
+    this.absoluteTimestamp = false,
+  });
 
   @override
-  State<Timestamp> createState() => _TimestampState(useRelativeTimestamp: !absoluteTimestamp);
+  State<Timestamp> createState() => _TimestampState();
 }
 
 class _TimestampState extends State<Timestamp> {
-  bool _useRelativeTimestamp;
-
-  _TimestampState({useRelativeTimestamp = true}) : _useRelativeTimestamp = useRelativeTimestamp;
+  bool _useRelativeTimestamp = false;
 
   String formattedTime = '';
 
   @override
   void initState() {
     super.initState();
+
+    // The relative-vs-absolute choice follows the widget flag, and the user
+    // toggles it per-timestamp by tapping.
+    _useRelativeTimestamp = !widget.absoluteTimestamp;
 
     var timestamp = widget.timestamp;
     if (timestamp != null) {

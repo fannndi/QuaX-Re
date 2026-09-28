@@ -17,4 +17,3 @@ sealed class EntityValue {
 
   Widget toWidget(BuildContext context);
 }
-

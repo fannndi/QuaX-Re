@@ -21,10 +21,13 @@ Future<void> openInDefaultBrowser(String url) async {
 }
 
 Future<void> openUri(BuildContext context, String uri) async {
-  final embedded = PrefService.of(context).get(optionOpenLinksInEmbeddedBrowser) == true;
+  final embedded =
+      PrefService.of(context).get(optionOpenLinksInEmbeddedBrowser) == true;
   await launchUrlString(
     uri,
-    mode: embedded ? LaunchMode.inAppBrowserView : LaunchMode.externalApplication,
+    mode: embedded
+        ? LaunchMode.inAppBrowserView
+        : LaunchMode.externalApplication,
   );
 }
 
@@ -43,11 +46,39 @@ class ProfileUriInfo extends UriParseResult {
   }
 }
 
+/// Root paths X reserves for its own pages: linking them must fall back to the
+/// browser instead of opening a profile named "home" or "explore".
+const _reservedRootPaths = {
+  'home',
+  'explore',
+  'search',
+  'notifications',
+  'messages',
+  'settings',
+  'compose',
+  'bookmarks',
+  'login',
+  'signup',
+  'logout',
+  'flow',
+  'intent',
+  'communities',
+  'premium',
+  'jobs',
+  'welcome',
+  'tos',
+  'privacy',
+  'help',
+  'embed',
+  'widgets',
+  'i',
+};
+
 ProfileUriInfo? _parseAsProfileLink(List<String> parts) {
   if (parts.isEmpty) return null;
 
-  // https://x.com/i/... does not refer to a profile
-  if (parts[0] == "i") {
+  // https://x.com/home, https://x.com/i/... etc. do not refer to a profile
+  if (_reservedRootPaths.contains(parts[0])) {
     return null;
   }
 
@@ -57,7 +88,8 @@ ProfileUriInfo? _parseAsProfileLink(List<String> parts) {
   }
 
   const Map<String, ProfileTabs?> supportedProfileSubpaths = {
-    "with_replies": ProfileTabs.postsAndReplies, // https://x.com/DogsTrust/with_replies
+    "with_replies":
+        ProfileTabs.postsAndReplies, // https://x.com/DogsTrust/with_replies
     "media": ProfileTabs.media, // https://x.com/DogsTrust/media
     // All following sublinks are not supported by QuaX, but remain valid for an account link
     "highlights": null, // https://x.com/DogsTrust/highlights
@@ -98,14 +130,42 @@ int? extractPhotoNumber(List<String> parts, int index) {
 PostUriInfo? _parseAsPostLink(List<String> parts) {
   if (parts.length < 3) return null;
 
+  // Legacy share formats carry no user name:
+  // https://x.com/i/status/<id>, https://x.com/i/web/status/<id>
+  // These must be matched before the generic <user>/status/<id> branch, or
+  // "i" would become the screen name.
+  if (parts[0] == "i" && parts[1] == "status") {
+    return PostUriInfo(
+      null,
+      parts[2],
+      photoNumber: extractPhotoNumber(parts, 3),
+    );
+  }
+
   if (parts[1] == "status") {
-    return PostUriInfo(parts[0], parts[2], photoNumber: extractPhotoNumber(parts, 3));
+    return PostUriInfo(
+      parts[0],
+      parts[2],
+      photoNumber: extractPhotoNumber(parts, 3),
+    );
   }
 
   if (parts.length < 4) return null;
 
+  if (parts[0] == "i" && parts[1] == "web" && parts[2] == "status") {
+    return PostUriInfo(
+      null,
+      parts[3],
+      photoNumber: extractPhotoNumber(parts, 4),
+    );
+  }
+
   if (parts[0] == "i" && parts[1] == "topics" && parts[2] == "tweet") {
-    return PostUriInfo(null, parts[3], photoNumber: extractPhotoNumber(parts, 4));
+    return PostUriInfo(
+      null,
+      parts[3],
+      photoNumber: extractPhotoNumber(parts, 4),
+    );
   }
 
   // The URI is not a post link
@@ -113,11 +173,12 @@ PostUriInfo? _parseAsPostLink(List<String> parts) {
 }
 
 Future<String?> _resolveShortUrl(Uri shortUrl) async {
-  final request = http.Request('GET', shortUrl)
-    ..followRedirects = false;
+  final request = http.Request('GET', shortUrl)..followRedirects = false;
 
   final response = await request.send();
-  if (response.isRedirect || response.statusCode == 301 || response.statusCode == 302) {
+  if (response.isRedirect ||
+      response.statusCode == 301 ||
+      response.statusCode == 302) {
     return response.headers['location'];
   }
   return response.request?.url.toString();

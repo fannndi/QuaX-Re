@@ -12,7 +12,9 @@ ThemeData buildAppTheme({
   final base = ThemeData(colorScheme: colorScheme, useMaterial3: true);
 
   final surface = black ? Colors.black : colorScheme.surface;
-  final elevatedSurface = black ? const Color(0xFF121212) : colorScheme.surfaceContainerLow;
+  final elevatedSurface = black
+      ? const Color(0xFF121212)
+      : colorScheme.surfaceContainerLow;
 
   return base.copyWith(
     scaffoldBackgroundColor: black ? Colors.black : colorScheme.surface,
@@ -104,7 +106,12 @@ class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
 
   @override
   Widget buildTransitions<T>(
-      PageRoute<T> route, BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     return child;
   }
 }

@@ -32,7 +32,6 @@ import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-
 Future<void> main() async {
   Logger.root.onRecord.listen((event) async {
     log(event.message, error: event.error, stackTrace: event.stackTrace);
@@ -47,54 +46,57 @@ Future<void> main() async {
 
   setTimeagoLocales();
 
-  final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: {
-    optionConfirmClose: true,
-    optionDisableAnimations: false,
-    optionTextScaleFactor: 1.0,
-    optionDisableScreenshots: false,
-    optionLocale: optionLocaleDefault,
-    optionLibraryVisibleInGallery: false,
-    optionAutoCacheVideos: false,
-    optionAutoCacheWifiOnly: true,
-    optionVideoCacheLimitMb: 1024,
-    optionHomeInitialTab: 'feed',
-    optionHomeDefaultFeedTab: feedTabs[0].id.name,
-    optionImageQuality: 'medium',
-    optionMediaVideoQuality: 'medium',
-    optionMediaDisableAutoload: false,
-    optionMediaQualitySplitMigrated: false,
-    optionMediaGridColumns: 3,
-    optionMediaDefaultMute: true,
-    optionMediaDefaultLoop: false,
-    optionMediaDefaultAutoPlay: false,
-    optionMediaBackgroundPlayback: true,
-    optionMediaAllowBackgroundPlayOtherApps: false,
-    optionMediaVideoPrefetchSeconds: 0,
-    optionNonConfirmationBiasMode: false,
-    optionShouldCheckForUpdates: false,
-    optionOpenLinksInEmbeddedBrowser: false,
-    optionSubscriptionGroupsOrderByAscending: true,
-    optionDisableWarningsForUnrelatedPostsInFeed: false,
-    alwaysShowFullTweetContents: false,
-    optionSubscriptionGroupsOrderByField: 'name',
-    optionSubscriptionOrderByAscending: true,
-    optionSubscriptionOrderByField: 'name',
-    optionSubscriptionOrderCustom: '',
-    optionThemeMode: 'system',
-    optionThemeColor: 'accent',
-    optionThemeTrueBlack: true,
-    optionThemeTrueBlackTweetCards: true,
-    optionShowNavigationLabels: false,
-    optionTweetsHideSensitive: true,
-    optionSavedShowAllTab: true,
-    optionSavedShowUnfiledTab: true,
-    optionSavedShowFavoritesTab: true,
-    optionSavedTabOrder: '',
-    optionSavedFolderHintShown: false,
-    optionLikedFirstToastShown: false,
-    optionUseAbsoluteTimestamp: false,
-    optionDefaultProfileTab: profileTabs[0].id.name,
-  });
+  final prefService = await PrefServiceShared.init(
+    prefix: 'pref_',
+    defaults: {
+      optionConfirmClose: true,
+      optionDisableAnimations: false,
+      optionTextScaleFactor: 1.0,
+      optionDisableScreenshots: false,
+      optionLocale: optionLocaleDefault,
+      optionLibraryVisibleInGallery: false,
+      optionAutoCacheVideos: false,
+      optionAutoCacheWifiOnly: true,
+      optionVideoCacheLimitMb: 1024,
+      optionHomeInitialTab: 'feed',
+      optionHomeDefaultFeedTab: feedTabs[0].id.name,
+      optionImageQuality: 'medium',
+      optionMediaVideoQuality: 'medium',
+      optionMediaDisableAutoload: false,
+      optionMediaQualitySplitMigrated: false,
+      optionMediaGridColumns: 3,
+      optionMediaDefaultMute: true,
+      optionMediaDefaultLoop: false,
+      optionMediaDefaultAutoPlay: false,
+      optionMediaBackgroundPlayback: true,
+      optionMediaAllowBackgroundPlayOtherApps: false,
+      optionMediaVideoPrefetchSeconds: 0,
+      optionNonConfirmationBiasMode: false,
+      optionShouldCheckForUpdates: false,
+      optionOpenLinksInEmbeddedBrowser: false,
+      optionSubscriptionGroupsOrderByAscending: true,
+      optionDisableWarningsForUnrelatedPostsInFeed: false,
+      alwaysShowFullTweetContents: false,
+      optionSubscriptionGroupsOrderByField: 'name',
+      optionSubscriptionOrderByAscending: true,
+      optionSubscriptionOrderByField: 'name',
+      optionSubscriptionOrderCustom: '',
+      optionThemeMode: 'system',
+      optionThemeColor: 'accent',
+      optionThemeTrueBlack: true,
+      optionThemeTrueBlackTweetCards: true,
+      optionShowNavigationLabels: false,
+      optionTweetsHideSensitive: true,
+      optionSavedShowAllTab: true,
+      optionSavedShowUnfiledTab: true,
+      optionSavedShowFavoritesTab: true,
+      optionSavedTabOrder: '',
+      optionSavedFolderHintShown: false,
+      optionLikedFirstToastShown: false,
+      optionUseAbsoluteTimestamp: false,
+      optionDefaultProfileTab: profileTabs[0].id.name,
+    },
+  );
 
   await migrateMediaQualityPrefs(prefService);
 
@@ -120,14 +122,24 @@ Future<void> main() async {
     // body via KeyedSubtree, the inner feed reads fresh controllers from the
     // cache. LinkedHashMap iterates in insertion order, and registering here
     // (before any shell exists) guarantees we win.
-    groupsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
-    subscriptionsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
+    groupsModel.addReloadListener(
+      'FeedSessionCache',
+      feedSessionCache.invalidateAll,
+    );
+    subscriptionsModel.addReloadListener(
+      'FeedSessionCache',
+      feedSessionCache.invalidateAll,
+    );
 
     // Foreground-service notifications wired up for the download queue, the
     // persisted queue/history loaded, and the connectivity watcher primed so a
     // network coming back auto-resumes the retryable failures.
     unawaited(DownloadNotifications.ensure());
-    unawaited(DownloadsModel().load().then((_) => ConnectivityWatcher().ensure(prefService)));
+    unawaited(
+      DownloadsModel().load().then(
+        (_) => ConnectivityWatcher().ensure(prefService),
+      ),
+    );
     unawaited(NetworkStatus().check());
     // Primes the auto-cache index so cache hits register right away.
     unawaited(VideoCache().load());
@@ -142,7 +154,9 @@ Future<void> main() async {
       // Keep the default (no active account known yet).
     }
 
-    runApp(PrefService(        service: prefService,
+    runApp(
+      PrefService(
+        service: prefService,
         child: MultiProvider(
           providers: [
             Provider(create: (context) => groupsModel),
@@ -154,13 +168,16 @@ Future<void> main() async {
             Provider(create: (context) => SavedTweetFolderModel()),
             Provider(create: (context) => LikedTweetModel()),
             Provider(create: (context) => SearchUsersModel()),
-            ChangeNotifierProvider(create: (_) => VideoContextState(prefService.get(optionMediaDefaultMute))),
+            ChangeNotifierProvider(
+              create: (_) =>
+                  VideoContextState(prefService.get(optionMediaDefaultMute)),
+            ),
           ],
           child: FritterApp(),
-        )));
+        ),
+      ),
+    );
   } catch (e, stackTrace) {
     log('Unable to start Fritter', error: e, stackTrace: stackTrace);
   }
 }
-
-

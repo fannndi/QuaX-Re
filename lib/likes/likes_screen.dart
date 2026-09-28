@@ -27,8 +27,12 @@ class LikesScreen extends StatefulWidget {
   State<LikesScreen> createState() => _LikesScreenState();
 }
 
-class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 4, vsync: this);
+class _LikesScreenState extends State<LikesScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 4,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -56,15 +60,17 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
               animation: _tabController,
               builder: (context, _) => switch (_tabController.index) {
                 0 => IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: L10n.of(context).refresh,
-                    onPressed: () => context.read<LikedTweetModel>().refreshLikedTweets(),
-                  ),
+                  icon: const Icon(Icons.refresh),
+                  tooltip: L10n.of(context).refresh,
+                  onPressed: () =>
+                      context.read<LikedTweetModel>().refreshLikedTweets(),
+                ),
                 1 => IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: L10n.of(context).refresh,
-                    onPressed: () => context.read<SavedTweetModel>().refreshSavedTweets(),
-                  ),
+                  icon: const Icon(Icons.refresh),
+                  tooltip: L10n.of(context).refresh,
+                  onPressed: () =>
+                      context.read<SavedTweetModel>().refreshSavedTweets(),
+                ),
                 _ => const SizedBox.shrink(),
               },
             ),
@@ -94,7 +100,8 @@ class _LocalLikes extends StatefulWidget {
   State<_LocalLikes> createState() => _LocalLikesState();
 }
 
-class _LocalLikesState extends State<_LocalLikes> with AutomaticKeepAliveClientMixin<_LocalLikes> {
+class _LocalLikesState extends State<_LocalLikes>
+    with AutomaticKeepAliveClientMixin<_LocalLikes> {
   @override
   bool get wantKeepAlive => true;
 
@@ -127,8 +134,10 @@ class _LocalLikesState extends State<_LocalLikes> with AutomaticKeepAliveClientM
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(top: 4),
                 itemCount: likes.length,
-                itemBuilder: (context, index) =>
-                    SavedTweetTile(id: likes[index].id, content: likes[index].content),
+                itemBuilder: (context, index) => SavedTweetTile(
+                  id: likes[index].id,
+                  content: likes[index].content,
+                ),
               ),
       ),
     );
@@ -165,13 +174,14 @@ class _ProfileLikes extends StatelessWidget {
       builder: (user) => ProfileTweetFeed(
         user: user,
         emptyMessage: L10n.of(context).no_liked_posts_yet,
-        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getLikes(
-          user.idStr!,
-          cursor: cursor,
-          count: 20,
-          getTweetsCounter: getTweetsCounter,
-          incrementTweetsCounter: incrementTweetsCounter,
-        ),
+        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) =>
+            Twitter.getLikes(
+              user.idStr!,
+              cursor: cursor,
+              count: 20,
+              getTweetsCounter: getTweetsCounter,
+              incrementTweetsCounter: incrementTweetsCounter,
+            ),
       ),
     );
   }
@@ -188,12 +198,13 @@ class _ProfileBookmarks extends StatelessWidget {
       builder: (user) => ProfileTweetFeed(
         user: user,
         emptyMessage: L10n.of(context).no_bookmarks_yet,
-        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getBookmarks(
-          cursor: cursor,
-          count: 20,
-          getTweetsCounter: getTweetsCounter,
-          incrementTweetsCounter: incrementTweetsCounter,
-        ),
+        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) =>
+            Twitter.getBookmarks(
+              cursor: cursor,
+              count: 20,
+              getTweetsCounter: getTweetsCounter,
+              incrementTweetsCounter: incrementTweetsCounter,
+            ),
       ),
     );
   }
@@ -211,7 +222,8 @@ class _ActiveAccountFeed extends StatefulWidget {
   State<_ActiveAccountFeed> createState() => _ActiveAccountFeedState();
 }
 
-class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKeepAliveClientMixin<_ActiveAccountFeed> {
+class _ActiveAccountFeedState extends State<_ActiveAccountFeed>
+    with AutomaticKeepAliveClientMixin<_ActiveAccountFeed> {
   late Future<UserWithExtra?> _user;
 
   @override
@@ -252,7 +264,9 @@ class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKe
 
         final user = snapshot.data;
         if (user == null) {
-          return _EmptyLikes(message: L10n.of(context).no_account_available_title);
+          return _EmptyLikes(
+            message: L10n.of(context).no_account_available_title,
+          );
         }
 
         return widget.builder(user);

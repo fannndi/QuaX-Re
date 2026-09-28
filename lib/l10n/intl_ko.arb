@@ -1,4 +1,5 @@
 {
+  "@@locale": "ko",
   "accessibility": "접근성",
   "@accessibility": {},
   "account": "계정",
@@ -620,5 +621,15 @@
   "you_have_not_saved_any_tweets_yet": "아무 트윗도 저장하지 않았습니다!",
   "@you_have_not_saved_any_tweets_yet": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "프로필은 공개 상태여야 합니다. 그렇지 않으면 가져오기가 작동하지 않습니다",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "local_search_hint": "Search the posts you saved or liked, and the media you downloaded. Everything stays on this device.",
+  "@local_search_hint": {},
+  "account_switched": "Now reading @{handle} — timelines were reloaded",
+  "@account_switched": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  }
 }

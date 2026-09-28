@@ -17,8 +17,11 @@ part 'photo_grid_item.dart';
 /// them whole for a third-of-a-screen tile costs several times the memory the
 /// tile can show.
 int gridThumbnailCacheWidth(BuildContext context) {
-  final columns = PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ?? 3;
-  final tileWidth = MediaQuery.sizeOf(context).width / (columns < 1 ? 1 : columns);
+  final columns =
+      PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ??
+      3;
+  final tileWidth =
+      MediaQuery.sizeOf(context).width / (columns < 1 ? 1 : columns);
   return decodeWidthFor(context, tileWidth, maxWidth: 1080);
 }
 
@@ -59,7 +62,12 @@ double _aspectRatioFor(Media m) {
   }
 }
 
-MediaGridItem? _itemFor(Media m, String tweetId, String username, int mediaIndex) {
+MediaGridItem? _itemFor(
+  Media m,
+  String tweetId,
+  String username,
+  int mediaIndex,
+) {
   final url = m.mediaUrlHttps;
   if (url == null) return null;
   final ar = _aspectRatioFor(m);
@@ -96,7 +104,10 @@ MediaGridItem? _itemFor(Media m, String tweetId, String username, int mediaIndex
   }
 }
 
-CursorPage<String, MediaGridItem> mediaPageFromStatus(TweetStatus status, String? cursor) {
+CursorPage<String, MediaGridItem> mediaPageFromStatus(
+  TweetStatus status,
+  String? cursor,
+) {
   final next = status.cursorBottom;
   if (next == cursor) {
     return (items: const <MediaGridItem>[], nextCursor: null);
@@ -121,4 +132,3 @@ List<MediaGridItem> mediaItemsFromChains(List<TweetChain> chains) {
   }
   return out;
 }
-

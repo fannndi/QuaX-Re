@@ -17,9 +17,9 @@ const optionMediaDefaultMute = 'media.mute';
 const optionMediaDefaultLoop = 'media.loop';
 const optionMediaDefaultAutoPlay = 'media.auto_play';
 const optionMediaBackgroundPlayback = 'media.allow_background_play';
-const optionMediaAllowBackgroundPlayOtherApps = 'media.allow_background_play.other_apps';
+const optionMediaAllowBackgroundPlayOtherApps =
+    'media.allow_background_play.other_apps';
 const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
-
 
 // Hentoid-style hidden library: a picked folder (visible in file managers)
 // holding downloaded media with a .nomedia marker so gallery apps ignore it.
@@ -38,12 +38,15 @@ const optionConfirmClose = 'confirm_close';
 const optionOpenLinksInEmbeddedBrowser = 'open_links_in_embedded_browser';
 const optionShareBaseUrl = 'share_base_url';
 
-const optionDisableWarningsForUnrelatedPostsInFeed = 'disable_warnings_for_unrelated_posts_in_feed';
+const optionDisableWarningsForUnrelatedPostsInFeed =
+    'disable_warnings_for_unrelated_posts_in_feed';
 
 const alwaysShowFullTweetContents = 'always_show_full_tweet_contents';
 
-const optionSubscriptionGroupsOrderByAscending = 'subscription_groups.order_by.ascending';
-const optionSubscriptionGroupsOrderByField = 'subscription_groups.order_by.field';
+const optionSubscriptionGroupsOrderByAscending =
+    'subscription_groups.order_by.ascending';
+const optionSubscriptionGroupsOrderByField =
+    'subscription_groups.order_by.field';
 const optionSubscriptionOrderByAscending = 'subscription.order_by.ascending';
 const optionSubscriptionOrderCustom = 'subscription.order_by.custom';
 const optionSubscriptionOrderByField = 'subscription.order_by.field';
@@ -77,12 +80,10 @@ const optionLikedFirstToastShown = 'saved.liked_first_toast_shown';
 
 const optionNonConfirmationBiasMode = 'other.improve_non_confirmation_bias';
 
-
 final Map<String, String> userAgentHeader = {
-  'user-agent':
-      "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.3",
+  'user-agent': "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.3",
   "Pragma": "no-cache",
-  "Cache-Control": "no-cache"
+  "Cache-Control": "no-cache",
   // "If-Modified-Since": "Sat, 1 Jan 2000 00:00:00 GMT",
 };
 
@@ -101,5 +102,3 @@ const routeSearch = '/search';
 const routeSavedFolders = '/saved/folders';
 const routeSettings = '/settings';
 const routeStatus = '/status';
-
-

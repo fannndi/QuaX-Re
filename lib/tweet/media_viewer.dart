@@ -1,4 +1,3 @@
-
 import 'package:async_button_builder/async_button_builder.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:extended_image/extended_image.dart';
@@ -16,16 +15,17 @@ class TweetMediaView extends StatefulWidget {
   final int initialIndex;
   final List<Media> media;
   final String username;
-  final bool tweetMedia;  // True if the media comes from a tweet
+  final bool tweetMedia; // True if the media comes from a tweet
   final String? tweetId;
 
-  const TweetMediaView(
-      {super.key,
-      required this.initialIndex,
-      required this.media,
-      required this.username,
-      this.tweetMedia = true,
-      this.tweetId});
+  const TweetMediaView({
+    super.key,
+    required this.initialIndex,
+    required this.media,
+    required this.username,
+    this.tweetMedia = true,
+    this.tweetId,
+  });
 
   @override
   State<TweetMediaView> createState() => _TweetMediaViewState();
@@ -55,7 +55,10 @@ class _TweetMediaViewState extends State<TweetMediaView> {
   }
 
   String originalMediaUrl() {
-    return (widget.tweetMedia ? '${_media.mediaUrlHttps}:orig' : _media.mediaUrlHttps) ?? "";
+    return (widget.tweetMedia
+            ? '${_media.mediaUrlHttps}:orig'
+            : _media.mediaUrlHttps) ??
+        "";
   }
 
   @override
@@ -82,7 +85,12 @@ class _TweetMediaViewState extends State<TweetMediaView> {
               var fileName = '${widget.username}-$url';
               var uri = Uri.parse(originalMediaUrl());
 
-              await downloadUriToPickedFile(context, uri, fileName, prefs: prefs);
+              await downloadUriToPickedFile(
+                context,
+                uri,
+                fileName,
+                prefs: prefs,
+              );
             },
           ),
           AsyncButtonBuilder(
@@ -108,17 +116,16 @@ class _TweetMediaViewState extends State<TweetMediaView> {
           var item = widget.media[index];
 
           return TweetMediaThing(
-              item: item,
-              username: widget.username,
-              size: size,
-              pullToClose: true,
-              inPageView: true,
-              tweetId: widget.tweetId,
-              mediaIndex: index);
+            item: item,
+            username: widget.username,
+            size: size,
+            pullToClose: true,
+            inPageView: true,
+            tweetId: widget.tweetId,
+            mediaIndex: index,
+          );
         },
-        controller: ExtendedPageController(
-          initialPage: widget.initialIndex,
-        ),
+        controller: ExtendedPageController(initialPage: widget.initialIndex),
         onPageChanged: (index) => setState(() {
           _media = widget.media[index];
         }),
@@ -136,44 +143,51 @@ class TweetMediaThing extends StatelessWidget {
   final String? tweetId;
   final int mediaIndex;
 
-  const TweetMediaThing(
-      {required this.item,
-      required this.username,
-      required this.size,
-      required this.pullToClose,
-      required this.inPageView,
-      this.tweetId,
-      this.mediaIndex = 0});
+  const TweetMediaThing({
+    super.key,
+    required this.item,
+    required this.username,
+    required this.size,
+    required this.pullToClose,
+    required this.inPageView,
+    this.tweetId,
+    this.mediaIndex = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
     Widget media;
     if (item.type == 'animated_gif') {
       media = TweetVideo(
-          metadata: TweetVideoMetadata.fromMedia(item),
-          loop: true,
-          username: username,
-          alwaysPlay: true,
-          disableControls: true,
-          tweetId: tweetId,
-          mediaIndex: mediaIndex);
+        metadata: TweetVideoMetadata.fromMedia(item),
+        loop: true,
+        username: username,
+        alwaysPlay: true,
+        disableControls: true,
+        tweetId: tweetId,
+        mediaIndex: mediaIndex,
+      );
     } else if (item.type == 'video') {
       media = TweetVideo(
-          metadata: TweetVideoMetadata.fromMedia(item),
-          loop: false,
-          username: username,
-          tweetId: tweetId,
-          mediaIndex: mediaIndex);
+        metadata: TweetVideoMetadata.fromMedia(item),
+        loop: false,
+        username: username,
+        tweetId: tweetId,
+        mediaIndex: mediaIndex,
+      );
     } else if (item.type == 'photo') {
       media = TweetPhoto(
-          size: size,
-          uri: item.mediaUrlHttps!,
-          fit: BoxFit.contain,
-          pullToClose: pullToClose,
-          inPageView: inPageView,
-          // The feed copy only ever shows at viewport width; the fullscreen
-          // page keeps the full decode so zooming stays sharp.
-          cacheWidth: inPageView ? null : decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32));
+        size: size,
+        uri: item.mediaUrlHttps!,
+        fit: BoxFit.contain,
+        pullToClose: pullToClose,
+        inPageView: inPageView,
+        // The feed copy only ever shows at viewport width; the fullscreen
+        // page keeps the full decode so zooming stays sharp.
+        cacheWidth: inPageView
+            ? null
+            : decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32),
+      );
     } else {
       media = Text(L10n.of(context).unknown);
     }

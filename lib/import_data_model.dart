@@ -14,7 +14,11 @@ class ImportDataModel extends ChangeNotifier {
 
     for (var pair in data.entries) {
       for (var datum in pair.value) {
-        batch.insert(pair.key, datum.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+        batch.insert(
+          pair.key,
+          datum.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
 
       log.info('Imported data into ${pair.key}');

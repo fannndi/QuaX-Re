@@ -31,7 +31,8 @@ class FritterApp extends StatefulWidget {
 class _FritterAppState extends State<FritterApp> {
   static final log = Logger('_MyAppState');
 
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>(); // NEW: Navigator key
+  final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>(); // NEW: Navigator key
 
   String _themeMode = 'system';
   String _themeColor = 'accent';
@@ -43,32 +44,44 @@ class _FritterAppState extends State<FritterApp> {
   double _textScaleFactor = 1.0;
   Locale? _locale;
 
+  // Preference listeners are registered once: didChangeDependencies also
+  // re-runs for every inherited notification (any pref write, keyboard,
+  // rotation), and re-adding the same callbacks each time would grow them
+  // without bound and multiply the setState calls.
+  bool _prefsHooked = false;
+  BasePrefService? _prefService;
+  final List<({String key, VoidCallback listener})> _prefListeners = [];
+
+  void setLocale(String? locale) {
+    if (locale == null || locale == optionLocaleDefault) {
+      _locale = null;
+    } else {
+      var splitLocale = locale.split(RegExp(r'[-_]'));
+      if (splitLocale.length == 1) {
+        _locale = Locale(splitLocale[0]);
+      } else {
+        if (splitLocale[1].length == 4) {
+          // 4 characters -> unicode_script_subtag
+          _locale = Locale.fromSubtags(
+            languageCode: splitLocale[0],
+            scriptCode: splitLocale[1],
+          );
+        } else {
+          // Other than 4 characters -> unicode_region_subtag (country)
+          _locale = Locale(splitLocale[0], splitLocale[1]);
+        }
+      }
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    var prefService = PrefService.of(context);
+    final prefService = PrefService.of(context);
 
-    void setLocale(String? locale) {
-      if (locale == null || locale == optionLocaleDefault) {
-        _locale = null;
-      } else {
-        var splitLocale = locale.split(RegExp(r'[-_]'));
-        if (splitLocale.length == 1) {
-          _locale = Locale(splitLocale[0]);
-        } else {
-          if (splitLocale[1].length == 4) {
-            // 4 characters -> unicode_script_subtag
-            _locale = Locale.fromSubtags(languageCode: splitLocale[0], scriptCode: splitLocale[1]);
-          } else {
-            // Other than 4 characters -> unicode_region_subtag (country)
-            _locale = Locale(splitLocale[0], splitLocale[1]);
-          }
-        }
-      }
-    }
-
-    // Set any already-enabled preferences
+    // Set any already-enabled preferences (and re-read them whenever the
+    // service itself notifies this dependency).
     setState(() {
       setLocale(prefService.get<String>(optionLocale));
       _themeMode = prefService.get(optionThemeMode);
@@ -80,46 +93,75 @@ class _FritterAppState extends State<FritterApp> {
       _textScaleFactor = prefService.get(optionTextScaleFactor);
     });
 
-    prefService.addKeyListener(optionShouldCheckForUpdates, () {
+    // A side effect in build() would run during layout; theme and keyboard
+    // changes re-enter here, which is frequent enough to keep it current.
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle.dark.copyWith(
+        systemNavigationBarColor: Colors.transparent,
+      ),
+    );
+
+    if (_prefsHooked) return;
+    _prefsHooked = true;
+    _prefService = prefService;
+
+    void listen(String key, VoidCallback listener) {
+      _prefListeners.add((key: key, listener: listener));
+      prefService.addKeyListener(key, listener);
+    }
+
+    listen(optionShouldCheckForUpdates, () {
       setState(() {});
     });
 
-    prefService.addKeyListener(optionLocale, () {
+    listen(optionLocale, () {
       setState(() {
         setLocale(prefService.get<String>(optionLocale));
       });
     });
 
     // Whenever the "true black" preference is toggled, apply the toggle
-    prefService.addKeyListener(optionThemeTrueBlack, () {
+    listen(optionThemeTrueBlack, () {
       setState(() {
         _trueBlack = prefService.get(optionThemeTrueBlack);
       });
     });
 
-    prefService.addKeyListener(optionThemeMode, () {
+    listen(optionThemeMode, () {
       setState(() {
         _themeMode = prefService.get(optionThemeMode);
       });
     });
 
-    prefService.addKeyListener(optionThemeColor, () {
+    listen(optionThemeColor, () {
       setState(() {
         _themeColor = prefService.get(optionThemeColor);
       });
     });
 
-    prefService.addKeyListener(optionDisableScreenshots, () {
+    listen(optionDisableScreenshots, () {
       setState(() {
         _isSecure = prefService.get(optionDisableScreenshots);
       });
     });
 
-    prefService.addKeyListener(optionTextScaleFactor, () {
+    listen(optionTextScaleFactor, () {
       setState(() {
-        _textScaleFactor = prefService.get<double?>(optionTextScaleFactor) ?? 1.0;
+        _textScaleFactor =
+            prefService.get<double?>(optionTextScaleFactor) ?? 1.0;
       });
     });
+  }
+
+  @override
+  void dispose() {
+    final service = _prefService;
+    if (service != null) {
+      for (final (:key, :listener) in _prefListeners) {
+        service.removeKeyListener(key, listener);
+      }
+    }
+    super.dispose();
   }
 
   @override
@@ -141,84 +183,96 @@ class _FritterAppState extends State<FritterApp> {
         break;
     }
 
-    final systemOverlayStyle = SystemUiOverlayStyle.dark.copyWith(systemNavigationBarColor: Colors.transparent);
-    SystemChrome.setSystemUIOverlayStyle(systemOverlayStyle);
     final systemScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
 
     return MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(_textScaleFactor * systemScaleFactor),
-        ),
-        child: DynamicColorBuilder(builder: (lightDynamic, darkDynamic) {
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(_textScaleFactor * systemScaleFactor),
+      ),
+      child: DynamicColorBuilder(
+        builder: (lightDynamic, darkDynamic) {
           return Portal(
-              child: MaterialApp(
-                  navigatorKey: _navigatorKey,
-                  localizationsDelegates: const [
-                    L10n.delegate,
-                    ...GlobalMaterialLocalizations.delegates,
-                  ],
-                  supportedLocales: L10n.delegate.supportedLocales,
-                  locale: _locale,
-                  title: 'QuaX',
-                  theme: buildAppTheme(
-                    colorScheme: _themeColor == 'accent'
-                        ? lightDynamic ??
-                            ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.light)
-                        : ColorScheme.fromSeed(
-                            seedColor: themeColors[_themeColor]!
-                                .harmonizeWith(lightDynamic?.primary ?? Colors.transparent),
-                            brightness: Brightness.light),
-                    trueBlack: _trueBlack,
-                    disableAnimations: _disableAnimations,
-                  ),
-                  darkTheme: buildAppTheme(
-                    colorScheme: (_themeColor == 'accent'
-                            ? darkDynamic
-                            : ColorScheme.fromSeed(
-                                seedColor: themeColors[_themeColor]!
-                                    .harmonizeWith(darkDynamic?.primary ?? Colors.transparent),
-                                brightness: Brightness.dark)) ??
-                        ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
-                    trueBlack: _trueBlack,
-                    disableAnimations: _disableAnimations,
-                  ),
-                  themeMode: themeMode,
-                  initialRoute: '/',
-                  routes: {
-                    routeHome: (context) => const DefaultPage(),
-                    routeGroup: (context) => const GroupScreen(),
-                    routeProfile: (context) => const ProfileScreen(),
-                    routeSearch: (context) => const ResultsScreen(),
-                    routeSavedFolders: (context) => const SavedFoldersScreen(),
-                    routeSettings: (context) => const SettingsScreen(),
-                    routeStatus: (context) => const StatusScreen(),
-                  },
-                  builder: (context, child) {
-                    if (_checkUpdates && !_updateDialogShown) {
-                      _updateDialogShown = true;
-                      // Use navigatorKey's context for showDialog
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        checkForUpdates(_navigatorKey.currentContext!);
-                      });
-                    }
-
-                    // Replace the default red screen of death with a slightly friendlier one
-                    ErrorWidget.builder = (FlutterErrorDetails details) => FullPageErrorWidget(
-                          error: details.exception,
-                          stackTrace: details.stack,
-                          prefix: L10n.of(context).something_broke_in_fritter,
-                        );
-
-                    return PrivacyShield(
-                      child: SecureContentScope(
-                        enabled: _isSecure,
-                        child: child ?? Container(),
+            child: MaterialApp(
+              navigatorKey: _navigatorKey,
+              localizationsDelegates: const [
+                L10n.delegate,
+                ...GlobalMaterialLocalizations.delegates,
+              ],
+              supportedLocales: L10n.delegate.supportedLocales,
+              locale: _locale,
+              title: 'QuaX',
+              theme: buildAppTheme(
+                colorScheme: _themeColor == 'accent'
+                    ? lightDynamic ??
+                          ColorScheme.fromSeed(
+                            seedColor: Colors.blue,
+                            brightness: Brightness.light,
+                          )
+                    : ColorScheme.fromSeed(
+                        seedColor: themeColors[_themeColor]!.harmonizeWith(
+                          lightDynamic?.primary ?? Colors.transparent,
+                        ),
+                        brightness: Brightness.light,
                       ),
+                trueBlack: _trueBlack,
+                disableAnimations: _disableAnimations,
+              ),
+              darkTheme: buildAppTheme(
+                colorScheme:
+                    (_themeColor == 'accent'
+                        ? darkDynamic
+                        : ColorScheme.fromSeed(
+                            seedColor: themeColors[_themeColor]!.harmonizeWith(
+                              darkDynamic?.primary ?? Colors.transparent,
+                            ),
+                            brightness: Brightness.dark,
+                          )) ??
+                    ColorScheme.fromSeed(
+                      seedColor: Colors.blue,
+                      brightness: Brightness.dark,
+                    ),
+                trueBlack: _trueBlack,
+                disableAnimations: _disableAnimations,
+              ),
+              themeMode: themeMode,
+              initialRoute: '/',
+              routes: {
+                routeHome: (context) => const DefaultPage(),
+                routeGroup: (context) => const GroupScreen(),
+                routeProfile: (context) => const ProfileScreen(),
+                routeSearch: (context) => const ResultsScreen(),
+                routeSavedFolders: (context) => const SavedFoldersScreen(),
+                routeSettings: (context) => const SettingsScreen(),
+                routeStatus: (context) => const StatusScreen(),
+              },
+              builder: (context, child) {
+                if (_checkUpdates && !_updateDialogShown) {
+                  _updateDialogShown = true;
+                  // Use navigatorKey's context for showDialog
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    checkForUpdates(_navigatorKey.currentContext!);
+                  });
+                }
+
+                // Replace the default red screen of death with a slightly friendlier one
+                ErrorWidget.builder = (FlutterErrorDetails details) =>
+                    FullPageErrorWidget(
+                      error: details.exception,
+                      stackTrace: details.stack,
+                      prefix: L10n.of(context).something_broke_in_fritter,
                     );
-                  },
-                ));
-        }));
+
+                return PrivacyShield(
+                  child: SecureContentScope(
+                    enabled: _isSecure,
+                    child: child ?? Container(),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
   }
 }
-
-

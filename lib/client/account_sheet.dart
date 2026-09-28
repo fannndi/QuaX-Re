@@ -36,13 +36,17 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
   void _openManager() {
     final navigator = Navigator.of(context);
     Navigator.pop(context);
-    navigator.push(MaterialPageRoute(builder: (_) => const SettingsAccountFragment()));
+    navigator.push(
+      MaterialPageRoute(builder: (_) => const SettingsAccountFragment()),
+    );
   }
 
   void _addAccount() {
     final navigator = Navigator.of(context);
     Navigator.pop(context);
-    navigator.push(MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
+    navigator.push(
+      MaterialPageRoute(builder: (_) => const TwitterLoginWebview()),
+    );
   }
 
   @override
@@ -52,7 +56,10 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
         future: _accounts,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+            return const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            );
           }
 
           final accounts = snapshot.data ?? [];
@@ -66,8 +73,14 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
                 ),
               for (final account in accounts)
                 ListTile(
-                  leading: Icon(account.isActive ? Icons.radio_button_checked : Icons.account_circle_outlined),
-                  title: Text(account.screenName ?? L10n.of(context).unknown_username),
+                  leading: Icon(
+                    account.isActive
+                        ? Icons.radio_button_checked
+                        : Icons.account_circle_outlined,
+                  ),
+                  title: Text(
+                    account.screenName ?? L10n.of(context).unknown_username,
+                  ),
                   selected: account.isActive,
                   onTap: () => _switch(account),
                 ),

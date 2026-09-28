@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:better_player_plus/better_player_plus.dart' hide VisibilityDetector, VisibilityInfo;
+import 'package:better_player_plus/better_player_plus.dart'
+    hide VisibilityDetector, VisibilityInfo;
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
@@ -31,7 +32,6 @@ const _videoCacheConfiguration = BetterPlayerCacheConfiguration(
   maxCacheSize: 256 * 1024 * 1024,
   maxCacheFileSize: 50 * 1024 * 1024,
 );
-
 
 class TweetVideo extends StatefulWidget {
   final String username;
@@ -78,7 +78,8 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   Timer? _pauseTimer;
   void Function(BetterPlayerEvent)? _onEvent;
 
-  String? get _cacheKey => widget.tweetId == null ? null : '${widget.tweetId}:${widget.mediaIndex}';
+  String? get _cacheKey =>
+      widget.tweetId == null ? null : '${widget.tweetId}:${widget.mediaIndex}';
 
   @override
   void initState() {
@@ -95,7 +96,8 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // With background playback off, pause when the app leaves the foreground.
     if (_prefBackground) return;
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       if (_pooled?.isPlaying ?? false) _pooled?.controller.pause();
     }
   }
@@ -136,8 +138,13 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     );
   }
 
-  Future<PooledVideo> _createPooled(bool prefLoop, bool startMuted, String quality,
-      int prefetchSeconds, bool mixWithOthers) async {
+  Future<PooledVideo> _createPooled(
+    bool prefLoop,
+    bool startMuted,
+    String quality,
+    int prefetchSeconds,
+    bool mixWithOthers,
+  ) async {
     // Read the prefs before any await: the local-library lookup below must not
     // touch the context afterwards.
     final prefs = PrefService.of(context, listen: false);
@@ -151,7 +158,10 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     // by the auto-cache plays from the cache: same file, no network, works
     // offline (the tweet itself carries its thumbnail).
     final library = LibraryModel(prefs);
-    final localPath = (downloadUrl == null ? null : await library.localPathFor(downloadUrl)) ??
+    final localPath =
+        (downloadUrl == null
+            ? null
+            : await library.localPathFor(downloadUrl)) ??
         await library.localPathFor(streamUrl) ??
         await VideoCache().localPathFor(downloadUrl ?? streamUrl);
 
@@ -159,12 +169,14 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
         ? const BetterPlayerControlsConfiguration(showControls: false)
         : BetterPlayerControlsConfiguration(
             playerTheme: BetterPlayerTheme.custom,
-            customControlsBuilder: (controller, onControlsVisibilityChanged, config) => QuaxControls(
-              controller: controller,
-              username: username,
-              qualities: qualities,
-              downloadUrl: downloadUrl,
-            ),
+            customControlsBuilder:
+                (controller, onControlsVisibilityChanged, config) =>
+                    QuaxControls(
+                      controller: controller,
+                      username: username,
+                      qualities: qualities,
+                      downloadUrl: downloadUrl,
+                    ),
           );
 
     final configuration = BetterPlayerConfiguration(
@@ -214,9 +226,17 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final prefs = PrefService.of(context, listen: false);
     final startMuted = context.read<VideoContextState>().isMuted;
     final quality = prefs.get(optionMediaVideoQuality);
-    final prefetchSeconds = prefs.get<int>(optionMediaVideoPrefetchSeconds) ?? 0;
-    final mixWithOthers = prefs.get<bool>(optionMediaAllowBackgroundPlayOtherApps) ?? false;
-    create() => _createPooled(prefLoop, startMuted, quality, prefetchSeconds, mixWithOthers);
+    final prefetchSeconds =
+        prefs.get<int>(optionMediaVideoPrefetchSeconds) ?? 0;
+    final mixWithOthers =
+        prefs.get<bool>(optionMediaAllowBackgroundPlayOtherApps) ?? false;
+    create() => _createPooled(
+      prefLoop,
+      startMuted,
+      quality,
+      prefetchSeconds,
+      mixWithOthers,
+    );
 
     final key = _cacheKey;
     final pool = _pool;
@@ -271,7 +291,9 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
         case BetterPlayerEventType.hideFullscreen:
           // Leaving fullscreen, the player disables the wakelock itself even
           // though playback goes on inline, so put it back once it has.
-          WidgetsBinding.instance.addPostFrameCallback((_) => VideoWakelock.reapply());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => VideoWakelock.reapply(),
+          );
           break;
         case BetterPlayerEventType.setVolume:
           final volume = event.parameters?['volume'] as double?;
@@ -344,7 +366,9 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final prefs = PrefService.of(context, listen: false);
     if (!(prefs.get<bool>(optionAutoCacheVideos) ?? false)) return;
 
-    unawaited(cacheVideoAhead(urls: widget.metadata.streamUrlsBuilder, prefs: prefs));
+    unawaited(
+      cacheVideoAhead(urls: widget.metadata.streamUrlsBuilder, prefs: prefs),
+    );
   }
 
   Future<void> _restartVideo() async {
@@ -373,7 +397,8 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   /// Poster/thumbnail images are drawn at card width, and there are three of
   /// them per tile (the poster, the play-button cover and the loading cover):
   /// decoding the source resolution for each wastes memory in every feed.
-  int get _posterCacheWidth => decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
+  int get _posterCacheWidth =>
+      decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
 
   Widget _buildVideo(PooledVideo pooled) {
     final video = BetterPlayer(controller: pooled.controller);
@@ -393,15 +418,22 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
             opacity: _firstFrameRendered ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 200),
             onEnd: () {
-              if (_firstFrameRendered && !_posterGone) setState(() => _posterGone = true);
+              if (_firstFrameRendered && !_posterGone) {
+                setState(() => _posterGone = true);
+              }
             },
             child: Stack(
               fit: StackFit.expand,
               alignment: Alignment.center,
               children: [
                 if (widget.metadata.imageUrl != null)
-                  Image.network(widget.metadata.imageUrl!, fit: BoxFit.cover, cacheWidth: _posterCacheWidth),
-                if (!widget.disableControls) const Center(child: CircularProgressIndicator()),
+                  Image.network(
+                    widget.metadata.imageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: _posterCacheWidth,
+                  ),
+                if (!widget.disableControls)
+                  const Center(child: CircularProgressIndicator()),
                 // A GIF shown static (still buffering, or no decoder available)
                 // gets a "GIF" label; it fades out with the poster once it plays.
                 if (widget.disableControls)
@@ -424,7 +456,10 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final key = _cacheKey;
     final alreadyCached = key != null && (_pool?.contains(key) ?? false);
 
-    if (!prefAutoPlay && !widget.alwaysPlay && !_userRequestedPlay && !alreadyCached) {
+    if (!prefAutoPlay &&
+        !widget.alwaysPlay &&
+        !_userRequestedPlay &&
+        !alreadyCached) {
       return GestureDetector(
         onTap: () => setState(() => _userRequestedPlay = true),
         child: AspectRatio(
@@ -434,8 +469,12 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
             children: [
               if (widget.metadata.imageUrl != null)
                 Positioned.fill(
-                    child: Image.network(widget.metadata.imageUrl!,
-                        fit: BoxFit.cover, cacheWidth: _posterCacheWidth)),
+                  child: Image.network(
+                    widget.metadata.imageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: _posterCacheWidth,
+                  ),
+                ),
               FritterCenterPlayButton(
                 backgroundColor: Colors.black54,
                 iconColor: Colors.white,
@@ -469,8 +508,12 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
               children: [
                 if (widget.metadata.imageUrl != null)
                   Positioned.fill(
-                      child: Image.network(widget.metadata.imageUrl!,
-                          fit: BoxFit.cover, cacheWidth: _posterCacheWidth)),
+                    child: Image.network(
+                      widget.metadata.imageUrl!,
+                      fit: BoxFit.cover,
+                      cacheWidth: _posterCacheWidth,
+                    ),
+                  ),
                 const CircularProgressIndicator(),
               ],
             ),
@@ -490,7 +533,11 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.white, size: 48),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.white,
+                        size: 48,
+                      ),
                       const SizedBox(height: 12),
                       Text(L10n.of(context).failed_to_load_video),
                       const SizedBox(height: 12),
@@ -511,8 +558,10 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
           child: hasVideo
               ? VisibilityDetector(
                   key: _visibilityKey,
-                  onVisibilityChanged: (info) => _onVisibilityChanged(info, pooled),
-                  child: _buildVideo(pooled))
+                  onVisibilityChanged: (info) =>
+                      _onVisibilityChanged(info, pooled),
+                  child: _buildVideo(pooled),
+                )
               : const SizedBox.shrink(),
         );
       },
@@ -548,4 +597,3 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     super.dispose();
   }
 }
-

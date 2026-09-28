@@ -18,10 +18,33 @@ const libraryFolderName = 'QuaXLibrary';
 const MethodChannel _storageChannel = MethodChannel('browser_resolver');
 
 const _videoExtensions = [
-  '.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi', '.ts', '.3gp', '.mpeg', '.mpg', '.wmv', '.flv',
-  '.m2ts', '.ogv'
+  '.mp4',
+  '.mov',
+  '.webm',
+  '.mkv',
+  '.m4v',
+  '.avi',
+  '.ts',
+  '.3gp',
+  '.mpeg',
+  '.mpg',
+  '.wmv',
+  '.flv',
+  '.m2ts',
+  '.ogv',
 ];
-const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif', '.avif', '.tiff'];
+const _imageExtensions = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.bmp',
+  '.heic',
+  '.heif',
+  '.avif',
+  '.tiff',
+];
 
 const _mimeTypes = {
   '.mp4': 'video/mp4',
@@ -57,8 +80,8 @@ class LibraryEntry {
   final DateTime modified;
 
   LibraryEntry(this.file, this.isVideo, {this.size = 0, DateTime? modified})
-      : name = p.basename(file.path),
-        modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
+    : name = p.basename(file.path),
+      modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   final String name;
 
@@ -69,7 +92,11 @@ class LibraryEntry {
 /// left) the gallery, [remaining] says how many rows stayed behind in the
 /// media database after hiding (0 means fully hidden).
 class GalleryVisibilityResult {
-  const GalleryVisibilityResult({required this.ok, this.affected = 0, this.remaining = 0});
+  const GalleryVisibilityResult({
+    required this.ok,
+    this.affected = 0,
+    this.remaining = 0,
+  });
 
   static const failed = GalleryVisibilityResult(ok: false);
 
@@ -92,7 +119,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   /// Whether the library is listed by gallery apps: true means the `.nomedia`
   /// marker is gone.
-  bool get galleryVisible => prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
+  bool get galleryVisible =>
+      prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
 
   /// Live toggle for the gallery apps: drops/creates the `.nomedia` marker and
   /// asks Android to rescan the folder, so the videos appear or disappear from
@@ -104,10 +132,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     if (path.isEmpty) return GalleryVisibilityResult.failed;
 
     try {
-      final outcome = await _storageChannel.invokeMapMethod<String, dynamic>('setGalleryVisibility', {
-        'path': path,
-        'visible': visible,
-      });
+      final outcome = await _storageChannel.invokeMapMethod<String, dynamic>(
+        'setGalleryVisibility',
+        {'path': path, 'visible': visible},
+      );
       if (outcome == null) return GalleryVisibilityResult.failed;
 
       prefs.set<bool>(optionLibraryVisibleInGallery, visible);
@@ -126,15 +154,26 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// viewer's poster, so a downloaded clip never shows as a black frame.
   Future<String?> thumbnailFor(LibraryEntry entry) async {
     try {
-      final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      final cacheDir = Directory(
+        p.join((await getTemporaryDirectory()).path, 'thumbs'),
+      );
       await cacheDir.create(recursive: true);
-      final cached = File(p.join(cacheDir.path, '${p.basenameWithoutExtension(entry.file.path)}.jpg'));
+      // The source extension is part of the key: foo.mp4 and foo.mov would
+      // otherwise share one thumb and show whichever was generated first.
+      final cached = File(
+        p.join(
+          cacheDir.path,
+          '${p.basenameWithoutExtension(entry.file.path)}${p.extension(entry.file.path)}.jpg',
+        ),
+      );
       if (await cached.exists()) {
         return cached.path;
       }
 
-      return await _storageChannel.invokeMethod<String>('videoThumbnail',
-          {'path': entry.file.path, 'outPath': cached.path});
+      return await _storageChannel.invokeMethod<String>('videoThumbnail', {
+        'path': entry.file.path,
+        'outPath': cached.path,
+      });
     } on Exception {
       return null;
     }
@@ -176,7 +215,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     final extension = p.extension(name).toLowerCase();
     for (final entry in _localNames.entries) {
       if (p.extension(entry.key).toLowerCase() != extension) continue;
-      if (p.basenameWithoutExtension(entry.key).toLowerCase().startsWith('$stem-')) {
+      if (p
+          .basenameWithoutExtension(entry.key)
+          .toLowerCase()
+          .startsWith('$stem-')) {
         return entry.value;
       }
     }
@@ -189,7 +231,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// Library files whose name contains [query]. Downloads are named
   /// `handle-<media id>.ext`, so searching an account finds the media taken
   /// from it without any network request.
-  Future<List<LibraryEntry>> searchByName(String query, {int limit = 30}) async {
+  Future<List<LibraryEntry>> searchByName(
+    String query, {
+    int limit = 30,
+  }) async {
     final needle = query.trim().toLowerCase();
     if (needle.isEmpty || libraryPath.isEmpty) return const [];
 
@@ -199,7 +244,12 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     for (final entry in _localNames.entries) {
       if (!entry.key.toLowerCase().contains(needle)) continue;
 
-      matches.add(LibraryEntry(File(entry.value), _videoExtensions.contains(p.extension(entry.key).toLowerCase())));
+      matches.add(
+        LibraryEntry(
+          File(entry.value),
+          _videoExtensions.contains(p.extension(entry.key).toLowerCase()),
+        ),
+      );
       if (matches.length >= limit) break;
     }
     return matches;
@@ -207,14 +257,19 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   Future<void> _buildNameIndexIfStale() async {
     final now = DateTime.now();
-    if (_localNames.isNotEmpty && now.difference(_namesBuiltAt).inMinutes < 5) return;
+    if (_localNames.isNotEmpty && now.difference(_namesBuiltAt).inMinutes < 5) {
+      return;
+    }
 
     _namesBuiltAt = now;
     _localNames.clear();
     try {
       final dir = Directory(libraryPath);
       if (!await dir.exists()) return;
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File) _localNames[p.basename(entity.path)] = entity.path;
       }
     } catch (_) {
@@ -229,7 +284,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// plain file API cannot write to — most often the SD card without Android's
   /// all-files-access grant (Hentoid solves it with SAF; this fork opens the
   /// all-files-access screen instead of carrying a whole SAF tree).
-  Future<bool> setupLibraryAt(String pickedPath, {ValueNotifier<String?>? error}) {
+  Future<bool> setupLibraryAt(
+    String pickedPath, {
+    ValueNotifier<String?>? error,
+  }) {
     return _configureAt(pickedPath, error: error);
   }
 
@@ -243,9 +301,14 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     return _configureAt(picked, error: error);
   }
 
-  Future<bool> _configureAt(String pickedPath, {ValueNotifier<String?>? error}) async {
+  Future<bool> _configureAt(
+    String pickedPath, {
+    ValueNotifier<String?>? error,
+  }) async {
     try {
-      final granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      final granted = await _storageChannel.invokeMethod<bool>(
+        'hasAllFilesAccess',
+      );
       if (granted != true) {
         await _storageChannel.invokeMethod('requestAllFilesAccess');
         error?.value = 'storage_permission_needed';
@@ -317,9 +380,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
         // Keep copies of the same basename alive: prefix with the timestamp.
         if (await File(target).exists()) {
           target = p.join(
-              libraryPath,
-              '${p.basenameWithoutExtension(entity.path)}-${DateTime.now().millisecondsSinceEpoch}'
-              '${p.extension(entity.path)}');
+            libraryPath,
+            '${p.basenameWithoutExtension(entity.path)}-${DateTime.now().millisecondsSinceEpoch}'
+            '${p.extension(entity.path)}',
+          );
         }
         await entity.copy(target);
         await entity.delete();
@@ -350,7 +414,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   bool _isMedia(String path) {
     final extension = p.extension(path).toLowerCase();
-    return _imageExtensions.contains(extension) || _videoExtensions.contains(extension);
+    return _imageExtensions.contains(extension) ||
+        _videoExtensions.contains(extension);
   }
 
   Future<void> refresh() async {
@@ -362,7 +427,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
       final entries = <LibraryEntry>[];
       // Recursive: imported libraries (or files the user nested) still show up.
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File) continue;
         final extension = p.extension(entity.path).toLowerCase();
         final isVideo = _videoExtensions.contains(extension);
@@ -377,7 +445,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
         } catch (_) {
           // Unreadable file: keep it listed with empty metadata.
         }
-        entries.add(LibraryEntry(entity, isVideo, size: size, modified: modified));
+        entries.add(
+          LibraryEntry(entity, isVideo, size: size, modified: modified),
+        );
       }
 
       entries.sort((a, b) => b.modified.compareTo(a.modified));
