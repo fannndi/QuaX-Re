@@ -62,6 +62,37 @@ class SavedTweet with ToMappable {
   }
 }
 
+/// One archived chain of the always-new home: everything the For You and
+/// Following feeds have loaded, kept in full so the Offline tab can replay it
+/// (and the feeds can hide it once it has been seen in an earlier session).
+class CachedTweet with ToMappable {
+  final String id;
+  final String? userId;
+  final String source;
+  final String content;
+
+  CachedTweet({
+    required this.id,
+    required this.userId,
+    required this.source,
+    required this.content,
+  });
+
+  factory CachedTweet.fromMap(Map<String, Object?> map) {
+    return CachedTweet(
+      id: map['id'] as String,
+      userId: map['user_id'] as String?,
+      source: map['source'] as String,
+      content: map['content'] as String,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {'id': id, 'user_id': userId, 'source': source, 'content': content};
+  }
+}
+
 class LikedTweet with ToMappable {
   final String id;
   final String? user;

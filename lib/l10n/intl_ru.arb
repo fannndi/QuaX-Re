@@ -1,5 +1,4 @@
 {
-  "@@locale": "ru",
   "accessibility": "Специальные возможности",
   "@accessibility": {},
   "account": "Аккаунты",
@@ -631,5 +630,34 @@
         "type": "String"
       }
     }
+  },
+  "@@locale": "ru",
+  "offline": "Offline",
+  "@offline": {
+    "description": "The bottom navigation tab that replays the cached home posts"
+  },
+  "no_new_posts": "No new posts",
+  "@no_new_posts": {
+    "description": "Home empty state when every loaded post is already archived"
+  },
+  "no_new_posts_details": "Posts you have already seen live in the archive. New ones appear here as soon as they arrive.",
+  "@no_new_posts_details": {
+    "description": "Explains where the seen posts went"
+  },
+  "open_archive": "Open the archive",
+  "@open_archive": {
+    "description": "The home empty state button that opens the Offline tab"
+  },
+  "archive_empty": "Nothing archived yet",
+  "@archive_empty": {
+    "description": "Offline tab empty state"
+  },
+  "clear_cached_posts": "Clear the archive",
+  "@clear_cached_posts": {
+    "description": "Offline tab button that removes the source's cached posts"
+  },
+  "cached_posts_cleared": "Archive cleared",
+  "@cached_posts_cleared": {
+    "description": "Snack bar after the archive was cleared"
   }
 }

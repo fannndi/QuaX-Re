@@ -6,7 +6,6 @@ import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/home/_following.dart';
 import 'package:quax/home/_for_you.dart';
-import 'package:quax/home/home_events.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/_feed_shell.dart';
@@ -64,29 +63,8 @@ class _FeedScreenState extends State<FeedScreen>
     // feeds instead of merging the new first page on top of the previous
     // login's posts.
     accountsRevision.addListener(_onAccountsChanged);
-    // Coming back to the Home tab after a while refreshes the active feed once,
-    // keeping the return just as fresh as a resume.
-    homeFeedSelected.addListener(_onHomeSelected);
-  }
-
-  DateTime _lastAutoRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
-
-  void _onHomeSelected() {
-    if (DateTime.now().difference(_lastAutoRefreshAt) <
-        const Duration(minutes: 1)) {
-      return;
-    }
-
-    final controller = _tabController;
-    if (controller == null) return;
-    final feed = controller.index == 0 ? _foryouFeed : _followingFeed;
-    if (!feed.hasItems) return;
-
-    // Stamped after the refresh attempt, not before: softRefresh is silent
-    // about failures, and stamping early would suppress a retry for a minute
-    // whenever the first attempt ran offline.
-    _lastAutoRefreshAt = DateTime.now();
-    feed.softRefresh();
+    // The always-new home fetches once per app open — no auto refresh when the
+    // Home tab is reselected (the next fetch is the next launch).
   }
 
   void _onAccountsChanged() {
@@ -112,7 +90,6 @@ class _FeedScreenState extends State<FeedScreen>
   @override
   void dispose() {
     accountsRevision.removeListener(_onAccountsChanged);
-    homeFeedSelected.removeListener(_onHomeSelected);
     _tabController?.dispose();
     _followingFeed.dispose();
     _foryouFeed.dispose();
@@ -153,11 +130,13 @@ class _FeedScreenState extends State<FeedScreen>
         controller: tabController,
         tabs: feedTabs.map((e) => Tab(text: e.titleBuilder(context))).toList(),
         onTap: (index) {
-          // Tapping the already-active tab refreshes that feed (X-style).
+          // Tapping the already-active tab scrolls back to the top (the
+          // always-new home does not reload mid-session).
           if (index != tabController.index || tabController.indexIsChanging) {
             return;
           }
-          (index == 0 ? _foryouFeed : _followingFeed).softRefresh();
+          final feed = index == 0 ? _foryouFeed : _followingFeed;
+          feed.scrollToTop();
         },
       ),
       actionsBuilder: (context) {
@@ -169,7 +148,16 @@ class _FeedScreenState extends State<FeedScreen>
           model: model,
           showMore: false,
           showSettings: false,
+          // No refresh button: the home fetches once per app open. The Like
+          // screen (local likes, Saved, profile likes, bookmarks) lives here
+          // instead — the navbar slot became the Offline archive.
+          showRefresh: false,
           extra: [
+            IconButton(
+              icon: const Icon(Icons.favorite_border),
+              tooltip: L10n.of(context).likes,
+              onPressed: () => Navigator.pushNamed(context, routeLikes),
+            ),
             IconButton(
               icon: const Icon(Icons.search),
               onPressed: () => Navigator.pushNamed(

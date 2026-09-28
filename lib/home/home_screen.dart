@@ -1,12 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/cached/cached_screen.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_badge.dart';
 import 'package:quax/downloads/downloads_screen.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/home/_feed.dart';
 import 'package:quax/home/home_events.dart';
-import 'package:quax/likes/likes_screen.dart';
 
 typedef NavigationTitleBuilder = String Function(BuildContext context);
 
@@ -19,9 +19,10 @@ class NavigationPage {
   NavigationPage(this.id, this.titleBuilder, this.icon, this.selectedIcon);
 }
 
-/// The fork's whole navigation: Download, Home (For You / Following) and Like,
-/// with Home centered like a home button. Settings and search live in the
-/// screen app bars — the app stays three tabs wide.
+/// The fork's whole navigation: Download, Home (For You / Following) and the
+/// Offline archive, with Home centered like a home button. Settings and search
+/// live in the screen app bars — the app stays three tabs wide. The Like
+/// screen moved to a route (the home app bar's heart).
 final List<NavigationPage> defaultHomePages = [
   NavigationPage(
     'downloads',
@@ -36,10 +37,10 @@ final List<NavigationPage> defaultHomePages = [
     const Icon(Icons.home),
   ),
   NavigationPage(
-    'likes',
-    (c) => L10n.of(c).likes,
-    const Icon(Icons.favorite_border_outlined),
-    const Icon(Icons.favorite),
+    'offline',
+    (c) => L10n.of(c).offline,
+    const Icon(Icons.offline_pin_outlined),
+    const Icon(Icons.offline_pin),
   ),
 ];
 
@@ -90,8 +91,8 @@ class _HomeScreenState extends State<_HomeScreen> {
                 prefs: widget.prefs,
                 scrollController: scrollControllers[index]!,
               );
-            case 'likes':
-              return LikesScreen(scrollController: scrollControllers[index]!);
+            case 'offline':
+              return CachedScreen(scrollController: scrollControllers[index]);
             default:
               return const SizedBox.shrink();
           }
@@ -135,6 +136,18 @@ class _ScaffoldWithBottomNavigationState
     for (int i = 0; i < widget.pages.length; i++) {
       _scrollControllers[i] = ScrollController();
     }
+    // The home's empty state offers the archive: animate to the Offline page.
+    offlineTabRequest.addListener(_onOfflineRequested);
+  }
+
+  void _onOfflineRequested() {
+    final index = widget.pages.indexWhere((page) => page.id == 'offline');
+    if (index < 0 || !_pageController.hasClients) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -231,6 +244,7 @@ class _ScaffoldWithBottomNavigationState
 
   @override
   void dispose() {
+    offlineTabRequest.removeListener(_onOfflineRequested);
     _pageController.dispose();
     for (final controller in _scrollControllers.values) {
       controller.dispose();

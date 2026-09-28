@@ -102,3 +102,6 @@ const routeSearch = '/search';
 const routeSavedFolders = '/saved/folders';
 const routeSettings = '/settings';
 const routeStatus = '/status';
+// The Like screen lives in the bottom navigation historically; the navbar slot
+// became the Offline archive, so the home app bar's heart opens it as a route.
+const routeLikes = '/likes';

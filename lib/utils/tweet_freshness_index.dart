@@ -27,6 +27,18 @@ class TweetFreshnessIndex {
 
   bool get isLoaded => _loaded;
 
+  /// Clears the module state between tests: the next [load] re-reads whatever
+  /// the mock store holds.
+  @visibleForTesting
+  Future<void> resetForTests() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _loaded = false;
+    _baseline = {};
+    _seenNow.clear();
+    revision.value++;
+  }
+
   /// Call once at startup, before the feeds load.
   Future<void> load() async {
     if (_loaded) return;
@@ -44,6 +56,21 @@ class TweetFreshnessIndex {
   /// Whether the tweet arrived after this app launch: not part of the snapshot
   /// taken when the app last ran.
   bool isNew(String? id) => id != null && _loaded && !_baseline.contains(id);
+
+  /// The always-new home's filter: the tweet was already loaded in an earlier
+  /// session (or before a reload closed the round), so it belongs in the
+  /// Offline tab instead of the home.
+  bool isCached(String? id) => id != null && _loaded && _baseline.contains(id);
+
+  /// Writes the snapshot now, instead of waiting out the debounce. Called when
+  /// the app leaves the foreground, so exiting right after loading cannot lose
+  /// the session's marks.
+  Future<void> flush() async {
+    if (!_loaded) return;
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    await _save();
+  }
 
   /// Registers the ids the current session has loaded; they are merged into the
   /// snapshot (debounced), so next launch they count as old.

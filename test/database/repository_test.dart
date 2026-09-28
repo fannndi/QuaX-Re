@@ -68,6 +68,7 @@ void main() {
         tableSavedTweet,
         tableSavedTweetFolder,
         tableLikedTweet,
+        tableCachedTweet,
         tableFeedGroupChunk,
         tableFeedGroupCursor,
         tableAccounts,
@@ -91,7 +92,7 @@ void main() {
 
       expect(
         version,
-        29,
+        30,
         reason:
             'The version has to match the last migration step, otherwise the next app launch '
             'replays steps on top of a schema that already has them and the ALTERs fail',

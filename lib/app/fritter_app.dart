@@ -11,6 +11,7 @@ import 'package:flutter_portal/flutter_portal.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/group_screen.dart';
+import 'package:quax/likes/likes_screen.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/saved_folders_screen.dart';
 import 'package:quax/search/search.dart';
@@ -238,6 +239,7 @@ class _FritterAppState extends State<FritterApp> {
               initialRoute: '/',
               routes: {
                 routeHome: (context) => const DefaultPage(),
+                routeLikes: (context) => const LikesScreen.asRoute(),
                 routeGroup: (context) => const GroupScreen(),
                 routeProfile: (context) => const ProfileScreen(),
                 routeSearch: (context) => const ResultsScreen(),

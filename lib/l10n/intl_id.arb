@@ -631,5 +631,33 @@
   "you_have_not_saved_any_tweets_yet": "Anda belum menyimpan cuitan apa pun!",
   "@you_have_not_saved_any_tweets_yet": {},
   "your_profile_must_be_public_otherwise_the_import_will_not_work": "Profil Anda harus publik, jika tidak impor tidak akan bekerja",
-  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {}
+  "@your_profile_must_be_public_otherwise_the_import_will_not_work": {},
+  "offline": "Offline",
+  "@offline": {
+    "description": "The bottom navigation tab that replays the cached home posts"
+  },
+  "no_new_posts": "Tidak ada postingan baru",
+  "@no_new_posts": {
+    "description": "Home empty state when every loaded post is already archived"
+  },
+  "no_new_posts_details": "Postingan yang sudah kamu lihat tersimpan di arsip. Yang baru akan muncul di sini begitu ada.",
+  "@no_new_posts_details": {
+    "description": "Explains where the seen posts went"
+  },
+  "open_archive": "Buka arsip",
+  "@open_archive": {
+    "description": "The home empty state button that opens the Offline tab"
+  },
+  "archive_empty": "Belum ada arsip",
+  "@archive_empty": {
+    "description": "Offline tab empty state"
+  },
+  "clear_cached_posts": "Bersihkan arsip",
+  "@clear_cached_posts": {
+    "description": "Offline tab button that removes the source's cached posts"
+  },
+  "cached_posts_cleared": "Arsip dibersihkan",
+  "@cached_posts_cleared": {
+    "description": "Snack bar after the archive was cleared"
+  }
 }

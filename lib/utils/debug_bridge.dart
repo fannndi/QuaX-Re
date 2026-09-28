@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/cached/cached_tweets_model.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/rate_limit_tracker.dart';
 import 'package:quax/database/repository.dart';
@@ -267,6 +268,7 @@ class DebugBridge {
       'downloads': await _guard(_downloadsSection),
       'videoCache': await _guard(_videoCacheSection),
       'freshness': await _guard(_freshnessSection),
+      'cachedTweets': await _guard(_cachedTweetsSection),
       'logs': logs(),
     };
   }
@@ -346,6 +348,16 @@ class DebugBridge {
   Future<Map<String, dynamic>> _freshnessSection() async {
     final index = TweetFreshnessIndex();
     return {'loaded': index.isLoaded};
+  }
+
+  /// The always-new home's archive, per source: lets an agent verify that an
+  /// empty home tab is genuinely "everything is archived", not a filter bug.
+  Future<Map<String, dynamic>> _cachedTweetsSection() async {
+    final bySource = await CachedTweetModel().counts();
+    return {
+      'sources': bySource,
+      'total': bySource.values.fold(0, (a, b) => a + b),
+    };
   }
 
   Map<String, dynamic> _prefSection() {

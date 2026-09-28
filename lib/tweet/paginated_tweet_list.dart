@@ -28,6 +28,9 @@ typedef TweetPageLoader = Future<TweetPageResult> Function(String? cursor);
 class TweetFeedController {
   late final CursorPagingController<String, TweetChain> _paging;
   TweetPageLoader? _loader;
+  // Set by the list widget: jumps back to the top when the reader re-taps the
+  // active tab (the always-new home does not reload mid-session).
+  Future<void> Function()? _scrollToTop;
 
   /// Chronological feeds (Following) merge a refreshed first page on top of
   /// what is already loaded; a refresh must never shorten the feed to just the
@@ -41,6 +44,12 @@ class TweetFeedController {
   PagingController<int, TweetChain> get controller => _paging.pagingController;
 
   set loader(TweetPageLoader loader) => _loader = loader;
+
+  set scrollToTopHandler(Future<void> Function()? handler) =>
+      _scrollToTop = handler;
+
+  /// Jumps back to the top of the list, if a list is attached right now.
+  Future<void> scrollToTop() => _scrollToTop?.call() ?? Future.value();
 
   bool get hasItems => _paging.items != null;
 
@@ -163,6 +172,12 @@ class PaginatedTweetList extends StatefulWidget {
   final List<TweetChain>? firstPagePreview;
   // Remembers the scroll offset across app restarts, per feed.
   final String? scrollKey;
+  // Replaces the plain "nothing here" text when the feed is legitimately
+  // empty — the home feeds offer the archive from here.
+  final Widget Function(BuildContext context)? emptyBuilder;
+  // Coming back to the app after a while quietly refreshes the timeline. The
+  // home feeds fetch once per app open instead, so they opt out.
+  final bool refreshOnResume;
 
   const PaginatedTweetList({
     super.key,
@@ -175,6 +190,8 @@ class PaginatedTweetList extends StatefulWidget {
     this.onRefresh,
     this.firstPagePreview,
     this.scrollKey,
+    this.emptyBuilder,
+    this.refreshOnResume = true,
   });
 
   @override
@@ -217,6 +234,9 @@ class _PaginatedTweetListState extends State<PaginatedTweetList>
   void initState() {
     super.initState();
     widget.feed.loader = widget.loadPage;
+    // The tab re-tap scrolls to the top through the controller, which survives
+    // across widget remounts.
+    widget.feed.scrollToTopHandler = _jumpToTop;
     // While we show the cached preview the PagedListView isn't mounted, so it
     // can't trigger the first page itself — we rebuild to swap it in once items
     // arrive, so listen for that.
@@ -252,6 +272,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList>
   void didUpdateWidget(PaginatedTweetList oldWidget) {
     super.didUpdateWidget(oldWidget);
     widget.feed.loader = widget.loadPage;
+    widget.feed.scrollToTopHandler = _jumpToTop;
     if (!identical(oldWidget.feed, widget.feed)) {
       oldWidget.feed.controller.removeListener(_onControllerChanged);
       _controller.addListener(_onControllerChanged);
@@ -274,9 +295,21 @@ class _PaginatedTweetListState extends State<PaginatedTweetList>
     super.dispose();
   }
 
+  /// The controller outlives the widget (cached across mounts): a re-tap after
+  /// dispose must be a no-op instead of touching a dead scroll position.
+  Future<void> _jumpToTop() async {
+    if (!mounted || !_scrollController.hasClients) return;
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
+    if (!widget.refreshOnResume) return;
     if (!NetworkStatus().online.value) return;
 
     final items = _controller.value.items;
@@ -628,6 +661,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList>
             onRetry: fetchNextPage,
           ),
           noItemsFoundIndicatorBuilder: (context) =>
+              widget.emptyBuilder?.call(context) ??
               Center(child: Text(widget.emptyMessage)),
         ),
       ),

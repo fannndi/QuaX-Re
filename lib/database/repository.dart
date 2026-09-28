@@ -15,6 +15,7 @@ const String tableFeedGroupCursor = 'feed_group_cursor';
 const String tableSavedTweet = 'saved_tweet';
 const String tableSavedTweetFolder = 'saved_tweet_folder';
 const String tableLikedTweet = 'liked_tweet';
+const String tableCachedTweet = 'cached_tweet';
 const String tableSearchSubscription = 'search_subscription';
 const String tableSearchSubscriptionGroupMember =
     'search_subscription_group_member';
@@ -412,10 +413,28 @@ class Repository {
           'CREATE INDEX IF NOT EXISTS idx_feed_group_chunk_cursor ON $tableFeedGroupChunk (cursor_id)',
         ),
       ],
+      30: [
+        // The always-new home: every chain the home feeds load is archived
+        // here (full tweet JSON), so the Offline tab can replay it and the
+        // home feeds can hide anything seen in an earlier session. No pruning:
+        // the archive grows until the reader clears it per tab.
+        SqlMigration(
+          'CREATE TABLE IF NOT EXISTS $tableCachedTweet (id VARCHAR PRIMARY KEY, user_id VARCHAR, source VARCHAR NOT NULL, content TEXT NOT NULL, cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+          reverseSql: 'DROP TABLE $tableCachedTweet',
+        ),
+        SqlMigration(
+          'CREATE INDEX IF NOT EXISTS idx_cached_tweet_at ON $tableCachedTweet (cached_at)',
+          reverseSql: 'DROP INDEX idx_cached_tweet_at',
+        ),
+        SqlMigration(
+          'CREATE INDEX IF NOT EXISTS idx_cached_tweet_source ON $tableCachedTweet (source, cached_at)',
+          reverseSql: 'DROP INDEX idx_cached_tweet_source',
+        ),
+      ],
     });
     await openDatabase(
       databaseName,
-      version: 29,
+      version: 30,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
       onDowngrade: myMigrationPlan.call,

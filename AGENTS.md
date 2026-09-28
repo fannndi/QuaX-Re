@@ -125,9 +125,21 @@ continues without the header for a 2-minute backoff — request failures should 
 
 - Personal fork (fannndi/QuaX-Re); upstream CI/agent tooling (`.github/`, `.claude/`, `docs/`,
   `fastlane/`, release scripts) is removed on purpose. `master` tracks upstream for inspection.
-- Three navbar tabs: Home (For You / Following) / Download (queue / gallery) / Like (local likes /
-  Saved / profile likes / bookmarks). Settings is behind the gear in the home app bar; the bell
-  opens the notifications screen; search shares the same app bar.
+- Three navbar tabs: Home (For You / Following) / Download (queue / gallery) / Offline (the
+  always-new home's archive). The Like screen (local likes / Saved / profile likes / bookmarks)
+  moved to a route opened by the heart in the home app bar — the reload button it replaced was
+  removed: the home fetches once per app open and never reloads mid-session. Settings is behind
+  the gear in the home app bar; the bell opens the notifications screen; search shares the same
+  app bar.
+- The always-new home: every chain the home feeds load is archived (upsert by id, full chain JSON)
+  into `cached_tweet` (`CachedTweetModel`, migration 30) and its id is written into
+  `TweetFreshnessIndex`; `isCached(id)` (= seen in an earlier session) filters the home down to
+  brand-new posts, and pages are drained (max 6 raw pages per load) until a fresh post appears.
+  The session boundary is `AppLifecycleState.paused` → `TweetFreshnessIndex().flush()`, so a fast
+  exit cannot lose the marks. Empty home tabs explain themselves and offer the Offline tab
+  (`offlineTabRequest` notifier animates the navbar there). The Offline tab replays the archive
+  per source with a Clear button (no pruning — it grows until cleared). `seenTweetIds` still tells
+  X's ranked feed what is on screen.
 - The Following tab uses `HomeLatestTimeline` (`getHomeLatestTimeline`). Its queryId is
   community-tracked — on 404s update the constant or re-record with `tool/record/`.
 - Account switching is a hard reset, never a refresh: `accountsRevision` (bumped only by a real
@@ -150,8 +162,10 @@ continues without the header for a 2-minute backoff — request failures should 
   and its notification actions; the queue is persisted (`downloads.json`), one transfer at a time,
   with pause/resume, Range resume, retries, space and integrity checks. No in-app player: gallery
   media opens in the system viewer through a FileProvider.
-- Offline mode: `TimelineCache` (first page, 12h Ttl) paints feeds instantly, `NetworkStatus`
-  (DNS probe) retries when the connection returns, and downloaded clips play from disk.
+- Offline mode: `TimelineCache` (first page, 12h Ttl) paints the opened conversation instantly
+  and serves it when offline (`TweetDetail` only — the home feeds use `cached_tweet` instead);
+  `NetworkStatus` (DNS probe) retries when the connection returns, and downloaded clips play from
+  disk.
 - Local search (search screen's 5th tab) matches saved/liked posts in Dart
   (`lib/database/local_post_search.dart`) and library media by file name — Android's SQLite ships
   without FTS5 (verified on device: `no such module: fts5`), so do not build an SQL index for it.

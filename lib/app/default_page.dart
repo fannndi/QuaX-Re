@@ -12,6 +12,7 @@ import 'package:quax/home/home_screen.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/status.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/utils/urls.dart';
 import 'package:app_links/app_links.dart';
@@ -23,7 +24,7 @@ class DefaultPage extends StatefulWidget {
   State<StatefulWidget> createState() => _DefaultPageState();
 }
 
-class _DefaultPageState extends State<DefaultPage> {
+class _DefaultPageState extends State<DefaultPage> with WidgetsBindingObserver {
   Object? _migrationError;
   StackTrace? _migrationStackTrace;
   StreamSubscription<Uri>? _sub;
@@ -152,6 +153,17 @@ class _DefaultPageState extends State<DefaultPage> {
         // TODO: Handle exception by warning the user their action did not succeed
       },
     );
+
+    // Leaving the foreground is the session boundary of the always-new home:
+    // write the freshness marks now, so a fast exit cannot lose them.
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      unawaited(TweetFreshnessIndex().flush());
+    }
   }
 
   @override
@@ -209,6 +221,7 @@ class _DefaultPageState extends State<DefaultPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     super.dispose();
   }

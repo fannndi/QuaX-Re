@@ -18,10 +18,23 @@ import 'package:quax/user.dart';
 /// The Like tab: what was liked and saved inside the app (local database) next
 /// to the real likes and bookmarks X holds for the active account. Four tabs,
 /// mirroring the feed's For You / Following switch.
+///
+/// Lives in the bottom navigation as a tab, or as a route (from the home app
+/// bar's heart) when the navbar slot became the Offline archive.
 class LikesScreen extends StatefulWidget {
-  final ScrollController scrollController;
+  final ScrollController? scrollController;
+  final bool implyLeading;
 
-  const LikesScreen({super.key, required this.scrollController});
+  const LikesScreen({
+    super.key,
+    this.scrollController,
+    this.implyLeading = false,
+  });
+
+  /// Pushed over the navigator instead of living in the navbar.
+  const LikesScreen.asRoute({super.key})
+    : scrollController = null,
+      implyLeading = true;
 
   @override
   State<LikesScreen> createState() => _LikesScreenState();
@@ -45,7 +58,7 @@ class _LikesScreenState extends State<LikesScreen>
     return TweetContextScope(
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: false,
+          automaticallyImplyLeading: widget.implyLeading,
           title: TabBar(
             controller: _tabController,
             tabs: [
@@ -92,9 +105,9 @@ class _LikesScreenState extends State<LikesScreen>
 
 /// Locally liked posts, straight from the app's own database.
 class _LocalLikes extends StatefulWidget {
-  final ScrollController scrollController;
+  final ScrollController? scrollController;
 
-  const _LocalLikes({required this.scrollController});
+  const _LocalLikes({this.scrollController});
 
   @override
   State<_LocalLikes> createState() => _LocalLikesState();
