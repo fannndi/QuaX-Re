@@ -102,6 +102,25 @@ Use the Should convention with a concise `reason` on every assertion that says w
 fails. Look at existing tests to mimic the style (`flutter test` runs everything; DB tests use
 `sqflite_common_ffi`).
 
+## Debug bridge (for agents)
+
+`lib/utils/debug_bridge.dart` serves the app's state as JSON on the device's loopback interface
+(debug and profile builds only; release is untouched). The host-side client is
+`dart run tool/debug/probe.dart <dump|logs|prefs|db|ping> [--serial <id>]` — it finds the chosen
+port (`QUAX-BRIDGE: port=N` in logcat), wires `adb reverse tcp:8642 tcp:N`, and prints the pretty
+JSON. Use it to diagnose a device without a debugger:
+
+- `dump` — app version/mode, database version + row counts, account health (no auth headers —
+  bearer tokens are redacted from the log ring too), live rate limits, download queue, video cache
+  size, freshness state, and the last 250 log records (structured, oldest first).
+- `logs [since]` — the same log ring alone; keep the returned max `n` as the `since` cursor.
+- `prefs`, `db` — individual sections; unknown endpoints answer 500 with an `error` document.
+
+Crashes reach the ring through `FlutterError.onError` / `PlatformDispatcher.instance.onError`
+(wired in `main.dart`), so a broken screen can be diagnosed without a debugger. When X changes the
+scraped page shape ("Couldn't find ondemand file index"), `TwitterHeaders` fails open and
+continues without the header for a 2-minute backoff — request failures should never blank a feed.
+
 ## Fork notes (deviations from upstream)
 
 - Personal fork (fannndi/QuaX-Re); upstream CI/agent tooling (`.github/`, `.claude/`, `docs/`,

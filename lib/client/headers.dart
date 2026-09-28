@@ -1,7 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:logging/logging.dart';
 import 'package:quax/client/x_client_transaction_id/client_transaction.dart';
 import 'package:quax/constants.dart';
 
 class TwitterHeaders {
+  static final log = Logger('TwitterHeaders');
+
   static final Map<String, String> _baseHeaders = {
     'accept': '*/*',
     'accept-language': 'en-US,en;q=0.9',
@@ -19,6 +25,13 @@ class TwitterHeaders {
   static Future<ClientTransaction>? _initFuture;
   static DateTime? _initializedAt;
 
+  // After a failed initialization no attempt is retried for this long: the
+  // init fetches x.com/home plus an ondemand script, and a broken page shape
+  // would otherwise repeat both on every API call.
+  static const _failureCooldown = Duration(minutes: 2);
+  @visibleForTesting
+  static DateTime? failureRetryAt;
+
   // initialize() fetches and parses x.com/home plus an ondemand script: bound
   // it, so a hanging request cannot stall every API call for the whole session.
   static const _initTimeout = Duration(seconds: 15);
@@ -28,11 +41,28 @@ class TwitterHeaders {
   // a stale generator self-heals on the next request without hammering x.com.
   static const _stalenessCooldown = Duration(minutes: 10);
 
+  /// Clears the module state between tests.
+  @visibleForTesting
+  static void resetForTests() {
+    _initFuture = null;
+    _initializedAt = null;
+    failureRetryAt = null;
+  }
+
+  /// The transaction id header, or null when it cannot be produced. A failure
+  /// here must fail open: X only loosely requires the header, so the request
+  /// proceeds without it instead of killing the timeline.
   static Future<Map<String, String>?> getXClientTransactionIdHeader(
     Uri? uri, {
     String method = 'GET',
   }) async {
     if (uri == null) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    if (failureRetryAt != null && now.isBefore(failureRetryAt!)) {
+      // Inside the backoff window: no header, no new attempt.
       return null;
     }
 
@@ -44,17 +74,23 @@ class TwitterHeaders {
         },
       );
       final ct = await _initFuture!;
+      failureRetryAt = null;
       return {
         'x-client-transaction-id': ct.generateTransactionId(method, uri.path),
       };
-    } catch (_) {
+    } catch (e) {
       // A failed (or timed out) initialization must not stay cached: futures
       // keep their error, so every later request would fail the same way until
-      // the app restarts. Script parsing can also throw Error subtypes, which
-      // a catch of Exception alone would leave cached forever.
+      // the app restarts. The scrape can also legitimately break — X changing
+      // the page shape raises "Couldn't find ondemand file index" here. Either
+      // way, fail open and let the request go out without the header.
       _initFuture = null;
       _initializedAt = null;
-      rethrow;
+      failureRetryAt = now.add(_failureCooldown);
+      log.warning(
+        'x-client-transaction-id unavailable, continuing without it: $e',
+      );
+      return null;
     }
   }
 

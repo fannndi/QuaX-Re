@@ -30,4 +30,22 @@ class RateLimitTracker {
   static void clear(String accountId, String endpoint) {
     _resetByAccountEndpoint[accountId]?.remove(endpoint);
   }
+
+  /// Live (non-expired) limits as a plain document: for the debug bridge, so
+  /// an agent can see which account-endpoint pairs are currently cooling.
+  static Map<String, dynamic> snapshot(DateTime now) {
+    final out = <String, Map<String, String>>{};
+    _resetByAccountEndpoint.forEach((account, endpoints) {
+      final live = <String, String>{};
+      endpoints.forEach((endpoint, reset) {
+        if (reset.isAfter(now)) {
+          live[endpoint] = reset.toIso8601String();
+        }
+      });
+      if (live.isNotEmpty) {
+        out[account] = live;
+      }
+    });
+    return out;
+  }
 }

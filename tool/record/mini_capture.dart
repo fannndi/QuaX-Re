@@ -9,6 +9,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:collection/collection.dart';
 import 'package:puppeteer/puppeteer.dart';
 
@@ -39,8 +40,10 @@ final _secrets = <RegExp, String>{
 Future<void> main(List<String> args) async {
   final url = args.isNotEmpty ? args.first : 'https://x.com/notifications';
 
-  final browser =
-      await puppeteer.connect(browserUrl: 'http://localhost:$_port', defaultViewport: null);
+  final browser = await puppeteer.connect(
+    browserUrl: 'http://localhost:$_port',
+    defaultViewport: null,
+  );
   // A fresh tab: an existing one may already sit on the same url, where a goto
   // is a no-op and everything was fetched before our listener attached.
   final page = await browser.newPage();
@@ -53,9 +56,11 @@ Future<void> main(List<String> args) async {
     final match = _graphql.firstMatch(response.url);
     if (match == null) return;
     lastSeen = DateTime.now();
-    pending.add(_collect(response, url, captured).catchError((Object error) {
-      print('  skipped a response: $error');
-    }));
+    pending.add(
+      _collect(response, url, captured).catchError((Object error) {
+        print('  skipped a response: $error');
+      }),
+    );
   });
 
   try {
@@ -67,7 +72,9 @@ Future<void> main(List<String> args) async {
   for (var scroll = 0; scroll < 4; scroll++) {
     await _settle(() => lastSeen);
     try {
-      await page.evaluate('() => window.scrollBy(0, document.body.scrollHeight)');
+      await page.evaluate(
+        '() => window.scrollBy(0, document.body.scrollHeight)',
+      );
     } on Exception {
       break;
     }
@@ -88,8 +95,7 @@ Future<void> main(List<String> args) async {
 
     final variables = jsonEncode(fixture['variables']);
     final digest = (variables.hashCode & 0xffffff).toRadixString(16);
-    final path =
-        '${_outDir.path}/${fixture['operation']}/mini-$digest.json';
+    final path = '${_outDir.path}/${fixture['operation']}/mini-$digest.json';
     final file = File(path);
     final existed = file.existsSync();
     file.parent.createSync(recursive: true);
@@ -131,7 +137,8 @@ Future<void> _collect(
     'status': response.status,
     'headers': {
       for (final entry in response.headers.entries)
-        if (_keepHeaders.contains(entry.key.toLowerCase())) entry.key.toLowerCase(): entry.value,
+        if (_keepHeaders.contains(entry.key.toLowerCase()))
+          entry.key.toLowerCase(): entry.value,
     },
     'body': _decode(body) ?? body,
   };

@@ -128,8 +128,14 @@ Future<void> main(List<String> args) async {
 Future<void> _requireLogin(Page page) async {
   for (var attempt = 0; attempt < 3; attempt++) {
     try {
-      await page.goto('https://x.com/home', wait: Until.domContentLoaded, timeout: _pageTimeout);
-      await Future.delayed(Duration(seconds: 2)); // let the client-side redirect settle
+      await page.goto(
+        'https://x.com/home',
+        wait: Until.domContentLoaded,
+        timeout: _pageTimeout,
+      );
+      await Future.delayed(
+        Duration(seconds: 2),
+      ); // let the client-side redirect settle
     } on Exception catch (error) {
       print('Could not open x.com/home: $error');
     }
@@ -140,22 +146,30 @@ Future<void> _requireLogin(Page page) async {
 
     print('\nCould not confirm a session — landed on ${page.url}');
     print('Cookies seen for x.com: ${await _cookieNames(page)}');
-    stdout.write('Log in in the Chrome window and press Enter, or type y if you already are: ');
+    stdout.write(
+      'Log in in the Chrome window and press Enter, or type y if you already are: ',
+    );
     final answer = stdin.readLineSync()?.trim().toLowerCase();
     if (answer == 'y' || answer == 'o') {
       print('Taking your word for it.');
       return;
     }
   }
-  print('\nGiving up on the session check. Re-run and answer y to capture anyway.');
+  print(
+    '\nGiving up on the session check. Re-run and answer y to capture anyway.',
+  );
   exit(1);
 }
 
 /// Two independent signals, because either can be wrong on its own: the session
 /// cookie, and the fact that x.com/home did not bounce a logged-out visitor.
 Future<bool> _looksLoggedIn(Page page) async {
-  final cookies = await page.cookies(urls: ['https://x.com', 'https://twitter.com']);
-  if (cookies.any((cookie) => cookie.name == 'auth_token' && cookie.value.isNotEmpty)) {
+  final cookies = await page.cookies(
+    urls: ['https://x.com', 'https://twitter.com'],
+  );
+  if (cookies.any(
+    (cookie) => cookie.name == 'auth_token' && cookie.value.isNotEmpty,
+  )) {
     return true;
   }
   return page.url?.contains('/home') ?? false;
@@ -214,7 +228,10 @@ Future<Browser> _connect(bool attach) async {
   // single attempt races with the browser's own start-up.
   for (var attempt = 0; attempt < 5; attempt++) {
     try {
-      return await puppeteer.connect(browserUrl: 'http://localhost:$_port', defaultViewport: null);
+      return await puppeteer.connect(
+        browserUrl: 'http://localhost:$_port',
+        defaultViewport: null,
+      );
     } on Exception catch (error) {
       if (attempt == 0) print('Chrome is not attachable yet, retrying…');
       lastError = error;
@@ -230,8 +247,12 @@ Future<Browser> _connect(bool attach) async {
       print('  ${_installedChrome() ?? 'google-chrome'} \\');
       print('    --remote-debugging-port=$_port \\');
       print('    --user-data-dir=${_profileDir.absolute.path}');
-      print('\nNote that the flag is ignored if Chrome is already running, and');
-      print('refused on the default profile since Chrome 136 — hence the profile above.');
+      print(
+        '\nNote that the flag is ignored if Chrome is already running, and',
+      );
+      print(
+        'refused on the default profile since Chrome 136 — hence the profile above.',
+      );
       print('\nOr just drop --attach and let the script start Chrome itself.');
     }
     exit(1);
@@ -244,9 +265,13 @@ Map<String, dynamic> _readLinks() =>
 List<Scenario> _readScenarios(Map<String, dynamic> root) =>
     (root['scenarios'] as List<dynamic>)
         .cast<Map<String, dynamic>>()
-        .map((entry) => Scenario(entry['url'] as String, entry['description'] as String? ?? ''))
+        .map(
+          (entry) => Scenario(
+            entry['url'] as String,
+            entry['description'] as String? ?? '',
+          ),
+        )
         .toList();
-
 
 /// Prefers an installed Chrome, and otherwise reuses the one puppeteer keeps in
 /// its cache — downloading it on the first run only.
@@ -286,15 +311,21 @@ Future<int> _visit(Page page, Scenario scenario) async {
     // One unreadable response must not take the whole run down: Future.wait
     // rethrows the first failure it sees, and an Error is not an Exception, so
     // the catch inside _collect would not stop it from escaping.
-    pending.add(_collect(response, scenario, captured).catchError((Object error) {
-      print('  skipped a response: $error');
-    }));
+    pending.add(
+      _collect(response, scenario, captured).catchError((Object error) {
+        print('  skipped a response: $error');
+      }),
+    );
   });
 
   // Never Until.networkIdle here: x.com keeps polling, so "idle" may never come
   // and the wait would burn the whole timeout on every page.
   try {
-    await page.goto(scenario.url, wait: Until.domContentLoaded, timeout: _pageTimeout);
+    await page.goto(
+      scenario.url,
+      wait: Until.domContentLoaded,
+      timeout: _pageTimeout,
+    );
   } on Exception catch (error) {
     print('  could not load: $error');
     _failures++;
@@ -303,7 +334,9 @@ Future<int> _visit(Page page, Scenario scenario) async {
   for (var scroll = 0; scroll < 4; scroll++) {
     await _settle(() => lastSeen);
     try {
-      await page.evaluate('() => window.scrollBy(0, document.body.scrollHeight)');
+      await page.evaluate(
+        '() => window.scrollBy(0, document.body.scrollHeight)',
+      );
     } on Exception {
       break; // navigated away or closed; whatever landed is still worth keeping
     }
@@ -323,8 +356,10 @@ Future<int> _visit(Page page, Scenario scenario) async {
 void _prune() {
   if (!_outDir.existsSync()) return;
   if (_failures > 0) {
-    print('\n$_failures page(s) failed to load, so nothing was pruned. '
-        'Fix those and re-run to clean up stale fixtures.');
+    print(
+      '\n$_failures page(s) failed to load, so nothing was pruned. '
+      'Fix those and re-run to clean up stale fixtures.',
+    );
     return;
   }
 
@@ -387,7 +422,8 @@ Future<void> _collect(
     'status': response.status,
     'headers': {
       for (final entry in response.headers.entries)
-        if (_keepHeaders.contains(entry.key.toLowerCase())) entry.key.toLowerCase(): entry.value,
+        if (_keepHeaders.contains(entry.key.toLowerCase()))
+          entry.key.toLowerCase(): entry.value,
     },
     'body': _decode(body) ?? body,
   };
@@ -413,7 +449,8 @@ int _write(Map<String, Map<String, dynamic>> captured) {
     }
 
     final variables = jsonEncode(fixture['variables']);
-    var path = '${_outDir.path}/${fixture['operation']}/${_nameFor(fixture['variables'])}.json';
+    var path =
+        '${_outDir.path}/${fixture['operation']}/${_nameFor(fixture['variables'])}.json';
     final takenBy = _writtenThisRun[path];
     if (takenBy == variables) continue;
     if (takenBy != null) {
@@ -436,7 +473,14 @@ int _write(Map<String, Map<String, dynamic>> captured) {
 /// Names a fixture after what it is about, so the tests read as English.
 String _nameFor(dynamic variables) {
   final map = variables is Map ? variables : const {};
-  const keys = ['screen_name', 'focalTweetId', 'tweetId', 'rawQuery', 'userId', 'listId'];
+  const keys = [
+    'screen_name',
+    'focalTweetId',
+    'tweetId',
+    'rawQuery',
+    'userId',
+    'listId',
+  ];
   final key = keys.firstWhereOrNull((k) => map[k] != null);
   if (key == null) {
     // A timestamp here would leave one more file behind on every single run.

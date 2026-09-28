@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:quax/constants.dart';
@@ -31,11 +32,35 @@ import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:quax/utils/debug_bridge.dart';
 
 Future<void> main() async {
-  Logger.root.onRecord.listen((event) async {
+  Logger.root.onRecord.listen((event) {
     log(event.message, error: event.error, stackTrace: event.stackTrace);
+    // The debug bridge mirrors structured records for the host-side agent.
+    DebugBridge().record(event);
   });
+
+  // Uncaught errors (framework and async) reach the bridge, so a failing
+  // screen can be diagnosed from the host without a debugger attached.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    DebugBridge().event(
+      'flutter.error',
+      'Uncaught framework error: ${details.exception}',
+      error: details.exception,
+      stackTrace: details.stack,
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stackTrace) {
+    DebugBridge().event(
+      'uncaught.error',
+      'Uncaught async error: $error',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    return false;
+  };
 
   if (Platform.isLinux) {
     sqfliteFfiInit();
@@ -106,6 +131,12 @@ Future<void> main() async {
       await Repository().migrate();
     } catch (_) {
       // Ignore, as we'll catch it later instead
+    }
+
+    // The debug bridge serves app state over the device's loopback for the
+    // host-side agent (see tool/debug/probe.dart). Debug and profile only.
+    if (!kReleaseMode) {
+      await DebugBridge().start(prefService);
     }
 
     var importDataModel = ImportDataModel();

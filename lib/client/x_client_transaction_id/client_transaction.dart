@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:html/dom.dart' as html_dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
@@ -26,11 +27,19 @@ class ClientTransaction {
     required this._randomNumber,
   });
 
+  /// Test hook: swaps the network-backed initialization for a stub.
+  @visibleForTesting
+  static Future<ClientTransaction> Function()? initializeOverride;
+
   /// Fetches x.com and initializes the transaction ID generator.
   static Future<ClientTransaction> initialize({
     String randomKeyword = defaultKeyword,
     int randomNumber = additionalRandomNumber,
   }) async {
+    if (initializeOverride != null) {
+      return initializeOverride!();
+    }
+
     final homePageResponse = await http.get(
       Uri.https('x.com', '/home'),
       headers: {
