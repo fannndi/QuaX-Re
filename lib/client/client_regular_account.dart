@@ -32,7 +32,9 @@ class XRegularAccount extends ChangeNotifier {
 
   Future<void> deleteAccount(String username) async {
     var database = await Repository.writable();
-    database.delete(tableAccounts, where: 'id = ?', whereArgs: [username]);
+    // Awaited: promoteFirstAccountIfNoneActive() reads straight afterwards and
+    // would happily promote the row we meant to remove.
+    await database.delete(tableAccounts, where: 'id = ?', whereArgs: [username]);
     await promoteFirstAccountIfNoneActive();
   }
 }

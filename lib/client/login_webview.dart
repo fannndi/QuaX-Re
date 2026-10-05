@@ -83,12 +83,14 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
                 final database = await Repository.writable();
                 // Re-logging into the same account must refresh its cookies
                 // (the id = csrfToken), not crash on the UNIQUE constraint.
-                database.insert(
+                await database.insert(
                   tableAccounts,
                   Account(id: csrfToken, screenName: screenName, authHeader: json.encode(authHeader)).toMap(),
                   conflictAlgorithm: ConflictAlgorithm.replace,
                 );
-                database.close();
+                // No close(): this is sqflite's shared writable handle, so
+                // closing it here would pull it out from under every other
+                // writer. It is not closed anywhere else either.
 
                 // A freshly added account becomes the one used everywhere, so
                 // the timelines immediately speak for the new login.

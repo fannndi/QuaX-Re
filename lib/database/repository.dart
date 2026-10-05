@@ -118,9 +118,11 @@ class Repository {
             var oldId = group['id'];
             var newId = uuid.v4();
 
-            db.update(tableSubscriptionGroup, {'uuid': newId}, where: 'id = ?', whereArgs: [oldId]);
+            // Awaited: the next step inserts `SELECT uuid, ...`, so an update
+            // still in flight would materialise NULL ids for these groups.
+            await db.update(tableSubscriptionGroup, {'uuid': newId}, where: 'id = ?', whereArgs: [oldId]);
 
-            db.update(tableSubscriptionGroupMember, {'group_uuid': newId}, where: 'group_id = ?', whereArgs: [oldId]);
+            await db.update(tableSubscriptionGroupMember, {'group_uuid': newId}, where: 'group_id = ?', whereArgs: [oldId]);
           }
         })),
 

@@ -60,7 +60,7 @@ class SubscriptionsModel extends Store<List<Subscription>> {
 
         state.removeWhere((e) => e.id == user.id);
       } else {
-        database.insert(tableSearchSubscription, {
+        await database.insert(tableSearchSubscription, {
           'id': user.id,
         });
       }
@@ -82,7 +82,7 @@ class SubscriptionsModel extends Store<List<Subscription>> {
 
         state.removeWhere((e) => e.id == user.id);
       } else {
-        database.insert(tableSubscription, {
+        await database.insert(tableSubscription, {
           'id': user.id,
           'screen_name': user.screenName,
           'name': user.name,
@@ -113,7 +113,7 @@ class SubscriptionsModel extends Store<List<Subscription>> {
   Future<void> toggleInFeed(Subscription user, bool wasInFeed) async {
     var database = await Repository.writable();
     await execute(() async {
-      database.update(tableSubscription, {
+      await database.update(tableSubscription, {
         'in_Feed': wasInFeed ? 0 : 1
       }, where: 'id = ?', whereArgs: [user.id]);
 
