@@ -1,8 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
-import 'package:quax/constants.dart';
-import 'package:quax/group/_settings.dart';
 import 'package:quax/group/feed_refresh_controller.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/subscriptions/users_model.dart';
@@ -13,9 +10,6 @@ class GroupFeedShell extends StatefulWidget {
   final WidgetBuilder titleBuilder;
   final WidgetBuilder bodyBuilder;
   final List<Widget> Function(BuildContext) actionsBuilder;
-  // Pushed feed routes keep their back button (default); home pages embedded in
-  // the navigation PageView hide it (their drawer is reached by edge swipe).
-  final bool automaticallyImplyLeading;
 
   const GroupFeedShell({
     super.key,
@@ -24,7 +18,6 @@ class GroupFeedShell extends StatefulWidget {
     required this.titleBuilder,
     required this.bodyBuilder,
     required this.actionsBuilder,
-    this.automaticallyImplyLeading = true,
   });
 
   @override
@@ -32,7 +25,6 @@ class GroupFeedShell extends StatefulWidget {
 }
 
 class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAliveClientMixin<GroupFeedShell> {
-  late final GroupModel _groupModel;
   final FeedRefreshController _feedRefreshController = FeedRefreshController();
   int _refreshCounter = 0;
   // Cached refs captured in didChangeDependencies — accessing the InheritedWidget
@@ -45,12 +37,6 @@ class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAlive
 
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _groupModel = GroupModel(widget.groupId)..loadGroup();
-  }
 
   @override
   void didChangeDependencies() {
@@ -67,14 +53,13 @@ class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAlive
     }
   }
 
-  // Triggered when subscriptions or group memberships change. Refresh the group
-  // state and bump the counter to remount the body — for pushed-route feeds
-  // this drops the stale (cached, just-invalidated) PagingController so the
-  // inner state re-fetches a fresh one from the cache.
+  // Triggered when subscriptions or group memberships change. Bumping the
+  // counter remounts the body — for pushed-route feeds this drops the stale
+  // (cached, just-invalidated) PagingController so the inner state re-fetches
+  // a fresh one from the cache.
   void _onReload() {
     if (!mounted) return;
     setState(() {
-      _groupModel.loadGroup();
       _refreshCounter++;
     });
   }
@@ -89,70 +74,46 @@ class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAlive
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Provider<GroupModel>.value(
-      value: _groupModel,
-      builder: (context, child) {
-        return Provider<FeedRefreshController>.value(
-          value: _feedRefreshController,
-          child: NestedScrollView(
-            controller: widget.scrollController,
-            floatHeaderSlivers: true,
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              return [
-                SliverAppBar(
-                  backgroundColor: Theme.of(context).colorScheme.surface,
-                  pinned: false,
-                  snap: true,
-                  floating: true,
-                  automaticallyImplyLeading: widget.automaticallyImplyLeading,
-                  title: widget.titleBuilder(context),
-                  actions: widget.actionsBuilder(context),
-                ),
-              ];
-            },
-            body: KeyedSubtree(
-              key: ValueKey(_refreshCounter),
-              child: widget.bodyBuilder(context),
+    return Provider<FeedRefreshController>.value(
+      value: _feedRefreshController,
+      child: NestedScrollView(
+        controller: widget.scrollController,
+        floatHeaderSlivers: true,
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              pinned: false,
+              snap: true,
+              floating: true,
+              // The shell only exists inside the navigation PageView now, so it
+              // never owns a back button — its drawer is reached by edge swipe.
+              automaticallyImplyLeading: false,
+              title: widget.titleBuilder(context),
+              actions: widget.actionsBuilder(context),
             ),
-          ),
-        );
-      },
+          ];
+        },
+        body: KeyedSubtree(
+          key: ValueKey(_refreshCounter),
+          child: widget.bodyBuilder(context),
+        ),
+      ),
     );
   }
 }
 
-/// Builds the standard action-bar icons shared by group feeds:
-/// optional "more" (group settings), optional "scroll-to-top", refresh, and
-/// the global settings button.
+/// Builds the standard action-bar icons shared by group feeds: refresh, plus
+/// whatever [extra] the caller wants next to it.
 List<Widget> defaultGroupActions(
   BuildContext context, {
-  required GroupModel model,
-  ScrollController? scrollToTopController,
-  bool showMore = true,
-  bool showRefresh = true,
-  bool showSettings = true,
   VoidCallback? onRefresh,
   List<Widget> extra = const [],
 }) {
   return [
-    if (showMore)
-      IconButton(icon: const Icon(Icons.more_vert), onPressed: () => showFeedSettings(context, model)),
-    if (scrollToTopController != null)
-      IconButton(
-          icon: const Icon(Icons.arrow_upward),
-          onPressed: () async {
-            final disableAnimations = PrefService.of(context).get(optionDisableAnimations) == true;
-            await scrollToTopController.animateTo(0,
-                duration: disableAnimations ? Duration.zero : const Duration(seconds: 1),
-                curve: Curves.easeInOut);
-          }),
-    if (showRefresh)
-      IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: onRefresh ?? () async => await context.read<FeedRefreshController>().refresh()),
-    if (showSettings)
-      IconButton(
-          icon: const Icon(Icons.settings), onPressed: () => Navigator.pushNamed(context, routeSettings)),
+    IconButton(
+        icon: const Icon(Icons.refresh),
+        onPressed: onRefresh ?? () async => await context.read<FeedRefreshController>().refresh()),
     ...extra,
   ];
 }

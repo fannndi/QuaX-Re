@@ -5,7 +5,6 @@ const optionTextScaleFactor = 'accessibility.text_scale_factor';
 
 const optionDisableScreenshots = 'disable_screenshots';
 
-const optionHomeInitialTab = 'home.initial_tab';
 const optionHomeDefaultFeedTab = 'home.default_feed_tab';
 
 const optionImageQuality = 'media.size';
@@ -38,16 +37,7 @@ const optionConfirmClose = 'confirm_close';
 const optionOpenLinksInEmbeddedBrowser = 'open_links_in_embedded_browser';
 const optionShareBaseUrl = 'share_base_url';
 
-const optionDisableWarningsForUnrelatedPostsInFeed = 'disable_warnings_for_unrelated_posts_in_feed';
-
 const alwaysShowFullTweetContents = 'always_show_full_tweet_contents';
-
-const optionSubscriptionGroupsOrderByAscending = 'subscription_groups.order_by.ascending';
-const optionSubscriptionGroupsOrderByField = 'subscription_groups.order_by.field';
-const optionSubscriptionOrderByAscending = 'subscription.order_by.ascending';
-const optionSubscriptionOrderCustom = 'subscription.order_by.custom';
-const optionSubscriptionOrderByField = 'subscription.order_by.field';
-const optionDefaultProfileTab = 'subscription.default_tab';
 
 const optionThemeMode = 'theme.mode';
 const optionThemeColor = 'theme.color';
@@ -95,7 +85,6 @@ const Duration notFoundCooldown = Duration(hours: 6);
 const int notFoundThreshold = 3;
 
 const routeHome = '/';
-const routeGroup = '/group';
 const routeProfile = '/profile';
 const routeSearch = '/search';
 const routeSavedFolders = '/saved/folders';

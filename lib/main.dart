@@ -13,12 +13,9 @@ import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/app/fritter_app.dart';
 import 'package:quax/app/startup.dart';
-import 'package:quax/group/feed_session_cache.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/home/_feed.dart';
-import 'package:quax/import_data_model.dart';
-import 'package:quax/profile/profile.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
 import 'package:quax/saved/saved_tweet_folder_model.dart';
 import 'package:quax/saved/saved_tweet_model.dart';
@@ -57,7 +54,6 @@ Future<void> main() async {
     optionAutoCacheVideos: false,
     optionAutoCacheWifiOnly: true,
     optionVideoCacheLimitMb: 1024,
-    optionHomeInitialTab: 'feed',
     optionHomeDefaultFeedTab: feedTabs[0].id.name,
     optionImageQuality: 'medium',
     optionMediaVideoQuality: 'medium',
@@ -73,13 +69,7 @@ Future<void> main() async {
     optionNonConfirmationBiasMode: false,
     optionShouldCheckForUpdates: false,
     optionOpenLinksInEmbeddedBrowser: false,
-    optionSubscriptionGroupsOrderByAscending: true,
-    optionDisableWarningsForUnrelatedPostsInFeed: false,
     alwaysShowFullTweetContents: false,
-    optionSubscriptionGroupsOrderByField: 'name',
-    optionSubscriptionOrderByAscending: true,
-    optionSubscriptionOrderByField: 'name',
-    optionSubscriptionOrderCustom: '',
     optionThemeMode: 'system',
     optionThemeColor: 'accent',
     optionThemeTrueBlack: true,
@@ -93,7 +83,6 @@ Future<void> main() async {
     optionSavedFolderHintShown: false,
     optionLikedFirstToastShown: false,
     optionUseAbsoluteTimestamp: false,
-    optionDefaultProfileTab: profileTabs[0].id.name,
   });
 
   await migrateMediaQualityPrefs(prefService);
@@ -106,22 +95,11 @@ Future<void> main() async {
       // Ignore, as we'll catch it later instead
     }
 
-    var importDataModel = ImportDataModel();
-
-    var groupsModel = GroupsModel(prefService);
+    var groupsModel = GroupsModel();
     await groupsModel.reloadGroups();
 
-    var subscriptionsModel = SubscriptionsModel(prefService, groupsModel);
+    var subscriptionsModel = SubscriptionsModel(groupsModel);
     await subscriptionsModel.reloadSubscriptions();
-
-    var feedSessionCache = FeedSessionCache();
-    // Registration order matters: invalidateAll must run before any
-    // GroupFeedShell reload listener, so by the time the shell remounts the
-    // body via KeyedSubtree, the inner feed reads fresh controllers from the
-    // cache. LinkedHashMap iterates in insertion order, and registering here
-    // (before any shell exists) guarantees we win.
-    groupsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
-    subscriptionsModel.addReloadListener('FeedSessionCache', feedSessionCache.invalidateAll);
 
     // Foreground-service notifications wired up for the download queue, the
     // persisted queue/history loaded, and the connectivity watcher primed so a
@@ -146,9 +124,7 @@ Future<void> main() async {
         child: MultiProvider(
           providers: [
             Provider(create: (context) => groupsModel),
-            Provider(create: (context) => feedSessionCache),
             Provider(create: (context) => VideoControllerPool(maxSize: 2)),
-            ChangeNotifierProvider(create: (context) => importDataModel),
             Provider(create: (context) => subscriptionsModel),
             Provider(create: (context) => SavedTweetModel()),
             Provider(create: (context) => SavedTweetFolderModel()),

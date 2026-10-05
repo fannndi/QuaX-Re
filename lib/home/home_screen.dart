@@ -50,14 +50,9 @@ class _HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<_HomeScreen> {
-  late final int _initialPage = _resolveInitialPage();
-
-  int _resolveInitialPage() {
-    final stored = widget.prefs.get<String>(optionHomeInitialTab);
-    final index = defaultHomePages.indexWhere((page) => page.id == stored);
-    if (index >= 0) return index;
-    return defaultHomePages.indexWhere((page) => page.id == 'feed');
-  }
+  // No preference picks a starting tab anymore (its writer lived on a screen
+  // that was dropped), so the app always opens on the home feed.
+  late final int _initialPage = defaultHomePages.indexWhere((page) => page.id == 'feed');
 
   @override
   Widget build(BuildContext context) {

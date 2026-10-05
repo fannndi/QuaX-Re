@@ -116,7 +116,12 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
 
   final GlobalKey<NestedScrollViewState> nestedScrollViewKey = GlobalKey();
 
-  late TabController _tabController;
+  // Created once, like every other tabbed screen here: building it in
+  // didChangeDependencies replaced the controller (and leaked its ticker)
+  // whenever any dependency — theme, keyboard, a pref write — changed, which
+  // also snapped the profile back to the first tab.
+  late final TabController _tabController =
+      TabController(length: 4, vsync: this, initialIndex: widget.defaultTabIndex ?? 0);
 
   bool _showBackToTopButton = false;
 
@@ -150,17 +155,8 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    ProfileTabs defaultProfileTab = ProfileTabs.values.byName(PrefService.of(context).get(optionDefaultProfileTab));
-    final int initialTabIdx = widget.defaultTabIndex ?? profileTabs.indexWhere((e) => e.id == defaultProfileTab);
-
-    _tabController = TabController(length: 4, vsync: this, initialIndex: initialTabIdx);
-  }
-
-  @override
   void dispose() {
+    _tabController.dispose();
     nestedScrollViewKey.currentState?.innerController.removeListener(_listen);
 
     super.dispose();

@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
-import 'package:provider/provider.dart';
 import 'package:quax/client/active_account_button.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
@@ -10,7 +9,6 @@ import 'package:quax/home/home_events.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/_feed_shell.dart';
-import 'package:quax/group/group_model.dart';
 import 'package:quax/search/search.dart';
 import 'package:quax/ui/errors.dart';
 
@@ -120,7 +118,6 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     return GroupFeedShell(
       scrollController: widget.scrollController,
       groupId: widget.id,
-      automaticallyImplyLeading: false,
       titleBuilder: (context) => TabBar(
         controller: tabController,
         tabs: feedTabs.map((e) => Tab(text: e.titleBuilder(context))).toList(),
@@ -131,14 +128,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         },
       ),
       actionsBuilder: (context) {
-        final model = context.read<GroupModel>();
-        // Home feeds are read-only: every secondary door (notifications,
-        // search, account, settings) lives in this app bar.
+        // Home feeds are read-only: every secondary door (search, account,
+        // settings) lives in this app bar.
         return defaultGroupActions(
           context,
-          model: model,
-          showMore: false,
-          showSettings: false,
           extra: [
             IconButton(
               icon: const Icon(Icons.search),

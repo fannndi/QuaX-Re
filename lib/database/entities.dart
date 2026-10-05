@@ -217,8 +217,6 @@ class SubscriptionGroup with ToMappable {
   final int numberOfMembers;
   final DateTime createdAt;
 
-  IconData get iconData => deserializeIconData(icon);
-
   SubscriptionGroup(
       {required this.id,
       required this.name,
@@ -246,50 +244,6 @@ class SubscriptionGroup with ToMappable {
   @override
   Map<String, dynamic> toMap() {
     return {'id': id, 'name': name, 'icon': icon, 'color': color?.toARGB32(), 'created_at': createdAt.toIso8601String()};
-  }
-}
-
-class SubscriptionGroupGet {
-  final String id;
-  final String name;
-  final String icon;
-  final List<Subscription> subscriptions;
-  bool includeReplies;
-  bool includeRetweets;
-
-  SubscriptionGroupGet(
-      {required this.id,
-      required this.name,
-      required this.icon,
-      required this.subscriptions,
-      required this.includeReplies,
-      required this.includeRetweets});
-}
-
-class SubscriptionGroupEdit {
-  final String? id;
-  String name;
-  String icon;
-  Color? color;
-  Set<String> members;
-
-  SubscriptionGroupEdit(
-      {required this.id, required this.name, required this.icon, required this.color, required this.members});
-}
-
-class SubscriptionGroupMember with ToMappable {
-  final String group;
-  final String profile;
-
-  SubscriptionGroupMember({required this.group, required this.profile});
-
-  factory SubscriptionGroupMember.fromMap(Map<String, Object?> json) {
-    return SubscriptionGroupMember(group: json['group_id'] as String, profile: json['profile_id'] as String);
-  }
-
-  @override
-  Map<String, dynamic> toMap() {
-    return {'group_id': group, 'profile_id': profile};
   }
 }
 
