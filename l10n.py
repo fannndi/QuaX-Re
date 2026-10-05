@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -55,7 +56,15 @@ def find_unused_keys(ref_file):
         if not f.is_relative_to(GENERATED_DIR)
     ]
     dart_source = "\n".join(f.read_text(encoding="utf-8") for f in dart_files)
-    return [k for k in sorted(ref_keys) if f".{k}" not in dart_source]
+    # `.key` must match as a whole token. A plain substring also matches a
+    # longer identifier — `.trending_up` for the key `trending`, `.disabled_
+    # screenshots` for `disabled`, `.logging_in_quax` for `logging` — which
+    # reported "No unused keys found!" no matter how many there were.
+    return [
+        k
+        for k in sorted(ref_keys)
+        if not re.search(r'\.' + re.escape(k) + r'(?![A-Za-z0-9_])', dart_source)
+    ]
 
 
 def report_missing(files):
