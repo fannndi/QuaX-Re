@@ -157,26 +157,45 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     });
 
     var originalText = _originalParts.map((e) => e.toString()).toList();
-    var res = await TranslationAPI.translate(locale, tweet.idStr!, originalText, tweet.lang ?? "");
-    if (res.success) {
+
+    try {
+      var res = await TranslationAPI.translate(locale, tweet.idStr!, originalText, tweet.lang ?? "");
       if (!context.mounted) return;
-      final List<RichTextPart> translatedParts =
-        buildRichText(context, res.body['result']['text'], res.body['result']['entities']);
+
+      if (!res.success) {
+        return showTranslationError(res.errorMessage ?? L10n.of(context).translation_failed);
+      }
+
+      // "Success" only means a 200 with a JSON object; X can answer with an
+      // object that has no `result`, and indexing straight into it threw out of
+      // here, leaving the button spinning on "translating" for good.
+      final result = res.body is Map<String, dynamic> ? (res.body as Map<String, dynamic>)['result'] : null;
+      final text = result is Map<String, dynamic> ? result['text'] as String? : null;
+      if (text == null) {
+        return showTranslationError(L10n.of(context).translation_failed);
+      }
+
+      final List<RichTextPart> translatedParts = buildRichText(context, text, result['entities']);
 
       // We cache the translated parts in a property in case the user swaps back and forth
+      if (!mounted) return;
       return setState(() {
         _displayParts = translatedParts;
         _translatedParts = translatedParts;
-        _translatedIsRtl = Bidi.detectRtlDirectionality(res.body['result']['text']);
+        _translatedIsRtl = Bidi.detectRtlDirectionality(text);
         _isRtl = _translatedIsRtl;
         _translationStatus = TranslationStatus.translated;
       });
-    } else {
-      return showTranslationError(res.errorMessage ?? 'An unknown error occurred while translating');
+    } catch (_) {
+      // A socket error or a body that isn't JSON at all: the button has to come
+      // back, otherwise the spinner is the last thing the user sees.
+      if (!context.mounted) return;
+      return showTranslationError(L10n.of(context).translation_failed);
     }
   }
 
   void showTranslationError(String message) {
+    if (!mounted) return;
     setState(() {
       _translationStatus = TranslationStatus.translationFailed;
     });
@@ -312,10 +331,12 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                 var button = isSaved
                     ? _createFooterIconButton(Icons.bookmark, Theme.of(context).colorScheme.primary, 1, () async {
                         await model.deleteSavedTweet(tweet.idStr!);
+                        if (!mounted) return;
                         setState(() {});
                       })
                     : _createFooterIconButton(Icons.bookmark_border, buttonsColor(context), 0, () async {
                         await model.saveTweet(tweet.idStr!, tweet.user?.idStr, tweet.toJson());
+                        if (!mounted) return;
                         setState(() {});
                         if (context.mounted) {
                           _maybeShowFolderHint(context);

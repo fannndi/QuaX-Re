@@ -25,16 +25,15 @@ class GroupsModel extends Store<List<SubscriptionGroup>> {
     log.info('Listing subscriptions groups');
 
     await execute(() async {
-      var database = await Repository.readOnly();
-
       // Ordered by name only: nothing writes an ordering preference anymore, so
       // the old pref-driven column/direction would just be a constant.
       const orderByName = 'g.name COLLATE NOCASE ASC';
 
-      var query =
+      const sql =
           "SELECT g.id, g.name, g.icon, g.color, g.created_at, COUNT(gm.profile_id) AS number_of_members FROM $tableSubscriptionGroup g LEFT JOIN $tableSubscriptionGroupMember gm ON gm.group_id = g.id WHERE g.id != '-1' GROUP BY g.id ORDER BY $orderByName";
 
-      return (await database.rawQuery(query)).map((e) => SubscriptionGroup.fromMap(e)).toList(growable: false);
+      final rows = await Repository.read((db) => db.rawQuery(sql));
+      return rows.map((e) => SubscriptionGroup.fromMap(e)).toList(growable: false);
     });
     for (final callback in _onGroupsReloaded.values) {
       callback();
@@ -42,12 +41,9 @@ class GroupsModel extends Store<List<SubscriptionGroup>> {
   }
 
   Future<List<String>> listGroupsForUser(String user) async {
-    var database = await Repository.readOnly();
-
-    return (await database.query(tableSubscriptionGroupMember,
-            columns: ['group_id'], where: 'profile_id = ?', whereArgs: [user]))
-        .map((e) => e['group_id'] as String)
-        .toList(growable: false);
+    final rows = await Repository.read((db) => db.query(tableSubscriptionGroupMember,
+        columns: ['group_id'], where: 'profile_id = ?', whereArgs: [user]));
+    return rows.map((e) => e['group_id'] as String).toList(growable: false);
   }
 
   Future saveUserGroupMembership(String user, List<String> memberships) async {

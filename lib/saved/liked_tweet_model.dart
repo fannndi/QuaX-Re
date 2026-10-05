@@ -19,11 +19,8 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
     log.info('Listing liked tweets');
 
     await execute(() async {
-      var database = await Repository.readOnly();
-
-      return (await database.query(tableLikedTweet, orderBy: 'liked_at DESC'))
-          .map((e) => LikedTweet.fromMap(e))
-          .toList();
+      final rows = await Repository.read((db) => db.query(tableLikedTweet, orderBy: 'liked_at DESC'));
+      return rows.map((e) => LikedTweet.fromMap(e)).toList();
     });
   }
 
@@ -32,12 +29,8 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
   Future<void> refreshLikedTweets() async {
     log.info('Refreshing liked tweets');
 
-    var database = await Repository.readOnly();
-
-    var tweets =
-        (await database.query(tableLikedTweet, orderBy: 'liked_at DESC')).map((e) => LikedTweet.fromMap(e)).toList();
-
-    update(tweets, force: true);
+    final rows = await Repository.read((db) => db.query(tableLikedTweet, orderBy: 'liked_at DESC'));
+    update(rows.map((e) => LikedTweet.fromMap(e)).toList(), force: true);
   }
 
   Future<void> likeTweet(String id, String? user, Map<String, dynamic> content) async {

@@ -5,29 +5,26 @@ import 'package:quax/client/http_client.dart';
 import 'package:quax/constants.dart';
 
 String? _guestToken;
-const int _expiresAt = -1;
-const int _tokenLimit = -1;
-const int _tokenRemaining = -1;
 
-int tokenLimit = -1;
-int tokenRemaining = -1;
-int expiresAt = -1;
+// What the last rate-limited response told us about the token. -1 means "no
+// endpoint has reported a window yet", which is what lets a fresh token be used
+// straight away. These were `const` once, so the checks below never saw them
+// change and a cached token was handed out forever — once X expired it, every
+// unauthenticated request failed until the app restarted.
+int _expiresAt = -1;
+int _tokenLimit = -1;
+int _tokenRemaining = -1;
 
 Future<String> getToken(Logger log) async {
   if (_guestToken != null) {
-    // If we don't have an expiry or limit, it's probably because we haven't made a request yet, so assume they're OK
+    // No rate limit reported yet: the token is as good as it was when we got it
     if (_expiresAt == -1 && _tokenLimit == -1 && _tokenRemaining == -1) {
-      // TODO: Null safety with concurrent threads
       return _guestToken!;
     }
 
-    // Check if the token we have hasn't expired yet
-    if (DateTime.now().millisecondsSinceEpoch < _expiresAt) {
-      // Check if the token we have still has usages remaining
-      if (_tokenRemaining < _tokenLimit) {
-        // TODO: Null safety with concurrent threads
-        return _guestToken!;
-      }
+    // Still inside the window, with budget left
+    if (DateTime.now().millisecondsSinceEpoch < _expiresAt && _tokenRemaining < _tokenLimit) {
+      return _guestToken!;
     }
   }
 
@@ -74,10 +71,17 @@ Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? header
     return response;
   }
 
-  // Update our token's rate limit counters
-  expiresAt = int.parse(headerRateLimitReset) * 1000;
-  tokenRemaining = int.parse(headerRateLimitRemaining);
-  tokenLimit = int.parse(headerRateLimitLimit);
+  // Update our token's rate limit counters, so the next call decides whether
+  // this token can still be used or needs activating again. An endpoint that
+  // doesn't report them keeps the "unknown" state and the token stays valid.
+  final reset = int.tryParse(headerRateLimitReset);
+  final remaining = int.tryParse(headerRateLimitRemaining);
+  final limit = int.tryParse(headerRateLimitLimit);
+  if (reset != null && remaining != null && limit != null) {
+    _expiresAt = reset * 1000;
+    _tokenRemaining = remaining;
+    _tokenLimit = limit;
+  }
 
   return response;
 }

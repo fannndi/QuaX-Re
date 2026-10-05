@@ -13,11 +13,8 @@ class SavedTweetFolderModel extends Store<List<SavedTweetFolder>> {
     log.info('Listing saved tweet folders');
 
     await execute(() async {
-      var database = await Repository.readOnly();
-
-      return (await database.query(tableSavedTweetFolder, orderBy: 'position ASC, created_at ASC'))
-          .map((e) => SavedTweetFolder.fromMap(e))
-          .toList();
+      final rows = await Repository.read((db) => db.query(tableSavedTweetFolder, orderBy: 'position ASC, created_at ASC'));
+      return rows.map((e) => SavedTweetFolder.fromMap(e)).toList();
     });
   }
 

@@ -26,6 +26,26 @@ const String tableAccounts = 'accounts';
 class Repository {
   static final log = Logger('Repository');
 
+  /// One query on a read-only connection, closed as soon as it answers.
+  ///
+  /// Prefer this over [readOnly]: opening a fresh handle per call is what
+  /// `singleInstance: false` buys (a read-only handle must never hand back the
+  /// writable one sqflite keeps for the same path), and nothing closed them —
+  /// `getAccounts()` asks on every API request, so they accumulated for the
+  /// life of the process. The connection is closed in a `finally`, so a query
+  /// that throws does not leak one either.
+  static Future<T> read<T>(Future<T> Function(Database db) query) async {
+    final db = await openDatabase(databaseName, readOnly: true, singleInstance: false);
+    try {
+      return await query(db);
+    } finally {
+      await db.close();
+    }
+  }
+
+  /// A read-only handle the **caller owns and must close**. Tests use it when
+  /// they need the connection itself (a version, a PRAGMA) rather than a
+  /// result; app code wants [read].
   static Future<Database> readOnly() async {
     return openDatabase(databaseName, readOnly: true, singleInstance: false);
   }

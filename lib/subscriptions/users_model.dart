@@ -28,11 +28,13 @@ class SubscriptionsModel extends Store<List<Subscription>> {
     log.info('Listing subscriptions');
 
     await execute(() async {
-      var database = await Repository.readOnly();
+      final users = (await Repository.read((db) => db.query(tableSubscription)))
+          .map((e) => UserSubscription.fromMap(e))
+          .toList();
 
-      List<Subscription> users = (await database.query(tableSubscription)).map((e) => UserSubscription.fromMap(e)).toList();
-
-      List<Subscription> searches = (await database.query(tableSearchSubscription)).map((e) => SearchSubscription.fromMap(e)).toList();
+      final searches = (await Repository.read((db) => db.query(tableSearchSubscription)))
+          .map((e) => SearchSubscription.fromMap(e))
+          .toList();
 
       // Ordered by name only: nothing writes an ordering preference anymore, so
       // the old pref-driven column, direction and custom-order branch would

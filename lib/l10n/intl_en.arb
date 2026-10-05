@@ -467,6 +467,8 @@
   "@thread": {},
   "timed_out": "Timed out",
   "@timed_out": {},
+  "translation_failed": "Couldn't translate this post",
+  "@translation_failed": {},
   "true_black": "True Black?",
   "@true_black": {},
   "true_black_tweet_cards": "True black tweet cards?",

@@ -27,8 +27,7 @@ class ActiveAccount {
 final ValueNotifier<ActiveAccount?> activeAccount = ValueNotifier<ActiveAccount?>(null);
 
 Future<List<Account>> getAccounts() async {
-  var database = await Repository.readOnly();
-  var query = await database.query(tableAccounts);
+  final query = await Repository.read((db) => db.query(tableAccounts));
   return List.from(query).map((e) => Account.fromMap(e)).toList();
 }
 

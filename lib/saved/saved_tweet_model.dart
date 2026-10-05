@@ -40,11 +40,8 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
     log.info('Listing saved tweets');
 
     await execute(() async {
-      var database = await Repository.readOnly();
-
-      return (await database.query(tableSavedTweet, orderBy: 'saved_at DESC'))
-          .map((e) => SavedTweet.fromMap(e))
-          .toList();
+      final rows = await Repository.read((db) => db.query(tableSavedTweet, orderBy: 'saved_at DESC'));
+      return rows.map((e) => SavedTweet.fromMap(e)).toList();
     });
   }
 
@@ -53,13 +50,8 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
   Future<void> refreshSavedTweets() async {
     log.info('Refreshing saved tweets');
 
-    var database = await Repository.readOnly();
-
-    var tweets = (await database.query(tableSavedTweet, orderBy: 'saved_at DESC'))
-        .map((e) => SavedTweet.fromMap(e))
-        .toList();
-
-    update(tweets, force: true);
+    final rows = await Repository.read((db) => db.query(tableSavedTweet, orderBy: 'saved_at DESC'));
+    update(rows.map((e) => SavedTweet.fromMap(e)).toList(), force: true);
   }
 
   Future<void> saveTweet(String id, String? user, Map<String, dynamic> content, {String? folderId}) async {
