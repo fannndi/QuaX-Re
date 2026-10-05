@@ -314,7 +314,7 @@ class _QueueList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       buildDefaultDragHandles: false,
       itemCount: queue.length,
-      onReorder: (oldIndex, newIndex) => DownloadsModel().moveItem(oldIndex, newIndex),
+      onReorderItem: (oldIndex, newIndex) => DownloadsModel().moveItem(oldIndex, newIndex),
       itemBuilder: (context, index) {
         final item = queue[index];
         final scheme = Theme.of(context).colorScheme;

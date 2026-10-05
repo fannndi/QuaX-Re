@@ -392,30 +392,32 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                                 L10n.of(context).share_tweet_content,
                                 Icons.text_snippet,
                                       () async {
-                                    Share.share(tweetText);
-                                    Navigator.pop(context);
-                                  },
+                                await SharePlus.instance.share(ShareParams(text: tweetText));
+                                if (context.mounted) Navigator.pop(context);
+                              },
                               ),
                             createSheetButton(isArticle ? L10n.of(context).share_article_link : L10n.of(context).share_tweet_link, Icons.link,
                                 () async {
-                              Share.share(
-                                  '$shareBaseUrl/${tweet.user!.screenName}/status/${tweet.idStr}');
-                              Navigator.pop(context);
+                              await SharePlus.instance.share(
+                                  ShareParams(text: '$shareBaseUrl/${tweet.user!.screenName}/status/${tweet.idStr}'));
+                              if (context.mounted) Navigator.pop(context);
                             }),
                             if (!isArticle)
                               createSheetButton(
                                   L10n.of(context).share_tweet_content_and_link, Icons.add_link,
                                       () async {
-                                        Share.share(
-                                            '$tweetText\n\n$shareBaseUrl/${tweet.user!.screenName}/status/${tweet.idStr}');
-                                        Navigator.pop(context);
+                                        await SharePlus.instance.share(ShareParams(
+                                            text:
+                                                '$tweetText\n\n$shareBaseUrl/${tweet.user!.screenName}/status/${tweet.idStr}'));
+                                        if (context.mounted) Navigator.pop(context);
                                       }),
                             createSheetButton(isArticle ? L10n.of(context).share_article_as_image : L10n.of(context).share_tweet_as_image, Icons.screenshot, () async {
                               Uint8List? imgBytes = await captureWidget();
                               if (imgBytes != null) {
-                                Share.shareXFiles([XFile.fromData(imgBytes, mimeType: 'image/png')]);
+                                await SharePlus.instance.share(ShareParams(
+                                    files: [XFile.fromData(imgBytes, mimeType: 'image/png')]));
                               }
-                              Navigator.pop(context);
+                              if (context.mounted) Navigator.pop(context);
                             }),
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 16),

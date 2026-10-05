@@ -182,4 +182,56 @@ void main() {
       expect(queue.contains('b.mp4'), isTrue, reason: 'Waiting entries must survive a history cleanup');
     });
   });
+
+  // Both indices come from ReorderableListView's onReorderItem, which hands the
+  // target over already counted from after the source row was lifted out — so
+  // no "shift down when moving later" adjustment belongs inside moveItem.
+  group('moveItem()', () {
+    List<String> order() => queue.state.map((e) => e.fileName).toList();
+
+    void fill() {
+      queue.register('a.mp4', 'https://x/a.mp4', true);
+      queue.register('b.mp4', 'https://x/b.mp4', true);
+      queue.register('c.mp4', 'https://x/c.mp4', true);
+    }
+
+    test('Should carry a row down past the ones it clears', () {
+      fill();
+
+      queue.moveItem(0, 2);
+
+      expect(order(), ['b.mp4', 'c.mp4', 'a.mp4'],
+          reason: 'Adjusting the target a second time would land the row one slot early, so the '
+              'drag would visibly drop it in the wrong place');
+    });
+
+    test('Should carry a row up to the top', () {
+      fill();
+
+      queue.moveItem(2, 0);
+
+      expect(order(), ['c.mp4', 'a.mp4', 'b.mp4'],
+          reason: 'Dragging upward needs no adjustment at all, which is what would break if the '
+              'shift were dropped from the wrong direction');
+    });
+
+    test('Should swap a row with the neighbour it is dropped on', () {
+      fill();
+
+      queue.moveItem(0, 1);
+
+      expect(order(), ['b.mp4', 'a.mp4', 'c.mp4'],
+          reason: 'The one-step drag is the one the reader uses most');
+    });
+
+    test('Should leave the queue alone when the index is not in it', () {
+      fill();
+
+      queue.moveItem(7, 0);
+
+      expect(order(), ['a.mp4', 'b.mp4', 'c.mp4'],
+          reason: 'A stale index from a list that changed underneath the drag must not corrupt the '
+              'transfer order');
+    });
+  });
 }

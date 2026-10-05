@@ -186,14 +186,16 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   /// Moves an entry to another position (drag & drop); waiting entries then run
   /// in their new order.
+  /// Moves the row at [oldIndex] to [newIndex], both in the coordinates
+  /// ReorderableListView's `onReorderItem` hands over: the target index is
+  /// already counted after the source row has been taken out, so there is no
+  /// "shift down" adjustment to make here.
   void moveItem(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= state.length) return;
 
     final updated = List.of(state);
     final item = updated.removeAt(oldIndex);
-    var target = newIndex;
-    if (target > oldIndex) target -= 1;
-    updated.insert(target.clamp(0, updated.length), item);
+    updated.insert(newIndex.clamp(0, updated.length), item);
     update(updated, force: true);
     _save(force: true);
   }
