@@ -588,29 +588,6 @@ class Twitter {
     );
   }
 
-  /// The account notifications timeline, served by X's NotificationsTimeline
-  /// endpoint (the x.com/web "Notifications" page). Each entry is either an
-  /// aggregated notification (likes, replies, bell-subscribed posts…) or a
-  /// plain embedded tweet, under
-  /// data.viewer_v2.user_results.result.notification_timeline. The queryId
-  /// below comes from the recorded fixture (see tool/record) — refresh the
-  /// fixture there when a 404 appears.
-  static Future<NotificationsPage> getNotificationsTimeline({int count = 20, String? cursor}) async {
-    var variables = {
-      "timeline_type": "All",
-      "count": count,
-      if (cursor != null) "cursor": cursor,
-    };
-
-    var response = await _twitterApi.client.get(
-      Uri.https('x.com', '/i/api/graphql/gzC0OYBCnfdYS4M4Gue7BA/NotificationsTimeline', {
-        'variables': jsonEncode(variables),
-        'features': jsonEncode(_timelineFeatures),
-      }),
-    );
-    return parseNotifications(json.decode(response.body) as Map<String, dynamic>);
-  }
-
   /// The posts an account liked, served by X's Likes endpoint — usable for the
   /// account the request runs as (X keeps likes private otherwise). The body
   /// has the usual user-timeline shape, so the shared parser reads it. The

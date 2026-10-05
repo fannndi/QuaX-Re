@@ -197,16 +197,6 @@ class UserSubscription extends Subscription {
       'in_feed': inFeed ? 1 : 0,
     };
   }
-
-  UserWithExtra toUser() {
-    return UserWithExtra.fromJson({
-      'id_str': id,
-      'screen_name': screenName,
-      'name': name,
-      'profile_image_url_https': profileImageUrlHttps,
-      'verified': verified
-    });
-  }
 }
 
 class SubscriptionGroup with ToMappable {

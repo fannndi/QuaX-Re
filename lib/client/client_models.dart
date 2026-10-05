@@ -274,28 +274,6 @@ class TweetWithCard extends Tweet {
 
     return tweet;
   }
-
-  static Entities copyEntities(Entities src, Entities trg) {
-    if (src.media != null) {
-      trg.media = src.media;
-    }
-    if (src.urls != null) {
-      trg.urls = src.urls;
-    }
-    if (src.userMentions != null) {
-      trg.userMentions = src.userMentions;
-    }
-    if (src.hashtags != null) {
-      trg.hashtags = src.hashtags;
-    }
-    if (src.symbols != null) {
-      trg.symbols = src.symbols;
-    }
-    if (src.polls != null) {
-      trg.polls = src.polls;
-    }
-    return trg;
-  }
 }
 
 class TweetChain {
@@ -324,28 +302,6 @@ class Follows {
   Follows({required this.cursorBottom, required this.cursorTop, required this.users});
 }
 
-/// One aggregated notification (likes, replies, bell-subscribed posts…). Its
-/// parts are optional: X fills what the notification supports.
-class NotificationEntry {
-  final String? icon;
-  final String? message;
-  final String? senderName;
-  final String? senderAvatarUrl;
-  final String? url;
-  final int? timestampMs;
-
-  NotificationEntry({this.icon, this.message, this.senderName, this.senderAvatarUrl, this.url, this.timestampMs});
-}
-
-/// One page of the notifications timeline: notification aggregates and embedded
-/// tweets (TweetChain) interleaved, plus the bottom cursor for pagination.
-class NotificationsPage {
-  final List<Object> entries;
-  final String? cursorBottom;
-
-  NotificationsPage({required this.entries, required this.cursorBottom});
-}
-
 class TweetStatus {
   // final TweetChain after;
   // final TweetChain before;
@@ -369,26 +325,4 @@ class TwitterError {
   }
 }
 
-class SearchHasNoTimelineException {
-  final String? query;
-
-  SearchHasNoTimelineException(this.query);
-
-  @override
-  String toString() {
-    return 'The search has no timeline {query: $query}';
-  }
-}
-
-class UnknownTimelineItemType with SyntheticException implements Exception {
-  final String type;
-  final String entryId;
-
-  UnknownTimelineItemType(this.type, this.entryId);
-
-  @override
-  String toString() {
-    return 'Unknown timeline item type: {type: $type, entryId: $entryId}';
-  }
-}
 

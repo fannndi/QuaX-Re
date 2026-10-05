@@ -48,9 +48,6 @@ class VideoCache {
   static bool isEligibleDuration(int? durationMillis) =>
       durationMillis != null && durationMillis > 0 && durationMillis <= maxDurationMillis;
 
-  /// Whether a completed cache file exists (sync view of [load]'s index).
-  bool isCached(String url) => _entries.containsKey(fileNameFor(url));
-
   /// Usage stats for the settings screen.
   int get count => _entries.length;
 

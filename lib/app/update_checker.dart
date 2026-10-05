@@ -51,15 +51,3 @@ Future checkForUpdates(context) async {
   }
 }
 
-
-class UnableToCheckForUpdatesException {
-  final String body;
-
-  UnableToCheckForUpdatesException(this.body);
-
-  @override
-  String toString() {
-    return 'Unable to check for updates: {body: $body}';
-  }
-}
-

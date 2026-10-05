@@ -177,31 +177,6 @@ void main() {
     }
   });
 
-  group('NotificationsTimeline', () {
-    for (final fixture in fixturesOf('NotificationsTimeline')) {
-      test(fixture.scenario, () {
-        final page = parseNotifications(fixture.body);
-        expect(page.entries, isNotEmpty,
-            reason: 'The account received notifications, so parsing should yield some');
-        expect(page.cursorBottom, isNotNull,
-            reason: 'The bottom cursor drives pagination of older notifications');
-
-        for (final entry in page.entries) {
-          if (entry is TweetChain) {
-            expect(entry.tweets, isNotEmpty,
-                reason: 'An embedded tweet entry should carry its tweet, not an empty chain');
-            expectEveryTweetHasAnAuthor(entry.tweets, fixture);
-          } else if (entry is NotificationEntry) {
-            expect(entry.icon, isNotNull,
-                reason: 'The notification icon drives its tile rendering');
-            expect(entry.message, isNotNull,
-                reason: 'A notification without any text renders as an empty tile');
-          }
-        }
-      });
-    }
-  });
-
   for (final operation in ['Following', 'Followers']) {
     group(operation, () {
       for (final fixture in fixturesOf(operation)) {

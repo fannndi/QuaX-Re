@@ -33,19 +33,6 @@ abstract class FritterErrorWidget extends StatelessWidget {
   const FritterErrorWidget({super.key});
 }
 
-class UnknownTwitterErrorCode with SyntheticException implements Exception {
-  final int code;
-  final String message;
-  final String uri;
-
-  UnknownTwitterErrorCode(this.code, this.message, this.uri);
-
-  @override
-  String toString() {
-    return 'Unknown Twitter error code: {code: $code, message: $message, uri: $uri}';
-  }
-}
-
 EmojiErrorWidget createEmojiError(TwitterError error) {
   String emoji;
   String message;
