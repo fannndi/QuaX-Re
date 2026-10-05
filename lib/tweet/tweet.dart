@@ -89,8 +89,23 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   TranslationStatus _translationStatus = TranslationStatus.original;
 
   List<RichTextPart> _originalParts = [];
-  List<RichTextPart> _displayParts = [];
   List<RichTextPart> _translatedParts = [];
+
+  List<RichTextPart> _parts = [];
+  List<InlineSpan>? _spans;
+
+  /// What the card currently shows, and the spans derived from it.
+  ///
+  /// The spans are memoised because ExpandableTweetText compares them by
+  /// identity to decide whether its line measurement still holds — handing it a
+  /// fresh list from displayRichText() on every build threw that measurement
+  /// away, so each rebuild re-laid-out the text of every card on screen.
+  List<RichTextPart> get _displayParts => _parts;
+
+  set _displayParts(List<RichTextPart> value) {
+    _parts = value;
+    _spans = null;
+  }
 
   bool _isInitialized = false;
 
@@ -723,7 +738,7 @@ Color? buttonsColor(BuildContext c) {
           child: Directionality(
             textDirection: _isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
             child: ExpandableTweetText(
-              textSpans: displayRichText(_displayParts),
+              textSpans: _spans ??= displayRichText(_parts),
               onTap: () => !widget.tweetOpened ? onClickOpenTweet(tweet) : null,
               maxLines: PrefService.of(context).get(alwaysShowFullTweetContents) ? null : 8,
             ),

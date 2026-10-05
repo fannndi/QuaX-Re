@@ -294,20 +294,38 @@ class Repository {
         Migration(Operation((db) async {
           await db.execute('DROP TABLE IF EXISTS tweet_search');
         })),
-      ]
+      ],
+      29: [
+        // The chunk cache belonged to the subscription-group feeds, which the
+        // navbar no longer reaches: nothing writes or reads either table now.
+        // migrate() used to full-scan both of them on every launch to prune
+        // rows nothing would ever look at again.
+        SqlMigration('DROP TABLE IF EXISTS $tableFeedGroupChunk',
+            reverseSql:
+                'CREATE TABLE IF NOT EXISTS $tableFeedGroupChunk (cursor_id INTEGER NOT NULL, hash VARCHAR NOT NULL, '
+                'cursor_top VARCHAR, cursor_bottom VARCHAR, response VARCHAR, '
+                'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
+        SqlMigration('DROP TABLE IF EXISTS $tableFeedGroupCursor',
+            reverseSql:
+                'CREATE TABLE IF NOT EXISTS $tableFeedGroupCursor (id INTEGER PRIMARY KEY, '
+                'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
+        // The two lists that sort their whole table on every open: saved posts
+        // and likes are the ones that grow without bound.
+        SqlMigration('CREATE INDEX IF NOT EXISTS idx_${tableSavedTweet}_saved_at '
+            'ON $tableSavedTweet (saved_at DESC)',
+            reverseSql: 'DROP INDEX IF EXISTS idx_${tableSavedTweet}_saved_at'),
+        SqlMigration('CREATE INDEX IF NOT EXISTS idx_${tableLikedTweet}_liked_at '
+            'ON $tableLikedTweet (liked_at DESC)',
+            reverseSql: 'DROP INDEX IF EXISTS idx_${tableLikedTweet}_liked_at'),
+      ],
     });
     await openDatabase(
       databaseName,
-      version: 28,
+      version: 29,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
       onDowngrade: myMigrationPlan.call,
     );
-
-    // Clean up any old feed chunks and cursors
-    var repository = await writable();
-    await repository.delete(tableFeedGroupChunk, where: "created_at <= date('now', '-7 day')");
-    await repository.delete(tableFeedGroupCursor, where: "created_at <= date('now', '-7 day')");
 
     log.info('Finished migrating database');
 

@@ -61,13 +61,17 @@ void main() {
         tableSavedTweet,
         tableSavedTweetFolder,
         tableLikedTweet,
-        tableFeedGroupChunk,
-        tableFeedGroupCursor,
         tableAccounts,
       ]) {
         expect(tables, contains(table),
             reason: '"$table" is queried by a model, so a fresh install without it would crash '
                 'the first time that screen opens');
+      }
+
+      for (final table in [tableFeedGroupChunk, tableFeedGroupCursor]) {
+        expect(tables, isNot(contains(table)),
+            reason: 'The chunk cache belonged to the group feeds, which are gone; carrying the '
+                'tables into a fresh install would invite code to write into them again');
       }
     });
 
@@ -78,7 +82,7 @@ void main() {
       final version = await db.getVersion();
       await db.close();
 
-      expect(version, 28,
+      expect(version, 29,
           reason: 'The version has to match the last migration step, otherwise the next app launch '
               'replays steps on top of a schema that already has them and the ALTERs fail');
     });
@@ -126,7 +130,10 @@ void main() {
           reason: 'The row should arrive with its values, not only its id');
     });
 
-    test('Should drop the full-text table an earlier build created', () async {
+    test('Should drop the tables an earlier build created that nothing reads anymore', () async {
+      // A real install at 27 carries every table migrations 2..27 created, not
+      // only the ones this test cares about — migration 29 indexes saved_tweet
+      // and liked_tweet, which would be missing from a skeleton schema.
       final legacy = await openDatabase(databaseName, version: 27, onCreate: (db, version) async {
         await db.execute('CREATE TABLE tweet_search (tweet_id VARCHAR, source VARCHAR, body VARCHAR)');
         await db.execute('CREATE TABLE feed_group_chunk (cursor_id INTEGER NOT NULL, hash VARCHAR NOT NULL, '
@@ -134,6 +141,10 @@ void main() {
             'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
         await db.execute('CREATE TABLE feed_group_cursor (id INTEGER PRIMARY KEY, '
             'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
+        await db.execute('CREATE TABLE saved_tweet (id VARCHAR PRIMARY KEY, content TEXT NOT NULL, '
+            'saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
+        await db.execute('CREATE TABLE liked_tweet (id VARCHAR PRIMARY KEY, content TEXT NOT NULL, '
+            'user_id VARCHAR DEFAULT NULL, liked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
       });
       await legacy.close();
 
@@ -146,6 +157,11 @@ void main() {
       expect(tables, isNot(contains('tweet_search')),
           reason: 'Search ignores that table now, and leaving it behind on upgraded installs would '
               'keep a stale copy of every saved post around');
+      expect(tables, isNot(contains('feed_group_chunk')),
+          reason: 'Nothing writes or reads the chunk cache since the group feeds went away, and '
+              'carrying it over would only give the next launch something else to scan');
+      expect(tables, isNot(contains('feed_group_cursor')),
+          reason: 'Same as the chunk table: dead schema should not survive an upgrade');
     });
   });
 
