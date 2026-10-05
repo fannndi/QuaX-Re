@@ -20,10 +20,9 @@ typedef TweetPageLoader = Future<TweetPageResult> Function(String? cursor);
 /// Owns a [CursorPagingController] for cursor-paginated tweet chains, bridging
 /// it onto the app's `(chains, nextCursor)` loaders.
 ///
-/// v5 bakes the fetch callback into the controller at construction, yet several
-/// feeds create the controller away from the loader (and cache it across widget
-/// remounts — see [FeedSessionCache]). So the loader lives in a rebindable field
-/// that [PaginatedTweetList] sets on mount.
+/// v5 bakes the fetch callback into the controller at construction, yet the
+/// controller is built away from the loader that feeds it. So the loader lives
+/// in a rebindable field that [PaginatedTweetList] sets on mount.
 class TweetFeedController {
   late final CursorPagingController<String, TweetChain> _paging;
   TweetPageLoader? _loader;

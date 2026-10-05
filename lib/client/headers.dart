@@ -1,7 +1,10 @@
+import 'package:logging/logging.dart';
 import 'package:quax/client/x_client_transaction_id/client_transaction.dart';
 import 'package:quax/constants.dart';
 
 class TwitterHeaders {
+  static final log = Logger('TwitterHeaders');
+
   static final Map<String, String> _baseHeaders = {
     'accept': '*/*',
     'accept-language': 'en-US,en;q=0.9',
@@ -18,6 +21,7 @@ class TwitterHeaders {
 
   static Future<ClientTransaction>? _initFuture;
   static DateTime? _initializedAt;
+  static DateTime? _deriveDisabledUntil;
 
   // initialize() fetches and parses x.com/home plus an ondemand script: bound
   // it, so a hanging request cannot stall every API call for the whole session.
@@ -28,8 +32,18 @@ class TwitterHeaders {
   // a stale generator self-heals on the next request without hammering x.com.
   static const _stalenessCooldown = Duration(minutes: 10);
 
+  // When deriving fails outright — X serving a page shape this port does not
+  // understand — every request would otherwise pay for a fresh attempt. Between
+  // attempts, requests simply go without the header.
+  static const _deriveCooldown = Duration(minutes: 5);
+
   static Future<Map<String, String>?> getXClientTransactionIdHeader(Uri? uri) async {
     if (uri == null) {
+      return null;
+    }
+
+    final disabledUntil = _deriveDisabledUntil;
+    if (disabledUntil != null && DateTime.now().isBefore(disabledUntil)) {
       return null;
     }
 
@@ -40,25 +54,35 @@ class TwitterHeaders {
       });
       final ct = await _initFuture!;
       return {'x-client-transaction-id': ct.generateTransactionId('GET', uri.path)};
-    } on Exception {
-      // A failed (or timed out) initialization must not stay cached: futures
-      // keep their error, so every later request would fail the same way until
-      // the app restarts. Drop it and let the next request try afresh.
+    } catch (e) {
+      // Deriving the id reads a page X owns and reshapes whenever they deploy —
+      // they have moved it outright before (the x-web migration of 2026), and
+      // then nothing this port knows how to parse is there. That must not take
+      // every request down with it: the header is mandatory on only a handful of
+      // operations, so the request goes out without it and those endpoints report
+      // themselves. Keep the failed future out of the cache, back off, log.
       _initFuture = null;
       _initializedAt = null;
-      rethrow;
+      _deriveDisabledUntil = DateTime.now().add(_deriveCooldown);
+      log.warning('No x-client-transaction-id for the next ${_deriveCooldown.inMinutes} min: $e');
+      return null;
     }
   }
 
   /// Drops the cached transaction generator if it is old enough that X may have
   /// rotated its keys, so the next request re-derives them. A no-op within the
   /// cooldown, since a fresh generator is very unlikely to be the 404's cause.
+  /// Also ends a failure back-off early: a 404 means the page moved again, which
+  /// is exactly the kind of change a retry is worth making for.
   static void invalidateIfStale() {
+    final now = DateTime.now();
+    _deriveDisabledUntil = null;
+
     final at = _initializedAt;
     if (at == null) {
       return;
     }
-    if (DateTime.now().difference(at) >= _stalenessCooldown) {
+    if (now.difference(at) >= _stalenessCooldown) {
       _initFuture = null;
       _initializedAt = null;
     }

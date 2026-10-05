@@ -71,6 +71,17 @@ through `execute()`). Widgets observe stores via `ScopedBuilder` / `TripleBuilde
 The API is **reverse-engineered**: endpoints, queryIds, tokens and headers change without notice.
 Parse JSON defensively (`result["data"]?["text"] as String?`, never `result["data"]["text"]`).
 
+**Known live breakage (2026-10):** `x_client_transaction_id/` derives the `x-client-transaction-id`
+header by parsing `x.com/home` for the `ondemand.s` webpack chunk. X has finished migrating to the
+`x-web` frontend (`x-web/entry-client-*.js`), which no longer ships that chunk map and 404s the old
+`abs.twimg.com/responsive-web/client-web/ondemand.s.*.js` — so `ClientTransaction.initialize()`
+throws every time. **This is X-side, not a regression**: `TwitterHeaders` therefore treats a failed
+derivation as "no header for now" with a 5-minute back-off instead of rethrowing, because the header
+is mandatory on only a handful of operations; read endpoints work without it. Search and follows
+answer 404 until the parser is ported to the new assets (`sign.o-*.js` under `x-web/x-web/assets/`,
+the same re-port `twscrape` and `twikit` shipped). Re-verify with `grep -c ondemand <(curl -s
+-A "$UA" https://x.com/home)` — 0 means still broken.
+
 `client.dart` is the `Twitter` facade over `dart_twitter_api`. `_QuackerTwitterClient.fetch()`
 asks the pure `AccountSelector` (`account_selector.dart`) for a healthy account and retries on
 another on error. Health signals: rate limits (429) are per-endpoint and remembered in memory by
