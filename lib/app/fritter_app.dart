@@ -42,83 +42,108 @@ class _FritterAppState extends State<FritterApp> {
   double _textScaleFactor = 1.0;
   Locale? _locale;
 
+  BasePrefService? _prefs;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    var prefService = PrefService.of(context);
-
-    void setLocale(String? locale) {
-      if (locale == null || locale == optionLocaleDefault) {
-        _locale = null;
-      } else {
-        var splitLocale = locale.split(RegExp(r'[-_]'));
-        if (splitLocale.length == 1) {
-          _locale = Locale(splitLocale[0]);
-        } else {
-          if (splitLocale[1].length == 4) {
-            // 4 characters -> unicode_script_subtag
-            _locale = Locale.fromSubtags(languageCode: splitLocale[0], scriptCode: splitLocale[1]);
-          } else {
-            // Other than 4 characters -> unicode_region_subtag (country)
-            _locale = Locale(splitLocale[0], splitLocale[1]);
-          }
-        }
-      }
+    // `listen: false`, with the key listeners attached exactly once below.
+    // Reading the service as a dependency meant every preference write — and
+    // scroll position is written twice a second while scrolling — re-ran this
+    // method, which both rebuilt the whole app tree and pushed seven fresh
+    // closures into a Set nothing ever removed them from. The root also
+    // depends on MediaQuery through build, so a keyboard animation re-ran it
+    // per frame and compounded both.
+    final prefs = PrefService.of(context, listen: false);
+    if (!identical(_prefs, prefs)) {
+      _detachPreferenceListeners();
+      _prefs = prefs;
+      prefs.addKeyListener(optionShouldCheckForUpdates, _onCheckUpdatesChanged);
+      prefs.addKeyListener(optionLocale, _onLocaleChanged);
+      prefs.addKeyListener(optionThemeTrueBlack, _onTrueBlackChanged);
+      prefs.addKeyListener(optionThemeMode, _onThemeModeChanged);
+      prefs.addKeyListener(optionThemeColor, _onThemeColorChanged);
+      prefs.addKeyListener(optionDisableScreenshots, _onScreenshotsChanged);
+      prefs.addKeyListener(optionDisableAnimations, _onDisableAnimationsChanged);
+      prefs.addKeyListener(optionTextScaleFactor, _onTextChangedScale);
     }
 
-    // Set any already-enabled preferences
-    setState(() {
-      setLocale(prefService.get<String>(optionLocale));
-      _themeMode = prefService.get(optionThemeMode);
-      _themeColor = prefService.get(optionThemeColor);
-      _trueBlack = prefService.get(optionThemeTrueBlack);
-      _disableAnimations = prefService.get(optionDisableAnimations);
-      _checkUpdates = prefService.get(optionShouldCheckForUpdates);
-      _isSecure = prefService.get(optionDisableScreenshots);
-      _textScaleFactor = prefService.get(optionTextScaleFactor);
-    });
+    // No setState: didChangeDependencies is always followed by a build, and the
+    // key listeners below cover the writes that happen after it.
+    _readPreferences(prefs);
+  }
 
-    prefService.addKeyListener(optionShouldCheckForUpdates, () {
-      setState(() {});
-    });
+  @override
+  void dispose() {
+    _detachPreferenceListeners();
+    super.dispose();
+  }
 
-    prefService.addKeyListener(optionLocale, () {
-      setState(() {
-        setLocale(prefService.get<String>(optionLocale));
-      });
-    });
+  void _detachPreferenceListeners() {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    _prefs = null;
+    prefs.removeKeyListener(optionShouldCheckForUpdates, _onCheckUpdatesChanged);
+    prefs.removeKeyListener(optionLocale, _onLocaleChanged);
+    prefs.removeKeyListener(optionThemeTrueBlack, _onTrueBlackChanged);
+    prefs.removeKeyListener(optionThemeMode, _onThemeModeChanged);
+    prefs.removeKeyListener(optionThemeColor, _onThemeColorChanged);
+    prefs.removeKeyListener(optionDisableScreenshots, _onScreenshotsChanged);
+    prefs.removeKeyListener(optionDisableAnimations, _onDisableAnimationsChanged);
+    prefs.removeKeyListener(optionTextScaleFactor, _onTextChangedScale);
+  }
 
-    // Whenever the "true black" preference is toggled, apply the toggle
-    prefService.addKeyListener(optionThemeTrueBlack, () {
-      setState(() {
-        _trueBlack = prefService.get(optionThemeTrueBlack);
-      });
-    });
+  void _readPreferences(BasePrefService prefs) {
+    _setLocale(prefs.get<String>(optionLocale));
+    _themeMode = prefs.get(optionThemeMode);
+    _themeColor = prefs.get(optionThemeColor);
+    _trueBlack = prefs.get(optionThemeTrueBlack);
+    _disableAnimations = prefs.get(optionDisableAnimations);
+    _checkUpdates = prefs.get(optionShouldCheckForUpdates);
+    _isSecure = prefs.get(optionDisableScreenshots);
+    _textScaleFactor = prefs.get(optionTextScaleFactor);
+  }
 
-    prefService.addKeyListener(optionThemeMode, () {
-      setState(() {
-        _themeMode = prefService.get(optionThemeMode);
-      });
-    });
+  void _onPreferenceChanged(void Function(BasePrefService prefs) read) {
+    final prefs = _prefs;
+    if (prefs == null || !mounted) return;
+    setState(() => read(prefs));
+  }
 
-    prefService.addKeyListener(optionThemeColor, () {
-      setState(() {
-        _themeColor = prefService.get(optionThemeColor);
-      });
-    });
+  void _onCheckUpdatesChanged() => _onPreferenceChanged((p) => _checkUpdates = p.get(optionShouldCheckForUpdates));
 
-    prefService.addKeyListener(optionDisableScreenshots, () {
-      setState(() {
-        _isSecure = prefService.get(optionDisableScreenshots);
-      });
-    });
+  void _onLocaleChanged() => _onPreferenceChanged((p) => _setLocale(p.get<String>(optionLocale)));
 
-    prefService.addKeyListener(optionTextScaleFactor, () {
-      setState(() {
-        _textScaleFactor = prefService.get<double?>(optionTextScaleFactor) ?? 1.0;
-      });
-    });
+  void _onTrueBlackChanged() => _onPreferenceChanged((p) => _trueBlack = p.get(optionThemeTrueBlack));
+
+  void _onThemeModeChanged() => _onPreferenceChanged((p) => _themeMode = p.get(optionThemeMode));
+
+  void _onThemeColorChanged() => _onPreferenceChanged((p) => _themeColor = p.get(optionThemeColor));
+
+  void _onScreenshotsChanged() => _onPreferenceChanged((p) => _isSecure = p.get(optionDisableScreenshots));
+
+  void _onDisableAnimationsChanged() =>
+      _onPreferenceChanged((p) => _disableAnimations = p.get(optionDisableAnimations));
+
+  void _onTextChangedScale() =>
+      _onPreferenceChanged((p) => _textScaleFactor = p.get<double?>(optionTextScaleFactor) ?? 1.0);
+
+  void _setLocale(String? locale) {
+    if (locale == null || locale == optionLocaleDefault) {
+      _locale = null;
+      return;
+    }
+    var splitLocale = locale.split(RegExp(r'[-_]'));
+    if (splitLocale.length == 1) {
+      _locale = Locale(splitLocale[0]);
+    } else if (splitLocale[1].length == 4) {
+      // 4 characters -> unicode_script_subtag
+      _locale = Locale.fromSubtags(languageCode: splitLocale[0], scriptCode: splitLocale[1]);
+    } else {
+      // Other than 4 characters -> unicode_region_subtag (country)
+      _locale = Locale(splitLocale[0], splitLocale[1]);
+    }
   }
 
   @override

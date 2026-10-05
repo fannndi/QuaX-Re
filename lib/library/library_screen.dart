@@ -8,6 +8,7 @@ import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/utils/image_decode.dart';
 import 'package:share_plus/share_plus.dart';
 
 enum _LibrarySort { newest, oldest, name, size }
@@ -315,6 +316,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _buildGrid(BuildContext context, List<LibraryEntry> entries) {
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(12);
+    // Three columns of downloaded media: a 4000px photo decoded whole for a
+    // ~120pt tile is ~48MB of bitmap the tile cannot show, and the gallery can
+    // hold thousands of files. Same treatment the search grid already gives it.
+    final decodeWidth = decodeWidthFor(context, MediaQuery.sizeOf(context).width / 3, maxWidth: 1080);
 
     return Stack(
       children: [
@@ -347,6 +352,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           return ExtendedImage.file(
                             File(thumbPath),
                             fit: BoxFit.cover,
+                            cacheWidth: decodeWidth,
                             loadStateChanged: (state) {
                               if (state.extendedImageLoadState == LoadState.failed) {
                                 return const Center(child: Icon(Icons.play_circle_outline));
@@ -360,6 +366,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ExtendedImage.file(
                         entry.file,
                         fit: BoxFit.cover,
+                        cacheWidth: decodeWidth,
                         loadStateChanged: (state) {
                           if (state.extendedImageLoadState == LoadState.failed) {
                             return const Icon(Icons.broken_image_outlined);

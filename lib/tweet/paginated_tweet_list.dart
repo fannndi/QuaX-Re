@@ -425,9 +425,20 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
 
     _scrollSaveTimer = Timer(const Duration(milliseconds: 600), () {
       if (!mounted || !_scrollController.hasClients) return;
+
       final prefs = PrefService.of(context, listen: false);
-      prefs.set<double>('scroll.$key', _scrollController.offset);
-      prefs.set<int>('scroll.$key.at', DateTime.now().millisecondsSinceEpoch);
+      if (prefs is! PrefServiceShared) return;
+
+      // Written straight to SharedPreferences instead of through prefs.set(): a
+      // reading position is not state anything renders, but set() ends in
+      // notifyListeners() and PrefService is an InheritedNotifier — so every
+      // save rebuilt every widget that had read a preference the ordinary way,
+      // the visible tweet cards among them, twice per 600ms while the list was
+      // scrolling. get() reads SharedPreferences directly, so the restore below
+      // still finds these values the same way.
+      final store = prefs.sharedPreferences;
+      store.setDouble('${prefs.prefix}scroll.$key', _scrollController.offset);
+      store.setInt('${prefs.prefix}scroll.$key.at', DateTime.now().millisecondsSinceEpoch);
     });
   }
 
