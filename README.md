@@ -14,12 +14,10 @@ QuaX itself is forked from [Quacker](https://github.com/TheHCJ/Quacker) and
 ## Features
 
 - Home feed with For You and Following timelines
-- Notifications timeline (bell in the feed's app bar)
 - Like tab: posts liked in the app, Saved posts with folders, the account's likes and bookmarks
-- Subscription groups: bundle followed users into custom feeds
-- Tweet search (top / latest / media) and people search
+- Tweet search (top / latest / media) and people search, plus an offline Local tab
 - Download queue with pause/resume and a hidden media library (`.nomedia`) opened from the gallery
-- Offline mode: cached timelines, locally liked/saved posts, downloaded clips play from disk
+- Offline mode: cached threads, locally liked/saved posts, downloaded clips play from disk
 - Single-page settings: theme, media quality, autoplay/loop, text size, cache management
 
 ## Build
@@ -29,13 +27,15 @@ Android SDK with platform 37 / build-tools 36 / NDK 30, and the JDK bundled with
 
 ```bash
 fvm flutter pub get
-fvm dart run intl_utils:generate                            # after editing lib/l10n/*.arb
+fvm dart run intl_utils:generate                            # required: lib/generated is not in git
 fvm dart run flutter_launcher_icons
-fvm dart run flutter_iconpicker:generate_packs --packs material
 
 fvm flutter test                                            # run the tests
 fvm flutter build apk --profile                             # smoothness: profile/release
 ```
+
+`python3 l10n.py` sorts the ARB files and reports missing and unused keys; `--clean` removes the
+unused ones from every locale.
 
 Install on a device without wiping its data:
 

@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/feed_refresh_controller.dart';
-import 'package:quax/tweet/cached_tweet_list.dart';
 import 'package:quax/tweet/conversation.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/ui/skeletons.dart';
@@ -151,10 +150,6 @@ class PaginatedTweetList extends StatefulWidget {
   final String firstPageErrorPrefix;
   final String newPageErrorPrefix;
   final String emptyMessage;
-  // Cached tweets shown in place of the first-page spinner while the initial
-  // load is in flight, so a feed reveals its cached content instead of a
-  // full-screen progress indicator.
-  final List<TweetChain>? firstPagePreview;
   // Remembers the scroll offset across app restarts, per feed.
   final String? scrollKey;
 
@@ -167,7 +162,6 @@ class PaginatedTweetList extends StatefulWidget {
     required this.newPageErrorPrefix,
     required this.emptyMessage,
     this.onRefresh,
-    this.firstPagePreview,
     this.scrollKey,
   });
 
@@ -247,7 +241,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     if (!identical(oldWidget.feed, widget.feed)) {
       oldWidget.feed.controller.removeListener(_onControllerChanged);
       _controller.addListener(_onControllerChanged);
-      // A fresh feed may need its first page kicked off again from the preview.
+      // A fresh feed needs its first page kicked off again.
       _firstLoadStarted = false;
     }
   }
@@ -498,16 +492,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     );
   }
 
-  // True while we should display the cached preview: the first page hasn't
-  // loaded yet, there's no error to surface, and we actually have cached tweets.
-  bool get _showingPreview {
-    final preview = widget.firstPagePreview;
-    final state = _controller.value;
-    return preview != null && preview.isNotEmpty && state.items == null && state.error == null;
-  }
-
-  // The PagedListView normally kicks off the first page when it mounts. While
-  // the preview replaces it, nothing does — so trigger the load ourselves once.
+  // The PagedListView normally kicks off the first page when it mounts; the
+  // paths below need to start it themselves when it has not run yet.
   void _maybeStartFirstLoad() {
     if (_firstLoadStarted) return;
     final state = _controller.value;
@@ -554,11 +540,6 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   @override
   Widget build(BuildContext context) {
     _maybeRestoreScroll();
-
-    if (_showingPreview) {
-      _maybeStartFirstLoad();
-      return _wrapWithRefresh(CachedTweetList(widget.firstPagePreview!, username: widget.username));
-    }
 
     final state = _controller.value;
     if (!NetworkStatus().online.value && state.items == null && state.error == null) {

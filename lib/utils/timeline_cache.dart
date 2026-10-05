@@ -4,11 +4,11 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-/// File-backed cache of a timeline's first page (the raw GraphQL body), so a
-/// feed can paint its last content the instant the app opens and then
-/// revalidate it — X answers fresh data moments later, but the reader never
-/// stares at a spinner for content it already had. Files, not preferences:
-/// bodies are hundreds of KB and must never bloat the settings store.
+/// File-backed cache of a post's thread body (the raw GraphQL response), so a
+/// thread can paint what the reader already had the moment it opens and then
+/// revalidate it — X answers fresh data moments later, but nobody stares at a
+/// spinner for content they already saw. Files, not preferences: bodies are
+/// hundreds of KB and must never bloat the settings store.
 class TimelineCache {
   static const _folder = 'timeline_cache';
 
@@ -47,10 +47,42 @@ class TimelineCache {
 
   static Future<void> write(String key, String body) async {
     try {
-      final file = File(p.join((await directory()).path, _fileName(key)));
+      final dir = await directory();
+      final file = File(p.join(dir.path, _fileName(key)));
       await file.writeAsString(jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}));
+      await _prune(dir);
     } catch (_) {
       // The cache is best-effort.
+    }
+  }
+
+  /// Bounds the shelf. Threads are cached as they are opened, so without a
+  /// ceiling the folder grows by one body per post the reader ever opens — and
+  /// every file here is read whole when the offline shelf is shown.
+  static const _maxEntries = 200;
+  static const _maxAge = Duration(days: 30);
+
+  static Future<void> _prune(Directory dir) async {
+    final entries = <MapEntry<File, DateTime>>[];
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      try {
+        entries.add(MapEntry(entity, (await entity.stat()).modified));
+      } catch (_) {
+        // Gone or unreadable: nothing for us to delete anyway.
+      }
+    }
+    if (entries.isEmpty) return;
+
+    entries.removeWhere((entry) => entry.value.isBefore(DateTime.now().subtract(_maxAge)));
+    entries.sort((a, b) => b.value.compareTo(a.value));
+
+    for (final stale in entries.skip(_maxEntries)) {
+      try {
+        await stale.key.delete();
+      } catch (_) {
+        // Another writer may have taken it already.
+      }
     }
   }
 
