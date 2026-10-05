@@ -260,7 +260,7 @@ class TweetCard extends StatelessWidget {
     }
 
     var imageKey = '';
-    var imageSize = PrefService.of(context, listen: false).get(optionImageQuality);
+    final imageSize = PrefService.of(context, listen: false).get(optionImageQuality)?.toString() ?? '';
     if (imageSize == 'thumb') {
       imageKey = '_small';
     } else if (imageSize == 'medium') {
@@ -269,6 +269,20 @@ class TweetCard extends StatelessWidget {
       imageKey = '_x_large';
     }
 
+    try {
+      return _renderCard(context, card, imageKey, imageSize);
+    } catch (e) {
+      // A card X has reshaped since this was written can be missing a
+      // binding_values key, and every case indexes straight into it. Throwing
+      // from build hands the frame to the global ErrorWidget.builder, which
+      // paints a full-page error where the tweet should be — the card is
+      // decoration, so an unknown shape renders nothing and the post survives.
+      log.severe('Unable to render the ${card['name']} card', e);
+      return Container();
+    }
+  }
+
+  Widget _renderCard(BuildContext context, Map<String, dynamic> card, String imageKey, String imageSize) {
     switch (card['name']) {
       case 'summary':
         var image = card['binding_values']['thumbnail_image$imageKey']?['image_value'];

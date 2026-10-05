@@ -60,11 +60,16 @@ class _TweetMediaViewState extends State<TweetMediaView> {
 
   @override
   Widget build(BuildContext context) {
+    // Assigned, not re-declared: a second `var size` inside the if shadowed
+    // this one and left it null, so the fullscreen view ignored the image
+    // quality setting and always pulled the largest variant X has.
     String? size;
-    var prefs = PrefService.of(context, listen: false);
+    final prefs = PrefService.of(context, listen: false);
     if (widget.tweetMedia) {
-      var size = prefs.get(optionImageQuality);
+      size = prefs.get(optionImageQuality);
       if (size == 'disabled') {
+        // "Don't load media until I tap" has already been spent by opening the
+        // viewer, so the panel still shows something.
         size = 'medium';
       }
     }

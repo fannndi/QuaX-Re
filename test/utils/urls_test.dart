@@ -98,6 +98,19 @@ void main() {
                 'up one would open the wrong profile when the user taps it');
       });
 
+      test('Should read an /i/web/status/ link, which also has no user name', () async {
+        final post = parsedAs<PostUriInfo>(await parse('https://x.com/i/web/status/1729'),
+            'X hands this shape out for a post opened from its own web entry point, so it has to '
+                'open the tweet instead of the "unable to open link" dialog');
+
+        expect(post.id, '1729',
+            reason: 'The id is what the API loads, so it should be the part after "status"');
+        expect(post.screenName, isNull,
+            reason: 'No user name is carried here, and inventing one would open the wrong profile');
+        expect(post.photoNumber, isNull,
+            reason: 'Nothing names an image, so the tweet should open on its own terms');
+      });
+
       test('Should read the photo number of a media link', () async {
         final post = parsedAs<PostUriInfo>(
             await parse('https://x.com/DogsTrust/status/1729/photo/2'),

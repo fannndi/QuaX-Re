@@ -108,6 +108,12 @@ PostUriInfo? _parseAsPostLink(List<String> parts) {
     return PostUriInfo(null, parts[3], photoNumber: extractPhotoNumber(parts, 4));
   }
 
+  // https://x.com/i/web/status/1729 — the shape X hands out for a post opened
+  // from its own "web" entry point. It carries no user name either.
+  if (parts[0] == "i" && parts[1] == "web" && parts[2] == "status") {
+    return PostUriInfo(null, parts[3], photoNumber: extractPhotoNumber(parts, 4));
+  }
+
   // The URI is not a post link
   return null;
 }

@@ -11,6 +11,7 @@ import 'package:quax/saved/folder_picker.dart';
 import 'package:quax/saved/saved_tab_order.dart';
 import 'package:quax/saved/saved_tweet_folder_model.dart';
 import 'package:quax/saved/saved_tweet_model.dart';
+import 'package:quax/ui/errors.dart';
 
 class SavedFoldersScreen extends StatefulWidget {
   const SavedFoldersScreen({super.key});
@@ -129,6 +130,16 @@ class _SavedFoldersScreenState extends State<SavedFoldersScreen> {
       ),
       body: ScopedBuilder<SavedTweetFolderModel, List<SavedTweetFolder>>(
         store: _folderModel,
+        // Without this the screen spins forever on failure: ScopedBuilder builds
+        // the error event from onError first, then onLoading, and only reaches
+        // onState third — so a listener with onLoading but no onError keeps
+        // showing the loader no matter what the store reports.
+        onError: (_, e) => FullPageErrorWidget(
+          error: e,
+          stackTrace: null,
+          prefix: L10n.of(context).oops_something_went_wrong,
+          onRetry: () => _folderModel.listFolders(),
+        ),
         onLoading: (_) => const Center(child: CircularProgressIndicator()),
         onState: (context, folders) {
           var tokens = orderedSavedTabs(folders, PrefService.of(context, listen: false).get(optionSavedTabOrder));
