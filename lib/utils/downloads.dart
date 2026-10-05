@@ -163,6 +163,10 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
       for (var attempt = 0; attempt < _maxAttempts; attempt++) {
         queue.startRunning(fileName);
 
+        // _downloadToTemp only hands the context to _showStatusError, which
+        // checks it itself; a transfer must not stop because the screen that
+        // started it went away.
+        // ignore: use_build_context_synchronously
         tempPath = await _downloadToTemp(context, uri, fileName,
             resume: resume || attempt > 0, targetDir: targetDir);
         if (tempPath != null) break;
@@ -183,12 +187,17 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
 
     var promoted = false;
     try {
+      // _saveToDestination returns null as soon as the context is dead, having
+      // checked it on entry.
+      // ignore: use_build_context_synchronously
       final savePath = await _saveToDestination(context,
           file: tempPath, fileName: fileName, prefs: prefs);
       if (savePath != null) {
         // Only now the file exists where the library scans: mark it done first,
         // so the done listeners see the finished entry, then celebrate.
         queue.markDone(fileName);
+        // _showSuccess returns early on a dead context; the file is saved either way.
+        // ignore: use_build_context_synchronously
         _showSuccess(context, savePath);
         if (cachedPath != null) {
           promoted = true;
@@ -280,6 +289,9 @@ Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
   String? tempPath;
   try {
     final targetDir = (await getTemporaryDirectory()).path;
+    // _downloadToTemp tolerates a context whose screen is gone; only the error
+    // snackbar is skipped.
+    // ignore: use_build_context_synchronously
     tempPath = await _downloadToTemp(context, uri, sanitizedFilename, targetDir: targetDir);
     if (tempPath == null) return;
 
@@ -360,6 +372,10 @@ http.Request _rangeRequest(Uri uri, int offset) {
 /// usable while files download in the background. Cancels through the queue.
 /// Failed downloads keep their partial file so a retry can resume.
 /// Returns the temp path, or null when the download failed or was cancelled.
+/// The actual bytes over the wire. A null [context] — or one whose screen is
+/// gone — means nobody is watching: the transfer still runs to completion and
+/// only the error snackbar is skipped, which is why the call sites hand it a
+/// context that may already be dead.
 Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     {bool resume = false, required String targetDir}) async {
   final tempDir = await getTemporaryDirectory();
@@ -392,6 +408,9 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     final isPartial = response.statusCode == 206;
     if (response.statusCode != 200 && !isPartial) {
       queue.fail(fileName, error: 'HTTP ${response.statusCode}');
+      // _showStatusError checks the context itself, and the failure is recorded
+      // whether or not it can be shown.
+      // ignore: use_build_context_synchronously
       _showStatusError(context, response.statusCode);
       return null;
     }

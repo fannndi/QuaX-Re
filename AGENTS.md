@@ -21,7 +21,7 @@ python3 l10n.py                        # sort ARB files; reports missing and unu
 python3 l10n.py --clean                # drops the unused keys from every locale
 
 fvm flutter test                                            # the CI-grade check
-fvm flutter analyze                                         # 31 issues: style and deprecations only
+fvm flutter analyze                                         # no issues: keep it there
 
 # Build and install on a connected device, keeping app data:
 fvm flutter build apk --profile          # use profile (or release) to judge scroll

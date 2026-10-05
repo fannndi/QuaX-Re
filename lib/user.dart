@@ -1,4 +1,4 @@
-import 'package:dart_twitter_api/src/utils/date_utils.dart';
+import 'package:quax/utils/twitter_dates.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';

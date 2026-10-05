@@ -54,7 +54,7 @@ Future<void> checkForUpdates(BuildContext context) async {
                 child: Text(L10n.of(context).view_on_github),
                 onPressed: () async {
                   await openUri(context, htmlUrl);
-                  Navigator.of(context).pop();
+                  if (context.mounted) Navigator.of(context).pop();
                 },
               ),
             ],

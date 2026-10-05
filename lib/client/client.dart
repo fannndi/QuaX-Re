@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:ui' show Locale;
 
-import 'package:dart_twitter_api/src/utils/date_utils.dart';
+import 'package:quax/utils/twitter_dates.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';

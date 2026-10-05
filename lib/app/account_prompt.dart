@@ -7,6 +7,7 @@ Future<void> checkForAccounts(BuildContext context) async {
   Logger.root.info('Checking for accounts');
 
   final accounts = await getAccounts();
+  if (!context.mounted) return;
   if (accounts.isEmpty) {
     await showDialog(
       context: context,
