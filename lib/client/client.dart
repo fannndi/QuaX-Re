@@ -645,7 +645,7 @@ class Twitter {
     var variables = {
       "count": count,
       "includePromotedContent": true,
-      if (cursor != null) "cursor": cursor,
+      "cursor": ?cursor,
     };
 
     var response = await _twitterApi.client.get(

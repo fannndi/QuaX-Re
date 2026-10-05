@@ -199,6 +199,6 @@ class VideoCache {
     final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     if (safe.isEmpty) return 'video-${url.hashCode}';
     if (safe.length <= 120) return safe;
-    return '${safe.substring(safe.length - 120)}';
+    return safe.substring(safe.length - 120);
   }
 }

@@ -13,6 +13,7 @@ class VideoMoreButton extends StatefulWidget {
   final String? downloadUrl;
 
   const VideoMoreButton({
+    super.key,
     required this.controller,
     required this.username,
     required this.qualities,

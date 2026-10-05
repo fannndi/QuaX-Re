@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/tweet/_ExpandableTweetText.dart';
+import 'package:quax/tweet/expandable_tweet_text.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(

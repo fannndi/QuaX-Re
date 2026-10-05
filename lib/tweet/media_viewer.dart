@@ -142,7 +142,8 @@ class TweetMediaThing extends StatelessWidget {
   final int mediaIndex;
 
   const TweetMediaThing(
-      {required this.item,
+      {super.key,
+      required this.item,
       required this.username,
       required this.size,
       required this.pullToClose,

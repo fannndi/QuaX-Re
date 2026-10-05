@@ -305,7 +305,7 @@ class UserWithExtra extends User {
       'profile_image_url_https': avatar,
       'possibly_sensitive': json['possibly_sensitive'],
       'followed_by_viewer': json['legacy']?['relationship_perspectives']?['following'],
-      'default_profile_image': avatar == null ? null : avatar.contains('default_profile_images'),
+      'default_profile_image': avatar?.contains('default_profile_images'),
     };
     modern.removeWhere((_, value) => value == null);
     return modern;

@@ -15,7 +15,7 @@ import 'package:quax/subscriptions/followed_users_index.dart';
 import 'package:quax/tweet/_like_button.dart';
 import 'package:quax/tweet/_tweet_leading.dart';
 import 'package:quax/status.dart';
-import 'package:quax/tweet/_ExpandableTweetText.dart';
+import 'package:quax/tweet/expandable_tweet_text.dart';
 import 'package:quax/tweet/_card.dart';
 import 'package:quax/tweet/_media.dart';
 import 'package:quax/article/article.dart';
@@ -449,7 +449,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   Widget _followedTag() {
     return ValueListenableBuilder<int>(
       valueListenable: FollowedUsersIndex().revision,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         if (!FollowedUsersIndex().contains(tweet.user?.idStr)) return const SizedBox.shrink();
 
         final scheme = Theme.of(context).colorScheme;
@@ -763,15 +763,13 @@ Color? buttonsColor(BuildContext c) {
 
     final footerBar = _buildFooterBar(tweet, tweetText, shareBaseUrl, locale, numberFormat, isArticle: tweet.article != null);
 
-    var article = Container();
+    Widget article = const SizedBox.shrink();
     if (tweet.article != null) {
-      article = Container(
-        child: ArticleWidget(
-          article: tweet.article!,
-          expand: widget.tweetOpened,
-          onTap: () => onClickOpenTweet(tweet),
-          bottomBar: widget.tweetOpened ? footerBar : null,
-        )
+      article = ArticleWidget(
+        article: tweet.article!,
+        expand: widget.tweetOpened,
+        onTap: () => onClickOpenTweet(tweet),
+        bottomBar: widget.tweetOpened ? footerBar : null,
       );
     }
 
