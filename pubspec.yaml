@@ -18,9 +18,13 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 version: 4.13.2+400001044
 
+# Caret ranges: any newer patch of this Dart/Flutter line resolves. The exact
+# SDK the fork is developed against stays pinned in .fvmrc instead — a bare
+# "3.13.3" here is an exact constraint and rejects even a patch release, which
+# breaks `flutter pub get` on any machine whose Flutter has moved on.
 environment:
-  sdk: "3.13.3"
-  flutter: 3.47.4
+  sdk: ^3.13.3
+  flutter: ^3.47.4
 
 dependency_overrides:
   # auto_direction pins an old intl (^0.17/^0.18) that conflicts with
