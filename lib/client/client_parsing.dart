@@ -282,45 +282,54 @@ TweetStatus _createChainsFromGridModule(Map<String, dynamic> timeline) {
 
 
 String? getCursor(List<dynamic> addEntries, List<dynamic> repEntries, String legacyType, String type) {
-  String? cursor;
+  // Every field below can be missing: X reorders, drops and renames entries
+  // between deploys. One throw here would cost the whole page's pagination
+  // rather than a single cursor, so each link in the chain is optional.
+  String? entryId(dynamic entry) => entry is Map ? entry['entryId']?.toString() : null;
 
-  Map<String, dynamic>? cursorEntry;
-
-  var isLegacyCursor = addEntries.any((element) => element['entryId'].startsWith('cursor'));
-  if (isLegacyCursor) {
-    cursorEntry = addEntries.firstWhere((e) => e['entryId'].contains(legacyType), orElse: () => null);
+  final dynamic cursorEntry;
+  if (addEntries.any((e) => entryId(e)?.startsWith('cursor') ?? false)) {
+    cursorEntry = addEntries.firstWhere((e) => entryId(e)?.contains(legacyType) ?? false, orElse: () => null);
   } else {
     cursorEntry = addEntries
-        .where((e) => e['entryId'].startsWith('sq-C'))
-        .firstWhere((e) => e['content']['operation']['cursor']['cursorType'] == type, orElse: () => null);
+        .where((e) => entryId(e)?.startsWith('sq-C') ?? false)
+        .firstWhere((e) => e['content']?['operation']?['cursor']?['cursorType'] == type, orElse: () => null);
   }
 
-  if (cursorEntry != null) {
-    var content = cursorEntry['content'];
-    if (content.containsKey('value')) {
-      cursor = content['value'];
+  dynamic raw;
+  if (cursorEntry is Map) {
+    final content = cursorEntry['content'];
+    if (content is! Map) {
+      raw = null;
+    } else if (content.containsKey('value')) {
+      raw = content['value'];
     } else if (content.containsKey('operation')) {
-      cursor = content['operation']['cursor']['value'];
+      raw = content['operation']?['cursor']?['value'];
     } else {
-      cursor = content['itemContent']['value'];
+      raw = content['itemContent']?['value'];
     }
   } else {
-    // Look for a "replaceEntry" with the cursor
-    var cursorReplaceEntry = repEntries.firstWhere(
-      (e) => e.containsKey('replaceEntry')
-          ? e['replaceEntry']['entryIdToReplace'].contains(type)
-          : e['entry']['content']['cursorType'].contains(type),
+    // Look for a "replaceEntry" with the cursor.
+    final replace = repEntries.firstWhere(
+      (e) =>
+          e is Map &&
+          (e['replaceEntry'] is Map
+              ? (e['replaceEntry']['entryIdToReplace']?.contains(type) ?? false)
+              : (e['entry']?['content']?['cursorType']?.contains(type) ?? false)),
       orElse: () => null,
     );
 
-    if (cursorReplaceEntry != null) {
-      cursor = cursorReplaceEntry.containsKey('replaceEntry')
-          ? cursorReplaceEntry['replaceEntry']['entry']['content']['operation']['cursor']['value']
-          : cursorReplaceEntry['entry']['content']['value'];
+    raw = null;
+    if (replace is Map) {
+      if (replace['replaceEntry'] is Map) {
+        raw = replace['replaceEntry']?['entry']?['content']?['operation']?['cursor']?['value'];
+      } else {
+        raw = replace['entry']?['content']?['value'];
+      }
     }
   }
 
-  return cursor;
+  return raw is String ? raw : null;
 }
 
 
@@ -330,12 +339,15 @@ TweetStatus createUnconversationedChainsGraphql(
   List<String> pinnedTweets,
   bool mapToThreads,
 ) {
-  var instructions = List.from(result['timeline']['instructions']);
+  // A timeline body X has reshaped arrives without the wrapper or the entries
+  // this reads; an empty page is what it means, not a reason to throw.
+  var instructions = List.from(result['timeline']?['instructions'] ?? const []);
   if (instructions.isEmpty || !instructions.any((e) => e['type'] == 'TimelineAddEntries')) {
     return TweetStatus(chains: [], cursorBottom: null, cursorTop: null);
   }
 
-  var addEntries = List.from(instructions.firstWhere((e) => e['type'] == 'TimelineAddEntries')['entries']);
+  var addEntries =
+      List.from(instructions.firstWhere((e) => e['type'] == 'TimelineAddEntries')['entries'] ?? const []);
   var repEntries = List.from(instructions.where((e) => e['type'] == 'TimelineReplaceEntry'));
 
   String? cursorBottom = getCursor(addEntries, repEntries, 'cursor-bottom', 'Bottom');
@@ -349,9 +361,13 @@ TweetStatus createUnconversationedChainsGraphql(
     return result?['rest_id'] ?? result?['tweet']?['rest_id'];
   }
 
+  // Sorting by a field not every entry carries: one without it sorts as if it
+  // had the lowest, rather than taking the comparison down with it.
+  int sortIndexOf(dynamic e) => (e is Map && e['sortIndex'] is int) ? e['sortIndex'] as int : 0;
+
   var tweetEntries = addEntries
-      .where((e) => e['entryId'].contains(tweetIndicator) && entryRestId(e) != null)
-      .sorted((a, b) => b['sortIndex'].compareTo(a['sortIndex']))
+      .where((e) => e['entryId']?.contains(tweetIndicator) == true && entryRestId(e) != null)
+      .sorted((a, b) => sortIndexOf(b).compareTo(sortIndexOf(a)))
       .map(entryRestId)
       .cast<String?>()
       .toList();
@@ -596,11 +612,14 @@ Map<String, TweetWithCard> _createTweetsGraphql(
 ) {
   bool includeTweet(dynamic t) {
     // Exclude any items that aren't tweets
-    if (!t['entryId'].startsWith(entryPrefix)) {
+    if (t is! Map) return false;
+
+    final entryId = t['entryId'];
+    if (entryId is! String || !entryId.startsWith(entryPrefix)) {
       return false;
     }
 
-    if (t['content']['itemContent']['promotedMetadata'] != null) {
+    if (t['content']?['itemContent']?['promotedMetadata'] != null) {
       return false;
     }
 
@@ -615,7 +634,7 @@ Map<String, TweetWithCard> _createTweetsGraphql(
 
   var globalTweets = List.from(
     filteredTweets.map((e) {
-      var elm = e['content']['itemContent']['tweet_results']['result'];
+      var elm = e['content']?['itemContent']?['tweet_results']?['result'];
       if (elm is Map<String, dynamic> && elm['rest_id'] == null && elm['tweet'] != null) {
         elm = elm['tweet'];
       }

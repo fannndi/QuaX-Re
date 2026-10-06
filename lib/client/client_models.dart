@@ -97,15 +97,22 @@ class TweetWithCard extends Tweet {
 
     if (result['tweet'] != null) {
       result = result['tweet']!;
-    } else if (result['legacy']?['retweeted_status_result']?['result'] != null) {
-      retweetedStatus = _parseTweet(result['legacy']['retweeted_status_result']['result']);
+    } else {
+      // Wrapped: the nested result is what the recursion reads, and it only
+      // counts as a retweet when the whole chain down to it is present.
+      final legacy = result['legacy'];
+      final nested = legacy is Map ? legacy['retweeted_status_result'] : null;
+      final retweeted = nested is Map ? nested['result'] : null;
+      if (retweeted != null) {
+        retweetedStatus = _parseTweet(retweeted);
+      }
     }
 
-    if (result['quoted_status_result'] != null && result['quoted_status_result']['result'] != null) {
+    final quotedResult = result['quoted_status_result'];
+    if (quotedResult is Map && quotedResult['result'] != null) {
       // tweets that limit who can reply (TweetWithVisibilityResults) are wrapped in another layer
-      var quotedTweetResult = result['quoted_status_result']['result']?['__typename'] == 'TweetWithVisibilityResults'
-          ? result['quoted_status_result']['result']['tweet']
-          : result['quoted_status_result']['result'];
+      final inner = quotedResult['result'];
+      var quotedTweetResult = inner is Map && inner['__typename'] == 'TweetWithVisibilityResults' ? inner['tweet'] : inner;
       if (quotedTweetResult is Map<String, dynamic>) {
         quotedStatus = _parseTweet(quotedTweetResult);
       }
@@ -144,20 +151,29 @@ class TweetWithCard extends Tweet {
         quotedStatus,
         int.tryParse(result['views']?['count'] ?? ''));
 
-    if (tweet.card == null && result['card']?['legacy'] != null) {
-      tweet.card = result['card']['legacy'];
+    final card = result['card'];
+    if (tweet.card == null && card is Map && card['legacy'] is Map<String, dynamic>) {
+      tweet.card = card['legacy'];
       var bindingValuesList = tweet.card!['binding_values'] as List?;
       if (bindingValuesList != null) {
         var bindingValues = <String, dynamic>{};
         for (var elm in bindingValuesList) {
-          bindingValues[elm['key'] as String] = elm['value'];
+          // A binding without a key has nothing to bind to.
+          final key = elm is Map ? elm['key'] : null;
+          if (key is! String) continue;
+          bindingValues[key] = elm['value'];
         }
         tweet.card!['binding_values'] = bindingValues;
       }
     }
-    if (result['birdwatch_pivot']?['subtitle'] != null) {
-      var birdwatchSubtitle = TweetWithCard.rearrangeBirdwatch(result['birdwatch_pivot']['subtitle']);
-      tweet.birdwatchQuotedStatus = TweetWithCard.fromJson(birdwatchSubtitle);
+    if (result['birdwatch_pivot'] is Map) {
+      final subtitle = result['birdwatch_pivot']['subtitle'];
+      // A note without a body, or in a shape this port does not know, simply
+      // has no quoted status to show — it must not take the post down with it.
+      final rearranged = subtitle is Map<String, dynamic> ? TweetWithCard.rearrangeBirdwatch(subtitle) : null;
+      if (rearranged != null) {
+        tweet.birdwatchQuotedStatus = TweetWithCard.fromJson(rearranged);
+      }
     }
 
     final article = result['article']?["article_results"]?["result"] ?? result['article']?['article'];
@@ -173,26 +189,44 @@ class TweetWithCard extends Tweet {
     return tweet;
   }
 
-  static Map<String, dynamic> rearrangeBirdwatch(Map<String, dynamic> birdwatch) {
-    Map<String, dynamic> newBirdwatch = {};
-    String text = birdwatch['text'];
-    newBirdwatch['text'] = text;
-    newBirdwatch['display_text_range'] = [0, text.length - 1];
-    var entities = birdwatch['entities'];
-    newBirdwatch['entities'] = {"urls": []};
-    for (final entity in entities) {
-      int fromIndex = entity['fromIndex'];
-      int toIndex = entity['toIndex'];
-      String displayedUrl = text.substring(fromIndex, toIndex);
-      String url = entity['ref']['url'];
-      newBirdwatch['entities']["urls"].add({
-        'display_url': displayedUrl,
-        'expanded_url': url,
-        'url': url,
-        'indices': [fromIndex, toIndex],
-      });
+  /// X hands a Community Note under its own keys; this reshapes it into the
+  /// tweet JSON [TweetWithCard.fromJson] reads. Returns null when the note is
+  /// missing a body or its link table is in a shape this port does not
+  /// recognise, which the caller takes as "no note to show" rather than as a
+  /// reason to fail the whole post.
+  static Map<String, dynamic>? rearrangeBirdwatch(Map<String, dynamic> birdwatch) {
+    final text = birdwatch['text'];
+    if (text is! String) return null;
+
+    final urls = <dynamic>[];
+    final entities = birdwatch['entities'];
+    if (entities is List) {
+      for (final entity in entities) {
+        if (entity is! Map<String, dynamic>) continue;
+        final fromIndex = entity['fromIndex'];
+        final toIndex = entity['toIndex'];
+        final ref = entity['ref'];
+        // A link whose span does not land inside the text cannot be drawn, so
+        // it is dropped rather than trusted into a substring call.
+        if (fromIndex is! int || toIndex is! int) continue;
+        if (fromIndex < 0 || toIndex > text.length || fromIndex > toIndex) continue;
+        final url = ref is Map<String, dynamic> ? ref['url'] : null;
+        if (url is! String) continue;
+
+        urls.add({
+          'display_url': text.substring(fromIndex, toIndex),
+          'expanded_url': url,
+          'url': url,
+          'indices': [fromIndex, toIndex],
+        });
+      }
     }
-    return newBirdwatch;
+
+    return {
+      'text': text,
+      'display_text_range': [0, text.isEmpty ? 0 : text.length - 1],
+      'entities': {'urls': urls},
+    };
   }
 
   factory TweetWithCard.fromCardJson(Map<String, dynamic> tweets, Map<String, dynamic> users, Map<String, dynamic> e) {

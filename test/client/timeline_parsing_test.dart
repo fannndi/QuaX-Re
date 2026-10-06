@@ -73,8 +73,9 @@ void main() {
                 'result': {
                   'rest_id': '1',
                   'legacy': {},
-                  // a card binding value without a key makes the card parsing throw
-                  'card': {'legacy': {'binding_values': [{'value': {}}]}},
+                  // 'core' arrives as a string instead of the user object the
+                  // parser reads the author out of, which it cannot recover from
+                  'core': 'not-an-object',
                 }
               }
             }
@@ -84,6 +85,34 @@ void main() {
 
       expect(chains, isEmpty,
           reason: 'One unparseable tweet should be dropped, not crash the whole page with it');
+    });
+
+    test('Should keep the post when one of its card bindings has no key', () {
+      final chains = createTweets([
+        payload({
+          'entryId': 'tweet-1',
+          'content': {
+            'itemContent': {
+              'tweet_results': {
+                'result': {
+                  'rest_id': '1',
+                  'legacy': {},
+                  // A binding X has not named yet: the card simply loses that
+                  // one value, and the post it decorates still renders.
+                  'card': {'legacy': {'binding_values': [{'value': {}}]}},
+                }
+              }
+            }
+          }
+        }),
+      ]);
+
+      expect(chains, hasLength(1),
+          reason: 'Dropping the whole post over one unnamed card value threw away text and a '
+              'footer that had nothing wrong with them');
+      expect(chains.single.tweets.single.card, isNotNull,
+          reason: 'The card itself is still readable, so it should be shown with the one unnamed '
+              'binding missing rather than the post being dropped with it');
     });
 
     test('Should keep a tweet whose quoted tweet is unavailable', () {
