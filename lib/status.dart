@@ -170,7 +170,7 @@ class _StatusScreenState extends State<_StatusScreen> {
     _maybeStartFirstLoad();
     var tweet = widget.initialTweet!;
     return ListView(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
       children: [
         TweetConversation(
           id: tweet.idStr!,
@@ -192,7 +192,7 @@ class _StatusScreenState extends State<_StatusScreen> {
     return PagingListener<int, TweetChain>(
       controller: _pagingController,
       builder: (context, state, fetchNextPage) => PagedListView<int, TweetChain>(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
         state: state,
         fetchNextPage: fetchNextPage,
         scrollController: _scrollController,

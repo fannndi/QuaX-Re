@@ -216,7 +216,7 @@ class _UserSearchResultList extends StatelessWidget {
           return Center(child: Text(L10n.of(context).no_results));
         }
         return ListView.builder(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
           itemCount: items.length,
           itemBuilder: (context, index) {
             return UserTile(user: UserSubscription.fromUser(items[index]));
@@ -264,7 +264,7 @@ class _LocalSearchResultList extends StatelessWidget {
 
         return ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
           itemCount: posts.length + (media.isEmpty ? 0 : media.length + 1),
           itemBuilder: (context, index) {
             if (index < posts.length) {

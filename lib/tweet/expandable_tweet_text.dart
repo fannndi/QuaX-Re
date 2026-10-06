@@ -36,7 +36,7 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
   bool _textIsTruncated(double width) {
     if (!mounted || widget.maxLines == null) return false;
 
-    final scale = MediaQuery.of(context).textScaler.scale(1.0);
+    final scale = MediaQuery.textScalerOf(context).scale(1.0);
     if (_measuredTruncated != null && _measuredAtWidth == width && _measuredScale == scale) {
       return _measuredTruncated!;
     }
@@ -44,7 +44,7 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
     final painter = TextPainter(
       text: TextSpan(children: widget.textSpans),
       textDirection: TextDirection.ltr,
-      textScaler: MediaQuery.of(context).textScaler,
+      textScaler: MediaQuery.textScalerOf(context),
     );
 
     painter.layout(maxWidth: width);

@@ -84,7 +84,17 @@ class VideoCache {
     }
   }
 
-  Future<void> _save() async {
+  int _lastSaveAt = 0;
+
+  Future<void> _save({bool force = false}) async {
+    // A recency bump is not worth rewriting the whole ledger: localPathFor runs
+    // up to three times per video tile that comes into view, and every one of
+    // those used to jsonEncode every cached entry. Registering or evicting one
+    // still saves immediately — that is the state the size limit depends on.
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (!force && now - _lastSaveAt < 3000) return;
+    _lastSaveAt = now;
+
     try {
       final file = await _ledger();
       await file.writeAsString(jsonEncode(_entries.values.map((e) => e.toJson()).toList()));
@@ -134,6 +144,11 @@ class VideoCache {
       touchedAt: DateTime.now().millisecondsSinceEpoch,
     );
     await enforceLimit(prefs);
+    // The new entry has to reach the ledger even when nothing was evicted —
+    // enforceLimit only saves what it evicted. Without this the file sits on
+    // disk unknown to the index: invisible after a restart (so the clip streams
+    // again) and outside the size limit (so nothing ever evicts it).
+    await _save(force: true);
   }
 
   Future<void> remove(String url) async {

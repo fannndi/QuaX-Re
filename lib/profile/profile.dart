@@ -203,12 +203,13 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
     }
 
     // Make the app bar height the correct aspect ratio based on the header image size (1500x500)
-    var mediaQuery = MediaQuery.of(context);
-    var deviceSize = mediaQuery.size;
+    // Read narrow: the header only cares about the window size and the top inset,
+    // so a keyboard animating the text scale must not rebuild the whole profile.
+    var deviceSize = MediaQuery.sizeOf(context);
     var bannerHeight = deviceSize.width * (500 / 1500);
     var avatarHeight = 80;
 
-    var profileImageTop = bannerHeight + 16 - 36 - mediaQuery.padding.top;
+    var profileImageTop = bannerHeight + 16 - 36 - MediaQuery.paddingOf(context).top;
     var profileStuffTop = bannerHeight + 36;
 
     var theme = Theme.of(context);
