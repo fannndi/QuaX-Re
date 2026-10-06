@@ -1,4 +1,3 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:quax/client/accounts.dart';
@@ -7,10 +6,11 @@ import 'package:quax/client/http_client.dart';
 import 'dart:async';
 import 'package:quax/database/repository.dart';
 
-class XRegularAccount extends ChangeNotifier {
+/// Fetches as the reader's own login. Nothing notifies: this is a plain
+/// client object constructed per request, not a store — extending ChangeNotifier
+/// here only allocated a listener set that nothing ever read from.
+class XRegularAccount {
   static final log = Logger('XRegularAccount');
-
-  XRegularAccount() : super();
 
   Future<http.Response> fetch(Uri uri,
       {Map<String, String>? headers,

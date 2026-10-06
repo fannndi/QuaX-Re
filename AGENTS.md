@@ -47,6 +47,14 @@ All state lives in **flutter_triple** `Store<T>` objects (`*_model.dart` per fea
 through `execute()`). Widgets observe stores via `ScopedBuilder` / `TripleBuilder`. Do not use
 `setState` or `ChangeNotifier` for app state — the Store pattern is the convention.
 
+Three `ChangeNotifier`s are the documented exception, and all three are *scoped* state observed
+through a `ChangeNotifierProvider` rather than app state: `TweetContextState` (the per-screen
+sensitive-content reveal), `GifPlaybackGate` (which of the media grid's GIFs may animate) and
+`VideoContextState` (the mute toggle). They earn it by calling `notifyListeners`. A ChangeNotifier
+that never notifies is dead weight — `XRegularAccount` extended one and was cut back to a plain
+class when the audit found it never called it and nothing listened, while being constructed once
+per request.
+
 ### Feature layout (`lib/`)
 
 | Folder | Description |

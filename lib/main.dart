@@ -44,12 +44,10 @@ Future<void> main() async {
   }
 }
 
-Future<void> _startApp() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  setTimeagoLocales();
-
-  final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: {
+/// What every preference is before the reader has touched it. Kept out of
+/// [_startApp] so the startup path reads as a sequence of steps rather than
+/// as a page of data wedged into the middle of one.
+final Map<String, dynamic> _prefDefaults = {
     optionConfirmClose: true,
     optionDisableAnimations: false,
     optionTextScaleFactor: 1.0,
@@ -88,7 +86,15 @@ Future<void> _startApp() async {
     optionSavedFolderHintShown: false,
     optionLikedFirstToastShown: false,
     optionUseAbsoluteTimestamp: false,
-  });
+  
+};
+
+Future<void> _startApp() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  setTimeagoLocales();
+
+  final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: _prefDefaults);
 
   await migrateMediaQualityPrefs(prefService);
 
