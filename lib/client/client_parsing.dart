@@ -7,7 +7,7 @@ Profile parseProfile(Map<String, dynamic> content, String uri) {
   if (hasErrors && content['errors'] != null) {
     var errors = List.from(content['errors']);
     if (errors.isEmpty) {
-      throw TwitterError(code: 0, message: 'Unknown error', uri: uri);
+      throw TwitterError(code: 0, message: L10n.current.unknown_error, uri: uri);
     } else {
       throw TwitterError(code: errors.first['code'], message: errors.first['message'], uri: uri);
     }

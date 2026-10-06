@@ -1,10 +1,19 @@
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:quax/generated/l10n.dart';
 import 'package:quax/utils/translation.dart';
 
 void main() {
+  // Every failure message the parser builds is a localized string, so the
+  // delegate has to be loaded before any of them can be read.
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await L10n.load(const Locale('en'));
+  });
+
   http.Response response(Object body, int status) =>
       http.Response(body is String ? body : jsonEncode(body), status);
 
@@ -38,16 +47,16 @@ void main() {
               'be made up here');
     });
 
-    test('Should add the Language prefix to the unsupported language error of a 400', () async {
+    test('Should turn the unsupported language error of a 400 into a sentence', () async {
       final result = await TranslationAPI.parseResponse(
           response({'error': 'fr is not supported'}, 400), 'Unable to translate');
 
       expect(result.success, isFalse,
           reason: 'A language that is not supported is a real failure, so it should not come back '
               'as a success with an empty translation');
-      expect(result.errorMessage, 'Language fr is not supported',
-          reason: 'The API only sends the language code, so the word Language should be added to '
-              'make a sentence the user can read');
+      expect(result.errorMessage, 'Translation to fr isn\'t supported',
+          reason: 'The API only sends the language code, so the message has to be built into a '
+              'sentence the reader can act on, in their language rather than in English');
     });
 
     test('Should keep a 400 message that is not about an unsupported language', () async {

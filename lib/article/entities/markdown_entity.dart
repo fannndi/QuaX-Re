@@ -49,7 +49,7 @@ class MarkdownEntity extends EntityValue {
                     ),
                   ),
                   Tooltip(
-                    message: 'Copy',
+                    message: L10n.of(context).copy,
                     child: InkWell(
                       onTap: () => Clipboard.setData(ClipboardData(text: code)),
                       child: const Padding(

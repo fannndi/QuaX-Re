@@ -4,7 +4,6 @@ import 'package:extended_image/extended_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:quax/settings/native_locale_names.dart';
-import 'package:intl/intl.dart' show toBeginningOfSentenceCase;
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
@@ -55,6 +54,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               .map((e) => DropdownMenuItem(value: e.code, child: Text(e.name)))
         ]);
   }
+
+  /// The reader-facing name of a theme colour, keyed by whatever the preference
+  /// stores. The raw key ("indigo") is an implementation detail, and this is the
+  /// one place that has to turn it into something a person reads.
+  String _themeColorName(BuildContext context, String id) => switch (id) {
+        'accent' => L10n.of(context).theme_color_accent,
+        'red' => L10n.of(context).theme_color_red,
+        'orange' => L10n.of(context).theme_color_orange,
+        'yellow' => L10n.of(context).theme_color_yellow,
+        'green' => L10n.of(context).theme_color_green,
+        'blue' => L10n.of(context).theme_color_blue,
+        'indigo' => L10n.of(context).theme_color_indigo,
+        // A colour with no name of its own keeps its key rather than going blank.
+        _ => id,
+      };
 
   List<DropdownMenuItem<String>> _qualityItems() => [
         DropdownMenuItem(value: 'thumb', child: Text(L10n.current.quality_low)),
@@ -117,9 +131,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: Text(L10n.of(context).theme),
                   pref: optionThemeColor,
                   items: [
-                    const DropdownMenuItem(value: 'accent', child: Text('Accent')),
+                    DropdownMenuItem(value: 'accent', child: Text(_themeColorName(context, 'accent'))),
                     ...themeColors.entries.getRange(0, themeColors.values.length - 1).map((scheme) =>
-                        DropdownMenuItem(value: scheme.key, child: Text(toBeginningOfSentenceCase(scheme.key)!)))
+                        DropdownMenuItem(value: scheme.key, child: Text(_themeColorName(context, scheme.key))))
                   ]),
               PrefSwitch(
                 title: Text(L10n.of(context).true_black),
@@ -220,10 +234,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: Text(L10n.of(context).cache_size_limit),
                   pref: optionVideoCacheLimitMb,
                   items: [
-                    DropdownMenuItem(value: 256, child: Text('256 MB')),
-                    DropdownMenuItem(value: 512, child: Text('512 MB')),
-                    DropdownMenuItem(value: 1024, child: Text('1 GB')),
-                    DropdownMenuItem(value: 2048, child: Text('2 GB')),
+                    DropdownMenuItem(value: 256, child: Text(L10n.of(context).size_megabytes(256))),
+                    DropdownMenuItem(value: 512, child: Text(L10n.of(context).size_megabytes(512))),
+                    DropdownMenuItem(value: 1024, child: Text(L10n.of(context).size_gigabytes(1))),
+                    DropdownMenuItem(value: 2048, child: Text(L10n.of(context).size_gigabytes(2))),
                   ]),
             ],
           ),

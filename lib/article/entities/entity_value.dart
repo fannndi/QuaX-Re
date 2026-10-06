@@ -2,6 +2,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/media_viewer.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/image_decode.dart';

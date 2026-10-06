@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/headers.dart';
+import 'package:quax/generated/l10n.dart';
 import 'package:quax/utils/lru_cache.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
@@ -50,7 +51,7 @@ class TranslationAPI {
 
     for (int i = 0; i < numberOfRetries; ++i) {
       try {
-        final response = await parseResponse(await getTranslation(), 'Unable to send translation request');
+        final response = await parseResponse(await getTranslation(), L10n.current.translation_request_failed);
         if (response.success && response.body is Map<String, dynamic>) {
           _translated.set(cacheKey, response.body as Map<String, dynamic>);
         }
@@ -60,7 +61,7 @@ class TranslationAPI {
         await Future.delayed(Duration(seconds: 1));
       }
     }
-    return TranslationAPIResult(success: false, body: {}, errorMessage: "Translation is not ready yet, retry later.");
+    return TranslationAPIResult(success: false, body: {}, errorMessage: L10n.current.translation_not_ready);
   }
 
   static Future<TranslationAPIResult> parseResponse(http.Response response, String errorUnableTo) async {
@@ -86,22 +87,24 @@ class TranslationAPI {
 
     switch (response.statusCode) {
       case 400:
-        const languageNotSupported = r"^\w+ is not supported$";
+        // The API answers with just "<language> is not supported"; the code
+        // cannot make a sentence out of that on its own.
+        final unsupported = rawError is String
+            ? RegExp(r"^(\w+) is not supported$").firstMatch(rawError)?.group(1)
+            : null;
 
-        if (rawError is String && RegExp(languageNotSupported).hasMatch(rawError)) {
-          message = 'Language $rawError';
-        } else {
-          message = rawError?.toString() ?? errorUnableTo;
-        }
+        message = unsupported != null
+            ? L10n.current.translation_language_unsupported(unsupported)
+            : rawError?.toString() ?? errorUnableTo;
         break;
       case 403:
-        message = 'Error: Banned from translation API';
+        message = L10n.current.translation_banned;
         break;
       case 429:
-        message = 'Error: Sending too many frequent translation requests';
+        message = L10n.current.translation_rate_limited;
         break;
       case 500:
-        message = 'Error: The translation API failed to translate the tweet';
+        message = L10n.current.translation_service_failed;
         break;
       default:
         message = errorUnableTo;
