@@ -55,5 +55,24 @@ void main() {
       expect(cache.get('a'), 2,
           reason: 'The freshest value should win');
     });
+
+    test('Should drop a key it was holding', () {
+      final cache = LruCache<String, int>(2)..set('a', 1);
+
+      expect(cache.remove('a'), isTrue,
+          reason: 'A caller caching a Future has to be able to stop remembering a result it '
+              'cannot use, and be told it did');
+      expect(cache.get('a'), isNull, reason: 'The key must be gone, not merely stale');
+      expect(cache.length, 0, reason: 'Dropping a key has to free its slot, or the cache only grows');
+    });
+
+    test('Should report a miss for a key it never held', () {
+      final cache = LruCache<String, int>(2)..set('a', 1);
+
+      expect(cache.remove('never'), isFalse,
+          reason: 'Distinguishing "was not there" from "was there" lets a caller know whether it '
+              'has anything to retry');
+      expect(cache.length, 1, reason: 'A miss must not disturb what the cache is holding');
+    });
   });
 }

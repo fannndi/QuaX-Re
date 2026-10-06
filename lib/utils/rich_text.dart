@@ -10,6 +10,12 @@ import 'package:quax/utils/urls.dart';
 import 'package:quax/utils/iterables.dart';
 import 'package:quax/utils/_entities.dart';
 
+/// Compiled once: [_parseMentionsAndHashtags] runs per rendered post, and
+/// [_convertRunesToText] per entity inside it — building these each time is
+/// regex compilation and allocation for text that has not changed.
+final _mentionOrHashtag = RegExp(r'(#|(?<=\W|^)@)\w+');
+final _htmlUnescape = HtmlUnescape();
+
 // RichText (not sure if it has an official name) is the way urls, mentions, hashtags... are integrated on
 // twitter content (tweets and descriptions).
 // It uses Entities (objects with fields such as display_url, url (t.co) and indices)
@@ -87,7 +93,7 @@ List _parseMentionsAndHashtags(BuildContext context, String content) {
   List contentWidgets = [];
 
   // Split the string by any mentions or hashtags, and turn those into links
-  content.splitMapJoin(RegExp(r'(#|(?<=\W|^)@)\w+'), onMatch: (match) {
+  content.splitMapJoin(_mentionOrHashtag, onMatch: (match) {
     var full = match.group(0);
     var type = match.group(1);
     if (type == null || full == null) {
@@ -123,12 +129,12 @@ List _parseMentionsAndHashtags(BuildContext context, String content) {
 }
 
 String? _convertRunesToText(Iterable<int> runes, int start, [int? end]) {
-  var string =
-      runes.getRange(start, end).map((e) => String.fromCharCode(e)).join('');
+  // One allocation instead of a String per code unit joined at the end.
+  final string = String.fromCharCodes(runes.getRange(start, end));
   if (string.isEmpty) {
     return null;
   }
-  return HtmlUnescape().convert(string);
+  return _htmlUnescape.convert(string);
 }
 
 List<Entity> _parseEntities(BuildContext context, dynamic newEntities) {

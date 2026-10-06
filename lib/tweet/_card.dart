@@ -9,6 +9,7 @@ import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/_media.dart';
 import 'package:quax/tweet/_video.dart';
+import 'package:quax/utils/lru_cache.dart';
 import 'package:quax/utils/urls.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
@@ -169,7 +170,8 @@ class TweetCard extends StatelessWidget {
   }
 
   dynamic _createUnifiedCard(BuildContext context, Map<String, dynamic> card, String imageKey, String imageSize) {
-    var unifiedCard = jsonDecode(card['binding_values']['unified_card']['string_value']) as Map<String, dynamic>;
+    var unifiedCard =
+        _decodeUnifiedCard(card['binding_values']['unified_card']['string_value'] as String);
 
     switch (unifiedCard['type']) {
       case 'image_website':
@@ -441,4 +443,19 @@ class TweetCard extends StatelessWidget {
         return Container();
     }
   }
+}
+
+/// Unified cards decoded once per encoded body: the card is rebuilt every time
+/// its list rebuilds, and the body X handed us does not change under it. Keyed
+/// by the String itself — Dart memoises a String's hash, so a repeat lookup on
+/// the same instance is a hash compare, not a walk of a multi-KB document.
+final _decodedUnifiedCards = LruCache<String, Map<String, dynamic>>(40);
+
+Map<String, dynamic> _decodeUnifiedCard(String encoded) {
+  final cached = _decodedUnifiedCards.get(encoded);
+  if (cached != null) return cached;
+
+  final decoded = jsonDecode(encoded) as Map<String, dynamic>;
+  _decodedUnifiedCards.set(encoded, decoded);
+  return decoded;
 }

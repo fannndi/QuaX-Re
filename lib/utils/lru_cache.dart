@@ -26,6 +26,12 @@ class LruCache<K, V> {
     }
   }
 
+  /// Drops [key] if it is held, reporting whether it was.
+  ///
+  /// A caller that caches a Future wants this: a result it cannot use (a null,
+  /// an error) has to stop being remembered so the next request retries.
+  bool remove(K key) => _entries.remove(key) != null;
+
   int get length => _entries.length;
 
   void clear() => _entries.clear();

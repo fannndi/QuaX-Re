@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/utils/lru_cache.dart';
 
 const _nomedia = '.nomedia';
 const libraryFolderName = 'QuaXLibrary';
@@ -83,7 +84,6 @@ class GalleryVisibilityResult {
 /// media and a `.nomedia` marker that keeps gallery apps from indexing it.
 class LibraryModel extends Store<List<LibraryEntry>> {
   final BasePrefService prefs;
-
   LibraryModel(this.prefs) : super([]);
 
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
@@ -121,10 +121,40 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
+  /// Thumbnails already asked about, keyed by file path. The disk cache under
+  /// `thumbs/` remembers the answer; this remembers the *call*. Both the gallery
+  /// and the local search hand `thumbnailFor` straight to a FutureBuilder, so
+  /// without it every rebuild of a tile re-ran the directory lookup, the stat
+  /// and the Android call for a path that had not changed.
+  final _thumbnailRequests = LruCache<String, Future<String?>>(400);
+
   /// Cached thumbnail of a video, generated once by the Android handler
   /// (MediaMetadataRetriever one second in). Serves both the grid tile and the
   /// viewer's poster, so a downloaded clip never shows as a black frame.
-  Future<String?> thumbnailFor(LibraryEntry entry) async {
+  Future<String?> thumbnailFor(LibraryEntry entry) {
+    final key = entry.file.path;
+    return _thumbnailRequests.get(key) ?? _requestThumbnail(entry, key);
+  }
+
+  Future<String?> _requestThumbnail(LibraryEntry entry, String key) {
+    final request = _generateThumbnail(entry).then(
+      (path) {
+        // A null means the frame could not be read — most often a file still
+        // being imported — so the miss is not remembered and the next build
+        // asks about it again rather than leaving the tile blank for good.
+        if (path == null) _thumbnailRequests.remove(key);
+        return path;
+      },
+      onError: (Object _) {
+        _thumbnailRequests.remove(key);
+        return null;
+      },
+    );
+    _thumbnailRequests.set(key, request);
+    return request;
+  }
+
+  Future<String?> _generateThumbnail(LibraryEntry entry) async {
     try {
       final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
       await cacheDir.create(recursive: true);
