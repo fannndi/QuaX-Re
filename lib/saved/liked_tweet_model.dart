@@ -11,8 +11,19 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
 
   LikedTweetModel() : super([]);
 
+  /// The ids currently liked, rebuilt only when the list itself is replaced.
+  /// The post footer asks for this on every rebuild of every visible card, so a
+  /// scan here would cost what the reader has liked rather than what is shown.
+  List<LikedTweet>? _indexedFrom;
+  Set<String> _ids = const {};
+
   bool isLiked(String id) {
-    return state.any((e) => e.id == id);
+    final current = state;
+    if (!identical(_indexedFrom, current)) {
+      _indexedFrom = current;
+      _ids = current.map((e) => e.id).toSet();
+    }
+    return _ids.contains(id);
   }
 
   Future<void> listLikedTweets() async {

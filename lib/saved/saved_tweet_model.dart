@@ -10,14 +10,26 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
 
   SavedTweetModel() : super([]);
 
-  bool isSaved(String id) {
-    return state.any((e) => e.id == id);
+  /// Id → folder for the list currently held, rebuilt only when the list itself
+  /// is replaced. Both lookups below run for every visible card on every rebuild
+  /// of the post footer, so scanning the whole list each time costs what the
+  /// reader has saved rather than what is on screen — thousands of comparisons
+  /// per scroll frame once a library grows.
+  List<SavedTweet>? _indexedFrom;
+  Map<String, String?> _byId = const {};
+
+  Map<String, String?> _index() {
+    final current = state;
+    if (!identical(_indexedFrom, current)) {
+      _indexedFrom = current;
+      _byId = {for (final saved in current) saved.id: saved.folderId};
+    }
+    return _byId;
   }
 
-  String? folderOf(String id) {
-    var match = state.where((e) => e.id == id);
-    return match.isEmpty ? null : match.first.folderId;
-  }
+  bool isSaved(String id) => _index().containsKey(id);
+
+  String? folderOf(String id) => _index()[id];
 
   Future<void> setFolder(String id, String? folderId) async {
     var database = await Repository.writable();
@@ -31,9 +43,10 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
     var database = await Repository.writable();
 
     await database.delete(tableSavedTweet, where: 'id = ?', whereArgs: [id]);
-    state.removeWhere((e) => e.id == id);
-
-    update(state, force: true);
+    // A new list, not a mutation of the one in hand: the memo above keys off the
+    // list identity, and a listener comparing the old and new state sees the
+    // same object either way.
+    update(state.where((e) => e.id != id).toList(), force: true);
   }
 
   Future<void> listSavedTweets() async {
@@ -64,9 +77,8 @@ class SavedTweetModel extends Store<List<SavedTweet>> {
 
       await database.insert(
           tableSavedTweet, {'id': id, 'user_id': user, 'content': encodedContent, 'folder_id': folderId});
-      state.add(SavedTweet(id: id, user: user, content: encodedContent, folderId: folderId));
 
-      return state;
+      return [...state, SavedTweet(id: id, user: user, content: encodedContent, folderId: folderId)];
     });
   }
 }

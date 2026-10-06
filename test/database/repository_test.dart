@@ -578,4 +578,61 @@ void main() {
               'render every group as empty');
     });
   });
+
+  // The footer of every visible post asks these on each rebuild, so they are
+  // served from an index rather than a scan. What follows pins the part an index
+  // can get wrong: a mutation whose new list never reached the store, leaving
+  // the answer one step behind what is on screen.
+  group('The post footer lookups', () {
+    setUp(() async {
+      await deleteDatabase(databaseName);
+      await Repository().migrate();
+    });
+
+    test('Should report a save the moment it lands, without a reload', () async {
+      final saved = SavedTweetModel();
+
+      await saved.saveTweet('t1', 'u1', {'id_str': 't1'});
+
+      expect(saved.isSaved('t1'), isTrue,
+          reason: 'The bookmark button turns solid right after the tap, so the answer cannot wait '
+              'for the next full list');
+      expect(saved.state, hasLength(1),
+          reason: 'The index and the list it is built from must agree, or the footer and the Saved '
+              'tab would show different things');
+
+      await saved.deleteSavedTweet('t1');
+
+      expect(saved.isSaved('t1'), isFalse,
+          reason: 'Unsaving has to be visible immediately too, or the button reads filled while '
+              'the row is already gone');
+      expect(saved.state, isEmpty, reason: 'The list must follow the database out');
+    });
+
+    test('Should report a folder change without a reload', () async {
+      final folders = SavedTweetFolderModel();
+      final saved = SavedTweetModel();
+      final folder = await folders.createFolder('Dogs');
+
+      await saved.saveTweet('t1', 'u1', {}, folderId: folder.id);
+      expect(saved.folderOf('t1'), folder.id,
+          reason: 'The picking sheet reads the folder back to show what is selected');
+
+      await saved.setFolder('t1', null);
+      expect(saved.folderOf('t1'), isNull,
+          reason: 'Moving a post out of its folder has to show Unfiled at once, not after a reload');
+    });
+
+    test('Should report a like and an unlike without a reload', () async {
+      final liked = LikedTweetModel();
+
+      await liked.likeTweet('t1', 'u1', {'id_str': 't1'});
+      expect(liked.isLiked('t1'), isTrue,
+          reason: 'The heart fills on the tap, so the lookup cannot depend on a refresh');
+
+      await liked.unlikeTweet('t1');
+      expect(liked.isLiked('t1'), isFalse,
+          reason: 'And it has to empty again, with the list the index was built from');
+    });
+  });
 }
