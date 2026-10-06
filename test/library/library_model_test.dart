@@ -118,4 +118,46 @@ void main() {
       expect(modelWith().state, isEmpty, reason: 'And nothing may appear in the library from it');
     });
   });
+
+  group('searchByName()', () {
+    setUp(() async {
+      await File('${library.path}/beach.mp4').writeAsString('v');
+      await File('${library.path}/BEACH DAY.png').writeAsString('i');
+      await File('${library.path}/wedding.mov').writeAsString('v');
+    });
+
+    test('Should find media whose name contains what was typed', () async {
+      final matches = await modelWith().searchByName('beach');
+
+      expect(matches.map((e) => e.file.path).map(p.basename).toList(),
+          unorderedEquals(['beach.mp4', 'BEACH DAY.png']),
+          reason: 'The Local tab is the only way back to a download the reader cannot otherwise '
+              'find, so a name that contains the word has to match');
+    });
+
+    test('Should not care how the reader typed the case', () async {
+      final lower = await modelWith().searchByName('beach');
+      final upper = await modelWith().searchByName('BEACH');
+
+      expect(lower.length, upper.length,
+          reason: 'File names keep whatever case the source had, so matching case-sensitively '
+              'would hide half the results depending on how the word was typed');
+    });
+
+    test('Should return nothing for a word no file carries', () async {
+      expect(await modelWith().searchByName('volcano'), isEmpty,
+          reason: 'A miss has to read as a miss rather than dumping the whole library');
+    });
+
+    test('Should return nothing when there is no library yet', () async {
+      expect(await modelWith(configuredPath: '').searchByName('beach'), isEmpty,
+          reason: 'Before the folder is set up there is nothing to search, and touching the file '
+              'system with an empty path would be a bug in itself');
+    });
+
+    test('Should ignore an empty query', () async {
+      expect(await modelWith().searchByName('   '), isEmpty,
+          reason: 'An empty box is what the screen shows before typing; it must not list everything');
+    });
+  });
 }
