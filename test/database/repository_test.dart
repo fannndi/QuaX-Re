@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/client/accounts.dart';
+import 'package:quax/database/entities.dart';
 import 'package:quax/database/local_post_search.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/group/group_model.dart';
@@ -539,6 +540,38 @@ void main() {
       expect(FollowedUsersIndex().contains('u1'), isTrue,
           reason: 'Post headers decide "you follow this account" from that index, so a reload that '
               'left it stale would keep labelling follows from an earlier state');
+    });
+
+    test('Should report a follow the moment it lands, without a reload', () async {
+      final model = SubscriptionsModel(GroupsModel());
+      await model.reloadSubscriptions();
+
+      final zeta = UserSubscription(
+          id: 'u1',
+          screenName: 'zeta',
+          name: 'Zeta',
+          profileImageUrlHttps: null,
+          verified: false,
+          createdAt: DateTime.now(),
+          inFeed: true);
+
+      expect(model.isFollowed('u1'), isFalse,
+          reason: 'The follow button on a profile reads this index, so it starts unfilled');
+
+      await model.toggleSubscribe(zeta, false);
+
+      expect(model.isFollowed('u1'), isTrue,
+          reason: 'The button fills on the tap; waiting for a reload would leave it behind the '
+              'database by one step');
+      expect(model.feedsFrom('u1'), isTrue,
+          reason: 'A freshly followed account shows in the home feed by default, and the button '
+              'draws a different icon when it does not');
+
+      await model.toggleSubscribe(zeta, true);
+
+      expect(model.isFollowed('u1'), isFalse,
+          reason: 'Unfollowing has to be visible at once as well, or the button offers to follow '
+              'an account that is still followed');
     });
 
     test('Should list the groups in name order, regardless of case', () async {

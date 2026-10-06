@@ -156,8 +156,10 @@ class FollowButton extends StatelessWidget {
     return ScopedBuilder<SubscriptionsModel, List<Subscription>>(
       store: model,
       onState: (_, state) {
-        var followed = state.any((element) => element.id == user.id);
-        var inFeed = followed ? state.any((element) => element.id == user.id && element.inFeed) : false;
+        // Indexed: these ran as two scans of the whole subscription list for
+        // every follow button on every rebuild of the card holding it.
+        var followed = model.isFollowed(user.id);
+        var inFeed = followed && model.feedsFrom(user.id);
 
         var icon = followed
             ? (inFeed ? Icon(Icons.person_remove, color: color) : Icon(Icons.visibility_off))

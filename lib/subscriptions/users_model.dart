@@ -16,6 +16,32 @@ class SubscriptionsModel extends Store<List<Subscription>> {
 
   SubscriptionsModel(this.groupModel) : super([]);
 
+  /// Account id → whether it shows in the home feed, rebuilt only when the list
+  /// itself is replaced. The follow button asks both questions for every visible
+  /// card on every rebuild, so a scan here would cost what the reader follows
+  /// rather than what is on screen.
+  ///
+  /// Identity is the right key because nothing mutates the list in place: the
+  /// toggle paths remove from it, but `reloadSubscriptions()` — which they all
+  /// call — hands back a fresh list every time.
+  List<Subscription>? _indexedFrom;
+  Map<String, bool> _byId = const {};
+
+  Map<String, bool> _index() {
+    final current = state;
+    if (!identical(_indexedFrom, current)) {
+      _indexedFrom = current;
+      _byId = {for (final s in current) s.id: s.inFeed};
+    }
+    return _byId;
+  }
+
+  /// Whether the reader follows [id]; a follow that shows in the feed also
+  /// reports its flag through [feedsFrom].
+  bool isFollowed(String id) => _index().containsKey(id);
+
+  bool feedsFrom(String id) => _index()[id] ?? false;
+
   void addReloadListener(String key, VoidCallback callback) {
     _onSubscriptionsReloaded[key] = callback;
   }
