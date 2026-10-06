@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:extended_image/extended_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localized_locales/flutter_localized_locales.dart';
+import 'package:quax/settings/native_locale_names.dart';
 import 'package:intl/intl.dart' show toBeginningOfSentenceCase;
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -551,7 +551,7 @@ class SettingLocale {
 
   factory SettingLocale.fromLocale(Locale locale) {
     var code = locale.toLanguageTag().replaceAll('-', '_');
-    var name = LocaleNamesLocalizationsDelegate.nativeLocaleNames[code] ?? code;
+    var name = nativeLocaleNames[code] ?? code;
 
     return SettingLocale(code, name);
   }

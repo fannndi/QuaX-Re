@@ -24,9 +24,14 @@ fvm flutter test                                            # the CI-grade check
 fvm flutter analyze                                         # no issues: keep it there
 
 # Build and install on a connected device, keeping app data:
-fvm flutter build apk --profile          # use profile (or release) to judge scroll
-adb install -r build/app/outputs/flutter-apk/app-profile.apk
+fvm flutter build apk --profile --split-per-abi   # one APK per ABI: ~46 MB instead of ~119 MB
+adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk   # x86_64 for an emulator
 ```
+
+`--split-per-abi` matters: the fat APK ships all three ABIs (95 MB of native code) for a phone
+that loads exactly one. `lib/settings/native_locale_names.dart` carries the language picker's 29
+labels inline for the same reason — the `flutter_localized_locales` package put 15 MB of JSON in the
+bundle to produce them.
 
 `lib/generated/` is **not** in version control, so `intl_utils:generate` is not optional after a
 clone — without it nothing compiles. `flutter install` uninstalls first and wipes the local
