@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pref/pref.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/database/local_post_search.dart';
@@ -7,6 +8,7 @@ import 'package:quax/group/group_model.dart';
 import 'package:quax/saved/liked_tweet_model.dart';
 import 'package:quax/saved/saved_tweet_folder_model.dart';
 import 'package:quax/saved/saved_tweet_model.dart';
+import 'package:quax/search/local_search_model.dart';
 import 'package:quax/subscriptions/followed_users_index.dart';
 import 'package:quax/subscriptions/users_model.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -666,6 +668,57 @@ void main() {
       await liked.unlikeTweet('t1');
       expect(liked.isLiked('t1'), isFalse,
           reason: 'And it has to empty again, with the list the index was built from');
+    });
+  });
+
+  // The pure ranking is covered above; what is not covered is the Store around
+  // it, which is where the debounce guard lives: two keystrokes can overlap and
+  // only the newer answer may reach the screen.
+  group('Local search store', () {
+    setUp(() async {
+      await Repository().migrate();
+      final db = await Repository.writable();
+      await db.delete(tableSavedTweet);
+      await db.delete(tableLikedTweet);
+    });
+
+    test('Should clear what it found when the box is emptied', () async {
+      final model = LocalSearchModel(PrefServiceCache());
+      await SavedTweetModel().saveTweet('t1', null, storedTweet('t1', 'a sandwich'));
+
+      await model.search('sandwich');
+      expect(model.state, hasLength(1),
+          reason: 'Typing a word has to surface the post that contains it');
+
+      await model.search('   ');
+      expect(model.state, isEmpty,
+          reason: 'Clearing the box has to clear what it found, or results for the old word stay '
+              'on screen with nothing left to explain them');
+    });
+
+    test('Should hand back a hit that names the post it found', () async {
+      final model = LocalSearchModel(PrefServiceCache());
+      await SavedTweetModel().saveTweet('t1', null, storedTweet('t1', 'a sandwich'));
+
+      await model.search('sandwich');
+
+      expect(model.state, hasLength(1), reason: 'The one saved post mentioning the word is found');
+      expect(model.state.single, isA<LocalPostHit>(),
+          reason: 'A post hit has to carry the post itself so tapping it can open it; a media hit '
+              'would carry a file path instead');
+      expect((model.state.single as LocalPostHit).post.id, 't1',
+          reason: 'The id is what the screen uses to show the right post');
+    });
+
+    test('Should find nothing when no saved post mentions the word', () async {
+      final model = LocalSearchModel(PrefServiceCache());
+      await SavedTweetModel().saveTweet('t1', null, storedTweet('t1', 'a sandwich'));
+
+      await model.search('volcano');
+
+      expect(model.state, isEmpty,
+          reason: 'A miss has to read as a miss; carrying the previous answer over would show a '
+              'post that does not match what is in the box');
     });
   });
 }
