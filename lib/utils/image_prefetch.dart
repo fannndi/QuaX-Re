@@ -14,23 +14,13 @@ import 'package:quax/utils/network_status.dart';
 ///
 /// Skipped while offline, on metered connections, and when media autoload is
 /// off, so it never spends data behind the reader's back.
-Future<void> prefetchChainImages(BuildContext context, List<TweetChain> chains,
-    {int limit = 8}) async {
-  final prefs = PrefService.of(context, listen: false);
-  if (prefs.get<bool>(optionMediaDisableAutoload) ?? false) return;
-  final decodeWidth = decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
-  if (!NetworkStatus().online.value) return;
-  if (await isMeteredConnection() == true) return;
-
-  // Same URL variant and decode size the card itself will use, so the warm-up
-  // lands in the exact cache entry the feed is about to read. A raw URL here
-  // used to warm a different variant than the one on screen.
-  final suffix = switch (prefs.get<String>(optionImageQuality)) {
-    null || 'disabled' => '',
-    final size => ':$size',
-  };
-
+/// The media URLs worth warming for [chains], up to [limit], each carrying the
+/// [suffix] the card itself will ask for — same variant and quality, so the
+/// warm-up lands in the exact cache entry the feed is about to read. Photos
+/// only: a video here would be the auto-cache's job, not the image cache's.
+List<String> warmableImageUrls(List<TweetChain> chains, String suffix, int limit) {
   final urls = <String>[];
+
   outer:
   for (final chain in chains) {
     for (final tweet in chain.tweets) {
@@ -48,7 +38,23 @@ Future<void> prefetchChainImages(BuildContext context, List<TweetChain> chains,
     }
   }
 
-  for (final url in urls) {
+  return urls;
+}
+
+Future<void> prefetchChainImages(BuildContext context, List<TweetChain> chains,
+    {int limit = 8}) async {
+  final prefs = PrefService.of(context, listen: false);
+  if (prefs.get<bool>(optionMediaDisableAutoload) ?? false) return;
+  final decodeWidth = decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
+  if (!NetworkStatus().online.value) return;
+  if (await isMeteredConnection() == true) return;
+
+  final suffix = switch (prefs.get<String>(optionImageQuality)) {
+    null || 'disabled' => '',
+    final size => ':$size',
+  };
+
+  for (final url in warmableImageUrls(chains, suffix, limit)) {
     if (!context.mounted) return;
     try {
       await precacheImage(
