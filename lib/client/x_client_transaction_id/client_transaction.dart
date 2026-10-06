@@ -7,6 +7,8 @@ import 'package:html/dom.dart' as html_dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 
+import 'package:quax/client/http_client.dart';
+
 import 'constants.dart';
 import 'cubic_curve.dart';
 import 'interpolate.dart';
@@ -46,11 +48,11 @@ class ClientTransaction {
     final homePageHtml = homePageResponse.body;
     final homePageDoc = html_parser.parse(homePageHtml);
 
-    final ondemandUrl = _getOndemandFileUrl(homePageHtml);
-    final ondemandResponse = await http.get(Uri.parse(ondemandUrl));
-    final ondemandFileText = ondemandResponse.body;
+    final indicesUrl = await _findIndicesFileUrl(homePageHtml);
+    final indicesResponse = await quaxHttpClient.get(Uri.parse(indicesUrl));
+    final indicesText = indicesResponse.body;
 
-    final (rowIndex, keyBytesIndices) = _getIndices(ondemandFileText);
+    final (rowIndex, keyBytesIndices) = _getIndices(indicesText);
     final key = _getKey(homePageDoc);
     final keyBytes = _getKeyBytes(key);
     final animationKey = _computeAnimationKey(
@@ -95,9 +97,9 @@ class ClientTransaction {
 
   // --- Private helpers (static, mirroring Python class methods) ---
 
-  static (int, List<int>) _getIndices(String ondemandFileText) {
+  static (int, List<int>) _getIndices(String indicesFileText) {
     final indices = indicesRegex
-        .allMatches(ondemandFileText)
+        .allMatches(indicesFileText)
         .map((m) => int.parse(m.group(2)!))
         .toList();
     if (indices.isEmpty) throw Exception("Couldn't get KEY_BYTE indices");
@@ -116,15 +118,77 @@ class ClientTransaction {
 
   static List<int> _getKeyBytes(String key) => base64.decode(key).toList();
 
-  static String _getOndemandFileUrl(String html) {
-    final indexMatch = onDemandFileRegex.firstMatch(html);
-    if (indexMatch == null) throw Exception("Couldn't find ondemand file index");
-    final fileIndex = indexMatch.group(1)!;
-    final hashRegex = RegExp(',${RegExp.escape(fileIndex)}:"([0-9a-f]+)"');
-    final hashMatch = hashRegex.firstMatch(html);
-    if (hashMatch == null) throw Exception("Couldn't find ondemand file hash");
-    final filename = hashMatch.group(1)!;
-    return onDemandFileUrlTemplate.replaceAll('{filename}', filename);
+  /// The URL of the file holding the animation indices.
+  ///
+  /// The legacy frontend linked it straight from the page as
+  /// `ondemand.s.<hash>a.js`, so one regex over the HTML found it. The x-web
+  /// build does not link it at all: the page carries a single entry bundle, that
+  /// bundle imports the asset chunks, and one of them —
+  /// `assets/sentry-filter-*.js` — is what imports `./sign.o-*.js`. So the
+  /// search walks from the page into the chunks, in waves, and stops at the
+  /// first file that names it. The legacy path is tried first, so a page that
+  /// still uses it costs one request instead of eighty.
+  static Future<String> _findIndicesFileUrl(String html) async {
+    final legacy = onDemandFileRegex.firstMatch(html);
+    if (legacy != null) {
+      final fileIndex = legacy.group(1)!;
+      final hashMatch =
+          RegExp(',${RegExp.escape(fileIndex)}:"([0-9a-f]+)"').firstMatch(html);
+      if (hashMatch == null) throw Exception("Couldn't find ondemand file hash");
+      return onDemandFileUrlTemplate.replaceAll('{filename}', hashMatch.group(1)!);
+    }
+
+    final entries =
+        xWebEntryScriptRegex.allMatches(html).map((m) => m.group(0)!).toSet().toList();
+    if (entries.isEmpty) throw Exception("Couldn't find the x-web entry script");
+
+    for (final entry in entries) {
+      final entryUri = Uri.parse(entry);
+      final String entryBody;
+      try {
+        entryBody = await quaxHttpClient.read(entryUri);
+      } catch (_) {
+        continue;
+      }
+
+      final chunks = xWebChunkRegex
+          .allMatches(entryBody)
+          .map((m) => entryUri.resolve(m.group(1)!))
+          .toSet()
+          .toList();
+
+      final indices = await _indicesFileAmong(chunks);
+      if (indices != null) return indices.toString();
+    }
+
+    throw Exception("Couldn't find ondemand file index");
+  }
+
+  /// The first of [chunks] whose body names the indices file, resolved against
+  /// that chunk's own URL. Fetched a wave at a time rather than all at once: a
+  /// wave is normally enough, and the whole walk has to finish inside the
+  /// caller's timeout.
+  static Future<Uri?> _indicesFileAmong(List<Uri> chunks) async {
+    const wave = 16;
+
+    for (var start = 0; start < chunks.length; start += wave) {
+      final slice = chunks.sublist(start, start + wave <= chunks.length ? start + wave : chunks.length);
+      final bodies = await Future.wait(slice.map((uri) async {
+        try {
+          return await quaxHttpClient.read(uri);
+        } catch (_) {
+          // A chunk that 404s or fails to decode simply is not the one we want.
+          return '';
+        }
+      }));
+
+      for (var i = 0; i < bodies.length; i++) {
+        final match = indicesFileRegex.firstMatch(bodies[i]);
+        if (match != null) return slice[i].resolve(match.group(0)!);
+      }
+    }
+
+    return null;
   }
 
   static List<List<int>> _get2dArray(
