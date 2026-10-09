@@ -88,7 +88,7 @@ void main() {
       final version = await db.getVersion();
       await db.close();
 
-      expect(version, 29,
+      expect(version, 30,
           reason: 'The version has to match the last migration step, otherwise the next app launch '
               'replays steps on top of a schema that already has them and the ALTERs fail');
     });
@@ -141,6 +141,9 @@ void main() {
       // only the ones this test cares about — migration 29 indexes saved_tweet
       // and liked_tweet, which would be missing from a skeleton schema.
       final legacy = await openDatabase(databaseName, version: 27, onCreate: (db, version) async {
+        await db.execute('CREATE TABLE accounts (id TEXT PRIMARY KEY, auth_header VARCHAR, '
+            'screen_name VARCHAR DEFAULT NULL, last_not_found_at TEXT DEFAULT NULL, '
+            'consecutive_not_found INTEGER DEFAULT 0, is_active INTEGER DEFAULT 0)');
         await db.execute('CREATE TABLE tweet_search (tweet_id VARCHAR, source VARCHAR, body VARCHAR)');
         await db.execute('CREATE TABLE feed_group_chunk (cursor_id INTEGER NOT NULL, hash VARCHAR NOT NULL, '
             'cursor_top VARCHAR, cursor_bottom VARCHAR, response VARCHAR, '
@@ -168,6 +171,35 @@ void main() {
               'carrying it over would only give the next launch something else to scan');
       expect(tables, isNot(contains('feed_group_cursor')),
           reason: 'Same as the chunk table: dead schema should not survive an upgrade');
+    });
+
+    test('Should add the account user id column without losing the login', () async {
+      final legacy = await openDatabase(databaseName, version: 29, onCreate: (db, version) async {
+        await db.execute('CREATE TABLE accounts (id TEXT PRIMARY KEY, auth_header VARCHAR, '
+            'screen_name VARCHAR DEFAULT NULL, last_not_found_at TEXT DEFAULT NULL, '
+            'consecutive_not_found INTEGER DEFAULT 0, is_active INTEGER DEFAULT 0)');
+      });
+      await legacy.insert(
+          'accounts', {'id': 'ct0', 'auth_header': '{}', 'screen_name': 'dogs', 'is_active': 1});
+      await legacy.close();
+
+      await Repository().migrate();
+
+      final db = await Repository.readOnly();
+      final columns = (await db.rawQuery('PRAGMA table_info($tableAccounts)'))
+          .map((row) => row['name'])
+          .toSet();
+      final rows = await db.query(tableAccounts);
+      await db.close();
+
+      expect(columns, contains('user_id'),
+          reason: 'The likes tab reads the numeric id from this column; without it every launch '
+              'pays for the profile resolution again');
+      expect(rows.single['screen_name'], 'dogs',
+          reason: 'Adding the column must keep the logged-in account, not rebuild the table');
+      expect(rows.single['user_id'], isNull,
+          reason: 'Accounts that existed before the column carry no id yet — the likes tab fills '
+              'it in on first use');
     });
   });
 

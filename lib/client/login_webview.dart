@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/client/accounts.dart';
+import 'package:quax/client/login_bootstrap.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/generated/l10n.dart';
@@ -20,6 +21,14 @@ class TwitterLoginWebview extends StatefulWidget {
 
 class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
   static const _channel = MethodChannel('browser_resolver');
+
+  /// The logged-in handle, then the slice of the page around it that carries
+  /// the numeric id. A window instead of the whole document: the home HTML runs
+  /// to megabytes, and the id sits right next to the handle.
+  static const _bootstrapScript = "(() => { const h = document.documentElement.outerHTML;"
+      " const m = h.match(/\"screen_name\":\"([^\"]+)\"/); if (!m) return '';"
+      " const i = h.indexOf('\"screen_name\":\"' + m[1] + '\"');"
+      " return m[1] + '|||' + h.slice(Math.max(0, i), i + 3000); })()";
 
   /// One controller for the whole screen. Building it in [build] created a
   /// fresh web view (and a fresh load of the login page) on every rebuild —
@@ -72,15 +81,18 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
     try {
       final cookies = await _cookieManager.getCookies('https://x.com/i/flow/login');
 
-      // The home page embeds the logged-in handle in its bootstrap state; it
-      // can arrive a beat after the URL changes, so give it a few tries.
+      // The home page embeds the logged-in handle and its numeric id in its
+      // bootstrap state; it can arrive a beat after the URL changes, so give it
+      // a few tries. The id is stored with the account: the Likes endpoint
+      // answers only for a numeric userId, never for a session token.
       var screenName = '';
+      String? userId;
       for (var attempt = 0; attempt < 20 && screenName.isEmpty; attempt++) {
         if (attempt > 0) await Future<void>.delayed(const Duration(milliseconds: 500));
-        final raw = await _controller.runJavaScriptReturningResult(
-          "document.documentElement.outerHTML.match(/\"screen_name\":\"([^\"]+)\"/)?.[1] ?? '';",
-        );
-        screenName = raw.toString().replaceAll('"', '');
+        final raw = await _controller.runJavaScriptReturningResult(_bootstrapScript);
+        final parsed = parseLoginBootstrap(_decodeJavaScriptString(raw));
+        screenName = parsed.screenName;
+        userId = parsed.userId;
       }
       if (screenName.isEmpty) {
         _completing = false;
@@ -108,7 +120,12 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
         // (the id = csrfToken), not crash on the UNIQUE constraint.
         await database.insert(
           tableAccounts,
-          Account(id: csrfToken, screenName: screenName, authHeader: json.encode(authHeader)).toMap(),
+          Account(
+                  id: csrfToken,
+                  screenName: screenName,
+                  userId: userId,
+                  authHeader: json.encode(authHeader))
+              .toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
         // No close(): this is sqflite's shared writable handle, so closing it
@@ -126,6 +143,21 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       _completing = false;
       rethrow;
     }
+  }
+
+  /// `runJavaScriptReturningResult` hands back the JSON encoding on Android and
+  /// the bare string elsewhere; decode whichever arrived, so the `|||` window
+  /// and its quotes survive for [parseLoginBootstrap].
+  String _decodeJavaScriptString(Object? raw) {
+    final text = raw?.toString() ?? '';
+    if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
+      try {
+        return jsonDecode(text) as String;
+      } on FormatException {
+        return text;
+      }
+    }
+    return text;
   }
 
   @override

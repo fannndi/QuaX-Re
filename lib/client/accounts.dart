@@ -15,8 +15,11 @@ final ValueNotifier<int> accountsRevision = ValueNotifier<int>(0);
 class ActiveAccount {
   final String id;
   final String? screenName;
+  // The numeric X user id, when a login page or profile request has filled it
+  // in. The Likes endpoint needs it; it is not the ct0 token [id] holds.
+  final String? userId;
 
-  const ActiveAccount({required this.id, this.screenName});
+  const ActiveAccount({required this.id, this.screenName, this.userId});
 
   String? get handle => screenName == null || screenName!.isEmpty ? null : screenName;
 }
@@ -43,8 +46,9 @@ Future<Account?> getActiveAccount() async {
 /// reload over a value that was only being restored.
 Future<void> loadActiveAccount() async {
   final account = await getActiveAccount();
-  activeAccount.value =
-      account == null ? null : ActiveAccount(id: account.id, screenName: account.screenName);
+  activeAccount.value = account == null
+      ? null
+      : ActiveAccount(id: account.id, screenName: account.screenName, userId: account.userId);
 }
 
 /// Switches the preferred account. The app then sends every request through it
@@ -59,11 +63,26 @@ Future<void> setActiveAccount(String id) async {
     await txn.update(tableAccounts, {'is_active': 1}, where: 'id = ?', whereArgs: [id]);
   });
 
-  final rows = await database.query(tableAccounts, columns: ['screen_name'], where: 'id = ?', whereArgs: [id]);
+  final rows = await database.query(tableAccounts,
+      columns: ['screen_name', 'user_id'], where: 'id = ?', whereArgs: [id]);
   final screenName = rows.isEmpty ? null : rows.first['screen_name'] as String?;
+  final userId = rows.isEmpty ? null : rows.first['user_id'] as String?;
 
-  activeAccount.value = ActiveAccount(id: id, screenName: screenName);
+  activeAccount.value = ActiveAccount(id: id, screenName: screenName, userId: userId);
   accountsRevision.value++;
+}
+
+/// Remembers the account's numeric X id once a request needed it, so the next
+/// launch (and the next tab opening) reads it from the database instead of
+/// asking X again.
+Future<void> setActiveAccountUserId(String userId) async {
+  final active = activeAccount.value;
+  if (active == null) return;
+
+  var database = await Repository.writable();
+  await database.update(tableAccounts, {'user_id': userId}, where: 'id = ?', whereArgs: [active.id]);
+
+  activeAccount.value = ActiveAccount(id: active.id, screenName: active.screenName, userId: userId);
 }
 
 /// Makes sure some account is active: called after a deletion, so an active

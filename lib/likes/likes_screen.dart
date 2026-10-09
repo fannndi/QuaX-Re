@@ -165,14 +165,39 @@ class _ProfileLikes extends StatelessWidget {
       builder: (user) => ProfileTweetFeed(
         user: user,
         emptyMessage: L10n.of(context).no_liked_posts_yet,
-        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getLikes(
-          user.idStr!,
-          cursor: cursor,
-          count: 20,
-          getTweetsCounter: getTweetsCounter,
-          incrementTweetsCounter: incrementTweetsCounter,
-        ),
+        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) =>
+            _loadPage(user, cursor, getTweetsCounter, incrementTweetsCounter),
       ),
+    );
+  }
+
+  /// X answers the Likes endpoint only for the account's numeric userId — the
+  /// ct0 token the account row is keyed on gets an empty timeline back, which
+  /// the parser can only read as "no likes". Accounts added before the id was
+  /// captured resolve it once through the profile endpoint and keep it, so
+  /// this costs one request per account, not per tab opening.
+  Future<TweetStatus> _loadPage(
+    UserWithExtra user,
+    String? cursor,
+    int Function() getTweetsCounter,
+    void Function() incrementTweetsCounter,
+  ) async {
+    var userId = user.idStr;
+    if (userId == null || userId.isEmpty) {
+      final profile = await Twitter.getProfileByScreenName(user.screenName!);
+      userId = profile.user.idStr;
+      if (userId == null || userId.isEmpty) {
+        throw StateError('X did not return a user id for @${user.screenName}');
+      }
+      await setActiveAccountUserId(userId);
+    }
+
+    return Twitter.getLikes(
+      userId,
+      cursor: cursor,
+      count: 20,
+      getTweetsCounter: getTweetsCounter,
+      incrementTweetsCounter: incrementTweetsCounter,
     );
   }
 }
@@ -244,7 +269,10 @@ class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKe
 
     // The tab only needs the id and handle to title and page its timeline;
     // fetching the full profile first was one extra request per tab opening.
-    return UserWithExtra.fromArguments(idStr: active.id, possiblySensitive: false, screenName: handle);
+    // [ActiveAccount.userId] may still be missing on accounts added before it
+    // was captured — the Likes tab resolves it then, the Bookmarks tab never
+    // needs it.
+    return UserWithExtra.fromArguments(idStr: active.userId, possiblySensitive: false, screenName: handle);
   }
 
   @override

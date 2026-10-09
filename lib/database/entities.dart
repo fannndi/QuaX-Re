@@ -241,6 +241,10 @@ class Account with ToMappable {
   final String id;
   final dynamic authHeader;
   final String? screenName;
+  // The numeric X user id (rest_id). The Likes endpoint takes it as `userId` —
+  // x.com's likes tab sends it, and X answers nothing for anything else. Null
+  // until the login page or a profile request fills it in.
+  final String? userId;
   final DateTime? lastNotFoundAt;
   final int consecutiveNotFound;
   // The account the app prefers for every request; health still wins when the
@@ -251,6 +255,7 @@ class Account with ToMappable {
       {required this.id,
       required this.authHeader,
       required this.screenName,
+      this.userId,
       this.lastNotFoundAt,
       this.consecutiveNotFound = 0,
       this.isActive = false});
@@ -265,6 +270,7 @@ class Account with ToMappable {
         id: map['id'] as String,
         authHeader: map['auth_header'],
         screenName: map['screen_name'] as String?,
+        userId: map['user_id'] as String?,
         lastNotFoundAt: _date(map['last_not_found_at']),
         consecutiveNotFound: (map['consecutive_not_found'] as int?) ?? 0,
         isActive: (map['is_active'] as int?) == 1);
@@ -283,6 +289,7 @@ class Account with ToMappable {
       'id': id,
       'auth_header': authHeader,
       'screen_name': screenName,
+      'user_id': userId,
       'last_not_found_at': lastNotFoundAt?.toIso8601String(),
       'consecutive_not_found': consecutiveNotFound,
       'is_active': isActive ? 1 : 0

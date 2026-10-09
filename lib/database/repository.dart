@@ -318,10 +318,18 @@ class Repository {
             'ON $tableLikedTweet (liked_at DESC)',
             reverseSql: 'DROP INDEX IF EXISTS idx_${tableLikedTweet}_liked_at'),
       ],
+      30: [
+        // The numeric X user id, filled in at login from the home page (or once
+        // from the profile endpoint for accounts added earlier). The Likes
+        // endpoint only answers for a numeric userId, never for the ct0 token
+        // the row is keyed on.
+        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN user_id VARCHAR DEFAULT NULL',
+            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN user_id'),
+      ],
     });
     await openDatabase(
       databaseName,
-      version: 29,
+      version: 30,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
       onDowngrade: myMigrationPlan.call,

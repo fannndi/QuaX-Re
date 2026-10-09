@@ -115,6 +115,26 @@ void main() {
           reason: 'Accounts added before these columns existed hold NULL there, so the counter '
               'should fall back to 0 rather than throw');
     });
+
+    test('Should carry the numeric user id through the map', () {
+      final account = Account(id: 'a', authHeader: '{}', screenName: 'dogs', userId: '42');
+
+      expect(Account.fromMap(account.toMap()).userId, '42',
+          reason: 'The likes tab reads this value as the endpoint userId; losing it across a '
+              'restart re-triggers the profile resolution at every launch');
+    });
+
+    test('Should read an account saved before the id column as null', () {
+      final account = Account.fromMap({
+        'id': 'a',
+        'auth_header': '{}',
+        'screen_name': 'dogs',
+      });
+
+      expect(account.userId, isNull,
+          reason: 'A missing user_id must stay null so the likes tab knows to resolve it once, '
+              'rather than crash on a cast');
+    });
   });
 
   Map<String, Object?> row({Object? verified, Object? inFeed, Object? createdAt}) => {

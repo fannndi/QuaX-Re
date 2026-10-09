@@ -267,6 +267,13 @@ class Twitter {
   /// Sent alongside the timeline features, exactly as the web client does.
   static const Map<String, Object> _timelineFieldToggles = {"withPayments": false};
 
+  /// The Likes endpoint sends this pair; the other timelines only send
+  /// withPayments.
+  static const Map<String, Object> _likesFieldToggles = {
+    "withPayments": false,
+    "withArticlePlainText": false,
+  };
+
   static const Map<String, bool> _profileFeatures = {
     "creator_subscriptions_tweet_preview_api_enabled": true,
     "hidden_profile_subscriptions_enabled": true,
@@ -628,6 +635,7 @@ class Twitter {
       Uri.https('x.com', '/i/api/graphql/RQ7C2mINUB7QZE_0cjWojg/Likes', {
         'variables': jsonEncode(variables),
         'features': jsonEncode(_timelineFeatures),
+        'fieldToggles': jsonEncode(_likesFieldToggles),
       }),
     );
     return parseChainsOnIsolate(
