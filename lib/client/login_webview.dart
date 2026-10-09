@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/client/accounts.dart';
@@ -18,6 +19,8 @@ class TwitterLoginWebview extends StatefulWidget {
 }
 
 class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
+  static const _channel = MethodChannel('browser_resolver');
+
   /// One controller for the whole screen. Building it in [build] created a
   /// fresh web view (and a fresh load of the login page) on every rebuild —
   /// opening the keyboard to type the username was enough to wipe the form.
@@ -36,7 +39,12 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
     // X's login flow reacts to — and the previous map.toString() was not a
     // user agent at all.
     _controller.setUserAgent(userAgentHeader['user-agent']!);
-    _controller.setNavigationDelegate(NavigationDelegate(onUrlChange: _onUrlChange));
+    _controller.setNavigationDelegate(NavigationDelegate(
+      // "Sign in with Google" opens a popup; the native side hosts it so the
+      // opener survives and the flow can hand its token back.
+      onPageStarted: (_) => _channel.invokeMethod<void>('enableWebViewPopups'),
+      onUrlChange: _onUrlChange,
+    ));
     _controller.loadRequest(Uri.https('x.com', 'i/flow/login'));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -67,8 +75,8 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       // The home page embeds the logged-in handle in its bootstrap state; it
       // can arrive a beat after the URL changes, so give it a few tries.
       var screenName = '';
-      for (var attempt = 0; attempt < 5 && screenName.isEmpty; attempt++) {
-        if (attempt > 0) await Future<void>.delayed(const Duration(seconds: 1));
+      for (var attempt = 0; attempt < 20 && screenName.isEmpty; attempt++) {
+        if (attempt > 0) await Future<void>.delayed(const Duration(milliseconds: 500));
         final raw = await _controller.runJavaScriptReturningResult(
           "document.documentElement.outerHTML.match(/\"screen_name\":\"([^\"]+)\"/)?.[1] ?? '';",
         );

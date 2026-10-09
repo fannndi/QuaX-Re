@@ -58,7 +58,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.teskann.quax"
+        applicationId "com.fannndi.quaxre"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion 37
         multiDexEnabled true

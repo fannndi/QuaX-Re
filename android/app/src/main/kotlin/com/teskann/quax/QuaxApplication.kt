@@ -317,6 +317,11 @@ class QuaxApplication : android.app.Application() {
             } else {
                 result.success(true) // pre-M: install-time grants
             }
+        } else if (call.method == "enableWebViewPopups") {
+            // "Sign in with Google" needs window.open; the plugin drops the
+            // popup's opener, so the popup is hosted in a dialog instead.
+            currentActivity?.get()?.let { WebViewPopups.install(it) }
+            result.success(null)
         } else if (call.method == "openAppSettings") {
             // MIUI and other ROMs stop showing the dialog after two denials;
             // the app details screen is the only way left to grant storage.

@@ -129,6 +129,8 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
 
 - Personal fork (fannndi/QuaX-Re); upstream CI/agent tooling (`.github/`, `.claude/`, `docs/`,
   `fastlane/`, release scripts) is removed on purpose. `master` tracks upstream for inspection.
+- The Android application id is `com.fannndi.quaxre` (display name "QuaX-Re") so the fork and
+  upstream QuaX can be installed side by side; the Kotlin namespace stays `com.teskann.quax`.
 - Three navbar tabs, in this order: Download (queue / gallery) / Home (For You / Following,
   centered) / Like (local likes / Saved / profile likes / bookmarks). Settings is behind the gear
   in the home app bar; search shares that app bar. There is no notifications screen — the bell and
