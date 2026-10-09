@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:quax/client/account_selector.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
@@ -79,17 +76,6 @@ Future<void> promoteFirstAccountIfNoneActive() async {
   }
   if (accounts.any((a) => a.isActive)) return;
   await setActiveAccount(accounts.first.id);
-}
-
-/// Decoded auth header for a single healthy account, or null if none is usable.
-/// Used by one-shot requests (e.g. translation) that don't drive the retry loop.
-Future<Map<dynamic, dynamic>?> pickAuthHeader() async {
-  final accounts = await getAccounts();
-  final account = AccountSelector(accounts, DateTime.now()).pick(exclude: <String>{});
-  if (account == null) {
-    return null;
-  }
-  return json.decode(account.authHeader);
 }
 
 /// Increment the consecutive-404 counter, flagging the account as not found only

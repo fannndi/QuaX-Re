@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:extended_image/extended_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
-import 'package:quax/settings/native_locale_names.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
@@ -18,7 +17,7 @@ import 'package:quax/utils/iterables.dart';
 import 'package:quax/utils/storage_report.dart';
 import 'package:quax/utils/timeline_cache.dart';
 
-/// The whole Settings experience on one page — language & privacy, appearance,
+/// The whole Settings experience on one page — privacy, appearance,
 /// downloads & media, cache, about. The account manager is deliberately not
 /// here: switching accounts lives in the home app bar's account sheet.
 class SettingsScreen extends StatefulWidget {
@@ -38,21 +37,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final info = await PackageInfo.fromPlatform();
       if (mounted) setState(() => _packageInfo = info);
     });
-  }
-
-  PrefDropdown<String> _languagePicker() {
-    return PrefDropdown(
-        fullWidth: false,
-        title: Text(L10n.current.language),
-        subtitle: Text(L10n.current.language_subtitle),
-        pref: optionLocale,
-        items: [
-          DropdownMenuItem(value: optionLocaleDefault, child: Text(L10n.current.system)),
-          ...L10n.delegate.supportedLocales
-              .map((e) => SettingLocale.fromLocale(e))
-              .sorted((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()))
-              .map((e) => DropdownMenuItem(value: e.code, child: Text(e.name)))
-        ]);
   }
 
   /// The reader-facing name of a theme colour, keyed by whatever the preference
@@ -90,7 +74,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsSection(
             title: L10n.of(context).general,
             tiles: [
-              _languagePicker(),
               PrefSwitch(
                 title: Text(L10n.of(context).disable_screenshots),
                 subtitle: Text(L10n.of(context).disable_screenshots_hint),
@@ -557,16 +540,4 @@ class _SettingsSection extends StatelessWidget {
   }
 }
 
-class SettingLocale {
-  final String code;
-  final String name;
 
-  SettingLocale(this.code, this.name);
-
-  factory SettingLocale.fromLocale(Locale locale) {
-    var code = locale.toLanguageTag().replaceAll('-', '_');
-    var name = nativeLocaleNames[code] ?? code;
-
-    return SettingLocale(code, name);
-  }
-}

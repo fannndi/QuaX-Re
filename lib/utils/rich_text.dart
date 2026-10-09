@@ -142,7 +142,7 @@ List<Entity> _parseEntities(BuildContext context, dynamic newEntities) {
   if (newEntities == null) return entities;
 
   if (newEntities is Map<String, dynamic>){
-    // try using newEntities as a raw json object (that's what we get from the translation API)
+    // try using newEntities as a raw json object
     newEntities = Entities.fromJson(newEntities);
   }
 

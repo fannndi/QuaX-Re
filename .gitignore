@@ -64,3 +64,8 @@ tool/record/media/*.mp4
 tool/record/media/*.gif
 tool/record/media/*.png
 *.har
+
+# Local test coverage output
+coverage/
+# Python cache from l10n.py / generate_icons.py
+__pycache__/

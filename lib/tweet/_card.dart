@@ -211,11 +211,11 @@ class TweetCard extends StatelessWidget {
     var endsAt = DateTime.parse(card['binding_values']['end_datetime_utc']['string_value']);
     if (endsAt.isBefore(DateTime.now())) {
       endsAtText = L10n.of(context).ended_timeago_format_endsAt_allowFromNow_true(
-        timeago.format(endsAt, allowFromNow: true, locale: Intl.shortLocale(Intl.getCurrentLocale())),
+        timeago.format(endsAt, allowFromNow: true, locale: 'en'),
       );
     } else {
       endsAtText = L10n.of(context).ends_timeago_format_endsAt_allowFromNow_true(
-        timeago.format(endsAt, allowFromNow: true, locale: Intl.shortLocale(Intl.getCurrentLocale())),
+        timeago.format(endsAt, allowFromNow: true, locale: 'en'),
       );
     }
 

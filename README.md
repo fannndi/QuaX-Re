@@ -19,6 +19,7 @@ QuaX itself is forked from [Quacker](https://github.com/TheHCJ/Quacker) and
 - Download queue with pause/resume and a hidden media library (`.nomedia`) opened from the gallery
 - Offline mode: cached threads, locally liked/saved posts, downloaded clips play from disk
 - Single-page settings: theme, media quality, autoplay/loop, text size, cache management
+- English-only interface: a single locale (`intl_en.arb`) and no in-app translation of posts
 
 ## Build
 
@@ -38,13 +39,13 @@ fvm flutter build apk --profile --split-per-abi             # smoothness: profil
 one matching your device (arm64-v8a for almost every phone released in the last few years) — around
 46 MB instead of 119.
 
-`python3 l10n.py` sorts the ARB files and reports missing and unused keys; `--clean` removes the
-unused ones from every locale.
+`python3 l10n.py` sorts `lib/l10n/intl_en.arb` and reports keys the code no longer references;
+`--clean` removes them.
 
 Install on a device without wiping its data:
 
 ```bash
-adb install -r build/app/outputs/flutter-apk/app-profile.apk
+adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
 ```
 
 Do **not** use `flutter install`: it uninstalls first, which deletes the local database (accounts,

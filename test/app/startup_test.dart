@@ -65,11 +65,11 @@ void main() {
     });
 
     test('Should not touch settings it does not own', () async {
-      final prefs = prefsWith({optionImageQuality: 'small', optionLocale: 'id'});
+      final prefs = prefsWith({optionImageQuality: 'small', optionThemeMode: 'dark'});
 
       await migrateMediaQualityPrefs(prefs);
 
-      expect(prefs.get<String>(optionLocale), 'id',
+      expect(prefs.get<String>(optionThemeMode), 'dark',
           reason: 'A migration for media quality has no business rewriting anything else');
     });
   });

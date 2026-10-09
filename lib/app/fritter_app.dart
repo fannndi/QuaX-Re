@@ -40,7 +40,6 @@ class _FritterAppState extends State<FritterApp> {
   bool _updateDialogShown = false;
   bool _isSecure = false;
   double _textScaleFactor = 1.0;
-  Locale? _locale;
 
   BasePrefService? _prefs;
 
@@ -60,7 +59,6 @@ class _FritterAppState extends State<FritterApp> {
       _detachPreferenceListeners();
       _prefs = prefs;
       prefs.addKeyListener(optionShouldCheckForUpdates, _onCheckUpdatesChanged);
-      prefs.addKeyListener(optionLocale, _onLocaleChanged);
       prefs.addKeyListener(optionThemeTrueBlack, _onTrueBlackChanged);
       prefs.addKeyListener(optionThemeMode, _onThemeModeChanged);
       prefs.addKeyListener(optionThemeColor, _onThemeColorChanged);
@@ -85,7 +83,6 @@ class _FritterAppState extends State<FritterApp> {
     if (prefs == null) return;
     _prefs = null;
     prefs.removeKeyListener(optionShouldCheckForUpdates, _onCheckUpdatesChanged);
-    prefs.removeKeyListener(optionLocale, _onLocaleChanged);
     prefs.removeKeyListener(optionThemeTrueBlack, _onTrueBlackChanged);
     prefs.removeKeyListener(optionThemeMode, _onThemeModeChanged);
     prefs.removeKeyListener(optionThemeColor, _onThemeColorChanged);
@@ -95,7 +92,6 @@ class _FritterAppState extends State<FritterApp> {
   }
 
   void _readPreferences(BasePrefService prefs) {
-    _setLocale(prefs.get<String>(optionLocale));
     _themeMode = prefs.get(optionThemeMode);
     _themeColor = prefs.get(optionThemeColor);
     _trueBlack = prefs.get(optionThemeTrueBlack);
@@ -113,8 +109,6 @@ class _FritterAppState extends State<FritterApp> {
 
   void _onCheckUpdatesChanged() => _onPreferenceChanged((p) => _checkUpdates = p.get(optionShouldCheckForUpdates));
 
-  void _onLocaleChanged() => _onPreferenceChanged((p) => _setLocale(p.get<String>(optionLocale)));
-
   void _onTrueBlackChanged() => _onPreferenceChanged((p) => _trueBlack = p.get(optionThemeTrueBlack));
 
   void _onThemeModeChanged() => _onPreferenceChanged((p) => _themeMode = p.get(optionThemeMode));
@@ -128,23 +122,6 @@ class _FritterAppState extends State<FritterApp> {
 
   void _onTextChangedScale() =>
       _onPreferenceChanged((p) => _textScaleFactor = p.get<double?>(optionTextScaleFactor) ?? 1.0);
-
-  void _setLocale(String? locale) {
-    if (locale == null || locale == optionLocaleDefault) {
-      _locale = null;
-      return;
-    }
-    var splitLocale = locale.split(RegExp(r'[-_]'));
-    if (splitLocale.length == 1) {
-      _locale = Locale(splitLocale[0]);
-    } else if (splitLocale[1].length == 4) {
-      // 4 characters -> unicode_script_subtag
-      _locale = Locale.fromSubtags(languageCode: splitLocale[0], scriptCode: splitLocale[1]);
-    } else {
-      // Other than 4 characters -> unicode_region_subtag (country)
-      _locale = Locale(splitLocale[0], splitLocale[1]);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +159,7 @@ class _FritterAppState extends State<FritterApp> {
                     ...GlobalMaterialLocalizations.delegates,
                   ],
                   supportedLocales: L10n.delegate.supportedLocales,
-                  locale: _locale,
+                  locale: const Locale('en'),
                   title: 'QuaX',
                   theme: buildAppTheme(
                     colorScheme: _themeColor == 'accent'

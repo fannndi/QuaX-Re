@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'dart:io' show Platform;
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:quax/client/client.dart';
@@ -20,11 +18,9 @@ import 'package:quax/tweet/_card.dart';
 import 'package:quax/tweet/_media.dart';
 import 'package:quax/article/article.dart';
 import 'package:quax/ui/dates.dart';
-import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/rich_text.dart';
-import 'package:quax/utils/translation.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
@@ -86,11 +82,6 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   late final bool addSeparator;
   late final bool isBirdwatchQuote;
 
-  TranslationStatus _translationStatus = TranslationStatus.original;
-
-  List<RichTextPart> _originalParts = [];
-  List<RichTextPart> _translatedParts = [];
-
   List<RichTextPart> _parts = [];
   List<InlineSpan>? _spans;
 
@@ -112,8 +103,6 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   // The text direction only changes when the text does; detecting it on every
   // rebuild walks the whole string through the bidi algorithm again.
   bool _isRtl = false;
-  bool _originalIsRtl = false;
-  bool _translatedIsRtl = false;
 
   final GlobalKey _globalKey = GlobalKey(); // needed for "share tweet as image"
 
@@ -151,78 +140,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     List<RichTextPart> tweetParts = buildRichText(context, tweetTextFinal, entitiesFinal);
     setState(() {
       _displayParts = tweetParts;
-      _originalParts = tweetParts;
-      _originalIsRtl = Bidi.detectRtlDirectionality(tweetTextFinal);
-      _isRtl = _originalIsRtl;
-    });
-  }
-
-  Future<void> onClickTranslate(BuildContext context, Locale locale) async {
-    // If we've already translated this text before, use those results instead of translating again
-    if (_translatedParts.isNotEmpty) {
-      return setState(() {
-        _displayParts = _translatedParts;
-        _isRtl = _translatedIsRtl;
-        _translationStatus = TranslationStatus.translated;
-      });
-    }
-
-    setState(() {
-      _translationStatus = TranslationStatus.translating;
-    });
-
-    var originalText = _originalParts.map((e) => e.toString()).toList();
-
-    try {
-      var res = await TranslationAPI.translate(locale, tweet.idStr!, originalText, tweet.lang ?? "");
-      if (!context.mounted) return;
-
-      if (!res.success) {
-        return showTranslationError(res.errorMessage ?? L10n.of(context).translation_failed);
-      }
-
-      // "Success" only means a 200 with a JSON object; X can answer with an
-      // object that has no `result`, and indexing straight into it threw out of
-      // here, leaving the button spinning on "translating" for good.
-      final result = res.body is Map<String, dynamic> ? (res.body as Map<String, dynamic>)['result'] : null;
-      final text = result is Map<String, dynamic> ? result['text'] as String? : null;
-      if (text == null) {
-        return showTranslationError(L10n.of(context).translation_failed);
-      }
-
-      final List<RichTextPart> translatedParts = buildRichText(context, text, result['entities']);
-
-      // We cache the translated parts in a property in case the user swaps back and forth
-      if (!mounted) return;
-      return setState(() {
-        _displayParts = translatedParts;
-        _translatedParts = translatedParts;
-        _translatedIsRtl = Bidi.detectRtlDirectionality(text);
-        _isRtl = _translatedIsRtl;
-        _translationStatus = TranslationStatus.translated;
-      });
-    } catch (_) {
-      // A socket error or a body that isn't JSON at all: the button has to come
-      // back, otherwise the spinner is the last thing the user sees.
-      if (!context.mounted) return;
-      return showTranslationError(L10n.of(context).translation_failed);
-    }
-  }
-
-  void showTranslationError(String message) {
-    if (!mounted) return;
-    setState(() {
-      _translationStatus = TranslationStatus.translationFailed;
-    });
-
-    showSnackBar(context, icon: '💥', message: message);
-  }
-
-  Future<void> onClickShowOriginal() async {
-    setState(() {
-      _displayParts = _originalParts;
-      _isRtl = _originalIsRtl;
-      _translationStatus = TranslationStatus.original;
+      _isRtl = Bidi.detectRtlDirectionality(tweetTextFinal);
     });
   }
 
@@ -279,28 +197,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
   }
 
-  Widget _buildTranslateButton(Locale locale) {
-    switch (_translationStatus) {
-      case TranslationStatus.original:
-        return _createFooterIconButton(Icons.translate, buttonsColor(context), null, () async => onClickTranslate(context, locale));
-      case TranslationStatus.translating:
-        return const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator()),
-        );
-      case TranslationStatus.translationFailed:
-        return _createFooterIconButton(
-            Icons.translate,
-            Colors.red.harmonizeWith(Theme.of(context).colorScheme.primary),
-            null,
-            () async => onClickTranslate(context, locale));
-      case TranslationStatus.translated:
-        return _createFooterIconButton(
-            Icons.translate, Theme.of(context).colorScheme.primary, null, () async => onClickShowOriginal());
-    }
-  }
-
-  Widget _buildFooterBar(TweetWithCard tweet, String tweetText, String shareBaseUrl, Locale locale, NumberFormat numberFormat, {bool isArticle = false}) {
+  Widget _buildFooterBar(TweetWithCard tweet, String tweetText, String shareBaseUrl, NumberFormat numberFormat, {bool isArticle = false}) {
     return Container(
       alignment: Alignment.center,
       margin: isArticle ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 8),
@@ -435,7 +332,6 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                       });
                 },
               ),
-              if (!isArticle) _buildTranslateButton(locale),
               if (!isArticle) _freshnessLabel(),
             ],
           ),
@@ -564,7 +460,7 @@ Color? buttonsColor(BuildContext c) {
         currentUsername != null && tweet.user != null && currentUsername == tweet.user!.screenName;
     final hideAuthorInformation = !isTweetOnSameProfile && prefs.get(optionNonConfirmationBiasMode);
 
-    var numberFormat = _compactNumberFormat();
+    var numberFormat = _compactNumberFormat;
     var theme = Theme.of(context);
 
     if (tweet.isTombstone ?? false) {
@@ -747,21 +643,7 @@ Color? buttonsColor(BuildContext c) {
           ));
     }
 
-    var localeStr = PrefService.of(context).get<String>(optionLocale);
-    final isSystemLocale = (localeStr ?? optionLocaleDefault) == optionLocaleDefault;
-    if (isSystemLocale) {
-      localeStr = Platform.localeName;
-    }
-
-    final splitLocale = localeStr!.split(RegExp(r'[-_]'));
-    late Locale locale;
-    if (splitLocale.length == 1) {
-      locale = Locale(splitLocale[0]);
-    } else {
-      locale = Locale(splitLocale[0], splitLocale[1]);
-    }
-
-    final footerBar = _buildFooterBar(tweet, tweetText, shareBaseUrl, locale, numberFormat, isArticle: tweet.article != null);
+    final footerBar = _buildFooterBar(tweet, tweetText, shareBaseUrl, numberFormat, isArticle: tweet.article != null);
 
     Widget article = const SizedBox.shrink();
     if (tweet.article != null) {
@@ -978,10 +860,8 @@ Color? buttonsColor(BuildContext c) {
 }
 
 // Compact counters are formatted for every card on every rebuild; building the
-// formatter itself costs ICU lookups, so keep one per locale.
-final Map<String, NumberFormat> _compactNumberFormats = {};
-NumberFormat _compactNumberFormat() =>
-    _compactNumberFormats.putIfAbsent(Intl.getCurrentLocale(), () => NumberFormat.compact());
+// formatter itself costs ICU lookups, so keep the one this app uses.
+final NumberFormat _compactNumberFormat = NumberFormat.compact(locale: 'en');
 
 // Seeded card colors are memoized: ColorScheme.fromSeed generates a whole tonal
 // palette, and without this it runs again for every card on every rebuild.
@@ -1003,6 +883,5 @@ Color? tweetCardColor(BuildContext context) {
   );
 }
 
-enum TranslationStatus { original, translating, translationFailed, translated }
 
 

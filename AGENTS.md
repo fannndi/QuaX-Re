@@ -17,8 +17,8 @@ otherwise the same-version system `flutter`.
 fvm flutter pub get
 fvm dart run intl_utils:generate       # required after a fresh clone, and after ARB edits
 fvm dart run flutter_launcher_icons
-python3 l10n.py                        # sort ARB files; reports missing and unused keys
-python3 l10n.py --clean                # drops the unused keys from every locale
+python3 l10n.py                        # sort the ARB; reports unused keys
+python3 l10n.py --clean                # drops the unused keys
 
 fvm flutter test                                            # the CI-grade check
 fvm flutter analyze                                         # no issues: keep it there
@@ -29,9 +29,8 @@ adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk   # x86_6
 ```
 
 `--split-per-abi` matters: the fat APK ships all three ABIs (95 MB of native code) for a phone
-that loads exactly one. `lib/settings/native_locale_names.dart` carries the language picker's 29
-labels inline for the same reason — the `flutter_localized_locales` package put 15 MB of JSON in the
-bundle to produce them.
+that loads exactly one. The app is English-only on purpose: a single `lib/l10n/intl_en.arb`, no
+language picker, and no in-app translation of posts.
 
 `lib/generated/` is **not** in version control, so `intl_utils:generate` is not optional after a
 clone — without it nothing compiles. `flutter install` uninstalls first and wipes the local
@@ -76,7 +75,7 @@ per request.
 | `subscriptions/` | `SubscriptionsModel` (the followed accounts) and the followed-user index |
 | `tweet/` | Tweet cards, threads, media, video playback |
 | `ui/`, `utils/` | Shared widgets, errors, dates, paging, caches, downloads |
-| `l10n/` | ARB sources, one per locale — the input to `intl_utils` |
+| `l10n/` | The single English ARB source — the input to `intl_utils` |
 | `generated/` | Auto-generated localization — never edit by hand, and not in git |
 
 ### API layer (`lib/client/`)
@@ -153,7 +152,7 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   every card on screen. Judge scroll smoothness on a profile/release build — debug is much slower.
 - Fetching: timeline/profile/search/follows pages are decoded and parsed on a worker isolate
   (`parseChainsOnIsolate` / `parseOffThread` in `lib/client/client_parsing.dart`), which also loads
-  the locale there because tombstones resolve a message while parsing; the app shares a single
+  the English strings there because tombstones resolve a message while parsing; the app shares a single
   `http.Client` (`lib/client/http_client.dart`) so requests reuse the connection; and every list
   first load paints a `lib/ui/skeletons.dart` placeholder instead of a spinner.
 - Downloads go to the hidden library only (`.nomedia`). A native foreground service owns progress

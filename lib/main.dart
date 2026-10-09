@@ -24,6 +24,7 @@ import 'package:quax/subscriptions/users_model.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
+import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
@@ -52,7 +53,6 @@ final Map<String, dynamic> _prefDefaults = {
     optionDisableAnimations: false,
     optionTextScaleFactor: 1.0,
     optionDisableScreenshots: false,
-    optionLocale: optionLocaleDefault,
     optionLibraryVisibleInGallery: false,
     optionAutoCacheVideos: false,
     optionAutoCacheWifiOnly: true,
@@ -92,7 +92,7 @@ final Map<String, dynamic> _prefDefaults = {
 Future<void> _startApp() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  setTimeagoLocales();
+  Intl.defaultLocale = 'en';
 
   final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: _prefDefaults);
 
