@@ -35,10 +35,6 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
     _cookieManager = WebviewCookieManager();
     _controller = WebViewController();
     _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-    // A real browser user agent: the WebView default carries `; wv`, which
-    // X's login flow reacts to — and the previous map.toString() was not a
-    // user agent at all.
-    _controller.setUserAgent(userAgentHeader['user-agent']!);
     _controller.setNavigationDelegate(NavigationDelegate(
       // "Sign in with Google" opens a popup; the native side hosts it so the
       // opener survives and the flow can hand its token back.
@@ -46,6 +42,10 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       onUrlChange: _onUrlChange,
     ));
     _controller.loadRequest(Uri.https('x.com', 'i/flow/login'));
+    // Match upstream's order and value exactly: the first load runs with the
+    // WebView's own user agent, which is the one X's login flow tolerates on
+    // MIUI; the constant only applies to later full navigations.
+    _controller.setUserAgent(userAgentHeader.toString());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
