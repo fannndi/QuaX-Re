@@ -52,6 +52,11 @@ class QuaxApplication : android.app.Application() {
         // A gallery pass must always answer, even when the system scanner stays
         // silent (an OEM provider with its own index, a headless emulator).
         private const val SCAN_TIMEOUT_MS = 10_000L
+
+        // Runtime storage request on Android 10 and below: the user's answer
+        // arrives after the dialog, in Activity.onRequestPermissionsResult.
+        private const val STORAGE_REQUEST_CODE = 4712
+        private var pendingStoragePermission: MethodChannel.Result? = null
     }
 
     lateinit var engine: FlutterEngine
@@ -83,9 +88,29 @@ class QuaxApplication : android.app.Application() {
     private fun hasAllFilesAccess(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Android 10 and below write through legacy storage, so the runtime
+            // WRITE_EXTERNAL_STORAGE grant is what opens the library folder.
+            checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
         } else {
             true
         }
+    }
+
+    /** Answers the pending legacy-storage request from the Activity's permission callback. */
+    fun onStoragePermissionResult(requestCode: Int, grantResults: IntArray) {
+        if (requestCode != STORAGE_REQUEST_CODE) return
+        val result = pendingStoragePermission ?: return
+        pendingStoragePermission = null
+        result.success(grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED })
+    }
+
+    /** Answers a pending storage request when its Activity goes away, so Dart never hangs. */
+    fun cancelPendingStoragePermission() {
+        val result = pendingStoragePermission ?: return
+        pendingStoragePermission = null
+        result.success(false)
     }
 
     /**
@@ -272,8 +297,39 @@ class QuaxApplication : android.app.Application() {
                     startActivity(fallback)
                     result.success(false)
                 }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val activity = currentActivity?.get()
+                if (activity == null) {
+                    result.success(false)
+                } else {
+                    // A second ask supersedes the first: answer the old call so
+                    // its Dart future does not hang.
+                    pendingStoragePermission?.success(false)
+                    pendingStoragePermission = result
+                    activity.requestPermissions(
+                        arrayOf(
+                            android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            android.Manifest.permission.READ_EXTERNAL_STORAGE
+                        ),
+                        STORAGE_REQUEST_CODE
+                    )
+                }
             } else {
-                result.success(true) // pre-R: manifest runtime permission governs this
+                result.success(true) // pre-M: install-time grants
+            }
+        } else if (call.method == "openAppSettings") {
+            // MIUI and other ROMs stop showing the dialog after two denials;
+            // the app details screen is the only way left to grant storage.
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:$packageName")
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+                result.success(true)
+            } catch (e: Exception) {
+                result.error("SETTINGS_FAILED", e.message, null)
             }
         } else if (call.method == "setGalleryVisibility") {
             val dirPath = call.argument<String>("path")

@@ -275,9 +275,17 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   Future<bool> _configureAt(String pickedPath, {ValueNotifier<String?>? error}) async {
     try {
-      final granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      // Android 10 and below answer the request only after the user has chosen
+      // in the runtime dialog; Android 11+ opens the all-files screen, and the
+      // grant only shows on the next check (activity resume).
+      var granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
       if (granted != true) {
-        await _storageChannel.invokeMethod('requestAllFilesAccess');
+        granted = await _storageChannel.invokeMethod<bool>('requestAllFilesAccess');
+      }
+      if (granted != true) {
+        granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      }
+      if (granted != true) {
         error?.value = 'storage_permission_needed';
         return false;
       }

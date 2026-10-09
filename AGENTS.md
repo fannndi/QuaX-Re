@@ -24,7 +24,7 @@ fvm flutter test                                            # the CI-grade check
 fvm flutter analyze                                         # no issues: keep it there
 
 # Build and install on a connected device, keeping app data:
-fvm flutter build apk --profile --split-per-abi   # one APK per ABI: ~46 MB instead of ~119 MB
+fvm flutter build apk --profile --split-per-abi --target-platform android-arm64   # just this phone's ABI
 adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk   # x86_64 for an emulator
 ```
 
@@ -159,6 +159,11 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   and its notification actions; the queue is persisted (`downloads.json`), one transfer at a time,
   with pause/resume, Range resume, retries, space and integrity checks. No in-app player: gallery
   media opens in the system viewer through a FileProvider.
+- Storage access is version-split: Android 10 and below run legacy external storage
+  (`requestLegacyExternalStorage` plus the runtime WRITE permission, asked from the library flow and
+  answered through `onRequestPermissionsResult`), Android 11+ uses all-files access
+  (`MANAGE_EXTERNAL_STORAGE`). `hasAllFilesAccess` reports whichever route the running Android uses;
+  `openAppSettings` is the fallback for ROMs (MIUI) that stop showing the permission dialog.
 - Offline mode: `TimelineCache` stores a thread body (bounded to 30 days / 200 entries) so an
   already-read thread opens from disk, `NetworkStatus` (DNS probe) retries when the connection
   returns, and downloaded clips play from disk. There is no cached first page for the feeds

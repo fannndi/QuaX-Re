@@ -32,10 +32,11 @@ fvm dart run intl_utils:generate                            # required: lib/gene
 fvm dart run flutter_launcher_icons
 
 fvm flutter test                                            # run the tests
-fvm flutter build apk --profile --split-per-abi             # smoothness: profile/release
+fvm flutter build apk --profile --split-per-abi --target-platform android-arm64   # one APK for this phone
 ```
 
-`--split-per-abi` writes one APK per architecture instead of one that carries all three; install the
+`--target-platform android-arm64` keeps the build to the one ABI a phone loads; `--split-per-abi`
+writes one APK per architecture instead of one that carries all three; install the
 one matching your device (arm64-v8a for almost every phone released in the last few years) — around
 46 MB instead of 119.
 

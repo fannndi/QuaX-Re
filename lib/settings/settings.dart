@@ -13,7 +13,6 @@ import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/ui/errors.dart';
-import 'package:quax/utils/iterables.dart';
 import 'package:quax/utils/storage_report.dart';
 import 'package:quax/utils/timeline_cache.dart';
 
@@ -115,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   pref: optionThemeColor,
                   items: [
                     DropdownMenuItem(value: 'accent', child: Text(_themeColorName(context, 'accent'))),
-                    ...themeColors.entries.getRange(0, themeColors.values.length - 1).map((scheme) =>
+                    ...themeColors.entries.map((scheme) =>
                         DropdownMenuItem(value: scheme.key, child: Text(_themeColorName(context, scheme.key))))
                   ]),
               PrefSwitch(

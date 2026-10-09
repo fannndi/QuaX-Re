@@ -83,6 +83,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     await _refreshAccess();
   }
 
+  /// Fallback for ROMs that stop showing the permission dialog (MIUI does
+  /// after two denials): the app details screen is the only way left.
+  Future<void> _openSettings() async {
+    try {
+      await _storageChannel.invokeMethod('openAppSettings');
+    } on Exception {
+      // Nothing else the app can do; Retry stays as the fallback.
+    }
+  }
+
   Future<void> _pickFolder() async {
     setState(() => _busy = true);
     final error = ValueNotifier<String?>(null);
@@ -217,6 +227,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
             onPressed: _refreshAccess,
             child: Text(l10n.retry),
           ),
+          if (!_hasAccess)
+            TextButton(
+              onPressed: _openSettings,
+              child: Text(l10n.setup_permission_open_settings),
+            ),
         ],
       ),
     );

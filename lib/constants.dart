@@ -50,7 +50,6 @@ const themeColors = {
   'green': Colors.green,
   'blue': Colors.blue,
   'indigo': Colors.indigo,
-  'violet': Color.fromARGB(255, 128, 0, 255),
 };
 
 const optionTweetsHideSensitive = 'tweets.hide_sensitive';

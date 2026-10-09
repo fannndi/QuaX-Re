@@ -55,16 +55,27 @@ def find_unused_keys(ref_file):
         f for f in DART_DIR.rglob("*.dart")
         if not f.is_relative_to(GENERATED_DIR)
     ]
-    dart_source = "\n".join(f.read_text(encoding="utf-8") for f in dart_files)
-    # `.key` must match as a whole token. A plain substring also matches a
-    # longer identifier — `.trending_up` for the key `trending`, `.disabled_
-    # screenshots` for `disabled`, `.logging_in_quax` for `logging` — which
-    # reported "No unused keys found!" no matter how many there were.
-    return [
-        k
-        for k in sorted(ref_keys)
-        if not re.search(r'\.' + re.escape(k) + r'(?![A-Za-z0-9_])', dart_source)
-    ]
+    # A key is used when it is read off a localization object within the same
+    # statement: `L10n.of(context).key`, `L10n.current.key`, `l10n.key`, and
+    # chains split over several lines. Matching any `.key` in the whole source
+    # also caught unrelated members (`this.language` in markdown_entity.dart),
+    # which kept real dead keys; matching only single lines missed the chains.
+    used = set()
+    for f in dart_files:
+        source = f.read_text(encoding="utf-8")
+        for m in re.finditer(r'\.([A-Za-z_][A-Za-z0-9_]*)', source):
+            name = m.group(1)
+            if name in used or name not in ref_keys:
+                continue
+            start = m.start()
+            boundary = max(
+                source.rfind(';', 0, start),
+                source.rfind('{', 0, start),
+                source.rfind('}', 0, start),
+            )
+            if re.search(r'\b(?:L10n|l10n)\b', source[boundary + 1:start]):
+                used.add(name)
+    return [k for k in sorted(ref_keys) if k not in used]
 
 
 def report_missing(files):

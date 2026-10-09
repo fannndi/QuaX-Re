@@ -48,10 +48,20 @@ class MainActivity : FlutterActivity() {
         super.onPause()
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        (application as QuaxApplication).onStoragePermissionResult(requestCode, grantResults)
+    }
+
     override fun onDestroy() {
         if (QuaxApplication.currentActivity?.get() === this) {
             QuaxApplication.currentActivity = null
         }
+        (application as QuaxApplication).cancelPendingStoragePermission()
         super.onDestroy()
     }
 }
