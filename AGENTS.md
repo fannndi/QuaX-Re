@@ -25,7 +25,7 @@ fvm flutter analyze                                         # no issues: keep it
 
 # Build and install on a connected device, keeping app data:
 fvm flutter build apk --profile --split-per-abi --target-platform android-arm64   # just this phone's ABI
-adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk   # x86_64 for an emulator
+adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk   # emulator: build without --target-platform, install app-x86_64-profile.apk
 ```
 
 `--split-per-abi` matters: the fat APK ships all three ABIs (95 MB of native code) for a phone

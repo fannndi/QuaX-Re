@@ -35,10 +35,9 @@ fvm flutter test                                            # run the tests
 fvm flutter build apk --profile --split-per-abi --target-platform android-arm64   # one APK for this phone
 ```
 
-`--target-platform android-arm64` keeps the build to the one ABI a phone loads; `--split-per-abi`
-writes one APK per architecture instead of one that carries all three; install the
-one matching your device (arm64-v8a for almost every phone released in the last few years) — around
-46 MB instead of 119.
+`--target-platform android-arm64` keeps the build to the one ABI a phone loads; add
+`--split-per-abi` to get one APK per architecture instead of a fat one. Install
+`app-arm64-v8a-profile.apk` — around 45 MB instead of 119.
 
 `python3 l10n.py` sorts `lib/l10n/intl_en.arb` and reports keys the code no longer references;
 `--clean` removes them.
