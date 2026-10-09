@@ -5,9 +5,7 @@ import 'package:quax/database/entities.dart';
 import 'package:quax/database/local_post_search.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/group/group_model.dart';
-import 'package:quax/saved/liked_tweet_model.dart';
-import 'package:quax/saved/saved_tweet_folder_model.dart';
-import 'package:quax/saved/saved_tweet_model.dart';
+import 'package:quax/likes/liked_tweet_model.dart';
 import 'package:quax/search/local_search_model.dart';
 import 'package:quax/subscriptions/followed_users_index.dart';
 import 'package:quax/subscriptions/users_model.dart';
@@ -64,14 +62,18 @@ void main() {
         tableSubscription,
         tableSubscriptionGroup,
         tableSubscriptionGroupMember,
-        tableSavedTweet,
-        tableSavedTweetFolder,
         tableLikedTweet,
         tableAccounts,
       ]) {
         expect(tables, contains(table),
             reason: '"$table" is queried by a model, so a fresh install without it would crash '
                 'the first time that screen opens');
+      }
+
+      for (final table in [tableSavedTweet, tableSavedTweetFolder]) {
+        expect(tables, contains(table),
+            reason: '"$table" is no longer read by the app, but it stays in the schema so an '
+                'upgraded install never drops the posts a previous build saved');
       }
 
       for (final table in [tableFeedGroupChunk, tableFeedGroupCursor]) {
@@ -203,84 +205,11 @@ void main() {
     });
   });
 
-  group('Saved posts storage', () {
-    setUp(() async {
-      await deleteDatabase(databaseName);
-      await Repository().migrate();
-    });
-
-    test('Should save, file and delete a post', () async {
-      final model = SavedTweetModel();
-
-      await model.saveTweet('t1', 'u1', {'id_str': 't1'});
-      await model.listSavedTweets();
-      expect(model.isSaved('t1'), isTrue,
-          reason: 'The bookmark button reads this list to draw itself filled, so the written row '
-              'has to come back from the database');
-
-      await model.setFolder('t1', 'f1');
-      await model.listSavedTweets();
-      expect(model.folderOf('t1'), 'f1',
-          reason: 'Filing a post should survive the reload, otherwise the folder chip filters it '
-              'away on the next visit');
-
-      await model.deleteSavedTweet('t1');
-      await model.listSavedTweets();
-      expect(model.isSaved('t1'), isFalse,
-          reason: 'Unsaving should remove both the in-memory entry and the row, or the bookmark '
-              'button still reads as filled after a restart');
-    });
-
-    test('Should list the most recently saved post first', () async {
-      final model = SavedTweetModel();
-
-      await model.saveTweet('old', null, {});
-      await Future<void>.delayed(const Duration(milliseconds: 1100));
-      await model.saveTweet('new', null, {});
-      await model.listSavedTweets();
-
-      expect(model.state.map((tweet) => tweet.id), ['new', 'old'],
-          reason: 'Saved posts are shown newest-first like a feed, so the order has to come from '
-              'the database and not from the insertion order of a map');
-    }, timeout: const Timeout(Duration(minutes: 1)));
-
-    test('Should move a folder\'s posts back to unfiled when the folder is deleted', () async {
-      final folders = SavedTweetFolderModel();
-      final saved = SavedTweetModel();
-      final folder = await folders.createFolder('Dogs');
-
-      await saved.saveTweet('t1', 'u1', {}, folderId: folder.id);
-      await saved.listSavedTweets();
-      expect(saved.folderOf('t1'), folder.id,
-          reason: 'The picking sheet writes the folder id, so the post should start inside it');
-
-      await folders.deleteFolder(folder.id);
-      await saved.listSavedTweets();
-
-      expect(saved.folderOf('t1'), isNull,
-          reason: 'Deleting a folder must not delete the posts it holds, they should fall back to '
-              'Unfiled instead of disappearing with the folder filter');
-    });
-
-    test('Should keep the folders in creation order when listing them', () async {
-      final folders = SavedTweetFolderModel();
-
-      await folders.createFolder('First');
-      await folders.createFolder('Second');
-      await folders.listFolders();
-
-      expect(folders.state.map((folder) => folder.name), ['First', 'Second'],
-          reason: 'The Saved strip shows folders in this order, so a new folder should land after '
-              'the ones created before it');
-    });
-  });
-
   group('Local search matching', () {
     SearchDoc doc(String id, String body, {DateTime? keptAt}) => SearchDoc(
         LocalPost(
             id: id,
             content: null,
-            sources: const {tableSavedTweet},
             keptAt: keptAt ?? DateTime.fromMillisecondsSinceEpoch(0)),
         body.toLowerCase());
 
@@ -337,37 +266,36 @@ void main() {
   });
 
   group('Local search', () {
-    // Emptying the tables beats deleting the database file: the models hold on
+    // Emptying the table beats deleting the database file: the models hold on
     // to cached connections, and a reopened database can keep pointing at a
     // file that was only unlinked, not removed.
     setUp(() async {
       await Repository().migrate();
       final db = await Repository.writable();
-      await db.delete(tableSavedTweet);
       await db.delete(tableLikedTweet);
     });
 
-    test('Should find a saved post by a word in its text', () async {
-      await SavedTweetModel().saveTweet('t1', 'u1', storedTweet('t1', 'a post about sandwiches'));
+    test('Should find a liked post by a word in its text', () async {
+      await LikedTweetModel().likeTweet('t1', 'u1', storedTweet('t1', 'a post about sandwiches'));
 
       expect(await search('sandwiches'), ['t1'],
-          reason: 'Saving a post has to make it findable, or the Local tab stays empty for '
+          reason: 'Liking a post has to make it findable, or the Local tab stays empty for '
               'everything the user kept');
       expect(await search('SANDWICHES'), ['t1'],
           reason: 'The box is not case-sensitive, users type what they remember');
     });
 
     test('Should find a post by its author', () async {
-      await SavedTweetModel().saveTweet(
+      await LikedTweetModel().likeTweet(
           't2', 'u9', storedTweet('t2', 'nothing to see', name: 'Bob Burger', handle: 'bobburger'));
 
       expect(await search('@bobburger'), ['t2'],
-          reason: 'The Local tab is the only way to find a saved post whose text is not '
+          reason: 'The Local tab is the only way to find a liked post whose text is not '
               'memorable, the handle has to be searchable');
     });
 
     test('Should match while the word is still being typed', () async {
-      await SavedTweetModel().saveTweet('t3', null, storedTweet('t3', 'a large sandwich'));
+      await LikedTweetModel().likeTweet('t3', null, storedTweet('t3', 'a large sandwich'));
 
       expect(await search('sandw'), ['t3'],
           reason: 'Search runs on a debounce as the user types, so partial words have to match or '
@@ -375,35 +303,11 @@ void main() {
     });
 
     test('Should not match the storage format of a post', () async {
-      await SavedTweetModel().saveTweet('t4', null, storedTweet('t4', 'a sandwich'));
+      await LikedTweetModel().likeTweet('t4', null, storedTweet('t4', 'a sandwich'));
 
       expect(await search('full_text'), isEmpty,
           reason: 'Only what the post says is searchable; matching the raw JSON would return every '
               'post for a word like "user"');
-    });
-
-    test('Should drop a post as soon as it is unsaved', () async {
-      final saved = SavedTweetModel();
-      await saved.saveTweet('t5', null, storedTweet('t5', 'a sandwich'));
-      await saved.deleteSavedTweet('t5');
-
-      expect(await search('sandwich'), isEmpty,
-          reason: 'The Local tab reads the same rows, so an unsaved post must not come back');
-    });
-
-    test('Should list a post kept in both places once, with both sources', () async {
-      final content = storedTweet('t6', 'sandwich everywhere');
-      await SavedTweetModel().saveTweet('t6', 'u1', content);
-      await LikedTweetModel().likeTweet('t6', 'u1', content);
-
-      final db = await Repository.writable();
-      final posts = await loadLocalPosts(db);
-
-      expect(posts, hasLength(1),
-          reason: 'The Local tab shows one card per post; being saved and liked is one post, not '
-              'two results');
-      expect(posts.single.sources, containsAll([tableSavedTweet, tableLikedTweet]),
-          reason: 'Both keeping places have to be recorded, the card says how the post was kept');
     });
 
     test('Should drop a post as soon as it is unliked', () async {
@@ -417,8 +321,8 @@ void main() {
 
     test('Should skip a post whose stored payload cannot be read', () async {
       final db = await Repository.writable();
-      await db.insert(tableSavedTweet, {'id': 'broken', 'content': 'this is not json'});
-      await SavedTweetModel().saveTweet('t8', null, storedTweet('t8', 'a sandwich'));
+      await db.insert(tableLikedTweet, {'id': 'broken', 'content': 'this is not json'});
+      await LikedTweetModel().likeTweet('t8', null, storedTweet('t8', 'a sandwich'));
 
       expect(await search('sandwich'), ['t8'],
           reason: 'One corrupt row must not break the whole tab');
@@ -656,40 +560,6 @@ void main() {
       await Repository().migrate();
     });
 
-    test('Should report a save the moment it lands, without a reload', () async {
-      final saved = SavedTweetModel();
-
-      await saved.saveTweet('t1', 'u1', {'id_str': 't1'});
-
-      expect(saved.isSaved('t1'), isTrue,
-          reason: 'The bookmark button turns solid right after the tap, so the answer cannot wait '
-              'for the next full list');
-      expect(saved.state, hasLength(1),
-          reason: 'The index and the list it is built from must agree, or the footer and the Saved '
-              'tab would show different things');
-
-      await saved.deleteSavedTweet('t1');
-
-      expect(saved.isSaved('t1'), isFalse,
-          reason: 'Unsaving has to be visible immediately too, or the button reads filled while '
-              'the row is already gone');
-      expect(saved.state, isEmpty, reason: 'The list must follow the database out');
-    });
-
-    test('Should report a folder change without a reload', () async {
-      final folders = SavedTweetFolderModel();
-      final saved = SavedTweetModel();
-      final folder = await folders.createFolder('Dogs');
-
-      await saved.saveTweet('t1', 'u1', {}, folderId: folder.id);
-      expect(saved.folderOf('t1'), folder.id,
-          reason: 'The picking sheet reads the folder back to show what is selected');
-
-      await saved.setFolder('t1', null);
-      expect(saved.folderOf('t1'), isNull,
-          reason: 'Moving a post out of its folder has to show Unfiled at once, not after a reload');
-    });
-
     test('Should report a like and an unlike without a reload', () async {
       final liked = LikedTweetModel();
 
@@ -710,13 +580,12 @@ void main() {
     setUp(() async {
       await Repository().migrate();
       final db = await Repository.writable();
-      await db.delete(tableSavedTweet);
       await db.delete(tableLikedTweet);
     });
 
     test('Should clear what it found when the box is emptied', () async {
       final model = LocalSearchModel(PrefServiceCache());
-      await SavedTweetModel().saveTweet('t1', null, storedTweet('t1', 'a sandwich'));
+      await LikedTweetModel().likeTweet('t1', null, storedTweet('t1', 'a sandwich'));
 
       await model.search('sandwich');
       expect(model.state, hasLength(1),
@@ -730,11 +599,11 @@ void main() {
 
     test('Should hand back a hit that names the post it found', () async {
       final model = LocalSearchModel(PrefServiceCache());
-      await SavedTweetModel().saveTweet('t1', null, storedTweet('t1', 'a sandwich'));
+      await LikedTweetModel().likeTweet('t1', null, storedTweet('t1', 'a sandwich'));
 
       await model.search('sandwich');
 
-      expect(model.state, hasLength(1), reason: 'The one saved post mentioning the word is found');
+      expect(model.state, hasLength(1), reason: 'The one liked post mentioning the word is found');
       expect(model.state.single, isA<LocalPostHit>(),
           reason: 'A post hit has to carry the post itself so tapping it can open it; a media hit '
               'would carry a file path instead');
@@ -742,9 +611,9 @@ void main() {
           reason: 'The id is what the screen uses to show the right post');
     });
 
-    test('Should find nothing when no saved post mentions the word', () async {
+    test('Should find nothing when no liked post mentions the word', () async {
       final model = LocalSearchModel(PrefServiceCache());
-      await SavedTweetModel().saveTweet('t1', null, storedTweet('t1', 'a sandwich'));
+      await LikedTweetModel().likeTweet('t1', null, storedTweet('t1', 'a sandwich'));
 
       await model.search('volcano');
 

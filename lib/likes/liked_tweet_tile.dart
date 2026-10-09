@@ -22,20 +22,20 @@ TweetWithCard _decodeTweet(String id, String content) {
   return tweet;
 }
 
-/// Renders a post stored in the local database (saved or liked) as a regular
+/// Renders a post stored in the local database (a liked post) as a regular
 /// tweet card.
-class SavedTweetTile extends StatelessWidget {
+class LikedTweetTile extends StatelessWidget {
   final String id;
   final String? content;
 
-  const SavedTweetTile({super.key, required this.id, this.content});
+  const LikedTweetTile({super.key, required this.id, this.content});
 
   @override
   Widget build(BuildContext context) {
     var content = this.content;
     if (content == null) {
       // The tweet is probably too big to fit inside the cursor and has been removed from the result set
-      return SavedTweetTooLarge(id: id);
+      return LikedTweetTooLarge(id: id);
     }
 
     var tweet = _decodeTweet(id, content);
@@ -44,10 +44,10 @@ class SavedTweetTile extends StatelessWidget {
   }
 }
 
-class SavedTweetTooLarge extends StatelessWidget {
+class LikedTweetTooLarge extends StatelessWidget {
   final String id;
 
-  const SavedTweetTooLarge({super.key, required this.id});
+  const LikedTweetTooLarge({super.key, required this.id});
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +61,7 @@ class SavedTweetTooLarge extends StatelessWidget {
               leading:
                   Icon(Icons.error_outline, color: Colors.red.harmonizeWith(Theme.of(context).colorScheme.primary)),
               title: Text(L10n.current.oops_something_went_wrong),
-              subtitle: Text(L10n.current.saved_tweet_too_large),
+              subtitle: Text(L10n.current.liked_tweet_too_large),
             ),
           ],
         ),

@@ -8,7 +8,7 @@ import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/profile/profile.dart';
-import 'package:quax/saved/saved_tweet_tile.dart';
+import 'package:quax/likes/liked_tweet_tile.dart';
 import 'package:quax/search/local_search_model.dart';
 import 'package:quax/search/search_media_grid.dart';
 import 'package:quax/search/search_model.dart';
@@ -269,7 +269,7 @@ class _LocalSearchResultList extends StatelessWidget {
           itemBuilder: (context, index) {
             if (index < posts.length) {
               final post = posts[index].post;
-              return SavedTweetTile(id: post.id, content: post.content);
+              return LikedTweetTile(id: post.id, content: post.content);
             }
 
             final mediaIndex = index - posts.length - 1;

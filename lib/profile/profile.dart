@@ -8,7 +8,6 @@ import 'package:quax/tweet/media_viewer.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/_follows.dart';
 import 'package:quax/profile/_media_grid.dart';
-import 'package:quax/profile/_saved.dart';
 import 'package:quax/profile/_tweets.dart';
 import 'package:quax/profile/profile_model.dart';
 import 'package:quax/search/search.dart';
@@ -36,7 +35,6 @@ final List<NavigationTab> profileTabs = [
   NavigationTab(ProfileTabs.posts, (c) => L10n.of(c).tweets),
   NavigationTab(ProfileTabs.postsAndReplies, (c) => L10n.of(c).tweets_and_replies),
   NavigationTab(ProfileTabs.media, (c) => L10n.of(c).media),
-  NavigationTab(ProfileTabs.saved, (c) => L10n.of(c).saved),
 ];
 
 class ProfileScreenArguments {
@@ -683,7 +681,6 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                     user: user,
                     pref: prefs,
                     mediaKind: _mediaKind),
-                ProfileSaved(user: user),
               ],
             ),
           ),

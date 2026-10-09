@@ -10,46 +10,30 @@ import 'package:sqflite/sqflite.dart';
 /// scan over the stored JSON, it only ever matches what the post says.
 final DateTime _epoch = DateTime.fromMillisecondsSinceEpoch(0);
 
-/// A post the user keeps on the device: the stored JSON plus the tables that
-/// hold it ([tableSavedTweet] and/or [tableLikedTweet]).
+/// A liked post kept on the device: the stored JSON plus the row in
+/// [tableLikedTweet] that holds it.
 class LocalPost {
   final String id;
   final String? content;
-  final Set<String> sources;
   final DateTime? keptAt;
 
-  const LocalPost({required this.id, required this.content, required this.sources, required this.keptAt});
+  const LocalPost({required this.id, required this.content, required this.keptAt});
 }
 
-/// Every saved and liked post, most recently kept first. These are the rows the
-/// Saved tab shows, so a post kept in both places is one entry.
+/// Every liked post, most recently liked first.
 Future<List<LocalPost>> loadLocalPosts(DatabaseExecutor db, {int limit = 2000}) async {
-  final posts = <String, LocalPost>{};
+  final rows = await db.query(tableLikedTweet,
+      columns: ['id', 'content', 'liked_at'], orderBy: 'liked_at DESC', limit: limit);
 
-  for (final (source, timestamp) in [(tableSavedTweet, 'saved_at'), (tableLikedTweet, 'liked_at')]) {
-    final rows =
-        await db.query(source, columns: ['id', 'content', timestamp], orderBy: '$timestamp DESC', limit: limit);
-    for (final row in rows) {
-      final id = row['id'];
-      if (id is! String) continue;
-
-      final existing = posts[id];
-      posts[id] = LocalPost(
-        id: id,
-        content: (row['content'] as String?) ?? existing?.content,
-        sources: {...?existing?.sources, source},
-        keptAt: _newest(existing?.keptAt, _parseTimestamp(row[timestamp])),
-      );
-    }
-  }
-
-  return posts.values.toList()..sort((a, b) => (b.keptAt ?? _epoch).compareTo(a.keptAt ?? _epoch));
-}
-
-DateTime? _newest(DateTime? a, DateTime? b) {
-  if (a == null) return b;
-  if (b == null) return a;
-  return a.isAfter(b) ? a : b;
+  return [
+    for (final row in rows)
+      if (row['id'] is String)
+        LocalPost(
+          id: row['id'] as String,
+          content: row['content'] as String?,
+          keptAt: _parseTimestamp(row['liked_at']),
+        ),
+  ];
 }
 
 DateTime? _parseTimestamp(Object? value) => value is String ? DateTime.tryParse(value) : null;

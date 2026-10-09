@@ -11,7 +11,6 @@ import 'package:flutter_portal/flutter_portal.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile.dart';
-import 'package:quax/saved/saved_folders_screen.dart';
 import 'package:quax/search/search.dart';
 import 'package:quax/settings/settings.dart';
 import 'package:quax/status.dart';
@@ -189,7 +188,6 @@ class _FritterAppState extends State<FritterApp> {
                     routeHome: (context) => const DefaultPage(),
                     routeProfile: (context) => const ProfileScreen(),
                     routeSearch: (context) => const ResultsScreen(),
-                    routeSavedFolders: (context) => const SavedFoldersScreen(),
                     routeSettings: (context) => const SettingsScreen(),
                     routeStatus: (context) => const StatusScreen(),
                   },

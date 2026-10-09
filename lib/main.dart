@@ -16,9 +16,7 @@ import 'package:quax/app/startup.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/home/_feed.dart';
-import 'package:quax/saved/liked_tweet_model.dart';
-import 'package:quax/saved/saved_tweet_folder_model.dart';
-import 'package:quax/saved/saved_tweet_model.dart';
+import 'package:quax/likes/liked_tweet_model.dart';
 import 'package:quax/search/search_model.dart';
 import 'package:quax/subscriptions/users_model.dart';
 import 'package:quax/tweet/_video.dart';
@@ -79,11 +77,6 @@ final Map<String, dynamic> _prefDefaults = {
     optionThemeTrueBlackTweetCards: true,
     optionShowNavigationLabels: false,
     optionTweetsHideSensitive: true,
-    optionSavedShowAllTab: true,
-    optionSavedShowUnfiledTab: true,
-    optionSavedShowFavoritesTab: true,
-    optionSavedTabOrder: '',
-    optionSavedFolderHintShown: false,
     optionLikedFirstToastShown: false,
     optionUseAbsoluteTimestamp: false,
   
@@ -109,8 +102,6 @@ Future<void> _startApp() async {
           Provider(create: (context) => groupsModel),
           Provider(create: (context) => VideoControllerPool(maxSize: 2)),
           Provider(create: (context) => subscriptionsModel),
-          Provider(create: (context) => SavedTweetModel()),
-          Provider(create: (context) => SavedTweetFolderModel()),
           Provider(create: (context) => LikedTweetModel()),
           Provider(create: (context) => SearchUsersModel()),
           ChangeNotifierProvider(create: (_) => VideoContextState(prefService.get(optionMediaDefaultMute))),

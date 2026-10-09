@@ -5,18 +5,16 @@ import 'package:quax/client/accounts.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/likes/liked_tweet_model.dart';
+import 'package:quax/likes/liked_tweet_tile.dart';
 import 'package:quax/profile/_feed.dart';
-import 'package:quax/saved/liked_tweet_model.dart';
-import 'package:quax/saved/saved_screen.dart';
-import 'package:quax/saved/saved_tweet_model.dart';
-import 'package:quax/saved/saved_tweet_tile.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/ui/skeletons.dart';
 import 'package:quax/user.dart';
 
-/// The Like tab: what was liked and saved inside the app (local database) next
-/// to the real likes and bookmarks X holds for the active account. Four tabs,
+/// The Like tab: what was liked inside the app (local database) next to the
+/// real likes and bookmarks X holds for the active account. Three tabs,
 /// mirroring the feed's For You / Following switch.
 class LikesScreen extends StatefulWidget {
   final ScrollController scrollController;
@@ -28,7 +26,7 @@ class LikesScreen extends StatefulWidget {
 }
 
 class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 4, vsync: this);
+  late final TabController _tabController = TabController(length: 3, vsync: this);
 
   @override
   void dispose() {
@@ -46,8 +44,7 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
             controller: _tabController,
             tabs: [
               Tab(text: L10n.of(context).local),
-              Tab(text: L10n.of(context).saved),
-              Tab(text: L10n.of(context).profile),
+              Tab(text: L10n.of(context).likes),
               Tab(text: L10n.of(context).bookmarks),
             ],
           ),
@@ -60,11 +57,6 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
                     tooltip: L10n.of(context).refresh,
                     onPressed: () => context.read<LikedTweetModel>().refreshLikedTweets(),
                   ),
-                1 => IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: L10n.of(context).refresh,
-                    onPressed: () => context.read<SavedTweetModel>().refreshSavedTweets(),
-                  ),
                 _ => const SizedBox.shrink(),
               },
             ),
@@ -74,7 +66,6 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
           controller: _tabController,
           children: [
             _LocalLikes(scrollController: widget.scrollController),
-            const SavedView(),
             const _ProfileLikes(),
             const _ProfileBookmarks(),
           ],
@@ -128,7 +119,7 @@ class _LocalLikesState extends State<_LocalLikes> with AutomaticKeepAliveClientM
                 padding: const EdgeInsets.only(top: 4),
                 itemCount: likes.length,
                 itemBuilder: (context, index) =>
-                    SavedTweetTile(id: likes[index].id, content: likes[index].content),
+                    LikedTweetTile(id: likes[index].id, content: likes[index].content),
               ),
       ),
     );

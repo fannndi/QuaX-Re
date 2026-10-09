@@ -4,46 +4,6 @@ import 'package:quax/database/entities.dart';
 import 'package:quax/group/group_model.dart' show defaultGroupIcon;
 
 void main() {
-  final tweet = SavedTweet(id: '1', user: 'dogs', content: '{}', folderId: 'reading');
-
-  group('SavedTweet.fromMap()', () {
-    test('Should keep every field written by toMap', () {
-      final restored = SavedTweet.fromMap(tweet.toMap());
-
-      expect(restored.id, tweet.id,
-          reason: 'The id is the primary key, so it should survive. Losing it makes the row '
-              'impossible to find again');
-      expect(restored.user, tweet.user,
-          reason: 'The column is called user_id while the field is called user, so a rename on '
-              'one side only would silently drop the author. Both sides should stay in step');
-      expect(restored.content, tweet.content,
-          reason: 'The content holds the whole saved tweet as JSON and is what the offline screen '
-              'shows, so it should come back byte for byte');
-      expect(restored.folderId, tweet.folderId,
-          reason: 'The saved tweets screen groups by folder, so the folder should survive');
-    });
-  });
-
-  group('SavedTweet.copyWith()', () {
-    test('Should keep the folder when it is not passed', () {
-      expect(tweet.copyWith(content: 'new').folderId, 'reading',
-          reason: 'Changing another field should leave the folder alone, not move the tweet out '
-              'of it');
-    });
-
-    test('Should change the folder when a new one is passed', () {
-      expect(tweet.copyWith(folderId: 'later').folderId, 'later',
-          reason: 'Moving a tweet to another folder is the normal use of copyWith here, so the '
-              'new folder should win');
-    });
-
-    test('Should remove the folder when null is passed', () {
-      expect(tweet.copyWith(folderId: null).folderId, isNull,
-          reason: 'A null folder is a real value here, it means "no folder". The _unset marker '
-              'should let callers clear the folder, rather than null meaning "do not change"');
-    });
-  });
-
   group('SubscriptionGroup.fromMap()', () {
     Map<String, Object?> group(Object? icon) => {
           'id': 'g1',

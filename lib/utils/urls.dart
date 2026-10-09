@@ -30,7 +30,7 @@ Future<void> openUri(BuildContext context, String uri) async {
 
 sealed class UriParseResult {}
 
-enum ProfileTabs { posts, postsAndReplies, media, saved }
+enum ProfileTabs { posts, postsAndReplies, media }
 
 class ProfileUriInfo extends UriParseResult {
   String screenName;

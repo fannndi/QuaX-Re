@@ -24,8 +24,8 @@ class LocalMediaHit extends LocalSearchHit {
   const LocalMediaHit(this.entry);
 }
 
-/// Searches the device only: saved and liked posts are matched in Dart, the
-/// downloaded media by file name. The query never reaches X.
+/// Searches the device only: liked posts are matched in Dart, the downloaded
+/// media by file name. The query never reaches X.
 class LocalSearchModel extends Store<List<LocalSearchHit>> {
   static final log = Logger('LocalSearchModel');
 
