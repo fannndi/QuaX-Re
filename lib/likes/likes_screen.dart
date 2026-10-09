@@ -218,18 +218,33 @@ class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKe
   void initState() {
     super.initState();
     _user = _loadUser();
+    // Switching accounts must reset these tabs: without this the previous
+    // login's likes and bookmarks stayed on screen.
+    accountsRevision.addListener(_onAccountChanged);
   }
 
   @override
   bool get wantKeepAlive => true;
 
+  void _onAccountChanged() {
+    if (!mounted) return;
+    setState(() => _user = _loadUser());
+  }
+
+  @override
+  void dispose() {
+    accountsRevision.removeListener(_onAccountChanged);
+    super.dispose();
+  }
+
   Future<UserWithExtra?> _loadUser() async {
     final active = await getActiveAccount();
-    final screenName = active?.screenName;
-    if (screenName == null) return null;
+    final handle = active?.screenName;
+    if (active == null || handle == null || handle.isEmpty) return null;
 
-    final profile = await Twitter.getProfileByScreenName(screenName);
-    return profile.user;
+    // The tab only needs the id and handle to title and page its timeline;
+    // fetching the full profile first was one extra request per tab opening.
+    return UserWithExtra.fromArguments(idStr: active.id, possiblySensitive: false, screenName: handle);
   }
 
   @override

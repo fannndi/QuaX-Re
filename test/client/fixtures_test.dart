@@ -177,6 +177,36 @@ void main() {
     }
   });
 
+  group('Bookmarks', () {
+    for (final fixture in fixturesOf('Bookmarks')) {
+      test(fixture.scenario, () {
+        final status = parseBookmarkTimeline(fixture.body);
+        final tweets = allTweets(status);
+        expect(tweets, isNotEmpty,
+            reason: 'A bookmarks page with posts should yield tweets');
+        expect(status.cursorBottom, isNotNull,
+            reason: 'A bookmarks page should expose a bottom cursor, or the next page is unreachable');
+        expectEveryTweetHasAnAuthor(tweets, fixture);
+      });
+    }
+  });
+
+  group('Likes', () {
+    for (final fixture in fixturesOf('Likes')) {
+      test(fixture.scenario, () {
+        // The Likes timeline nests under data.user.result.timeline, the same
+        // shape as a profile timeline, so the same parser reads it.
+        final status = profileTimeline(fixture);
+        final tweets = allTweets(status);
+        expect(tweets, isNotEmpty,
+            reason: 'A likes page with posts should yield tweets');
+        expect(status.cursorBottom, isNotNull,
+            reason: 'A likes page should expose a bottom cursor, or the next page is unreachable');
+        expectEveryTweetHasAnAuthor(tweets, fixture);
+      });
+    }
+  });
+
   for (final operation in ['Following', 'Followers']) {
     group(operation, () {
       for (final fixture in fixturesOf(operation)) {

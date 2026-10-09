@@ -14,7 +14,12 @@ class ProfileMediaGrid extends StatefulWidget {
   final UserWithExtra user;
   final BasePrefService pref;
 
-  const ProfileMediaGrid({super.key, required this.user, required this.pref});
+  /// `media` reads the video timeline, `photos` the photo grid: the web
+  /// client split the old UserMedia endpoint into those two operations.
+  final String mediaKind;
+
+  const ProfileMediaGrid(
+      {super.key, required this.user, required this.pref, this.mediaKind = 'media'});
 
   @override
   State<ProfileMediaGrid> createState() => _ProfileMediaGridState();
@@ -49,7 +54,7 @@ class _ProfileMediaGridState extends State<ProfileMediaGrid> {
   Future<CursorPage<String, MediaGridItem>> _fetchPage(String? cursor) async {
     var result = await Twitter.getTweets(
       widget.user.idStr!,
-      'media',
+      widget.mediaKind,
       const [],
       cursor: cursor,
       count: pageSize,

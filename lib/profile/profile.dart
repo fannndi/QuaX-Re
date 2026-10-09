@@ -125,6 +125,10 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
 
   bool _showBackToTopButton = false;
 
+  /// Which slice of the profile's media the grid shows: the web client splits
+  /// it into a video timeline and a photo grid, so the Media tab offers both.
+  String _mediaKind = 'media';
+
   double descriptionHeight = defaultHeight;
   double metadataHeight = defaultHeight;
 
@@ -185,6 +189,32 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
           _showBackToTopButton = false;
         });
       }
+    }
+  }
+
+  Future<void> _pickMediaKind() async {
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.play_circle_outline),
+            title: Text(L10n.of(sheetContext).videos),
+            selected: _mediaKind == 'media',
+            onTap: () => Navigator.pop(sheetContext, 'media'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_outlined),
+            title: Text(L10n.of(sheetContext).photos),
+            selected: _mediaKind == 'photos',
+            onTap: () => Navigator.pop(sheetContext, 'photos'),
+          ),
+        ]),
+      ),
+    );
+    if (chosen != null && chosen != _mediaKind && mounted) {
+      setState(() => _mediaKind = chosen);
     }
   }
 
@@ -269,8 +299,21 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                       backgroundColor: theme.colorScheme.surface,
                       flexibleSpace: TabBar(
                         controller: _tabController,
-                        tabs: profileTabs.map((t) =>
-                            Tab(
+                        onTap: (index) {
+                          // Tapping the already-open Media tab switches between
+                          // the video timeline and the photo grid, like the
+                          // arrow on the web's tab.
+                          if (profileTabs[index].id == ProfileTabs.media && _tabController.index == index) {
+                            _pickMediaKind();
+                          }
+                        },
+                        tabs: profileTabs.map((t) => t.id == ProfileTabs.media
+                            ? Tab(
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text(t.titleBuilder(context), textAlign: TextAlign.center),
+                                const Icon(Icons.keyboard_arrow_down, size: 18),
+                              ]))
+                            : Tab(
                                 child: Text(t.titleBuilder(context),
                                   textAlign: TextAlign.center,
                                 ))).toList(),
@@ -635,7 +678,11 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                     includeReplies: true,
                     pinnedTweets: widget.profile.pinnedTweets,
                     pref: prefs),
-                ProfileMediaGrid(user: user, pref: prefs),
+                ProfileMediaGrid(
+                    key: ValueKey('profile.media.$_mediaKind'),
+                    user: user,
+                    pref: prefs,
+                    mediaKind: _mediaKind),
                 ProfileSaved(user: user),
               ],
             ),

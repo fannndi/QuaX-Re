@@ -31,8 +31,9 @@ Future<String> getToken(Logger log) async {
   log.info('Refreshing the X token');
 
   var response = await quaxHttpClient.post(Uri.parse('https://api.x.com/1.1/guest/activate.json'), headers: {
-    'Authorization':
-        'Bearer AAAAAAAAAAAAAAAAAAAAAGHtAgAAAAAA%2Bx7ILXNILCqkSGIzy6faIHZ9s3Q%3DQy97w6SIrzE7lQwPJEYQBsArEE2fC25caFwRBvAGi456G09vGR',
+    // Same bearer the authenticated path uses: the web client has one token,
+    // and two different ones in one app is exactly the kind of tell to avoid.
+    'Authorization': bearerToken,
   });
 
   if (response.statusCode == 200) {
@@ -55,11 +56,10 @@ Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? header
 
   var response = await quaxHttpClient.get(uri, headers: {
     ...?headers,
-    'Authorization':
-        'Bearer AAAAAAAAAAAAAAAAAAAAAGHtAgAAAAAA%2Bx7ILXNILCqkSGIzy6faIHZ9s3Q%3DQy97w6SIrzE7lQwPJEYQBsArEE2fC25caFwRBvAGi456G09vGR',
+    'Authorization': bearerToken,
     'x-guest-token': await getToken(log),
     'x-twitter-active-user': 'yes',
-    'user-agent': userAgentHeader.toString()
+    'user-agent': userAgentHeader['user-agent']!
   });
 
   var headerRateLimitReset = response.headers['x-rate-limit-reset'];

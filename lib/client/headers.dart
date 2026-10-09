@@ -14,6 +14,9 @@ class TwitterHeaders {
     'pragma': 'no-cache',
     'priority': 'u=1, i',
     'referer': 'https://x.com/',
+    'sec-ch-ua': '"Chromium";v="152", "Not?A_Brand";v="24"',
+    'sec-ch-ua-mobile': '?1',
+    'sec-ch-ua-platform': '"Android"',
     'user-agent': userAgentHeader['user-agent']!,
     'x-twitter-active-user': 'yes',
     'x-twitter-client-language': 'en',
@@ -37,7 +40,7 @@ class TwitterHeaders {
   // attempts, requests simply go without the header.
   static const _deriveCooldown = Duration(minutes: 5);
 
-  static Future<Map<String, String>?> getXClientTransactionIdHeader(Uri? uri) async {
+  static Future<Map<String, String>?> getXClientTransactionIdHeader(Uri? uri, {String method = 'GET'}) async {
     if (uri == null) {
       return null;
     }
@@ -53,7 +56,7 @@ class TwitterHeaders {
         return ct;
       });
       final ct = await _initFuture!;
-      return {'x-client-transaction-id': ct.generateTransactionId('GET', uri.path)};
+      return {'x-client-transaction-id': ct.generateTransactionId(method, uri.path)};
     } catch (e) {
       // Deriving the id reads a page X owns and reshapes whenever they deploy —
       // they have moved it outright before (the x-web migration of 2026), and
@@ -88,10 +91,14 @@ class TwitterHeaders {
     }
   }
 
-  static Future<Map<String, String>> getHeaders(Uri? uri, Map<dynamic, dynamic>? authHeader) async {
-    final xClientTransactionIdHeader = await getXClientTransactionIdHeader(uri);
+  static Future<Map<String, String>> getHeaders(Uri? uri, Map<dynamic, dynamic>? authHeader,
+      {String method = 'GET'}) async {
+    final xClientTransactionIdHeader = await getXClientTransactionIdHeader(uri, method: method);
     return {
       ..._baseHeaders,
+      // The web client marks authenticated requests with this; omitting it is
+      // one more way a port looks different from the real session.
+      if (authHeader != null) 'x-twitter-auth-type': 'OAuth2Session',
       if (authHeader != null) ...Map<String, String>.from(authHeader),
       ...?xClientTransactionIdHeader
     };

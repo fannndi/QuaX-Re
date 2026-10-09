@@ -163,7 +163,7 @@ List<TweetChain> createTweets(List<dynamic> addEntries, [bool isPinned = false])
       if (tweet == null) continue;
 
       replies.add(TweetChain(id: id, tweets: [tweet], isPinned: isPinned));
-    } else if (entryId.startsWith('profile-grid-')) {
+    } else if (entryId.startsWith('profile-grid-') || entryId.startsWith('profile-photo-grid-')) {
       // We got a tweet queried from the media tab
       for (var mediaTweet in entry['content']?['items'] ?? const []) {
         final result = mediaTweet['item']?['itemContent']?['tweet_results']?['result'];

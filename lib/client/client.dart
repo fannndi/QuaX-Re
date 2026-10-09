@@ -218,6 +218,9 @@ class _QuackerTwitterClient extends TwitterClient {
 class Twitter {
   static final TwitterApi _twitterApi = TwitterApi(client: _QuackerTwitterClient());
 
+  /// The feature flags the live web client sends with every timeline call
+  /// (captured from x.com in 2026-10). X shapes and strips responses by these;
+  /// a stale or partial map is what makes a client look unusual.
   static const Map<String, bool> _timelineFeatures = {
     "articles_preview_enabled": true,
     "c9s_tweet_anatomy_moderator_badge_enabled": true,
@@ -246,11 +249,13 @@ class Twitter {
     "responsive_web_grok_share_attachment_enabled": true,
     "responsive_web_grok_show_grok_translated_post": true,
     "responsive_web_jetfuel_frame": true,
+    "responsive_web_nested_quote_preview_enabled": true,
     "responsive_web_profile_redirect_enabled": true,
     "responsive_web_twitter_article_tweet_consumption_enabled": true,
     "rweb_cashtags_composer_attachment_enabled": true,
     "rweb_cashtags_enabled": true,
     "rweb_conversational_replies_downvote_enabled": false,
+    "rweb_sports_post_context_enabled": true,
     "rweb_tipjar_consumption_enabled": false,
     "rweb_video_screen_enabled": false,
     "standardized_nudges_misinfo": true,
@@ -258,6 +263,9 @@ class Twitter {
     "verified_phone_label_enabled": false,
     "view_counts_everywhere_api_enabled": true,
   };
+
+  /// Sent alongside the timeline features, exactly as the web client does.
+  static const Map<String, Object> _timelineFieldToggles = {"withPayments": false};
 
   static const Map<String, bool> _profileFeatures = {
     "creator_subscriptions_tweet_preview_api_enabled": true,
@@ -292,9 +300,10 @@ class Twitter {
     if (screenName.startsWith('@')) {
       screenName = screenName.substring(1);
     }
-    var uri = Uri.https('twitter.com', '/i/api/graphql/IGgvgiOx4QZndDHuD3x9TQ/UserByScreenName', {
-      'variables': jsonEncode({'screen_name': screenName, "withSafetyModeUserFields": true}),
+    var uri = Uri.https('twitter.com', '/i/api/graphql/AMIBMjtxEEATh4z8V9GtRg/UserByScreenName', {
+      'variables': jsonEncode({'screen_name': screenName, 'withGrokTranslatedBio': true}),
       'features': jsonEncode(_profileFeatures),
+      'fieldToggles': jsonEncode({'withPayments': false, 'withAuxiliaryUserLabels': true}),
     });
 
     return _getProfile(uri);
@@ -309,7 +318,7 @@ class Twitter {
         userId,
         count,
         cursor: cursor,
-        queryId: 'F42cDX8PDFxkbjjq6JrM2w',
+        queryId: 'nyTOiXy603sofPjdrXYL9Q',
         operation: 'Following',
       );
 
@@ -318,7 +327,7 @@ class Twitter {
         userId,
         count,
         cursor: cursor,
-        queryId: '_orfRBQae57vylFPH0Huhg',
+        queryId: 'NPvSAR1p8XUWh8J6PeP3-g',
         operation: 'Followers',
       );
 
@@ -337,7 +346,7 @@ class Twitter {
         "count": count,
         "cursor": ?cursor,
         "includePromotedContent": false,
-        "withGrokTranslatedBio": false,
+        "withGrokTranslatedBio": true,
       }),
       "features": jsonEncode(_timelineFeatures),
     });
@@ -401,7 +410,7 @@ class Twitter {
     final cacheKey = TimelineCache.keyFor('thread.$id');
     try {
       var response = await _twitterApi.client.get(
-        Uri.https('x.com', '/i/api/graphql/oCon7R-cgWRFy6EfZjaKfg/TweetDetail', defaultParam),
+        Uri.https('x.com', '/i/api/graphql/z-3ZLa-NQ8Sp09diHkJNBg/TweetDetail', defaultParam),
       );
       if (cursor == null) {
         // The opened conversation is now readable offline, replies included.
@@ -431,7 +440,7 @@ class Twitter {
       "count": limit.toString(),
       "querySource": "typed_query",
       "product": product,
-      "withGrokTranslatedBio": true,
+      "withGrokTranslatedBio": product == 'Top' || product == 'People',
       "withQuickPromoteEligibilityTweetFields": false,
     };
 
@@ -440,7 +449,7 @@ class Twitter {
       variables['cursor'] = cursor;
     }
 
-    var uri = Uri.https('x.com', '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline', {
+    var uri = Uri.https('x.com', '/i/api/graphql/ph2fARFabkwfxqmSKQ1OPw/SearchTimeline', {
       'variables': jsonEncode(variables),
       'features': jsonEncode(_timelineFeatures),
     });
@@ -458,6 +467,8 @@ class Twitter {
       "withDownvotePerspective": false,
       "withReactionsMetadata": false,
       "withReactionsPerspective": false,
+      "withGrokTranslatedBio": true,
+      "withQuickPromoteEligibilityTweetFields": false,
     };
 
 
@@ -465,7 +476,7 @@ class Twitter {
       variables['cursor'] = cursor;
     }
 
-    var uri = Uri.https('twitter.com', '/i/api/graphql/Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline', {
+    var uri = Uri.https('twitter.com', '/i/api/graphql/ph2fARFabkwfxqmSKQ1OPw/SearchTimeline', {
       'variables': jsonEncode(variables),
       'features': jsonEncode(_timelineFeatures),
     });
@@ -531,8 +542,8 @@ class Twitter {
     // X serves HomeTimeline as a POST now; the old GET queryId (wp06oo3f…)
     // answered from a frozen archive, which is why For You never moved.
     final response = await _QuackerTwitterClient.postJson(
-      Uri.https('x.com', '/i/api/graphql/7zlnp2TxC044W4C1ZUJMHw/HomeTimeline'),
-      body: jsonEncode({'variables': variables, 'features': _timelineFeatures}),
+      Uri.https('x.com', '/i/api/graphql/V0wMxbYBxdrkfmV3kJSyRQ/HomeTimeline'),
+      body: jsonEncode({'variables': variables, 'features': _timelineFeatures, 'fieldToggles': _timelineFieldToggles}),
     );
     // Pinned posts only belong on the first page.
     return parseChainsOnIsolate(
@@ -563,16 +574,18 @@ class Twitter {
   }) async {
     final variables = <String, dynamic>{
       "count": count,
+      "enableRanking": true,
       "includePromotedContent": true,
-      "latestControlAvailable": true,
       if (cursor == null) "requestContext": "launch" else "cursor": cursor,
     };
 
-    // HomeLatestTimeline is a POST too; the old GET shape is what X keeps in
-    // its compatibility cache, which is why Following could look frozen.
-    final response = await _QuackerTwitterClient.postJson(
-      Uri.https('x.com', '/i/api/graphql/0dateTVgvXjpkf7kyBZy0g/HomeLatestTimeline'),
-      body: jsonEncode({'variables': variables, 'features': _timelineFeatures}),
+    // The live web client reads Following with a GET and enableRanking set.
+    final response = await _twitterApi.client.get(
+      Uri.https('x.com', '/i/api/graphql/5URyiXQyz6_8NZnoV37OVQ/HomeLatestTimeline', {
+        'variables': jsonEncode(variables),
+        'features': jsonEncode(_timelineFeatures),
+        'fieldToggles': jsonEncode(_timelineFieldToggles),
+      }),
     );
     return parseChainsOnIsolate(
       response.body,
@@ -612,7 +625,7 @@ class Twitter {
     }
 
     var response = await _twitterApi.client.get(
-      Uri.https('x.com', '/i/api/graphql/rk2aeVVvKsyUdG3jf5uiLw/Likes', {
+      Uri.https('x.com', '/i/api/graphql/RQ7C2mINUB7QZE_0cjWojg/Likes', {
         'variables': jsonEncode(variables),
         'features': jsonEncode(_timelineFeatures),
       }),
@@ -648,7 +661,7 @@ class Twitter {
     };
 
     var response = await _twitterApi.client.get(
-      Uri.https('x.com', '/i/api/graphql/XD0ViOeSOW4YoeNTGjVaYw/Bookmarks', {
+      Uri.https('x.com', '/i/api/graphql/OAtFv0SIZt6v3rZsF4gvJA/Bookmarks', {
         'variables': jsonEncode(variables),
         'features': jsonEncode(_timelineFeatures),
       }),
@@ -668,41 +681,65 @@ class Twitter {
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
   }) async {
-    bool showPinnedTweet = true;
-
-    Map<String, Object> defaultUserTweetsParam = {
-      "variables": jsonEncode({
-        "userId": "8341362",
-        "count": 20,
+    // The web's profile tabs are separate operations now (captured 2026-10):
+    // originals, replies, videos and a photo grid. The old UserTweets /
+    // UserTweetsAndReplies / UserMedia query ids answer 404.
+    late final String path;
+    late final Map<String, dynamic> variables;
+    if (type == 'media') {
+      path = '/i/api/graphql/tvrD4GYDO-OsZm_esYfYHg/UserVideoTimeline';
+      variables = {
+        "userId": id,
+        "count": count,
+        "includePromotedContent": false,
+        "withClientEventToken": false,
+        "withBirdwatchNotes": false,
+        "withVoice": true,
+      };
+    } else if (type == 'photos') {
+      path = '/i/api/graphql/VyudDWQnr9vJNw7GasFz2g/UserMedia';
+      variables = {
+        "userId": id,
+        "count": count,
+        "includePromotedContent": false,
+        "withClientEventToken": false,
+        "withBirdwatchNotes": false,
+        "withVoice": true,
+      };
+    } else if (includeReplies) {
+      path = '/i/api/graphql/iu1q45MgcGAXoi9r9jYvTg/UserRepliesTimeline';
+      variables = {
+        "userId": id,
+        "count": count,
+        "includePromotedContent": true,
+        "withCommunity": true,
+        "withVoice": true,
+      };
+    } else {
+      path = '/i/api/graphql/ty409m9cIpSEnLECl_SqMw/UserOriginalsTimeline';
+      variables = {
+        "userId": id,
+        "count": count,
         "includePromotedContent": true,
         "withQuickPromoteEligibilityTweetFields": true,
         "withVoice": true,
-      }),
-      "features": jsonEncode(_timelineFeatures),
-      "fieldToggles": jsonEncode({"withArticlePlainText": false}),
-    };
-
-    Map<String, dynamic> variables = json.decode(defaultUserTweetsParam["variables"].toString());
-    variables["userId"] = id;
+      };
+    }
     if (cursor != null) {
       variables['cursor'] = cursor;
     }
-    variables['count'] = count;
-    defaultUserTweetsParam["variables"] = json.encode(variables);
 
-    late String path;
-    if (type == "media") {
-      path = "/i/api/graphql/9EovraBTXJYGSEQXZqlLmQ/UserMedia";
-    } else {
-      path = includeReplies
-          ? "/i/api/graphql/D5eKzDa5ZoJuC1TCeAXbWA/UserTweetsAndReplies"
-          : '/i/api/graphql/36rb3Xj3iJ64Q-9wKDjCcQ/UserTweets';
-    }
+    final uri = Uri.https('x.com', path, {
+      'variables': jsonEncode(variables),
+      'features': jsonEncode(_timelineFeatures),
+      'fieldToggles': jsonEncode(_timelineFieldToggles),
+    });
 
-    var response = await _twitterApi.client.get(Uri.https('x.com', path, defaultUserTweetsParam));
+    final response = await _twitterApi.client.get(uri);
 
-    //if this page is not first one on the profile page, dont add pinned tweet
-    if (variables['cursor'] != null) showPinnedTweet = false;
+    // Pinned tweets only belong on the first page of the posts/replies tabs;
+    // the video and photo grids have no pinned slot.
+    final showPinnedTweet = cursor == null && type != 'media' && type != 'photos';
     return parseChainsOnIsolate(
       response.body,
       conversationless: true,

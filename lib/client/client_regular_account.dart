@@ -19,7 +19,8 @@ class XRegularAccount {
       required Map<dynamic, dynamic> authHeader}) async {
     log.info('Fetching $uri');
 
-    final baseHeaders = await TwitterHeaders.getHeaders(uri, authHeader);
+    final method = body == null ? 'GET' : 'POST';
+    final baseHeaders = await TwitterHeaders.getHeaders(uri, authHeader, method: method);
 
     if (body == null) {
       return await quaxHttpClient.get(uri, headers: {...?headers, ...baseHeaders});

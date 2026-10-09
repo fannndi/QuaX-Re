@@ -164,6 +164,12 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   answered through `onRequestPermissionsResult`), Android 11+ uses all-files access
   (`MANAGE_EXTERNAL_STORAGE`). `hasAllFilesAccess` reports whichever route the running Android uses;
   `openAppSettings` is the fallback for ROMs (MIUI) that stop showing the permission dialog.
+- The X client is read-only: every request is a timeline/profile read, likes and saves are local,
+  and no mutation (favorites, follows, tweets, bookmark changes) is ever sent.
+  `test/client/read_only_test.dart` guards the operation list. Endpoint ids, feature flags and
+  toggles mirror the live web client — the fixtures recorded 2026-10 in `test/fixtures/`
+  (Home/Following/Likes/Bookmarks/UserOriginals/UserReplies/UserVideo/UserReposts/photo grids)
+  pin the shapes the parsers must keep reading.
 - Offline mode: `TimelineCache` stores a thread body (bounded to 30 days / 200 entries) so an
   already-read thread opens from disk, `NetworkStatus` (DNS probe) retries when the connection
   returns, and downloaded clips play from disk. There is no cached first page for the feeds

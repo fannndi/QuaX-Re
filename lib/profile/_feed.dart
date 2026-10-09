@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import 'package:quax/client/client.dart';
@@ -8,6 +10,7 @@ import 'package:quax/ui/skeletons.dart';
 import 'package:quax/user.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/utils/image_prefetch.dart';
 import 'package:quax/utils/paging.dart';
 import 'package:provider/provider.dart';
 
@@ -61,6 +64,11 @@ class _ProfileTweetFeedState extends State<ProfileTweetFeed> with AutomaticKeepA
 
   Future<CursorPage<String, TweetChain>> _fetchPage(String? cursor) async {
     var result = await widget.loadPage(cursor, getLoadTweetsCounter, incrementLoadTweetsCounter);
+
+    if (mounted) {
+      // Warm the pictures just below the viewport, like the home feeds do.
+      unawaited(prefetchChainImages(context, result.chains));
+    }
 
     // Stop when the cursor doesn't advance (or is gone), keeping the chains.
     final next = result.cursorBottom;
