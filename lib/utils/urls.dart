@@ -10,7 +10,19 @@ import 'package:android_intent_plus/android_intent.dart';
 
 const _channel = MethodChannel('browser_resolver');
 
+/// Whether [uri] is a link the app may hand to another app. Only http(s):
+/// `launchUrlString`/`AndroidIntent` perform no scheme validation of their own
+/// in `externalApplication` mode, so a `file://`, `content://` or `intent://`
+/// string coming from X's API (an expanded card URL, an article entity) would
+/// otherwise reach `Activity.startActivity` intact.
+bool isLaunchableLink(String uri) {
+  final parsed = Uri.tryParse(uri);
+  return parsed != null && parsed.hasScheme && (parsed.scheme == 'http' || parsed.scheme == 'https');
+}
+
 Future<void> openInDefaultBrowser(String url) async {
+  if (!isLaunchableLink(url)) return;
+
   final packageName = await _channel.invokeMethod<String>('getDefaultBrowser');
   final intent = AndroidIntent(
     action: 'android.intent.action.VIEW',
@@ -21,6 +33,8 @@ Future<void> openInDefaultBrowser(String url) async {
 }
 
 Future<void> openUri(BuildContext context, String uri) async {
+  if (!isLaunchableLink(uri)) return;
+
   final embedded = PrefService.of(context).get(optionOpenLinksInEmbeddedBrowser) == true;
   await launchUrlString(
     uri,

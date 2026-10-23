@@ -151,6 +151,35 @@ void main() {
     // that needs the fake http client from the mock server work, so it is not covered here.
   });
 
+  group('isLaunchableLink()', () {
+    test('Should accept http and https links', () {
+      expect(isLaunchableLink('https://x.com/user'), isTrue,
+          reason: 'A normal web link is what openUri exists to hand to the browser');
+      expect(isLaunchableLink('http://t.co/abc'), isTrue,
+          reason: 'X still serves some links over plain http, and they are still web links');
+    });
+
+    test('Should reject schemes that reach Activity.startActivity as something else', () {
+      expect(isLaunchableLink('file:///data/data/com.fannndi.quaxre/databases/quax.db'), isFalse,
+          reason: 'A file:// URL handed to an external app reads a local file, which a link from '
+              'X\'s API has no business doing');
+      expect(isLaunchableLink('content://media/external/images/media/1'), isFalse,
+          reason: 'A content:// URI exposes app-internal data to whichever app receives it');
+      expect(isLaunchableLink('intent://scan/#Intent;scheme=zxing;end'), isFalse,
+          reason: 'An intent:// URI resolves to another app and can carry arbitrary extras, so it '
+              'must never be launched from a URL string');
+      expect(isLaunchableLink('javascript:alert(1)'), isFalse,
+          reason: 'A javascript: URL is not a link at all');
+    });
+
+    test('Should reject unparseable and scheme-less strings', () {
+      expect(isLaunchableLink(''), isFalse, reason: 'An empty string is not a link');
+      expect(isLaunchableLink('x.com/user'), isFalse,
+          reason: 'Without a scheme the string is not a URL, so Uri.parse would read the whole '
+              'thing as a path and the launch would fail anyway');
+    });
+  });
+
   group('extractPhotoNumber()', () {
     test('Should read the number after a "photo" part', () {
       expect(extractPhotoNumber(['user', 'status', '1', 'photo', '3'], 3), 3,
