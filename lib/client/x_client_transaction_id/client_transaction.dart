@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:html/dom.dart' as html_dom;
 import 'package:html/parser.dart' as html_parser;
-import 'package:http/http.dart' as http;
 
 import 'package:quax/client/http_client.dart';
 
@@ -33,7 +32,7 @@ class ClientTransaction {
     String randomKeyword = defaultKeyword,
     int randomNumber = additionalRandomNumber,
   }) async {
-    final homePageResponse = await http.get(
+    final homePageResponse = await quaxHttpClient.get(
       Uri.https('x.com', '/home'),
       headers: {
         'Accept-Language': 'en-US,en;q=0.9',
@@ -191,21 +190,45 @@ class ClientTransaction {
     return null;
   }
 
-  static List<List<int>> _get2dArray(
-      List<int> keyBytes, html_dom.Document doc) {
+  /// The 2-D frame array the animation key is derived from.
+  ///
+  /// Every index and parse here reads markup X owns and reshapes whenever they
+  /// deploy, so each one is validated and a mismatch throws a descriptive
+  /// [Exception] instead of a [RangeError]/[FormatException]. The caller
+  /// (`TwitterHeaders`) already catches and backs off on a derivation failure —
+  /// a readable message is what makes a 5-minute header outage diagnosable
+  /// instead of a mystery.
+  static List<List<int>> _get2dArray(List<int> keyBytes, html_dom.Document doc) {
+    if (keyBytes.length < 6) {
+      throw Exception('site verification key is too short to index (${keyBytes.length} bytes)');
+    }
+
     final frames = doc.querySelectorAll('[id^="loading-x-anim"]');
-    final frame = frames[keyBytes[5] % 4];
-    final pathElement = frame.children[0].children[1];
-    final d = pathElement.attributes['d']!.substring(9);
+    if (frames.isEmpty) {
+      throw Exception('no loading-x-anim frames in the home page markup');
+    }
+
+    final frame = frames[keyBytes[5] % frames.length];
+    final svg = frame.children.isEmpty ? null : frame.children[0];
+    final pathElement = svg != null && svg.children.length > 1 ? svg.children[1] : null;
+    final d = pathElement?.attributes['d'];
+    if (d == null || d.length <= 9) {
+      throw Exception('the loading animation frame carries no readable path');
+    }
+
     return d
+        .substring(9)
         .split('C')
         .map((segment) {
           final cleaned = segment.replaceAll(RegExp(r'[^\d]+'), ' ').trim();
           if (cleaned.isEmpty) return <int>[];
+          // tryParse, not parse: a decimal or a negative coordinate (X's paths
+          // do use them) would otherwise make the whole derivation fatal.
           return cleaned
               .split(RegExp(r'\s+'))
               .where((s) => s.isNotEmpty)
-              .map(int.parse)
+              .map(int.tryParse)
+              .whereType<int>()
               .toList();
         })
         .where((row) => row.isNotEmpty)
@@ -273,13 +296,30 @@ class ClientTransaction {
     required List<int> keyBytesIndices,
     required html_dom.Document homePageDoc,
   }) {
+    // rowIndex and the indices come from a regex over a chunk X owns, and the
+    // capture allows two digits — so an index up to 99 against a key that may
+    // be shorter. Validate rather than RangeError.
+    if (rowIndex < 0 || rowIndex >= keyBytes.length) {
+      throw Exception('animation key row index $rowIndex is outside the ${keyBytes.length}-byte key');
+    }
+    if (keyBytesIndices.any((i) => i < 0 || i >= keyBytes.length)) {
+      throw Exception('animation key indices are outside the ${keyBytes.length}-byte key');
+    }
+    if (keyBytesIndices.isEmpty) {
+      throw Exception('no animation key indices were found in the script chunk');
+    }
+
     const totalTime = 4096;
     final frameRowIndex = keyBytes[rowIndex] % 16;
-    final frameTimeProduct = keyBytesIndices
-        .fold<int>(1, (acc, idx) => acc * (keyBytes[idx] % 16));
+    // The fold starts at 1, so an empty list would silently yield a wrong key
+    // rather than an error — guarded above.
+    final frameTimeProduct = keyBytesIndices.fold<int>(1, (acc, idx) => acc * (keyBytes[idx] % 16));
     final frameTime = jsRound(frameTimeProduct / 10.0) * 10;
 
     final arr = _get2dArray(keyBytes, homePageDoc);
+    if (frameRowIndex >= arr.length) {
+      throw Exception('the animation frame row $frameRowIndex is missing (only ${arr.length} rows)');
+    }
     final frameRow = arr[frameRowIndex];
     final targetTime = frameTime / totalTime;
     return _animate(frameRow, targetTime.toDouble());
