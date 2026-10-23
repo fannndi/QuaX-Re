@@ -20,6 +20,35 @@ class TwitterLoginWebview extends StatefulWidget {
   State<TwitterLoginWebview> createState() => _TwitterLoginWebviewState();
 }
 
+/// Hosts the login WebView may navigate to.
+///
+/// The first two are X's own (the flow moves between x.com and
+/// api.x.com); `accounts.google.com` and its static hosts are there
+/// because "Sign in with Google" is a first-class path in the same flow.
+/// Anything else is blocked — see [onNavigationRequest].
+const _allowedLoginHosts = {
+  'x.com',
+  'twitter.com',
+  'mobile.twitter.com',
+  'api.x.com',
+  'accounts.google.com',
+  'accounts.youtube.com',
+  'ssl.gstatic.com',
+  'www.gstatic.com',
+};
+
+/// Whether a URL the login WebView is about to load is on a host the flow
+/// trusts. Exposed for the allowlist test.
+@visibleForTesting
+bool isAllowedLoginHost(String url) {
+  final parsed = Uri.tryParse(url);
+  if (parsed == null || parsed.host.isEmpty) return false;
+  // https only: plain http on the login page lets anyone on the path read both
+  // the credentials and the cookies this WebView is holding.
+  if (parsed.scheme != 'https') return false;
+  return _allowedLoginHosts.contains(parsed.host.toLowerCase());
+}
+
 class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
   static const _channel = MethodChannel('browser_resolver');
 
@@ -50,6 +79,23 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       // opener survives and the flow can hand its token back.
       onPageStarted: (_) => _channel.invokeMethod<void>('enableWebViewPopups'),
       onUrlChange: _onUrlChange,
+      // This WebView runs unrestricted JavaScript *and* holds the live X
+      // session cookies, so where it navigates is a security decision, not a
+      // convenience. Without this the flow will happily follow a redirect (or
+      // a link inside the page) to any host — a lookalike domain can then
+      // render a "session expired, re-enter your password" form, or read the
+      // non-HttpOnly cookies. Only X's own hosts and Google's SSO are allowed.
+      onNavigationRequest: (request) {
+        if (isAllowedLoginHost(request.url)) {
+          return NavigationDecision.navigate;
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(L10n.of(context).login_blocked_navigation)),
+          );
+        }
+        return NavigationDecision.prevent;
+      },
     ));
     _controller.loadRequest(Uri.https('x.com', 'i/flow/login'));
     // Match upstream's order and value exactly: the first load runs with the
