@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -26,8 +27,14 @@ import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
-
 Future<void> main() async {
+  // The logging package defaults to INFO and every record is forwarded to
+  // logcat below, which any app holding READ_LOGS (present on many OEM builds)
+  // or a connected adb can read. Request URLs carry the reader's userId and
+  // search terms, and liked-tweet ids are personal data, so in release only
+  // warnings and worse are recorded.
+  Logger.root.level = kDebugMode ? Level.ALL : Level.WARNING;
+
   Logger.root.onRecord.listen((event) async {
     log(event.message, error: event.error, stackTrace: event.stackTrace);
   });

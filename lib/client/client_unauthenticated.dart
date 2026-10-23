@@ -52,7 +52,9 @@ Future<String> getToken(Logger log) async {
 }
 
 Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? headers, required Logger log}) async {
-  log.info('Fetching (unauthenticated) $uri');
+  // The path only: the full URL's `variables` JSON embeds the reader's userId
+  // and search terms, and this record reaches logcat in release.
+  log.fine('Fetching (unauthenticated) ${uri.path}');
 
   var response = await quaxHttpClient.get(uri, headers: {
     ...?headers,

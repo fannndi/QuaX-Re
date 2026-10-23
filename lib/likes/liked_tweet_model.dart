@@ -45,7 +45,7 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
   }
 
   Future<void> likeTweet(String id, String? user, Map<String, dynamic> content) async {
-    log.info('Liking tweet with the ID $id');
+    log.fine('Liking tweet with the ID $id');
 
     var database = await Repository.writable();
     var encodedContent = jsonEncode(content);
@@ -59,7 +59,7 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
   }
 
   Future<void> unlikeTweet(String id) async {
-    log.info('Unliking tweet with the ID $id');
+    log.fine('Unliking tweet $id');
 
     var database = await Repository.writable();
 

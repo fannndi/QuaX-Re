@@ -17,7 +17,10 @@ class XRegularAccount {
       String? body,
       required Logger log,
       required Map<dynamic, dynamic> authHeader}) async {
-    log.info('Fetching $uri');
+    // The path only: a full URL carries the GraphQL `variables` JSON, which
+    // embeds the reader's numeric userId and their search terms. `fine` so a
+    // release build never records it.
+    log.fine('Fetching ${uri.path}');
 
     final method = body == null ? 'GET' : 'POST';
     final baseHeaders = await TwitterHeaders.getHeaders(uri, authHeader, method: method);
