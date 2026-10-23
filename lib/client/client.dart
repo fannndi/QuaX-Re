@@ -40,12 +40,16 @@ class _QuackerTwitterClient extends TwitterClient {
 
   @override
   Future<http.Response> get(Uri uri, {Map<String, String>? headers, Duration? timeout}) {
+    // `timeout` is part of the overridden signature but is deliberately unused:
+    // a coalesced caller used to get the *first* caller's deadline, so a caller
+    // asking for 5s silently waited 30s. Callers that need a shorter bound can
+    // wrap the returned future themselves.
     final key = uri.toString();
     final running = _inflight[key];
     if (running != null) return running;
 
     late final Future<http.Response> future;
-    future = fetch(uri, headers: headers).timeout(timeout ?? _defaultTimeout).then<http.Response>((response) {
+    future = fetch(uri, headers: headers).timeout(_defaultTimeout).then<http.Response>((response) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response;
       } else {
@@ -64,14 +68,16 @@ class _QuackerTwitterClient extends TwitterClient {
   /// request coalescing. Static because `TwitterApi.client` is typed as the
   /// package's AbstractTwitterClient, which has no such helper.
   static Future<http.Response> postJson(Uri uri,
-      {Map<String, String>? headers, required String body, Duration? timeout}) {
-    final key = '${uri.toString()}|$body';
+      {Map<String, String>? headers, required String body}) {
+    // Keyed on the method as well as the URI: `uri.toString()|body` could
+    // otherwise collide with a GET whose string form happens to match.
+    final key = 'POST\u0000${uri.toString()}\u0000$body';
     final running = _inflight[key];
     if (running != null) return running;
 
     late final Future<http.Response> future;
     future = fetch(uri, headers: headers, body: body)
-        .timeout(timeout ?? _defaultTimeout)
+        .timeout(_defaultTimeout)
         .then<http.Response>((response) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response;
@@ -120,12 +126,16 @@ class _QuackerTwitterClient extends TwitterClient {
       }
       tried.add(account.id);
 
-      final authHeader = json.decode(account.authHeader);
+      final authHeader = json.decode(account.authHeader as String);
       http.Response response;
       try {
         response =
             await XRegularAccount().fetch(uri, headers: headers, body: body, log: log, authHeader: authHeader);
-      } on Exception catch (e, st) {
+      } on Object catch (e, st) {
+        // Object, not Exception: the header derivation can throw a RangeError
+        // or a TypeError, and those used to bypass this retry loop and the guest
+        // fallback entirely. json.decode above is inside the try for the same
+        // reason — a malformed row must cost this account, not the whole fetch.
         lastNetworkError = e;
         lastNetworkStackTrace = st;
         if (++networkFailures >= 2) {
@@ -208,8 +218,12 @@ class _QuackerTwitterClient extends TwitterClient {
 
   static DateTime _resetFromHeaders(http.Response response) {
     final reset = response.headers['x-rate-limit-reset']; // epoch seconds
-    if (reset != null) {
-      return DateTime.fromMillisecondsSinceEpoch(int.parse(reset) * 1000);
+    // tryParse: X has sent non-numeric and float-valued resets during incidents,
+    // and this runs on the *success* path — an int.parse here would throw away a
+    // perfectly good response and the whole page with it.
+    final seconds = reset == null ? null : int.tryParse(reset);
+    if (seconds != null) {
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
     }
     return DateTime.now().add(rateLimitFallback);
   }

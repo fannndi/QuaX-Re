@@ -15,6 +15,13 @@ int _expiresAt = -1;
 int _tokenLimit = -1;
 int _tokenRemaining = -1;
 
+/// The guest path had no timeouts at all while every authenticated request was
+/// bounded by `_defaultTimeout`. A hang here is worse than a hang there:
+/// `fetch()` awaits it directly, so the future never completes and its
+/// `_inflight` entry is never removed — every later request for the same URI
+/// returns the hung future for the rest of the process.
+const _guestTimeout = Duration(seconds: 15);
+
 Future<String> getToken(Logger log) async {
   if (_guestToken != null) {
     // No rate limit reported yet: the token is as good as it was when we got it
@@ -28,13 +35,18 @@ Future<String> getToken(Logger log) async {
     }
   }
 
-  log.info('Refreshing the X token');
+  log.fine('Refreshing the X token');
 
-  var response = await quaxHttpClient.post(Uri.parse('https://api.x.com/1.1/guest/activate.json'), headers: {
+  // Bounded: without it a dead-but-not-reset connection (the classic mobile-NAT
+  // case where SYN is dropped) hangs this call forever, and fetch() awaits it
+  // directly — so the whole fetch hangs and its _inflight entry is never
+  // removed, poisoning that URI for the life of the process.
+  var response = await quaxHttpClient
+      .post(Uri.parse('https://api.x.com/1.1/guest/activate.json'), headers: {
     // Same bearer the authenticated path uses: the web client has one token,
     // and two different ones in one app is exactly the kind of tell to avoid.
     'Authorization': bearerToken,
-  });
+  }).timeout(_guestTimeout);
 
   if (response.statusCode == 200) {
     var result = jsonDecode(response.body);
@@ -62,7 +74,7 @@ Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? header
     'x-guest-token': await getToken(log),
     'x-twitter-active-user': 'yes',
     'user-agent': userAgentHeader['user-agent']!
-  });
+  }).timeout(_guestTimeout);
 
   var headerRateLimitReset = response.headers['x-rate-limit-reset'];
   var headerRateLimitRemaining = response.headers['x-rate-limit-remaining'];
