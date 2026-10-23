@@ -132,11 +132,20 @@ PostUriInfo? _parseAsPostLink(List<String> parts) {
   return null;
 }
 
+/// How long a single t.co hop may take, and how many hops a chain may have.
+///
+/// The timeout matters because `request.send()` has none of its own: a t.co link
+/// opened while the network is half-dead (SYN dropped, the classic mobile-NAT
+/// case) would stall the deep-link handler — and `handleInitialLink`'s future
+/// with it — indefinitely.
+const _shortUrlTimeout = Duration(seconds: 8);
+const _maxShortUrlHops = 5;
+
 Future<String?> _resolveShortUrl(Uri shortUrl) async {
   final request = http.Request('GET', shortUrl)
     ..followRedirects = false;
 
-  final response = await request.send();
+  final response = await request.send().timeout(_shortUrlTimeout);
   if (response.isRedirect || response.statusCode == 301 || response.statusCode == 302) {
     return response.headers['location'];
   }
@@ -145,13 +154,23 @@ Future<String?> _resolveShortUrl(Uri shortUrl) async {
 
 class UnknownResult extends UriParseResult {}
 
-Future<UriParseResult> parseUri(Uri link) async {
+Future<UriParseResult> parseUri(Uri link, {int shortUrlHops = 0}) async {
   if (link.host == 't.co') {
-    String? lnk = await _resolveShortUrl(link);
+    // A chain longer than a handful of hops means the shortener is looping (or
+    // hostile): stop instead of recursing once per round-trip, forever.
+    if (shortUrlHops >= _maxShortUrlHops) return UnknownResult();
+
+    final lnk = await _resolveShortUrl(link);
     if (lnk == null) return UnknownResult();
-    Uri parsed = Uri.parse(lnk);
+
+    final parsed = Uri.tryParse(lnk);
+    // Only web links: a hostile Location could name file:// or content://, and
+    // while parseUri only ever reads path segments today, the scheme should be
+    // settled here rather than relied upon further down.
+    if (parsed == null || !isLaunchableLink(lnk)) return UnknownResult();
+
     if (parsed.host != 't.co') {
-      return parseUri(parsed);
+      return parseUri(parsed, shortUrlHops: shortUrlHops + 1);
     }
     return UnknownResult();
   }

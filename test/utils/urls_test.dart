@@ -180,6 +180,17 @@ void main() {
     });
   });
 
+  group('parseUri() t.co chains', () {
+    test('Should stop after the hop limit instead of recursing forever', () async {
+      // The hop counter is checked before any request is sent, so a chain that
+      // has already run out of budget never touches the network.
+      expect(await parseUri(Uri.parse('https://t.co/abc'), shortUrlHops: 99), isA<UnknownResult>(),
+          reason: 'A t.co link past the hop limit must resolve to nothing rather than loop: each '
+              'hop is a network round-trip, and a looping shortener would hang the deep-link '
+              'handler for good');
+    });
+  });
+
   group('extractPhotoNumber()', () {
     test('Should read the number after a "photo" part', () {
       expect(extractPhotoNumber(['user', 'status', '1', 'photo', '3'], 3), 3,
