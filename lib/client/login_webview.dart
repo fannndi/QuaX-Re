@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -132,6 +133,12 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
         // here would pull it out from under every other writer. It is not
         // closed anywhere else either.
 
+        // The session now lives in the database; the WebView's copy has no
+        // further use. Leaving it means the full auth_token/ct0/att/gt set
+        // stays in the on-disk cookie jar indefinitely, re-readable by the
+        // next login flow or by any page this WebView later loads.
+        await _cookieManager.clearCookies();
+
         // A freshly added account becomes the one used everywhere, so the
         // timelines immediately speak for the new login.
         await setActiveAccount(csrfToken);
@@ -141,8 +148,19 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       }
     } catch (e) {
       _completing = false;
-      rethrow;
+      // Not a rethrow: onUrlChange is a void callback whose future the plugin
+      // discards, so rethrowing turns a recoverable failure (a transient
+      // WebView error) into an unhandled asynchronous error.
+      debugPrint('Login completion failed: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    // The screen can be dismissed mid-flow (back button, a failed completion):
+    // whatever cookies the WebView still holds must not outlive it.
+    unawaited(_cookieManager.clearCookies());
+    super.dispose();
   }
 
   /// `runJavaScriptReturningResult` hands back the JSON encoding on Android and
