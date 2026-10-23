@@ -3,10 +3,11 @@ package com.teskann.quax
 import android.app.Activity
 import android.app.Dialog
 import android.os.Message
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import io.flutter.plugins.webviewflutter.WebChromeClientProxyApi
@@ -22,6 +23,8 @@ import java.util.WeakHashMap
  * Vendored from upstream QuaX, where the X login works on the same devices.
  */
 object WebViewPopups {
+    private const val TAG = "WebViewPopups"
+
     private val patched: MutableSet<WebView> = Collections.newSetFromMap(WeakHashMap())
 
     fun install(activity: Activity) {
@@ -63,8 +66,27 @@ object WebViewPopups {
             settings.domStorageEnabled = true
             settings.javaScriptCanOpenWindowsAutomatically = true
             settings.userAgentString = opener.settings.userAgentString
-            webViewClient = WebViewClient()
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+            // No setAcceptThirdPartyCookies(true) here: it lets any third-party
+            // frame in the popup read and write cookies for the top-level X
+            // origin's jar, and combined with the Dart-side navigation
+            // allowlist that is a standing session-theft primitive. The Google
+            // SSO popup works without it; the opener keeps its own setting.
+            webViewClient = object : WebViewClient() {
+                // The popup is created by a page we already allowlisted, but it
+                // is a fresh WebView whose client would otherwise load any URL
+                // the opener's JS asks for.
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    val host = request.url.host?.lowercase() ?: return true
+                    val allowed = setOf(
+                        "x.com", "twitter.com", "mobile.twitter.com", "api.x.com",
+                        "accounts.google.com", "accounts.youtube.com",
+                        "ssl.gstatic.com", "www.gstatic.com",
+                    )
+                    if (request.url.scheme == "https" && host in allowed) return false
+                    Log.w(TAG, "Blocked popup navigation to ${request.url}")
+                    return true
+                }
+            }
         }
     }
 }

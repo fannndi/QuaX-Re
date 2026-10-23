@@ -66,6 +66,7 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
   late final WebViewController _controller;
   late final WebviewCookieManager _cookieManager;
   bool _completing = false;
+  bool _popupsEnabled = false;
 
   @override
   void initState() {
@@ -76,8 +77,15 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
     _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     _controller.setNavigationDelegate(NavigationDelegate(
       // "Sign in with Google" opens a popup; the native side hosts it so the
-      // opener survives and the flow can hand its token back.
-      onPageStarted: (_) => _channel.invokeMethod<void>('enableWebViewPopups'),
+      // opener survives and the flow can hand its token back. Once, not per
+      // page: the native install() walks the whole decor view each call, and
+      // its own WeakHashMap guard already makes repeat calls pointless.
+      onPageStarted: (_) {
+        if (!_popupsEnabled) {
+          _popupsEnabled = true;
+          _channel.invokeMethod<void>('enableWebViewPopups');
+        }
+      },
       onUrlChange: _onUrlChange,
       // This WebView runs unrestricted JavaScript *and* holds the live X
       // session cookies, so where it navigates is a security decision, not a
