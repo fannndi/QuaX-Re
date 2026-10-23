@@ -90,6 +90,20 @@ android {
         release {
             signingConfig signingConfigs.release
 
+            // An all-null release signing config makes AGP fall back to the
+            // *debug* keystore, and the build succeeds silently: the app id gets
+            // claimed by a key nobody meant to ship. Refuse instead. Guarded to
+            // this build type so profile and debug builds (which have no
+            // keystore of their own) keep working.
+            if (signingConfigs.release.storeFile == null) {
+                throw new GradleException(
+                    "Release builds need a keystore: create android/key.properties " +
+                    "(storeFile/storePassword/keyAlias/keyPassword) or set KEY_PATH, " +
+                    "KEY_STORE_PASSWORD, KEY_PASSWORD and KEY_ALIAS. " +
+                    "Refusing to fall back to the debug signing config."
+                )
+            }
+
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
