@@ -11,8 +11,11 @@
 //
 // What it cannot tell you is whether the *key* is right. X reshaping the
 // loading-x-anim SVG does not throw — it produces a plausible-looking id that
-// X answers 403 for, and this tool would print OK. Only a real request with a
-// real session distinguishes the two, so the output says so.
+// X answers 403 for, and this tool would print OK. The id's length is not a
+// reliable signal either: the algorithm's output length follows the hex digits
+// it derives, so a correct id is not a fixed size. Only a real request with a
+// real session distinguishes a right key from a wrong one, so the output says
+// exactly that instead of guessing at a length.
 import 'dart:io';
 
 import 'package:quax/client/x_client_transaction_id/client_transaction.dart';
@@ -28,20 +31,20 @@ Future<void> main() async {
     stopwatch.stop();
     stdout.writeln('OK   ${stopwatch.elapsedMilliseconds} ms');
     stdout.writeln('id   ${id.length} base64 chars, starts ${id.substring(0, 12)}…');
-
-    final looksWellFormed =
-        id.length >= 100 && RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(id);
     stdout.writeln('');
-    if (looksWellFormed) {
-      stdout.writeln('The generator found its inputs and produced a well-formed');
-      stdout.writeln('id. That is all this can check: a *wrong* key still looks');
-      stdout.writeln('well-formed, and only a request that answers 403 tells the');
-      stdout.writeln('two apart. If Search 403s rather than 404s, the queryId and');
-      stdout.writeln('the endpoint are fine and the animation key is wrong.');
-    } else {
-      stdout.writeln('WARN the id is not the shape this port produces. Treat that');
-      stdout.writeln('as a broken derivation, not a working one.');
-    }
+    stdout.writeln('The generator found its inputs and produced an id.');
+    stdout.writeln('');
+    stdout.writeln('That is all this can check. A *wrong* animation key also');
+    stdout.writeln('produces a well-formed id — X reshaping the loading-x-anim');
+    stdout.writeln('SVG does not throw, it just derives a different one — and');
+    stdout.writeln('the length is no signal either, because it follows the hex');
+    stdout.writeln('digits the derivation happens to produce.');
+    stdout.writeln('');
+    stdout.writeln('The only reliable check is a real request:');
+    stdout.writeln('  • 404 → the queryId or the endpoint moved; this header is fine.');
+    stdout.writeln('  • 403 → the queryId is fine and the animation key is wrong.');
+    stdout.writeln('        Compare _get2dArray/_animate against the current');
+    stdout.writeln('        loading-x-anim markup on x.com/home.');
   } catch (e, stackTrace) {
     stopwatch.stop();
     stdout.writeln('FAIL ${stopwatch.elapsedMilliseconds} ms');
