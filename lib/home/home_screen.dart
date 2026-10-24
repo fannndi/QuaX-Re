@@ -1,9 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
+import 'package:provider/provider.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_badge.dart';
 import 'package:quax/downloads/downloads_screen.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/group/feed_refresh_controller.dart';
 import 'package:quax/home/_feed.dart';
 import 'package:quax/home/home_events.dart';
 import 'package:quax/likes/likes_screen.dart';
@@ -166,11 +168,20 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
             final tappedId = widget.pages[index].id;
             if (tappedId == "feed" || tappedId == "likes" || tappedId.startsWith("group-")) {
               final scrollController = _scrollControllers[_currentPage];
+              // Read before any await: the tap handler is async because of the
+              // animation below.
+              final feedRefresh = context.read<FeedRefreshController>();
               // A tab whose list is not mounted (the Like tab showing another
               // sub-tab) has nothing to scroll back up.
               if (scrollController != null && scrollController.hasClients) {
                 await scrollController.animateTo(0, duration: const Duration(seconds: 1), curve: Curves.easeInOut);
               }
+              // ...and the list itself. The outer NestedScrollView controller
+              // above only collapses the app bar; the feed's own list keeps the
+              // reader's position, which made "tap Home to go to top" do half
+              // its job. FeedRefreshController is the seam the body registered
+              // its real scroll-to-top on.
+              feedRefresh.scrollToTop();
             }
           }
           _pageController.jumpToPage(index);

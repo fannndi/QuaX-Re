@@ -214,6 +214,17 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     WidgetsBinding.instance.addObserver(this);
   }
 
+  /// Scrolls the feed's own list back to the top.
+  ///
+  /// The nav bar's "tap the active tab" can only reach the NestedScrollView's
+  /// outer controller, which collapses the app bar but leaves this list exactly
+  /// where the reader left it — so the most common gesture in a Twitter client
+  /// did half its job. The body owns the list, so the real scroll lives here.
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -228,8 +239,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     }
     if (!identical(controller, _refreshController)) {
       _refreshController?.unregister(_showRefresh);
+      _refreshController?.unregisterScrollToTop(_scrollToTop);
       _refreshController = controller;
       _refreshController?.register(_showRefresh);
+      _refreshController?.registerScrollToTop(_scrollToTop);
     }
   }
 
@@ -252,6 +265,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     _scrollController.dispose();
     _scrollSaveTimer?.cancel();
     _refreshController?.unregister(_showRefresh);
+    _refreshController?.unregisterScrollToTop(_scrollToTop);
     if (_onlineListenerAttached) {
       NetworkStatus().online.removeListener(_onOnlineChanged);
     }
