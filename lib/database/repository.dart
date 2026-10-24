@@ -333,10 +333,39 @@ class Repository {
         SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN user_id VARCHAR DEFAULT NULL',
             reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN user_id'),
       ],
+      31: [
+        // Indexes for the lookups that scan a whole table today.
+        //
+        // - subscription_group_member.profile_id: every "which groups is this
+        //   account in" read and the cascade delete on unfollow walk it.
+        // - accounts.is_active: setActiveAccount clears it on every switch
+        //   (`WHERE is_active = 1`) with no index behind it.
+        // - subscription.screen_name: the profile lookup path, and the table is
+        //   read in full on every subscriptions reload.
+        //
+        // Guarded per table: a migration step must not fail on a database that
+        // reached this version through some other path (a restore, a partial
+        // upgrade) and is missing a table the earlier steps were supposed to
+        // create. IF NOT EXISTS throughout, so a database that somehow already
+        // has one is not a migration failure either.
+        Migration(Operation((db) async {
+          for (final step in const [
+            ('idx_${tableSubscriptionGroupMember}_profile_id', tableSubscriptionGroupMember, 'profile_id'),
+            ('idx_${tableAccounts}_is_active', tableAccounts, 'is_active'),
+            ('idx_${tableSubscription}_screen_name', tableSubscription, 'screen_name'),
+          ]) {
+            final (index, table, column) = step;
+            final exists = await db.rawQuery(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
+            if (exists.isEmpty) continue;
+            await db.execute('CREATE INDEX IF NOT EXISTS $index ON $table ($column)');
+          }
+        })),
+      ],
     });
     await openDatabase(
       databaseName,
-      version: 30,
+      version: 31,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
       onDowngrade: myMigrationPlan.call,

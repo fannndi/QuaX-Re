@@ -90,9 +90,31 @@ void main() {
       final version = await db.getVersion();
       await db.close();
 
-      expect(version, 30,
+      expect(version, 31,
           reason: 'The version has to match the last migration step, otherwise the next app launch '
               'replays steps on top of a schema that already has them and the ALTERs fail');
+    });
+
+    test('Should index the columns the hot lookups filter on', () async {
+      await Repository().migrate();
+
+      final db = await Repository.readOnly();
+      final indexes = (await db.rawQuery(
+              "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%'"))
+          .map((row) => row['name'] as String)
+          .toSet();
+      await db.close();
+
+      expect(indexes, contains('idx_subscription_group_member_profile_id'),
+          reason: 'Every "which groups is this account in" read and the cascade delete on unfollow '
+              'walk subscription_group_member by profile_id; without the index each one is a full '
+              'table scan');
+      expect(indexes, contains('idx_accounts_is_active'),
+          reason: 'setActiveAccount clears the flag with `WHERE is_active = 1` on every account '
+              'switch');
+      expect(indexes, contains('idx_subscription_screen_name'),
+          reason: 'The profile lookup filters subscriptions by screen name, and the table is read '
+              'in full on every subscriptions reload');
     });
 
     test('Should add the columns of the saved, liked and account features', () async {
