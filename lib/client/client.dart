@@ -389,10 +389,12 @@ class Twitter {
         ? await friendsList(id!, count!, cursor: cursor)
         : await followersList(id!, count!, cursor: cursor);
 
+    // `parseFollows` already builds UserWithExtra objects; the round-trip
+    // through toJson()/fromJson() only dropped fields the pair disagreed on.
     return Follows(
       cursorBottom: response.nextCursorStr,
       cursorTop: response.previousCursorStr,
-      users: response.users?.map((e) => UserWithExtra.fromJson(e.toJson())).toList() ?? [],
+      users: response.users?.whereType<UserWithExtra>().toList() ?? [],
     );
   }
 

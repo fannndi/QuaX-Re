@@ -66,15 +66,12 @@ PaginatedUsers parseFollows(Map<String, dynamic> body) {
       users.previousCursorStr = getCursor(entries, [], 'cursor-top', 'Top');
       for (final entry in entries) {
         final userResult = entry["content"]?["itemContent"]?["user_results"]?["result"];
-        if (userResult == null) continue;
-        var user = UserWithExtra()
-          ..screenName = userResult["core"]?["screen_name"]
-          ..name = userResult["core"]?["name"]
-          ..profileImageUrlHttps = userResult["avatar"]?["image_url"]
-          ..verified = userResult["is_blue_verified"]
-          ..createdAt = convertTwitterDateTime(userResult["core"]?["created_at"])
-          ..idStr = userResult["rest_id"];
-        users.users!.add(user);
+        if (userResult is! Map<String, dynamic>) continue;
+        // The same parser the profile and search paths use. This used to build
+        // UserWithExtra() by hand from five fields, which dropped every modern
+        // one -- followers_count, description, protected, verified_type -- so the
+        // Following and Followers lists rendered with missing data.
+        users.users!.add(UserWithExtra.fromNonLegacyJson(userResult));
     }
   }
   return users;

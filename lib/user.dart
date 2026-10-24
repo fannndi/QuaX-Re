@@ -251,7 +251,11 @@ class UserWithExtra extends User {
   @override
   Map<String, dynamic> toJson() {
     var json = super.toJson();
-    json['potentiallySensitive'] = possiblySensitive;
+    // The same keys fromJson reads. It used to write 'potentiallySensitive'
+    // against a 'possibly_sensitive' read, so a round-trip silently dropped it,
+    // and followed_by_viewer was never written at all.
+    json['possibly_sensitive'] = possiblySensitive;
+    json['followed_by_viewer'] = followedByViewer;
 
     return json;
   }
