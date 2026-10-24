@@ -98,6 +98,30 @@ TweetWithCard? _parseTweet(dynamic result) {
   }
 }
 
+/// Unwraps a timeline entry into the tweet result it carries, or null.
+///
+/// The visibility wrapper and the `tweet` fallback are both shapes X serves for
+/// the same thing: the wrapped object is what holds the id, and one endpoint puts
+/// it one level deeper than the other. Callers then only have to ask for the id.
+///
+/// [item] is the node holding `itemContent` — a timeline entry's `content`, or a
+/// media-grid item's `item`.
+Map<String, dynamic>? _tweetResultOf(Map<String, dynamic> item) {
+  final result = item["itemContent"]?["tweet_results"]?["result"];
+  if (result is! Map<String, dynamic>) return null;
+
+  if (result["__typename"] == "TweetWithVisibilityResults" && result["tweet"] is Map<String, dynamic>) {
+    return result["tweet"] as Map<String, dynamic>;
+  }
+  return result;
+}
+
+/// The id of a tweet result: the usual field, or the one the wrapped shape uses.
+String? _tweetIdOf(Map<String, dynamic> result) {
+  final id = result["rest_id"] ?? result["tweet"]?["rest_id"];
+  return id is String ? id : null;
+}
+
 List<TweetChain> createTweetChains(List<dynamic> addEntries) {
   List<TweetChain> replies = [];
 
@@ -106,28 +130,25 @@ List<TweetChain> createTweetChains(List<dynamic> addEntries) {
     if (entryId is! String) continue;
 
     if (entryId.startsWith('tweet-')) {
-      dynamic result;
-      final tweetResult = entry['content']?['itemContent']?['tweet_results']?['result'];
+      final content = entry['content'];
+      if (content is! Map<String, dynamic>) continue;
+
+      final tweetResult = content['itemContent']?['tweet_results']?['result'];
 
       // This may happen for tweets that x.com cannot open neither
       if (tweetResult is! Map<String, dynamic>) continue;
 
-      if (tweetResult['__typename'] == 'TweetWithVisibilityResults') {
-        result = tweetResult['tweet'];
-      } else {
-        result = tweetResult;
-      }
-
-      if (result is Map<String, dynamic> && result['rest_id'] != null) {
+      final result = _tweetResultOf(content);
+      final id = result == null ? null : _tweetIdOf(result);
+      if (result != null && id != null) {
         final tweet = _parseTweet(result);
         if (tweet == null) continue;
-        replies.add(TweetChain(id: result['rest_id'], tweets: [tweet], isPinned: false));
+        replies.add(TweetChain(id: id, tweets: [tweet], isPinned: false));
       } else {
         // Pass the real tombstone payload, not an empty map: X's own reason
-        // ("This post was deleted", age-gated, ...) is in
-        // tweetResult['tombstone'], and an empty map made every tombstone in a
-        // thread show the generic "unavailable" text while the specific one sat
-        // unused in hand.
+        // ("This post was deleted", age-gated, ...) is in tweetResult['tombstone'],
+        // and an empty map made every tombstone in a thread show the generic
+        // "unavailable" text while the specific one sat unused in hand.
         final tombstone = tweetResult['tombstone'] ?? tweetResult;
         replies.add(TweetChain(
             id: entryId.substring(6), tweets: [TweetWithCard.tombstone(tombstone)], isPinned: false));
@@ -167,11 +188,12 @@ List<TweetChain> createTweets(List<dynamic> addEntries, [bool isPinned = false])
     if (entryId is! String) continue;
 
     if (entryId.startsWith('tweet-')) {
-      final result = entry['content']?['itemContent']?['tweet_results']?['result'];
-      if (result is! Map<String, dynamic>) continue;
+      final content = entry['content'];
+      if (content is! Map<String, dynamic>) continue;
 
-      final id = (result['rest_id'] ?? result['tweet']?['rest_id']) as String?;
-      if (id == null) continue;
+      final result = _tweetResultOf(content);
+      final id = result == null ? null : _tweetIdOf(result);
+      if (result == null || id == null) continue;
 
       final tweet = _parseTweet(result);
       if (tweet == null) continue;
@@ -180,11 +202,12 @@ List<TweetChain> createTweets(List<dynamic> addEntries, [bool isPinned = false])
     } else if (entryId.startsWith('profile-grid-') || entryId.startsWith('profile-photo-grid-')) {
       // We got a tweet queried from the media tab
       for (var mediaTweet in entry['content']?['items'] ?? const []) {
-        final result = mediaTweet['item']?['itemContent']?['tweet_results']?['result'];
-        if (result is! Map<String, dynamic>) continue;
+        final item = mediaTweet['item'];
+        if (item is! Map<String, dynamic>) continue;
 
-        final id = (result['rest_id'] ?? result['tweet']?['rest_id']) as String?;
-        if (id == null) continue;
+        final result = _tweetResultOf(item);
+        final id = result == null ? null : _tweetIdOf(result);
+        if (result == null || id == null) continue;
 
         final tweet = _parseTweet(result);
         if (tweet == null) continue;
