@@ -461,7 +461,13 @@ Color? buttonsColor(BuildContext c) {
         ],
       );
 
-      retweetSidebar = Container(color: theme.secondaryHeaderColor, width: 4);
+      // A ColoredBox, not a Container with only a color: no decoration machinery
+      // for a 4dp strip. surfaceContainerHighest is the Material 3 role;
+      // secondaryHeaderColor is the deprecated Material 2 one.
+      retweetSidebar = ColoredBox(
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: const SizedBox(width: 4),
+      );
     }
 
     Widget replyToTile = Container();

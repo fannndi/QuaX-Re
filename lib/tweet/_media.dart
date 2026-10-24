@@ -51,9 +51,9 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
         }
       });
     } else {
-      setState(() {
-        _showMedia = true;
-      });
+      // A plain assignment: initState is already followed by a build, so a
+      // setState here only marks the element dirty before the first one.
+      _showMedia = true;
     }
   }
 

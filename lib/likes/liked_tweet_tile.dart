@@ -46,7 +46,7 @@ class LikedTweetTile extends StatelessWidget {
 
     var tweet = _decodeTweet(id, content);
 
-    return TweetTile(key: Key(tweet.idStr!), tweet: tweet, clickable: true);
+    return TweetTile(key: ValueKey(tweet.idStr!), tweet: tweet, clickable: true);
   }
 }
 
