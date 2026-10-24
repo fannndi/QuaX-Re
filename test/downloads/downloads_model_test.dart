@@ -132,6 +132,42 @@ void main() {
     });
   });
 
+  group('pause()', () {
+    test('Should mark the entry paused even before its abort hook exists', () {
+      queue.register('a.mp4', 'https://x/a.mp4', true);
+      queue.startRunning('a.mp4');
+
+      // The hook is only attached once _downloadToTemp has done its first
+      // awaits, so a pause in that window used to find nothing to call and the
+      // socket kept running while the entry read "paused".
+      queue.pause('a.mp4');
+
+      expect(queue.isPaused('a.mp4'), isTrue,
+          reason: 'The paused flag is what the transfer loop re-checks per chunk, so it has to be '
+              'set even when the abort hook is not attached yet');
+      expect(queue.itemFor('a.mp4')?.status, DownloadStatus.paused,
+          reason: 'The entry is parked with its partial bytes for a Range resume');
+    });
+
+    test('Should keep the received bytes so a resume continues from them', () {
+      queue.register('a.mp4', 'https://x/a.mp4', true);
+      queue.startRunning('a.mp4');
+      queue.progress('a.mp4', 700, 4096, 1);
+
+      queue.pause('a.mp4');
+
+      expect(queue.itemFor('a.mp4')?.receivedBytes, 700,
+          reason: 'Pausing must not reset progress: the resume sends a Range request from here');
+      expect(queue.itemFor('a.mp4')?.speedMbPerSec, 0,
+          reason: 'A paused entry shows no speed');
+    });
+
+    test('Should ignore a pause for an entry that is not in the queue', () {
+      expect(() => queue.pause('missing.mp4'), returnsNormally,
+          reason: 'The notification action can arrive after the entry was already removed');
+    });
+  });
+
   group('pauseAll()', () {
     test('Should park waiting and running entries together', () {
       queue.register('a.mp4', 'https://x/a.mp4', true);

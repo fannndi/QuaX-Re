@@ -24,6 +24,11 @@ const _storageChannel = MethodChannel('browser_resolver');
 /// queue list = next to run, so dragging the queue reorders transfers), works
 /// through it, then picks the next. The old FIFO chain is gone — a plain chain
 /// could not honor pause, stop-all or reordering.
+///
+/// [_workerPrefs] is a module global rather than a parameter because the worker
+/// outlives the call that started it, and a resume arrives from the connectivity
+/// watcher, which has no BuildContext of its own. It is only ever null before
+/// the first enqueue, which [_kickWorker] treats as "nothing to do".
 Future<void>? _worker;
 BasePrefService? _workerPrefs;
 final Map<String, BuildContext?> _workerContexts = {};
@@ -34,14 +39,16 @@ void _kickWorker() {
 }
 
 Future<void> _drainQueue() async {
+  final prefs = _workerPrefs;
+  if (prefs == null) return;
+
   final queue = DownloadsModel();
   while (true) {
     final next = queue.nextQueued;
     if (next == null) return;
 
     final context = _workerContexts.remove(next.fileName);
-    await _runDownload(context, Uri.parse(next.url), next.fileName,
-        prefs: _workerPrefs!, resume: true);
+    await _runDownload(context, Uri.parse(next.url), next.fileName, prefs: prefs, resume: true);
   }
 }
 
@@ -436,6 +443,9 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     var speed = 0.0;
 
     await for (final chunk in response.stream.timeout(_idleTimeout)) {
+      // Re-check every chunk: a pause that arrived before the abort hook was
+      // attached still has to stop the transfer here.
+      if (queue.isCancelled(fileName) || queue.isPaused(fileName)) break;
       sink.add(chunk);
       received += chunk.length;
 
@@ -450,6 +460,11 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     }
 
     await sink.close();
+
+    // A pause or a cancel that arrived mid-stream (before the abort hook was
+    // attached, or between chunks): the partial file stays on disk for the
+    // resume, and the entry is already parked. Not a failure.
+    if (queue.isCancelled(fileName) || queue.isPaused(fileName)) return null;
 
     if (totalBytes != null && received < totalBytes) {
       // Truncated transfer: keep the partial so a retry can resume it.

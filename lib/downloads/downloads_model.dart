@@ -92,7 +92,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   DownloadsModel._() : super([]);
 
   bool _loaded = false;
-  int _lastSaveAt = 0;
+  bool _saving = false;
 
   /// Finished rows kept in the ledger; older ones are pruned on the next
   /// enqueue so the history cannot grow forever.
@@ -143,16 +143,21 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   }
 
   Future<void> _save({bool force = false}) async {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (!force && now - _lastSaveAt < 3000) {
-      return;
-    }
-    _lastSaveAt = now;
+    // An in-flight guard, not a time-based one. The old check set _lastSaveAt
+    // *before* awaiting the write, so two overlapping calls both passed the
+    // throttle and both wrote — and jsonEncode(state) ran after the await, so a
+    // write could serialise a newer state than the one the throttle was checked
+    // against. Two concurrent writeAsString calls to the same path can
+    // interleave and corrupt downloads.json.
+    if (_saving) return;
+    _saving = true;
     try {
       final file = await _ledgerFile();
       await file.writeAsString(jsonEncode(state.map((e) => e.toJson()).toList()));
     } catch (e) {
       debugPrint('DownloadsModel save failed: $e');
+    } finally {
+      _saving = false;
     }
   }
 
@@ -238,6 +243,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _cancelled.clear();
     _paused.clear();
     _doneListeners.clear();
+    _saving = false;
     update([], force: true);
   }
 
@@ -291,6 +297,12 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   /// Holds a running download: the transfer aborts, but the entry and its
   /// partial bytes stay, so [requeue]-ing it later resumes with a Range request.
+  ///
+  /// [_paused] is set *before* the abort hook runs, because the hook is only
+  /// attached once [_downloadToTemp] has done its first awaits (a temporary
+  /// directory, the cache lookup). Pausing in that window used to find no hook,
+  /// so nothing aborted the socket: the entry showed "paused" and stopped
+  /// updating while bytes kept flowing until the next pause or cancel.
   void pause(String fileName) {
     final index = _indexOf(fileName);
     if (index < 0) return;
