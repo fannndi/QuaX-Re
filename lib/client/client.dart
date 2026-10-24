@@ -452,25 +452,29 @@ class Twitter {
     }
   }
 
+  /// The variables both search endpoints share; only `product` and a few flags
+  /// differ, and the two copies of this map had already drifted apart.
+  static Map<String, dynamic> _searchVariables(String query, int limit, String product,
+      {String? cursor}) {
+    final variables = {
+      "rawQuery": query,
+      "count": limit.toString(),
+      "querySource": "typed_query",
+      "product": product,
+    };
+    if (cursor != null) variables['cursor'] = cursor;
+    return variables;
+  }
+
   static Future<TweetStatus> searchTweets(
     String query, {
     int limit = 20,
     String? cursor,
     String product = "Latest",
   }) async {
-    var variables = {
-      "rawQuery": query,
-      "count": limit.toString(),
-      "querySource": "typed_query",
-      "product": product,
-      "withGrokTranslatedBio": product == 'Top' || product == 'People',
-      "withQuickPromoteEligibilityTweetFields": false,
-    };
-
-
-    if (cursor != null) {
-      variables['cursor'] = cursor;
-    }
+    var variables = _searchVariables(query, limit, product, cursor: cursor)
+      ..["withGrokTranslatedBio"] = product == 'Top' || product == 'People'
+      ..["withQuickPromoteEligibilityTweetFields"] = false;
 
     var uri = Uri.https('x.com', '/i/api/graphql/ph2fARFabkwfxqmSKQ1OPw/SearchTimeline', {
       'variables': jsonEncode(variables),
@@ -482,22 +486,12 @@ class Twitter {
   }
 
   static Future<List<UserWithExtra>> searchUsers(String query, {int limit = 25, String? cursor}) async {
-    var variables = {
-      "rawQuery": query,
-      "count": limit.toString(),
-      "querySource": "typed_query",
-      "product": 'People',
-      "withDownvotePerspective": false,
-      "withReactionsMetadata": false,
-      "withReactionsPerspective": false,
-      "withGrokTranslatedBio": true,
-      "withQuickPromoteEligibilityTweetFields": false,
-    };
-
-
-    if (cursor != null) {
-      variables['cursor'] = cursor;
-    }
+    var variables = _searchVariables(query, limit, 'People', cursor: cursor)
+      ..["withDownvotePerspective"] = false
+      ..["withReactionsMetadata"] = false
+      ..["withReactionsPerspective"] = false
+      ..["withGrokTranslatedBio"] = true
+      ..["withQuickPromoteEligibilityTweetFields"] = false;
 
     var uri = Uri.https('twitter.com', '/i/api/graphql/ph2fARFabkwfxqmSKQ1OPw/SearchTimeline', {
       'variables': jsonEncode(variables),
@@ -505,35 +499,9 @@ class Twitter {
     });
 
     var response = await _twitterApi.client.get(uri);
-    if (response.body.isEmpty) {
-      return [];
-    }
-
-    var result = json.decode(response.body);
-    if (result.isEmpty) {
-      return [];
-    }
-
-    List instructions = List.from(
-      result?['data']?['search_by_raw_query']?['search_timeline']?['timeline']?['instructions'] ?? [],
-    );
-    if (instructions.isEmpty) {
-      return [];
-    }
-    List addEntries = List.from(
-      instructions.firstWhere((e) => e['type'] == 'TimelineAddEntries', orElse: () => null)?['entries'] ?? [],
-    );
-    if (addEntries.isEmpty) {
-      return [];
-    }
-
-    return addEntries
-        .where((entry) => entry['entryId']?.startsWith('user-'))
-        .map((entry) => entry['content']?['itemContent']?['user_results']?['result'])
-        .whereType<Map<String, dynamic>>()
-        .where((result) => result['rest_id'] != null)
-        .map(UserWithExtra.fromNonLegacyJson)
-        .toList();
+    // On the worker isolate, like every other page: the hand-rolled copy of the
+    // walk used to run here and blocked the frame for a page of hundreds of KB.
+    return parseOffThread<List<UserWithExtra>>(response.body, ParseJob.searchUsers);
   }
 
   /// The For You (ranked) home timeline. The variables mirror what x.com

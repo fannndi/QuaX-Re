@@ -516,7 +516,7 @@ TweetStatus createUnconversationedChains(
 
 /// Which parser [parseOffThread] should run. An enum instead of a callback:
 /// only top-level references travel to another isolate.
-enum ParseJob { tweetDetail, profile, follows, search, bookmarks }
+enum ParseJob { tweetDetail, profile, follows, search, searchUsers, bookmarks }
 
 /// Decodes [body] and runs the matching parser on a worker isolate, so pages
 /// of a few hundred KB do not block the frame they arrive in. The locale is
@@ -531,11 +531,37 @@ Future<T> parseOffThread<T>(String body, ParseJob job, {String? extra}) async {
       ParseJob.profile => parseProfile(json, extra!),
       ParseJob.follows => parseFollows(json),
       ParseJob.search => parseSearchTimeline(json, product: extra!),
+      ParseJob.searchUsers => parseSearchUsers(json),
       ParseJob.bookmarks => parseBookmarkTimeline(json),
     };
   });
 
   return result as T;
+}
+
+/// The user entries of a SearchTimeline answer for `product: People`.
+///
+/// Same shape the tweet search parses, one entry type over — so the People tab
+/// gets the worker isolate the tweet search already had, instead of a hand-rolled
+/// copy of the walk running on the calling isolate and blocking the frame for a
+/// page of hundreds of KB.
+List<UserWithExtra> parseSearchUsers(Map<String, dynamic> body) {
+  List instructions = List.from(
+      body['data']?['search_by_raw_query']?['search_timeline']?['timeline']?['instructions'] ?? const []);
+  if (instructions.isEmpty) return const [];
+
+  List addEntries = List.from(
+      instructions.firstWhere((e) => e['type'] == 'TimelineAddEntries', orElse: () => null)?['entries'] ??
+          const []);
+  if (addEntries.isEmpty) return const [];
+
+  return addEntries
+      .where((entry) => entry['entryId']?.startsWith('user-') ?? false)
+      .map((entry) => entry['content']?['itemContent']?['user_results']?['result'])
+      .whereType<Map<String, dynamic>>()
+      .where((result) => result['rest_id'] != null)
+      .map(UserWithExtra.fromNonLegacyJson)
+      .toList();
 }
 
 /// The bookmarks timeline nests under its own key, unlike the other
