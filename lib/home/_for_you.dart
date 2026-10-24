@@ -34,6 +34,10 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
     ++loadTweetsCounter;
   }
 
+  void resetLoadTweetsCounter() {
+    loadTweetsCounter = 0;
+  }
+
   int getLoadTweetsCounter() {
     return loadTweetsCounter;
   }
@@ -54,6 +58,7 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
       seenTweetIds: seen,
       getTweetsCounter: getLoadTweetsCounter,
       incrementTweetsCounter: incrementLoadTweetsCounter,
+      resetTweetsCounter: resetLoadTweetsCounter,
     );
     if (kDebugMode) {
       // One greppable line per fetch: a rotated endpoint answers 404 (logged

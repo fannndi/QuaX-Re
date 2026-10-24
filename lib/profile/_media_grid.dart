@@ -47,6 +47,10 @@ class _ProfileMediaGridState extends State<ProfileMediaGrid> {
     ++loadTweetsCounter;
   }
 
+  void resetLoadTweetsCounter() {
+    loadTweetsCounter = 0;
+  }
+
   int getLoadTweetsCounter() {
     return loadTweetsCounter;
   }
@@ -61,6 +65,7 @@ class _ProfileMediaGridState extends State<ProfileMediaGrid> {
       includeReplies: false,
       getTweetsCounter: getLoadTweetsCounter,
       incrementTweetsCounter: incrementLoadTweetsCounter,
+      resetTweetsCounter: resetLoadTweetsCounter,
     );
 
     return mediaPageFromStatus(result, cursor);

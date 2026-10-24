@@ -18,7 +18,10 @@ String fixtureBody(String operation, {String? file}) {
 void main() {
   final body = fixtureBody('HomeTimeline');
 
-  Future<TweetStatus> parse(String json, {required int Function() counter, required void Function() bump}) =>
+  Future<TweetStatus> parse(String json,
+          {required int Function() counter,
+          required void Function() bump,
+          void Function()? reset}) =>
       parseChainsOnIsolate(json,
           conversationless: false,
           tweetIndicator: 'tweet',
@@ -27,7 +30,8 @@ void main() {
           includeReplies: false,
           showPinnedTweet: false,
           getTweetsCounter: counter,
-          incrementTweetsCounter: bump);
+          incrementTweetsCounter: bump,
+          resetTweetsCounter: reset);
 
   /// The recorded page trimmed down to one chain and its bottom cursor, which
   /// is what X answers when the feed has nothing fresher to give.
@@ -84,6 +88,34 @@ void main() {
       expect(small.cursorBottom, isNull,
           reason: 'X can answer page after page of near-empty results; without dropping the cursor '
               'the pager would keep asking forever');
+    });
+
+    test('Should reset the count once a full page comes back', () async {
+      var counter = 5;
+      var resets = 0;
+
+      final full = await parse(body, counter: () => counter, bump: () => counter++, reset: () {
+        counter = 0;
+        resets++;
+      });
+
+      expect(full.chains, isNotEmpty, reason: 'The full page must still be parsed and returned');
+      expect(counter, 0,
+          reason: 'The count only ever grew before: after six near-empty pages it stayed above the '
+              'threshold forever, so the feed could never page again until its widget was rebuilt — '
+              'even once X went back to serving full pages');
+      expect(resets, 1, reason: 'A healthy page is what clears the count');
+    });
+
+    test('Should not reset the count on a near-empty page', () async {
+      var counter = 2;
+      var resets = 0;
+
+      await parse(nearEmptyPage(), counter: () => counter, bump: () => counter++, reset: () => resets++);
+
+      expect(resets, 0,
+          reason: 'A near-empty page is the condition being counted, so it must not clear the count');
+      expect(counter, 3, reason: 'The near-empty page still counts towards the give-up limit');
     });
   });
 

@@ -31,6 +31,10 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
     ++loadTweetsCounter;
   }
 
+  void resetLoadTweetsCounter() {
+    loadTweetsCounter = 0;
+  }
+
   int getLoadTweetsCounter() {
     return loadTweetsCounter;
   }
@@ -41,6 +45,7 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
       count: pageSize,
       getTweetsCounter: getLoadTweetsCounter,
       incrementTweetsCounter: incrementLoadTweetsCounter,
+      resetTweetsCounter: resetLoadTweetsCounter,
     );
     if (kDebugMode) {
       // An empty page here is normal for a quiet following list; the feed

@@ -27,7 +27,8 @@ class ProfileTweets extends StatelessWidget {
     return ProfileTweetFeed(
       user: user,
       emptyMessage: L10n.of(context).could_not_find_any_tweets_by_this_user,
-      loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getTweets(
+      loadPage: (cursor, getTweetsCounter, incrementTweetsCounter, resetTweetsCounter) =>
+          Twitter.getTweets(
         user.idStr!,
         type,
         pinnedTweets,
@@ -36,6 +37,7 @@ class ProfileTweets extends StatelessWidget {
         includeReplies: includeReplies,
         getTweetsCounter: getTweetsCounter,
         incrementTweetsCounter: incrementTweetsCounter,
+        resetTweetsCounter: resetTweetsCounter,
       ),
     );
   }

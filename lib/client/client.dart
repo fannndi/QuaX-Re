@@ -550,6 +550,7 @@ class Twitter {
     bool includeRetweets = true,
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
+    void Function()? resetTweetsCounter,
   }) async {
     final variables = <String, dynamic>{
       "count": count,
@@ -577,6 +578,7 @@ class Twitter {
       showPinnedTweet: cursor == null,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
+      resetTweetsCounter: resetTweetsCounter,
     );
   }
 
@@ -592,6 +594,7 @@ class Twitter {
     String? cursor,
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
+    void Function()? resetTweetsCounter,
   }) async {
     final variables = <String, dynamic>{
       "count": count,
@@ -618,6 +621,7 @@ class Twitter {
       showPinnedTweet: false,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
+      resetTweetsCounter: resetTweetsCounter,
     );
   }
 
@@ -632,6 +636,7 @@ class Twitter {
     String? cursor,
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
+    void Function()? resetTweetsCounter,
   }) async {
     var variables = {
       "userId": userId,
@@ -662,6 +667,7 @@ class Twitter {
       showPinnedTweet: false,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
+      resetTweetsCounter: resetTweetsCounter,
     );
   }
 
@@ -675,6 +681,7 @@ class Twitter {
     String? cursor,
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
+    void Function()? resetTweetsCounter,
   }) async {
     var variables = {
       "count": count,
@@ -702,6 +709,7 @@ class Twitter {
     bool includeRetweets = true,
     required int Function() getTweetsCounter,
     required void Function() incrementTweetsCounter,
+    void Function()? resetTweetsCounter,
   }) async {
     // The web's profile tabs are separate operations now (captured 2026-10):
     // originals, replies, videos and a photo grid. The old UserTweets /
@@ -772,6 +780,7 @@ class Twitter {
       showPinnedTweet: showPinnedTweet,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
+      resetTweetsCounter: resetTweetsCounter,
     );
   }
 

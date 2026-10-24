@@ -535,6 +535,7 @@ Future<TweetStatus> parseChainsOnIsolate(
   required bool showPinnedTweet,
   required int Function() getTweetsCounter,
   required void Function() incrementTweetsCounter,
+  void Function()? resetTweetsCounter,
 }) async {
   TweetStatus parse() {
     final result = jsonDecode(body) as Map<String, dynamic>;
@@ -554,7 +555,14 @@ Future<TweetStatus> parseChainsOnIsolate(
           return parse();
         });
 
-  if (status.chains.length >= 5) return status;
+  if (status.chains.length >= 5) {
+    // A healthy page resets the count. Without this the counter only ever grew:
+    // after six near-empty pages it stayed above the threshold forever, and the
+    // feed could never page again until its widget was rebuilt — even once X
+    // went back to serving full pages.
+    resetTweetsCounter?.call();
+    return status;
+  }
 
   incrementTweetsCounter();
   if (getTweetsCounter() > 5) {

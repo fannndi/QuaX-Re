@@ -17,7 +17,10 @@ import 'package:provider/provider.dart';
 /// Loads one page of a profile timeline: the caller supplies the endpoint
 /// through [loadPage] (posts, replies, likes…).
 typedef ProfilePageLoader = Future<TweetStatus> Function(
-    String? cursor, int Function() getTweetsCounter, void Function() incrementTweetsCounter);
+    String? cursor,
+    int Function() getTweetsCounter,
+    void Function() incrementTweetsCounter,
+    void Function()? resetTweetsCounter);
 
 /// A paginated tweet feed for a profile tab, shared by every endpoint that
 /// answers with the usual user-timeline shape.
@@ -58,12 +61,17 @@ class _ProfileTweetFeedState extends State<ProfileTweetFeed> with AutomaticKeepA
     ++loadTweetsCounter;
   }
 
+  void resetLoadTweetsCounter() {
+    loadTweetsCounter = 0;
+  }
+
   int getLoadTweetsCounter() {
     return loadTweetsCounter;
   }
 
   Future<CursorPage<String, TweetChain>> _fetchPage(String? cursor) async {
-    var result = await widget.loadPage(cursor, getLoadTweetsCounter, incrementLoadTweetsCounter);
+    var result = await widget.loadPage(
+        cursor, getLoadTweetsCounter, incrementLoadTweetsCounter, resetLoadTweetsCounter);
 
     if (mounted) {
       // Warm the pictures just below the viewport, like the home feeds do.

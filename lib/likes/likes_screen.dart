@@ -156,8 +156,8 @@ class _ProfileLikes extends StatelessWidget {
       builder: (user) => ProfileTweetFeed(
         user: user,
         emptyMessage: L10n.of(context).no_liked_posts_yet,
-        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) =>
-            _loadPage(user, cursor, getTweetsCounter, incrementTweetsCounter),
+        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter, resetTweetsCounter) =>
+            _loadPage(user, cursor, getTweetsCounter, incrementTweetsCounter, resetTweetsCounter),
       ),
     );
   }
@@ -172,6 +172,7 @@ class _ProfileLikes extends StatelessWidget {
     String? cursor,
     int Function() getTweetsCounter,
     void Function() incrementTweetsCounter,
+    void Function()? resetTweetsCounter,
   ) async {
     var userId = user.idStr;
     if (userId == null || userId.isEmpty) {
@@ -189,6 +190,7 @@ class _ProfileLikes extends StatelessWidget {
       count: 20,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
+      resetTweetsCounter: resetTweetsCounter,
     );
   }
 }
@@ -204,11 +206,13 @@ class _ProfileBookmarks extends StatelessWidget {
       builder: (user) => ProfileTweetFeed(
         user: user,
         emptyMessage: L10n.of(context).no_bookmarks_yet,
-        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter) => Twitter.getBookmarks(
+        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter, resetTweetsCounter) =>
+            Twitter.getBookmarks(
           cursor: cursor,
           count: 20,
           getTweetsCounter: getTweetsCounter,
           incrementTweetsCounter: incrementTweetsCounter,
+          resetTweetsCounter: resetTweetsCounter,
         ),
       ),
     );
