@@ -8,6 +8,11 @@
 // broke the same week. When Search and follows start answering 404, run this
 // first: it says whether the generator can still find its inputs or whether the
 // walk in ClientTransaction._findIndicesFileUrl needs updating again.
+//
+// What it cannot tell you is whether the *key* is right. X reshaping the
+// loading-x-anim SVG does not throw — it produces a plausible-looking id that
+// X answers 403 for, and this tool would print OK. Only a real request with a
+// real session distinguishes the two, so the output says so.
 import 'dart:io';
 
 import 'package:quax/client/x_client_transaction_id/client_transaction.dart';
@@ -23,9 +28,20 @@ Future<void> main() async {
     stopwatch.stop();
     stdout.writeln('OK   ${stopwatch.elapsedMilliseconds} ms');
     stdout.writeln('id   ${id.length} base64 chars, starts ${id.substring(0, 12)}…');
+
+    final looksWellFormed =
+        id.length >= 100 && RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(id);
     stdout.writeln('');
-    stdout.writeln('The generator found its inputs. If Search still 404s, the');
-    stdout.writeln('problem is the queryId or the endpoint, not this header.');
+    if (looksWellFormed) {
+      stdout.writeln('The generator found its inputs and produced a well-formed');
+      stdout.writeln('id. That is all this can check: a *wrong* key still looks');
+      stdout.writeln('well-formed, and only a request that answers 403 tells the');
+      stdout.writeln('two apart. If Search 403s rather than 404s, the queryId and');
+      stdout.writeln('the endpoint are fine and the animation key is wrong.');
+    } else {
+      stdout.writeln('WARN the id is not the shape this port produces. Treat that');
+      stdout.writeln('as a broken derivation, not a working one.');
+    }
   } catch (e, stackTrace) {
     stopwatch.stop();
     stdout.writeln('FAIL ${stopwatch.elapsedMilliseconds} ms');
