@@ -241,23 +241,6 @@ class TweetWithCard extends Tweet {
     };
   }
 
-  factory TweetWithCard.fromCardJson(Map<String, dynamic> tweets, Map<String, dynamic> users, Map<String, dynamic> e) {
-    var user = e['user_id_str'] == null ? null : UserWithExtra.fromJson(users[e['user_id_str']]);
-
-    var retweetedStatus = e['retweeted_status_id_str'] == null
-        ? null
-        : TweetWithCard.fromCardJson(tweets, users, tweets[e['retweeted_status_id_str']]);
-
-    // Some quotes aren't returned, even though we're given their ID, so double check and don't fail with a null value
-    TweetWithCard? quotedStatus;
-    var quoteId = e['quoted_status_id_str'];
-    if (quoteId != null && tweets[quoteId] != null) {
-      quotedStatus = TweetWithCard.fromCardJson(tweets, users, tweets[quoteId]);
-    }
-
-    return TweetWithCard.fromData(e, null, null, user, retweetedStatus, quotedStatus, null);
-  }
-
   factory TweetWithCard.fromData(
     Map<String, dynamic> e,
     String? noteText,

@@ -10,7 +10,10 @@ import 'package:quax/user.dart';
 import 'package:quax/utils/image_prefetch.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
 
-final UserWithExtra user = UserWithExtra.fromArguments(idStr: "1", possiblySensitive: false, screenName: "ForYou");
+/// The For You feed has no author to filter by, but [PaginatedTweetList] takes
+/// a username it uses for per-account state. A constant, not a fake
+/// [UserWithExtra] built once per process.
+const _username = 'ForYou';
 
 class ForYouTweets extends StatefulWidget {
   final TweetFeedController feed;
@@ -50,7 +53,7 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
         : null;
 
     final result = await Twitter.getTimelineTweets(
-      user.idStr!,
+      _username,
       'profile',
       cursor: cursor,
       count: pageSize,
@@ -80,7 +83,7 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
       child: PaginatedTweetList(
         feed: widget.feed,
         loadPage: _loadTweets,
-        username: user.screenName,
+        username: _username,
         onRefresh: () async {},
         scrollKey: 'home.foryou.${widget.accountId ?? 'none'}',
         firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,

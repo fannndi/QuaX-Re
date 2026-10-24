@@ -355,9 +355,9 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
   }
 
-// The footer buttons derive their colour from the body text colour through HSL
-// math that runs several times per card rebuild; the mapping is fixed, so one
-// entry per source colour is enough.
+/// The footer buttons derive their colour from the body text colour through HSL
+/// math that runs several times per card rebuild; the mapping is fixed, so one
+/// entry per source colour is enough.
 final Map<Color, Color> _buttonsColors = {};
 
 Color? buttonsColor(BuildContext c) {
