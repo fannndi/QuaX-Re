@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
@@ -391,14 +392,25 @@ Color? buttonsColor(BuildContext c) {
       return null;
     }
     final RenderRepaintBoundary boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-    final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData == null) {
-      return null;
+    // Capped: a media-bearing card at pixelRatio 3.0 on a 1440p phone is a
+    // 3240x5400 RGBA image — about 70 MB in one allocation, then a second
+    // ~35 MB PNG buffer, on the raster thread with no await in between. That is
+    // the single most likely OOM in the app, and it is reachable from the share
+    // sheet of any tweet with a video or a four-photo carousel. A share target
+    // cannot show the difference.
+    final ratio = math.min(2.0, MediaQuery.devicePixelRatioOf(context));
+    final ui.Image image = await boundary.toImage(pixelRatio: ratio);
+    try {
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        return null;
+      }
+      return byteData.buffer.asUint8List();
+    } finally {
+      // toByteData does not dispose the source, so without this every share
+      // leaks one full-card native image.
+      image.dispose();
     }
-    final Uint8List pngBytes = byteData.buffer.asUint8List();
-
-    return pngBytes;
   }
 
   @override
