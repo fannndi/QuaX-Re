@@ -41,7 +41,7 @@ if (keystoreFile != null && !keystoreFile.isEmpty()) {
 
 android {
     namespace 'com.teskann.quax'
-    compileSdkVersion 37
+    compileSdkVersion 36
     ndkVersion = "30.0.16248370"
 
     dependenciesInfo {
@@ -60,7 +60,12 @@ android {
     defaultConfig {
         applicationId "com.fannndi.quaxre"
         minSdkVersion flutter.minSdkVersion
-        targetSdkVersion 37
+        // 36, matching Flutter's own FlutterExtension and every plugin
+        // (better_player_plus compiles against 36). 37 opts into Android 37
+        // behaviour changes the app cannot be tested against here — and
+        // requestLegacyExternalStorage is ignored from API 37 on, leaving the
+        // whole storage story resting on MANAGE_EXTERNAL_STORAGE untested.
+        targetSdkVersion 36
         multiDexEnabled true
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -85,6 +90,21 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
+        }
+
+        // Declared explicitly because the flutter-gradle-plugin does not
+        // initialize it from release. Without this a profile build got AGP's
+        // defaults: no minifyEnabled and no shrinkResources, so it never
+        // exercised the R8 path a release build runs (a missing media3 keep
+        // rule is invisible until release), and it was signed with the debug
+        // config — so `adb install -r app-arm64-v8a-profile.apk`, the workflow
+        // AGENTS.md documents, installs a debug-signed APK that cannot coexist
+        // with a release-signed one of the same applicationId.
+        profile {
+            signingConfig signingConfigs.release
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
 
         release {
