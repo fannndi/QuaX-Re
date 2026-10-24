@@ -10,8 +10,14 @@ const _kSeekSeconds = 10;
 /// The current playback value, or a zeroed one before the data source has
 /// initialized. Read fresh from the controller so it survives the underlying
 /// [videoPlayerController] being swapped on a quality change.
+///
+/// The fallback is a shared instance: this runs on every player event, and
+/// allocating a fresh `VideoPlayerValue` each time (before the source is set
+/// up) is garbage for a value that is always the same.
 VideoPlayerValue videoValueOf(BetterPlayerController controller) =>
-    controller.videoPlayerController?.value ?? VideoPlayerValue(duration: Duration.zero);
+    controller.videoPlayerController?.value ?? _uninitializedValue;
+
+final VideoPlayerValue _uninitializedValue = VideoPlayerValue(duration: Duration.zero);
 
 class QuaxControls extends StatefulWidget {
   final BetterPlayerController controller;
@@ -187,7 +193,13 @@ class _PlayerListenable extends StatefulWidget {
   final BetterPlayerController controller;
   final Widget Function(BuildContext, VideoPlayerValue) builder;
 
-  const _PlayerListenable({required this.controller, required this.builder});
+  /// Whether this widget needs to rebuild on the player's ~3 Hz `progress`
+  /// events. Only the position readout does; the mute and fullscreen buttons
+  /// care about a volume change or a lifecycle event, and rebuilding them on
+  /// every progress tick is pure waste.
+  final bool watchProgress;
+
+  const _PlayerListenable({required this.controller, required this.builder, this.watchProgress = false});
 
   @override
   State<_PlayerListenable> createState() => _PlayerListenableState();
@@ -199,7 +211,12 @@ class _PlayerListenableState extends State<_PlayerListenable> {
   @override
   void initState() {
     super.initState();
-    _listener = (_) {
+    _listener = (event) {
+      // The player emits `progress` roughly every 300ms while playing. A widget
+      // that only cares about play/pause, buffering or volume has no reason to
+      // rebuild three times a second for it — the mute and fullscreen buttons
+      // used to, because they shared this listener with the position indicator.
+      if (!widget.watchProgress && event.betterPlayerEventType == BetterPlayerEventType.progress) return;
       if (mounted) setState(() {});
     };
     widget.controller.addEventsListener(_listener);
@@ -436,6 +453,7 @@ class _PositionIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PlayerListenable(
       controller: controller,
+      watchProgress: true,
       builder: (context, value) {
         final duration = value.duration ?? Duration.zero;
         return RichText(
@@ -492,7 +510,11 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
       if (mounted) setState(_sync);
     };
     widget.controller.addEventsListener(_listener);
-    _ticker.start();
+    // Started only when something is actually playing: a ticker that runs from
+    // initState to dispose fires at ~60 Hz for every video that ever mounted
+    // controls, paused and buffering ones included, to drive a bar the eye reads
+    // at about 1 Hz.
+    if (_playing) _ticker.start();
   }
 
   // The player only samples position ~every 300ms; interpolate between samples
@@ -515,6 +537,13 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
     if (_dragFraction == null) {
       _base = value.position;
       _baseElapsed = _elapsed;
+    }
+    // Follow the player: a seek or a pause has to stop the interpolation, and
+    // resuming has to restart it.
+    if (_playing && !_ticker.isActive) {
+      _ticker.start();
+    } else if (!_playing && _ticker.isActive) {
+      _ticker.stop();
     }
   }
 
