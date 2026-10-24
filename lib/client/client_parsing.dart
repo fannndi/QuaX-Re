@@ -116,7 +116,14 @@ List<TweetChain> createTweetChains(List<dynamic> addEntries) {
         if (tweet == null) continue;
         replies.add(TweetChain(id: result['rest_id'], tweets: [tweet], isPinned: false));
       } else {
-        replies.add(TweetChain(id: entryId.substring(6), tweets: [TweetWithCard.tombstone({})], isPinned: false));
+        // Pass the real tombstone payload, not an empty map: X's own reason
+        // ("This post was deleted", age-gated, ...) is in
+        // tweetResult['tombstone'], and an empty map made every tombstone in a
+        // thread show the generic "unavailable" text while the specific one sat
+        // unused in hand.
+        final tombstone = tweetResult['tombstone'] ?? tweetResult;
+        replies.add(TweetChain(
+            id: entryId.substring(6), tweets: [TweetWithCard.tombstone(tombstone)], isPinned: false));
       }
     }
 

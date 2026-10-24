@@ -34,9 +34,21 @@ class TweetWithCard extends Tweet {
     var tweetWithCard = TweetWithCard();
     tweetWithCard.idStr = '';
     tweetWithCard.isTombstone = true;
-    tweetWithCard.text =
-        ((e['richText']?['text'] ?? e['text']?['text'] ?? L10n.current.this_tweet_is_unavailable) as String)
-            .replaceFirst(' Learn more', '');
+    // A tombstone payload X does not shape the way we expect must not turn a
+    // "this post was deleted" card into a thrown error inside the parse
+    // isolate, which would surface as a generic failure instead of the card.
+    // Each level is checked: X has sent richText as a plain string, and
+    // indexing a String with a key throws.
+    final Map? payload = e is Map ? e : null;
+    String? text;
+    for (final key in const ['richText', 'text']) {
+      final node = payload?[key];
+      if (node is Map && node['text'] is String) {
+        text = node['text'] as String;
+        break;
+      }
+    }
+    tweetWithCard.text = (text ?? L10n.current.this_tweet_is_unavailable).replaceFirst(' Learn more', '');
 
     return tweetWithCard;
   }
