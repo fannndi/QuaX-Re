@@ -390,9 +390,10 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                         child: Text('@${(user.screenName!)}',
                                             style: TextStyle(
                                                 fontSize: 14,
-                                                color: theme.brightness == Brightness.dark
-                                                    ? Colors.white70
-                                                    : Colors.black54)),
+                                                // A role, not a light/dark flip: the hand-rolled
+                                                // white/black pair ignores dynamic colour, the
+                                                // seeded palettes and true-black.
+                                                color: theme.colorScheme.onSurfaceVariant)),
                                       ),
                                       if (user.description != null && user.description!.isNotEmpty)
                                         MeasureSize(
@@ -410,9 +411,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                                   TextSpan(
                                                       style: TextStyle(
                                                           height: 1.4,
-                                                          color: theme.brightness == Brightness.dark
-                                                              ? Colors.white
-                                                              : Colors.black),
+                                                          color: theme.colorScheme.onSurface),
                                                       children: displayRichText(descParts)
                                                   ))),
                                         ),
@@ -442,9 +441,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                                                   children: [
                                                                     Icon(Icons.location_on,
                                                                         size: 12,
-                                                                        color: theme.brightness == Brightness.dark
-                                                                            ? Colors.white
-                                                                            : Colors.black),
+                                                                        color: theme.colorScheme.onSurface),
                                                                     const SizedBox(width: 4),
                                                                     Text(user.location!, style: metadataTextStyle),
                                                                     const SizedBox(
@@ -462,9 +459,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                                                     children: [
                                                                       Icon(Icons.link,
                                                                           size: 12,
-                                                                          color: theme.brightness == Brightness.dark
-                                                                              ? Colors.white
-                                                                              : Colors.black),
+                                                                          color: theme.colorScheme.onSurface),
                                                                       const SizedBox(width: 4),
                                                                       Builder(builder: (context) {
                                                                         var url = user.entities?.url?.urls?.firstWhere(
@@ -507,9 +502,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                                                   children: [
                                                                     Icon(Icons.calendar_today,
                                                                         size: 12,
-                                                                        color: theme.brightness == Brightness.dark
-                                                                            ? Colors.white
-                                                                            : Colors.black),
+                                                                        color: theme.colorScheme.onSurface),
                                                                     const SizedBox(width: 4),
                                                                     Text(
                                                                         L10n.of(context).joined(DateFormat('MMMM yyyy')
@@ -538,9 +531,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                                                         children: [
                                                                           Icon(Icons.person,
                                                                               size: 12,
-                                                                              color: theme.brightness == Brightness.dark
-                                                                                  ? Colors.white
-                                                                                  : Colors.black),
+                                                                              color: theme.colorScheme.onSurface),
                                                                           const SizedBox(width: 4),
                                                                           Text.rich(TextSpan(children: [
                                                                             TextSpan(
@@ -573,9 +564,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                                                         children: [
                                                                           Icon(Icons.person,
                                                                               size: 12,
-                                                                              color: theme.brightness == Brightness.dark
-                                                                                  ? Colors.white
-                                                                                  : Colors.black),
+                                                                              color: theme.colorScheme.onSurface),
                                                                           const SizedBox(width: 4),
                                                                           Text.rich(TextSpan(children: [
                                                                             TextSpan(
@@ -632,7 +621,9 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                           margin: EdgeInsets.fromLTRB(16, profileImageTop, 16, 16),
                           child: CircleAvatar(
                             radius: 50,
-                            backgroundColor: Colors.white,
+                            // A role, not Colors.white: a hardcoded white disc
+                            // draws itself on top of a true-black screen.
+                            backgroundColor: theme.colorScheme.surfaceContainerHighest,
                             child: GestureDetector(
                               child: UserAvatar(uri: user.profileImageUrlHttps, size: 96),
                               onTap: () {

@@ -66,6 +66,16 @@ class TweetCard extends StatelessWidget {
   }
 
   Container _createListTile(BuildContext context, String title, String? description, String? uri) {
+    // onSurface, not Colors.white: the card's background is inversePrimary,
+    // which in a *light* scheme is a light tint of the primary. White 13px text
+    // on pale blue is about 1.2:1 — invisible. It happens to look right in dark
+    // mode, which is the mode it was clearly not written for.
+    //
+    // onSurface rather than onInversePrimary: this Flutter has no
+    // onInversePrimary role, and onSurface is the one that tracks the text
+    // colour the rest of the card uses.
+    final onCard = Theme.of(context).colorScheme.onSurface;
+
     return Container(
       padding: const EdgeInsets.only(left: 12, right: 12, bottom: 4),
       child: Column(
@@ -80,7 +90,7 @@ class TweetCard extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .titleMedium!
-                  .copyWith(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  .copyWith(color: onCard, fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
           if (description != null)
@@ -90,7 +100,7 @@ class TweetCard extends StatelessWidget {
                 description,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 2,
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white, fontSize: 12),
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: onCard, fontSize: 12),
               ),
             ),
           if (uri != null)
@@ -99,11 +109,11 @@ class TweetCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Icon(Icons.link, size: 12, color: Colors.white),
+                  Icon(Icons.link, size: 12, color: onCard),
                   const SizedBox(width: 4),
                   Text(uri,
                       style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                            color: Colors.white,
+                            color: onCard,
                           )),
                 ],
               ),
@@ -118,7 +128,11 @@ class TweetCard extends StatelessWidget {
     var choicePercent = total == 0 ? 0 : (100 / total) * choiceCount;
 
     var theme = Theme.of(context);
-    var textColor = theme.brightness == Brightness.light ? Colors.black : Colors.white;
+    // onSurface rather than a light/dark flip: this bar sits on the card's
+    // inversePrimary background, which is the *opposite* brightness of the
+    // surface by definition, so flipping on theme.brightness picks the wrong
+    // one. The role is what the background it actually paints on needs.
+    var textColor = theme.colorScheme.onSurface;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -127,9 +141,7 @@ class TweetCard extends StatelessWidget {
           height: 24,
           child: LinearProgressIndicator(
               value: choicePercent / 100,
-              color: theme.brightness == Brightness.light
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
-                  : Theme.of(context).colorScheme.primary.withValues(alpha: 0.7)),
+              color: theme.colorScheme.primary.withValues(alpha: theme.brightness == Brightness.light ? 0.3 : 0.7)),
         ),
         Container(
             alignment: Alignment.centerLeft,
