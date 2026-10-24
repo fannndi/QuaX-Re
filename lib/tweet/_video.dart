@@ -526,24 +526,22 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     _detachListeners();
     final key = _cacheKey;
     if (key != null) _pool?.markHidden(key, this);
-    // Keep the controller alive across the fullscreen route; just don't
-    // dispose/release it here. Detaching listeners and releasing the pool ref,
-    // though, is always safe (the pool owns the controller) and must happen even
-    // in fullscreen, or this widget leaks its subscriptions and pins the entry.
+    // Keep the *controller* alive across the fullscreen route — the pool owns
+    // it and the fullscreen player is using it. The pool ref is a different
+    // thing: this widget is gone, so it must give the ref back no matter what,
+    // or the entry's refCount never reaches zero and can never be evicted
+    // (~35 MB of native decoder per leaked ref, until the process dies).
     final fullscreen = _pooled?.controller.isFullScreen ?? false;
-    if (!fullscreen) {
-      if (_ownsControllers) {
-        _pooled?.dispose();
-      } else if (key != null && _holdsPoolRef) {
-        // A fast fling can dispose this widget before the debounced pause timer
-        // fires; releasing the pool ref alone leaves the player running off-screen.
-        // Pause it now, unless the same video is still on screen in another widget.
-        if (!widget.alwaysPlay && !(_pool?.anyVisible(key) ?? false)) {
-          _pooled?.pause();
-        }
-        _pool?.release(key);
-        _holdsPoolRef = false;
+    if (!fullscreen && _ownsControllers) {
+      _pooled?.dispose();
+    } else if (key != null && _holdsPoolRef) {
+      // A fast fling can dispose this widget before the debounced pause timer
+      // fires; releasing the pool ref alone leaves the player running off-screen.
+      if (!fullscreen && !widget.alwaysPlay && !(_pool?.anyVisible(key) ?? false)) {
+        _pooled?.pause();
       }
+      _pool?.release(key);
+      _holdsPoolRef = false;
     }
     super.dispose();
   }

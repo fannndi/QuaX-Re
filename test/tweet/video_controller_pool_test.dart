@@ -1,9 +1,27 @@
 import 'dart:async';
 
+import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
 
 void main() {
+  /// A player that resolves immediately, so the pool's disposal path actually
+  /// runs. The suite previously used only futures that never complete, which
+  /// meant `disposeWhenReady()` never fired and the one thing the pool exists
+  /// for — releasing the native player — was never tested.
+  ///
+  /// The controller is built without a data source: `setupDataSource` is what
+  /// touches the platform channel, and a unit test has none.
+  Future<PooledVideo> buildable() async {
+    final controller = BetterPlayerController(const BetterPlayerConfiguration(autoDispose: false));
+    return PooledVideo(
+      controller: controller,
+      downloadUrl: 'https://video.x.com/clip.mp4',
+      qualities: const [],
+      pausableByPolicy: true,
+    );
+  }
+
   Future<PooledVideo> neverFinishesBuilding() => Completer<PooledVideo>().future;
 
   group('VideoControllerPool.acquire()', () {
@@ -133,6 +151,82 @@ void main() {
       expect(() => pool.markHidden('unknown', Object()), returnsNormally,
           reason: 'Widgets are not removed in a fixed order, so a tile can report hidden after '
               'its key was already cleaned up, and that should be ignored rather than throw');
+    });
+  });
+
+  group('VideoControllerPool eviction', () {
+    test('Should dispose a player it evicts, once it has finished building', () async {
+      final pool = VideoControllerPool(maxSize: 1);
+      pool.acquire('a', buildable);
+      pool.release('a');
+      await pumpEventQueue();
+      pool.acquire('b', buildable);
+      await pumpEventQueue();
+
+      expect(pool.contains('a'), isFalse,
+          reason: 'a is the oldest unused player, so eviction should drop it');
+      expect(pool.peek('a'), isNull,
+          reason: 'The evicted entry is gone from the pool, so peek() has nothing to hand back');
+    });
+
+    test('Should let a released player be evicted again by a later acquire', () async {
+      final pool = VideoControllerPool(maxSize: 2);
+      pool.acquire('a', buildable);
+      await pumpEventQueue();
+      pool.acquire('b', buildable);
+      await pumpEventQueue();
+      pool.release('a');
+      pool.release('b');
+
+      pool.acquire('c', buildable);
+      await pumpEventQueue();
+
+      expect(pool.contains('a'), isFalse,
+          reason: 'a was released before c was asked for, so it is the oldest unused one');
+      expect(pool.contains('b'), isTrue, reason: 'Only one player had to go');
+    });
+  });
+
+  group('VideoControllerPool refCount', () {
+    test('Should let every holder release before the entry can be evicted', () async {
+      final pool = VideoControllerPool(maxSize: 1);
+      // Two widgets showing the same video: the feed tile and the open tweet.
+      pool.acquire('shared', buildable);
+      pool.acquire('shared', buildable);
+      await pumpEventQueue();
+
+      pool.release('shared');
+      pool.acquire('other', buildable);
+      await pumpEventQueue();
+
+      expect(pool.contains('shared'), isTrue,
+          reason: 'One holder released but the other is still on screen, so the player must not be '
+              'evicted — closing it would stop playback the reader is watching');
+      expect(pool.contains('other'), isTrue,
+          reason: 'The pool goes over its size rather than drop a player that is still in use');
+
+      pool.release('shared');
+      pool.acquire('third', buildable);
+      await pumpEventQueue();
+
+      expect(pool.contains('shared'), isFalse,
+          reason: 'With both holders gone the entry is finally evictable; a refCount that never '
+              'reaches zero pins the entry (and its ~35 MB decoder) for the life of the process');
+    });
+
+    test('Should not evict an entry whose refCount was never brought back to zero', () async {
+      final pool = VideoControllerPool(maxSize: 1);
+      // The fullscreen leak: the widget is gone but never gave its ref back.
+      pool.acquire('leaked', buildable);
+      await pumpEventQueue();
+      pool.acquire('other', buildable);
+      await pumpEventQueue();
+      pool.acquire('third', buildable);
+      await pumpEventQueue();
+
+      expect(pool.contains('leaked'), isTrue,
+          reason: 'This documents why the leak matters: an entry nobody releases can never be '
+              'evicted, so each one is a permanent native player');
     });
   });
 }
