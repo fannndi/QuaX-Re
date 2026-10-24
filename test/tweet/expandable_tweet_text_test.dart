@@ -75,4 +75,25 @@ void main() {
         reason: 'Rebuilding with the same text must reuse the first measurement; the whole point '
             'is that scrolling does not re-run the text layout');
   });
+
+  testWidgets('Should measure RTL text in its own direction, not LTR', (tester) async {
+    // The measurement used to hardcode TextDirection.ltr, so an Arabic or Hebrew
+    // tweet got an LTR line count. That puts "show more" on text that is not
+    // truncated, and — the worse half — leaves it off text that is, so the reader
+    // is stuck with a silently clipped post and no affordance to expand it.
+    //
+    // A run of Arabic words wraps differently from the same run of Latin ones at
+    // the same width, which is what makes the two directions disagree.
+    final rtlSpans = [TextSpan(text: 'هذا نص عربي طويل بما يكفي ليشغل أكثر من ثمانية أسطر في البطاقة. ' * 40)];
+
+    await tester.pumpWidget(_wrap(Directionality(
+      textDirection: TextDirection.rtl,
+      child: ExpandableTweetText(textSpans: rtlSpans, maxLines: 8),
+    )));
+
+    final state = tester.state<ExpandableTweetTextState>(find.byType(ExpandableTweetText));
+    expect(state.debugMeasuredTruncated, isTrue,
+        reason: 'A long RTL post must be reported as truncated. Measuring it LTR under-counts the '
+            'lines, and the reader loses the button that reveals the rest');
+  });
 }

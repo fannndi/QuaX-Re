@@ -23,10 +23,11 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
   // Answering "does this overflow?" with a throwaway TextPainter is the most
   // expensive part of building a card, and the feed rebuilds its tiles often
   // (freshness tags, consumers, scroll-driven rebuilds). The answer only
-  // depends on the text, the width and the text scale, so it is measured once
-  // and reused until one of those changes.
+  // depends on the text, the width, the text scale and the direction, so it is
+  // measured once and reused until one of those changes.
   double? _measuredAtWidth;
   double? _measuredScale;
+  TextDirection? _measuredDirection;
   bool? _measuredTruncated;
 
   /// Test-only: the result of the last overflow measurement, or null when the
@@ -37,13 +38,24 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
     if (!mounted || widget.maxLines == null) return false;
 
     final scale = MediaQuery.textScalerOf(context).scale(1.0);
-    if (_measuredTruncated != null && _measuredAtWidth == width && _measuredScale == scale) {
+    // The direction the text will actually be laid out in, not a hardcoded ltr:
+    // measuring an Arabic or Hebrew tweet left-to-right gives the wrong line
+    // count, so the "show more" button appears on text that is not truncated —
+    // or, worse, is missing on text that is, leaving the reader with a silently
+    // clipped post and no way to expand it. It also belongs in the memo key, or
+    // switching between an LTR and an RTL tweet at the same width reuses the
+    // LTR answer.
+    final direction = Directionality.of(context);
+    if (_measuredTruncated != null &&
+        _measuredAtWidth == width &&
+        _measuredScale == scale &&
+        _measuredDirection == direction) {
       return _measuredTruncated!;
     }
 
     final painter = TextPainter(
       text: TextSpan(children: widget.textSpans),
-      textDirection: TextDirection.ltr,
+      textDirection: direction,
       textScaler: MediaQuery.textScalerOf(context),
     );
 
@@ -53,6 +65,7 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
 
     _measuredAtWidth = width;
     _measuredScale = scale;
+    _measuredDirection = direction;
     _measuredTruncated = truncated;
     return truncated;
   }
