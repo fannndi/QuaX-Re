@@ -68,17 +68,27 @@ dependencies:
   webview_cookie_manager_plus: ^2.0.16
 
   # Localization & Styling
-  intl: any
+  # Matches the override below rather than floating as `any`: the override is
+  # what actually pins this, and a reader seeing `any` would assume otherwise.
+  # The override can go once auto_direction ships an intl-0.20-compatible
+  # release.
+  intl: ^0.20.2
   dynamic_color: ^2.1.0
 
   # State Management & Data
   # material_ui migration merged upstream but not yet released on pub.dev
-  # (latest there is 2.8.0, from 2024-01-04). Pin the merge commit until 2.9.0
-  # ships, then switch back to a hosted constraint.
+  # (latest there is 2.8.0, from 2024-01-04). Pin the merge commit until 3.0.0
+  # ships on pub.dev, then switch back to a hosted constraint.
+  #
+  # Pinned at v3.0.0 rather than at the migration commit 7fa5971, because the
+  # four commits after it fix the migration itself — including slider.dart and
+  # radio.dart, which the settings screen's PrefSlider uses. A git dependency
+  # with a ref but no integrity hash is a supply-chain risk, so this is worth
+  # replacing the moment pub.dev has it.
   pref:
     git:
       url: https://github.com/DavBfr/flutter_pref.git
-      ref: 7fa597165e0e20d3a5379869846b98f6222ac9ff
+      ref: 9115c1e7c1f9ecb7e0f76627bf3a89adc29b918a
       path: pref
   provider: ^6.0.4
   flutter_triple: ^3.0.0
