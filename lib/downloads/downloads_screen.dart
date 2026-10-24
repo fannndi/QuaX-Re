@@ -80,8 +80,7 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
 
   /// The queue app bar: queue-wide actions normally, selection actions while
   /// entries are selected.
-  List<Widget> _buildActions(BuildContext context, List<DownloadQueueItem> queue, bool hasActive,
-      bool hasResumable, bool hasFinished) {
+  List<Widget> _buildActions(BuildContext context, List<DownloadQueueItem> queue) {
     if (_selectionActive) {
       return [
         IconButton(
@@ -106,6 +105,12 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
         ),
       ];
     }
+
+    final hasActive = queue.any((item) =>
+        item.status == DownloadStatus.running || item.status == DownloadStatus.queued);
+    final hasResumable = queue.any((item) =>
+        item.status == DownloadStatus.paused || item.status == DownloadStatus.error);
+    final hasFinished = queue.any((item) => item.status == DownloadStatus.done);
 
     return [
       if (hasActive)
@@ -139,44 +144,54 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    return ScopedBuilder<DownloadsModel, List<DownloadQueueItem>>.transition(
-      store: _queue,
-      onError: (_, e) => Center(child: Text(e.toString())),
-      onLoading: (_) => const Center(child: CircularProgressIndicator()),
-      onState: (_, queue) {
-        final hasFinished = queue.any((item) => item.status == DownloadStatus.done);
-        final hasActive = queue.any((item) =>
-            item.status == DownloadStatus.running || item.status == DownloadStatus.queued);
-        final hasResumable = queue.any((item) =>
-            item.status == DownloadStatus.paused || item.status == DownloadStatus.error);
-        return Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            title: _selectionActive
-                ? Text('${_selected.length}')
-                : TabBar(
-                    controller: _tabController,
-                    tabs: [
-                      Tab(text: L10n.of(context).queue),
-                      Tab(text: L10n.of(context).gallery),
-                    ],
-                  ),
-            actions: _buildActions(context, queue, hasActive, hasResumable, hasFinished),
-          ),
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _QueueList(
-                queue: queue,
-                prefs: widget.prefs,
-                selectedNames: _selected,
-                onToggle: _toggleSelection,
+    // The Scaffold and the TabBarView sit outside the ScopedBuilder on
+    // purpose. DownloadsModel.update() fires ~4x a second while a transfer
+    // runs (progress is a read-modify-write of the whole list), and the
+    // gallery tab does not depend on the queue at all — it reads LibraryModel
+    // and subscribes to the done-listener itself. Leaving it inside meant the
+    // whole library grid rebuilt four times a second, exactly while the reader
+    // was looking at it.
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: _selectionActive
+            ? Text('${_selected.length}')
+            : TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: L10n.of(context).queue),
+                  Tab(text: L10n.of(context).gallery),
+                ],
               ),
-              _GalleryTab(prefs: widget.prefs),
-            ],
+        actions: [
+          ScopedBuilder<DownloadsModel, List<DownloadQueueItem>>(
+            store: _queue,
+            onError: (_, e) => Center(child: Text(e.toString())),
+            onLoading: (_) => const Center(child: CircularProgressIndicator()),
+            onState: (_, queue) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: _buildActions(context, queue),
+            ),
           ),
-        );
-      },
+        ],
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          ScopedBuilder<DownloadsModel, List<DownloadQueueItem>>(
+            store: _queue,
+            onError: (_, e) => Center(child: Text(e.toString())),
+            onLoading: (_) => const Center(child: CircularProgressIndicator()),
+            onState: (_, queue) => _QueueList(
+              queue: queue,
+              prefs: widget.prefs,
+              selectedNames: _selected,
+              onToggle: _toggleSelection,
+            ),
+          ),
+          _GalleryTab(prefs: widget.prefs),
+        ],
+      ),
     );
   }
 }
