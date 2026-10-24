@@ -27,6 +27,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.lang.ref.WeakReference
+import java.util.concurrent.Executors
 
 /**
  * Hosts the app-wide FlutterEngine instead of the Activity: swiping the app
@@ -215,15 +216,27 @@ class QuaxApplication : android.app.Application() {
         }
     }
 
+    /**
+     * Counts how many of [paths] are still indexed in the media database.
+     *
+     * One query per volume with a batched `DATA IN (...)`, not one query per
+     * file: this used to issue a separate ContentResolver.query — a binder
+     * round-trip — for every file on every volume, on the main thread, inside a
+     * scan callback that is itself on the main thread. A 2000-file library on
+     * two volumes was 4000 IPCs.
+     */
     private fun countMediaStoreRows(paths: List<String>): Int {
         var remaining = 0
         for (volume in externalVolumeNames()) {
             val collection = MediaStore.Files.getContentUri(volume)
-            for (path in paths) {
+            // SQLite's default bound on host parameters is 999; stay well under.
+            for (batch in paths.chunked(500)) {
+                val placeholders = batch.joinToString(",") { "?" }
                 try {
                     contentResolver.query(
                         collection, arrayOf(MediaStore.MediaColumns._ID),
-                        MediaStore.MediaColumns.DATA + " = ?", arrayOf(path), null
+                        "${MediaStore.MediaColumns.DATA} IN ($placeholders)",
+                        batch.toTypedArray(), null
                     )?.use { remaining += it.count }
                 } catch (e: Exception) {
                     // An unreadable volume simply cannot report leftovers.
@@ -395,29 +408,50 @@ class QuaxApplication : android.app.Application() {
         } else if (call.method == "videoThumbnail") {
             val videoPath = call.argument<String>("path")
             val outPath = call.argument<String>("outPath")
-            if (videoPath != null && outPath != null) {
+            if (videoPath == null || outPath == null) {
+                result.error("INVALID_ARGUMENT", "path is null", null)
+                return
+            }
+
+            // Off the platform thread: setDataSource + getFrameAtTime is a seek
+            // and a decode, and the gallery grid asks for one per video tile —
+            // a dozen tiles meant a dozen main-thread decodes, which drops
+            // frames and can ANR. MethodChannel results must be delivered on
+            // the main thread, hence the post back.
+            val app = this
+            Executors.newSingleThreadExecutor().execute {
                 var success: String? = null
+                var failure: Pair<String, String?>? = null
+                var frame: Bitmap? = null
+                val retriever = MediaMetadataRetriever()
                 try {
-                    val retriever = MediaMetadataRetriever()
                     retriever.setDataSource(videoPath)
-                    val frame = retriever.getFrameAtTime(1_000_000L) // one second in
-                    retriever.release()
+                    frame = retriever.getFrameAtTime(1_000_000L) // one second in
                     if (frame != null) {
                         File(outPath).parentFile?.mkdirs()
                         FileOutputStream(outPath).use { stream ->
-                            frame.compress(Bitmap.CompressFormat.JPEG, 70, stream)
+                            frame!!.compress(Bitmap.CompressFormat.JPEG, 70, stream)
                         }
-                        frame.recycle()
                         success = outPath
                     }
-                    result.success(success)
                 } catch (e: IOException) {
-                    result.error("THUMBNAIL_FAILED", e.message, null)
+                    failure = Pair("THUMBNAIL_FAILED", e.message)
                 } catch (e: RuntimeException) {
-                    result.error("THUMBNAIL_FAILED", e.message, null)
+                    failure = Pair("THUMBNAIL_FAILED", e.message)
+                } finally {
+                    // release() used to sit after getFrameAtTime, so a throw
+                    // there never ran it: each failed attempt leaked a native
+                    // MediaMetadataRetriever, and the gallery retries.
+                    frame?.recycle()
+                    retriever.release()
                 }
-            } else {
-                result.error("INVALID_ARGUMENT", "path is null", null)
+                mainHandler.post {
+                    when {
+                        success != null -> result.success(success)
+                        failure != null -> result.error(failure.first, failure.second, null)
+                        else -> result.success(null)
+                    }
+                }
             }
         }
     }
