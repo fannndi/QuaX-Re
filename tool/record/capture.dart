@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
 import 'package:puppeteer/puppeteer.dart';
 
 /// Response headers worth keeping. An allow-list, so a header X adds tomorrow
@@ -318,13 +319,22 @@ Future<int> _visit(Page page, Scenario scenario) async {
 /// Deletes fixtures this run did not produce, so the directory always describes
 /// the current links.json and nothing else.
 ///
-/// Skipped when a page failed to load: a run that lost scenarios would delete
-/// exactly the fixtures it failed to refresh, and the loss would be silent.
+/// Skipped when a page failed to load **or produced nothing**: a run that lost
+/// scenarios, or one where X rate-limited every response so every page loaded
+/// but no GraphQL answer was captured, would delete exactly the fixtures it
+/// failed to refresh — and the loss would be silent, because a run with zero
+/// fixtures and zero page failures looks like a clean one.
 void _prune() {
   if (!_outDir.existsSync()) return;
   if (_failures > 0) {
     print('\n$_failures page(s) failed to load, so nothing was pruned. '
         'Fix those and re-run to clean up stale fixtures.');
+    return;
+  }
+  if (_writtenThisRun.isEmpty) {
+    print('\nNo fixtures were captured, so nothing was pruned. '
+        'A run that produced nothing (X rate-limiting every response, a changed '
+        'links.json) must not be read as "everything is stale".');
     return;
   }
 
@@ -417,7 +427,11 @@ int _write(Map<String, Map<String, dynamic>> captured) {
     final takenBy = _writtenThisRun[path];
     if (takenBy == variables) continue;
     if (takenBy != null) {
-      final digest = (variables.hashCode & 0xffffff).toRadixString(16);
+      // sha256, not hashCode: String.hashCode is not stable across Dart runs or
+      // versions, so the same variables could produce a different digest on the
+      // next run — orphaning the previous file (which _prune then deletes as
+      // stale) and writing the new one under a name nothing links to.
+      final digest = sha256.convert(utf8.encode(variables)).toString().substring(0, 6);
       path = path.replaceFirst(RegExp(r'\.json$'), '-$digest.json');
       if (_writtenThisRun.containsKey(path)) continue;
     }
