@@ -38,6 +38,13 @@ database (accounts, likes) — never use it. On Windows `generate_icons.py` cann
 cairo); generate the adaptive assets with `npx sharp-cli` + PIL as described in the last fork note
 below.
 
+A **release** build refuses to run without a keystore: `android/app/build.gradle` throws rather
+than letting AGP fall back to the debug key, which would claim the app id silently. Provide
+`android/key.properties` (gitignored) or the `KEY_PATH`/`KEY_STORE_PASSWORD`/`KEY_PASSWORD`/
+`KEY_ALIAS` env vars. The `profile` build type is declared explicitly and mirrors release's
+shrinking and signing, so a profile build exercises the same R8 path — a missing media3 keep rule
+is invisible in debug and only bites in release.
+
 ## Architecture
 
 ### State management
@@ -106,6 +113,17 @@ Network-level failures never taint account health (one retry after 1s). Dedicate
 `sqflite_migration_plan` migrations — never ALTER tables outside one. Key entities: `Subscription`,
 `SubscriptionGroup`, `SavedTweet` (+ folders), `LikedTweet`, `Account` (health columns).
 
+Current schema version is in `Repository.migrate()` (`version: 31`); the test
+`Should end at the newest schema version` pins it, so adding a step means bumping both.
+Column names that appear in more than one file (the migration, the entity, the query) are
+constants in `repository.dart` — `in_feed` had three spellings across three files and the
+wrong one worked, because SQLite compares identifiers case-insensitively.
+
+A migration step that creates an index checks `sqlite_master` first: the migration tests
+build synthetic databases at an earlier version containing only the tables that step needs,
+and a bare `CREATE INDEX` on a table an earlier step was supposed to create fails the whole
+migration.
+
 ### Navigation and localization
 
 Routes are constants in `constants.dart`, registered in `fritter_app.dart`; x.com deep links are
@@ -172,6 +190,13 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   toggles mirror the live web client — the fixtures recorded 2026-10 in `test/fixtures/`
   (Home/Following/Likes/Bookmarks/UserOriginals/UserReplies/UserVideo/UserReposts/photo grids)
   pin the shapes the parsers must keep reading.
+
+  That guard scans **all** of `lib/`, not three hand-listed files, and also asserts that HTTP is
+  only reached from the files that own the network layer (`client.dart`,
+  `client_regular_account.dart`, `client_unauthenticated.dart`, `client_transaction.dart`,
+  `utils/downloads.dart`, and the unauthenticated t.co resolver in `utils/urls.dart`). A new call
+  site anywhere else bypasses the account selector, the rate-limit tracker and the read-only
+  guarantee at once, so it fails the test rather than shipping.
 - Offline mode: `TimelineCache` stores a thread body (bounded to 30 days / 200 entries) so an
   already-read thread opens from disk, `NetworkStatus` (DNS probe) retries when the connection
   returns, and downloaded clips play from disk. There is no cached first page for the feeds
