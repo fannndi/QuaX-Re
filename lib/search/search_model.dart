@@ -7,6 +7,19 @@ import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/paging.dart';
 
+/// The last-page guard every cursor feed shares: pagination ends on an empty
+/// page, a missing/blank cursor, or a cursor that did not advance.
+///
+/// Search is the feed that needed it most. X answers with the same bottom
+/// cursor twice when a query's results run out, and without this the pager kept
+/// requesting forever — each page burning a rate-limit slot and coming back all
+/// duplicates. `_dedupe` hides the duplicates from the reader but does not stop
+/// the requests.
+String? nextCursorOrEnd(List<TweetChain> chains, String? next, String? cursor) {
+  if (chains.isEmpty || next == null || next.isEmpty || next == cursor) return null;
+  return next;
+}
+
 /// Holds the paging controller and loader for one tab of the tweet search
 /// (Top / Latest). The query string is mutable — [updateQuery] swaps it in and
 /// refreshes the controller so the next page request hits the new query.
@@ -22,7 +35,7 @@ class SearchTweetsPagination {
       return (chains: <TweetChain>[], nextCursor: null);
     }
     final result = await Twitter.searchTweets(_query, product: product, cursor: cursor);
-    return (chains: result.chains, nextCursor: result.cursorBottom);
+    return (chains: result.chains, nextCursor: nextCursorOrEnd(result.chains, result.cursorBottom, cursor));
   }
 
   void updateQuery(String newQuery) {
