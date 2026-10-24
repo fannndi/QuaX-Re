@@ -97,6 +97,21 @@ walks the live page and says whether the generator can still find its inputs, or
 `ClientTransaction._findIndicesFileUrl` needs following them somewhere new again. It takes ~2s and
 is not part of `flutter test` because it needs the network.
 
+Two things that check cannot tell you:
+
+- **which** queryId rotated. A GraphQL path is version-pinned
+  (`/i/api/graphql/<queryId>/<Operation>`), so one operation 404s while the rest keep working.
+  `QUAX_LIVE=1 flutter test test/tool/endpoint_probe_test.dart` calls every operation and names the
+  one that broke. It also catches the quieter failure: a 200 whose shape moved, which breaks the
+  parser exactly as silently as a 404.
+- whether the animation key is *right*. X reshaping the loading-x-anim SVG does not throw, it
+  derives a different key that still produces a well-formed id — and the id's length is no signal,
+  because it follows the hex digits the derivation happens to produce. Only a real request
+  distinguishes them: **404** means the queryId moved, **403** means the key is wrong.
+
+The probe is guest-only by design. Seven of the eight operations need a session, so they are
+reported as skips; `tool/record/` is the harness that covers them, because it has a real session.
+
 `client.dart` is the `Twitter` facade over `dart_twitter_api`. `_QuackerTwitterClient.fetch()`
 asks the pure `AccountSelector` (`account_selector.dart`) for a healthy account and retries on
 another on error. Health signals: rate limits (429) are per-endpoint and remembered in memory by
