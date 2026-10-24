@@ -4,6 +4,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
@@ -316,17 +317,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _buildGrid(BuildContext context, List<LibraryEntry> entries) {
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(12);
+    // The same column preference the profile media grid honours: a reader who
+    // sets five columns there should not get three in the library. Two literals
+    // of 3 used to have to stay in sync, and they did not.
+    final columns = PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ?? 3;
     // Three columns of downloaded media: a 4000px photo decoded whole for a
     // ~120pt tile is ~48MB of bitmap the tile cannot show, and the gallery can
     // hold thousands of files. Same treatment the search grid already gives it.
-    final decodeWidth = decodeWidthFor(context, MediaQuery.sizeOf(context).width / 3, maxWidth: 1080);
+    final decodeWidth =
+        decodeWidthFor(context, MediaQuery.sizeOf(context).width / columns, maxWidth: 1080);
 
     return Stack(
       children: [
         GridView.builder(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, mainAxisSpacing: 6, crossAxisSpacing: 6),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns, mainAxisSpacing: 6, crossAxisSpacing: 6),
           itemCount: entries.length,
           itemBuilder: (context, index) {
             final entry = entries[index];
