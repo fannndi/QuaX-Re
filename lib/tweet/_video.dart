@@ -416,7 +416,12 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final prefs = PrefService.of(context);
+    // listen: false. PrefService is an InheritedNotifier, so the listening
+    // variant rebuilds this widget on *every* pref write — including the
+    // scroll-position writes that deliberately bypass PrefService.set() so they
+    // would not notify (see paginated_tweet_list.dart). Every TweetVideo on
+    // screen rebuilt for a setting none of them reads per frame.
+    final prefs = PrefService.of(context, listen: false);
     final prefLoop = prefs.get(optionMediaDefaultLoop);
     final prefAutoPlay = prefs.get(optionMediaDefaultAutoPlay);
     _prefBackground = prefs.get<bool>(optionMediaBackgroundPlayback) ?? true;

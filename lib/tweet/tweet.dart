@@ -606,7 +606,10 @@ Color? buttonsColor(BuildContext c) {
             child: ExpandableTweetText(
               textSpans: _spans ??= displayRichText(_parts),
               onTap: () => !widget.tweetOpened ? onClickOpenTweet(tweet) : null,
-              maxLines: PrefService.of(context).get(alwaysShowFullTweetContents) ? null : 8,
+              // The `prefs` local bound at the top of build(), already
+              // listen: false — the listening variant here would rebuild every
+              // visible card on every pref write.
+              maxLines: prefs.get(alwaysShowFullTweetContents) ? null : 8,
             ),
           ));
     }

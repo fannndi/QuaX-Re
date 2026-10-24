@@ -48,7 +48,9 @@ class _MediaGridState extends State<MediaGrid> with AutomaticKeepAliveClientMixi
   Widget build(BuildContext context) {
     super.build(context);
 
-    var columns = PrefService.of(context).get<int>(optionMediaGridColumns) ?? 3;
+    // listen: false: PrefService is an InheritedNotifier, so the listening
+    // variant rebuilds the whole grid on every pref write.
+    var columns = PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ?? 3;
 
     return RefreshIndicator(
       onRefresh: () async => widget.controller.refresh(),
