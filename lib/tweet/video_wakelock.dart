@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class VideoWakelock {
@@ -12,6 +13,13 @@ class VideoWakelock {
   }
 
   static void reapply() => _apply();
+
+  /// Test hook: drops every holder, so a test that throws mid-way cannot leak
+  /// one into the next test. `flutter test` runs all files in one process.
+  @visibleForTesting
+  static void resetForTests() {
+    _holders.clear();
+  }
 
   static void _apply() => WakelockPlus.toggle(enable: _holders.isNotEmpty);
 }

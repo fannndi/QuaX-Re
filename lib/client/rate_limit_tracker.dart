@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 /// In-memory, per-endpoint rate-limit memory.
 ///
 /// X rate limits are per-endpoint, not per-account-globally: an account can be
@@ -19,5 +21,14 @@ class RateLimitTracker {
 
   static void clear(String accountId, String endpoint) {
     _resetByAccountEndpoint[accountId]?.remove(endpoint);
+  }
+
+  /// Test hook: forgets every flag. The map is a process-wide static that
+  /// production code reads on every request (`fetch()` asks `isLimited`), so a
+  /// flag written by one test file would otherwise still be there for a later
+  /// one — `flutter test` runs them all in one process.
+  @visibleForTesting
+  static void clearForTests() {
+    _resetByAccountEndpoint.clear();
   }
 }

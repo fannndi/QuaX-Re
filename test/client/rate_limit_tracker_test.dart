@@ -4,6 +4,10 @@ import 'package:quax/client/rate_limit_tracker.dart';
 void main() {
   final now = DateTime(2026, 9, 4, 12);
 
+  // The tracker is a process-wide static that production code reads on every
+  // request, and flutter test runs all files in one process.
+  setUp(RateLimitTracker.clearForTests);
+
   group('RateLimitTracker.isLimited()', () {
     test('Should report an unknown account as not limited', () {
       expect(RateLimitTracker.isLimited('untracked', '/SearchTimeline', now), isFalse,

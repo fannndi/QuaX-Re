@@ -18,10 +18,20 @@ class _FakeWakelock extends WakelockPlusPlatformInterface {
 
 void main() {
   late _FakeWakelock wakelock;
+  late WakelockPlusPlatformInterface originalWakelock;
 
   setUp(() {
+    originalWakelock = wakelockPlusPlatformInstance;
     wakelock = _FakeWakelock();
     wakelockPlusPlatformInstance = wakelock;
+  });
+
+  tearDown(() {
+    // Both are process-wide statics: the fake would otherwise be handed to
+    // every later test file in the same process, and a test that throws mid-way
+    // would leak its holder into the next one.
+    wakelockPlusPlatformInstance = originalWakelock;
+    VideoWakelock.resetForTests();
   });
 
   // The two media kinds as they are built in _media.dart.
