@@ -147,33 +147,19 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
         labelBehavior: widget.prefs.get(optionShowNavigationLabels)
             ? NavigationDestinationLabelBehavior.alwaysShow
             : NavigationDestinationLabelBehavior.alwaysHide,
-        shadowColor: Colors.transparent,
-        backgroundColor: Colors.transparent,
-        indicatorColor: Colors.transparent,
-        height: 64,
-        destinations: widget.pages.asMap().entries
+        // No backgroundColor/indicatorColor/shadowColor/height overrides: the
+        // theme already defines a real Material 3 nav bar (surface background,
+        // a secondaryContainer pill, 68dp). Overriding all four to transparent
+        // made the bar paint nothing and left the selected tab with no visual
+        // indicator at all — the only cue was the icon glyph swap.
+        destinations: widget.pages
             .map(
-              (e) {
-                final index = e.key;
-                final page = e.value;
-                final isSelected = _currentPage == index;
-                final scale = widget.prefs.get(optionShowNavigationLabels) ? 1.0 : (isSelected ? 1.2 : 1.2);
-                return NavigationDestination(
-                  icon: AnimatedScale(
-                    scale: scale,
-                    duration: const Duration(milliseconds: 0),
-                    curve: Curves.easeOut,
-                    child: page.icon,
-                  ),
-                  selectedIcon: AnimatedScale(
-                    scale: scale,
-                    duration: const Duration(milliseconds: 0),
-                    curve: Curves.easeOut,
-                    child: page.selectedIcon,
-                  ),
-                  label: page.titleBuilder(context),
-                );
-              })
+              (page) => NavigationDestination(
+                icon: page.icon,
+                selectedIcon: page.selectedIcon,
+                label: page.titleBuilder(context),
+              ),
+            )
             .toList(),
         onDestinationSelected: (index) async {
           if (index == _currentPage) {
