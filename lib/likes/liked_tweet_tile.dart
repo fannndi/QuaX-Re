@@ -10,7 +10,13 @@ import 'package:quax/utils/lru_cache.dart';
 /// Parsed stored posts, keyed by id + content hash: the lists rebuild their
 /// visible items on every state change, and re-decoding the JSON each time is
 /// pure waste while scrolling.
-final _decodedTweets = LruCache<String, TweetWithCard>(80);
+///
+/// Bounded at 20 rather than 80 on purpose: the value is a fully-parsed
+/// `TweetWithCard` holding its `Media` objects with complete `variants` lists,
+/// so an entry is a multi-hundred-KB object graph. `LruCache` bounds the entry
+/// *count*, not the value size — at 80 that was tens of MB of live heap the
+/// reader could not get back, to save a decode that costs microseconds.
+final _decodedTweets = LruCache<String, TweetWithCard>(20);
 
 TweetWithCard _decodeTweet(String id, String content) {
   final key = '$id#${content.hashCode}';
