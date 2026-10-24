@@ -9,7 +9,17 @@ Profile parseProfile(Map<String, dynamic> content, String uri) {
     if (errors.isEmpty) {
       throw TwitterError(code: 0, message: L10n.current.unknown_error, uri: uri);
     } else {
-      throw TwitterError(code: errors.first['code'], message: errors.first['message'], uri: uri);
+      // Each field read defensively: X documents errors[].code as an int but does
+      // not guarantee it, and a shape change here throws a TypeError *inside the
+      // parse isolate* — where it surfaces as an unhandled async error rather
+      // than the TwitterError that createEmojiError maps to "account suspended /
+      // user not found". The reader gets a generic failure instead of the reason.
+      final first = errors.first;
+      // num? would still throw on a String, so parse the string form.
+      final rawCode = first is Map ? first['code'] : null;
+      final code = rawCode is num ? rawCode.toInt() : int.tryParse('$rawCode');
+      final message = first is Map ? first['message'] as String? : null;
+      throw TwitterError(code: code ?? 0, message: message ?? L10n.current.unknown_error, uri: uri);
     }
   }
 
