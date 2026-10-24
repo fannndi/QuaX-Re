@@ -75,17 +75,24 @@ class TwitterHeaders {
   /// Drops the cached transaction generator if it is old enough that X may have
   /// rotated its keys, so the next request re-derives them. A no-op within the
   /// cooldown, since a fresh generator is very unlikely to be the 404's cause.
-  /// Also ends a failure back-off early: a 404 means the page moved again, which
-  /// is exactly the kind of change a retry is worth making for.
+  ///
+  /// Also ends a failure back-off early — a 404 means the page moved again,
+  /// which is exactly the kind of change a retry is worth making for. Only when
+  /// the derivation has actually succeeded at least once, though: a 404 on a
+  /// rotated queryId (the common cause, per the comment in `fetch()`) used to
+  /// clear the back-off unconditionally, so a fundamentally broken derivation
+  /// re-attempted `ClientTransaction.initialize()` — up to 16 chunk requests —
+  /// on every single 404 with no back-off at all.
   static void invalidateIfStale() {
-    final now = DateTime.now();
-    _deriveDisabledUntil = null;
-
     final at = _initializedAt;
     if (at == null) {
+      // Never derived successfully: a 404 says nothing about the page shape, so
+      // the back-off stands.
       return;
     }
-    if (now.difference(at) >= _stalenessCooldown) {
+    _deriveDisabledUntil = null;
+
+    if (DateTime.now().difference(at) >= _stalenessCooldown) {
       _initFuture = null;
       _initializedAt = null;
     }
