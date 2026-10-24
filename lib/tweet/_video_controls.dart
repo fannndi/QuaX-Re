@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/video_quality.dart';
 import 'package:quax/tweet/_video_more.dart';
 
@@ -659,10 +660,14 @@ class _MuteButton extends StatelessWidget {
       controller: controller,
       builder: (context, value) {
         final muted = value.volume <= 0;
+        final l10n = L10n.of(context);
         return IconButton(
           iconSize: 24.0,
           color: Colors.white,
           icon: Icon(muted ? Icons.volume_off : Icons.volume_up),
+          // A tooltip, not nothing: without one a screen reader announces an
+          // unlabelled button.
+          tooltip: muted ? l10n.unmute_video : l10n.mute_video,
           onPressed: () => controller.setVolume(muted ? 1.0 : 0.0),
         );
       },
@@ -679,12 +684,16 @@ class _FullscreenButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PlayerListenable(
       controller: controller,
-      builder: (context, _) => IconButton(
-        iconSize: 24.0,
-        color: Colors.white,
-        icon: Icon(controller.isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen),
-        onPressed: controller.toggleFullScreen,
-      ),
+      builder: (context, _) {
+        final fullscreen = controller.isFullScreen;
+        return IconButton(
+          iconSize: 24.0,
+          color: Colors.white,
+          icon: Icon(fullscreen ? Icons.fullscreen_exit : Icons.fullscreen),
+          tooltip: fullscreen ? L10n.of(context).exit_fullscreen : L10n.of(context).enter_fullscreen,
+          onPressed: controller.toggleFullScreen,
+        );
+      },
     );
   }
 }
