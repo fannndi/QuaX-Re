@@ -140,7 +140,7 @@ class SubscriptionsModel extends Store<List<Subscription>> {
     var database = await Repository.writable();
     await execute(() async {
       await database.update(tableSubscription, {
-        'in_Feed': wasInFeed ? 0 : 1
+        columnSubscriptionInFeed: wasInFeed ? 0 : 1
       }, where: 'id = ?', whereArgs: [user.id]);
 
       await reloadSubscriptions();

@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:quax/database/repository.dart' show columnSubscriptionInFeed;
 import 'package:quax/group/group_model.dart';
 import 'package:quax/user.dart';
 import 'package:intl/intl.dart';
@@ -89,7 +90,7 @@ class UserSubscription extends Subscription {
   factory UserSubscription.fromMap(Map<String, Object?> map) {
     var verified = map['verified'] is int;
     var createdAt = map['created_at'] == null ? DateTime.now() : DateTime.parse(map['created_at'] as String);
-    var inFeed = map['in_feed'] is int;
+    var inFeed = map[columnSubscriptionInFeed] is int;
 
     return UserSubscription(
         id: map['id'] as String,
@@ -98,7 +99,7 @@ class UserSubscription extends Subscription {
         profileImageUrlHttps: map['profile_image_url_https'] as String?,
         verified: verified ? map['verified'] == 1 : false,
         createdAt: createdAt,
-        inFeed: inFeed ? map['in_feed'] == 1 : false
+        inFeed: inFeed ? map[columnSubscriptionInFeed] == 1 : false
     );
   }
 
@@ -133,7 +134,7 @@ class UserSubscription extends Subscription {
       'profile_image_url_https': profileImageUrlHttps,
       'verified': verified ? 1 : 0,
       'created_at': sqliteDateFormat.format(createdAt),
-      'in_feed': inFeed ? 1 : 0,
+      columnSubscriptionInFeed: inFeed ? 1 : 0,
     };
   }
 }

@@ -23,6 +23,13 @@ const String tableSubscriptionGroupMember = 'subscription_group_member';
 
 const String tableAccounts = 'accounts';
 
+/// Column names shared between the schema, the entities and the queries, so a
+/// typo cannot produce a second spelling of the same column. SQLite compares
+/// identifiers case-insensitively, so `in_Feed` and `in_feed` are the same
+/// column to the database — but three spellings across three files is how the
+/// next one becomes a real bug.
+const String columnSubscriptionInFeed = 'in_feed';
+
 class Repository {
   static final log = Logger('Repository');
 
