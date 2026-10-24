@@ -88,18 +88,18 @@ class UserSubscription extends Subscription {
       });
 
   factory UserSubscription.fromMap(Map<String, Object?> map) {
-    var verified = map['verified'] is int;
-    var createdAt = map['created_at'] == null ? DateTime.now() : DateTime.parse(map['created_at'] as String);
-    var inFeed = map[columnSubscriptionInFeed] is int;
+    // A boolean column is an int on disk, and a missing one is not zero: both
+    // cases have to read as false rather than throw or default to true.
+    bool flag(Object? key) => map[key] == 1;
 
     return UserSubscription(
         id: map['id'] as String,
         screenName: map['screen_name'] as String,
         name: map['name'] as String,
         profileImageUrlHttps: map['profile_image_url_https'] as String?,
-        verified: verified ? map['verified'] == 1 : false,
-        createdAt: createdAt,
-        inFeed: inFeed ? map[columnSubscriptionInFeed] == 1 : false
+        verified: flag('verified'),
+        createdAt: map['created_at'] == null ? DateTime.now() : DateTime.parse(map['created_at'] as String),
+        inFeed: flag(columnSubscriptionInFeed)
     );
   }
 
