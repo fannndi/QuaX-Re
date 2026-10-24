@@ -458,16 +458,21 @@ class TweetCard extends StatelessWidget {
 }
 
 /// Unified cards decoded once per encoded body: the card is rebuilt every time
-/// its list rebuilds, and the body X handed us does not change under it. Keyed
-/// by the String itself — Dart memoises a String's hash, so a repeat lookup on
-/// the same instance is a hash compare, not a walk of a multi-KB document.
-final _decodedUnifiedCards = LruCache<String, Map<String, dynamic>>(40);
+/// its list rebuilds, and the body X handed us does not change under it.
+///
+/// Keyed by the *instance*, not the String: the body runs to several KB, and a
+/// cache keyed by it holds 40 of those bodies alive for the life of the process
+/// in addition to the decoded maps. Dart memoises a String's hash, so a repeat
+/// lookup is a hash compare either way — and the call site always hands over the
+/// same instance, because it comes from the same `tweet.card`.
+final _decodedUnifiedCards = LruCache<int, Map<String, dynamic>>(40);
 
 Map<String, dynamic> _decodeUnifiedCard(String encoded) {
-  final cached = _decodedUnifiedCards.get(encoded);
+  final key = identityHashCode(encoded);
+  final cached = _decodedUnifiedCards.get(key);
   if (cached != null) return cached;
 
   final decoded = jsonDecode(encoded) as Map<String, dynamic>;
-  _decodedUnifiedCards.set(encoded, decoded);
+  _decodedUnifiedCards.set(key, decoded);
   return decoded;
 }
