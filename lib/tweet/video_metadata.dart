@@ -51,9 +51,15 @@ class TweetVideoMetadata {
   }
 
   factory TweetVideoMetadata.fromMedia(Media media) {
-    var aspectRatio = media.videoInfo?.aspectRatio == null
-        ? 1.0
-        : media.videoInfo!.aspectRatio![0] / media.videoInfo!.aspectRatio![1];
+    // Bounded like the grid's own _aspectRatioFor: X has sent [0, 0] for media
+    // whose dimensions it dropped, and a present-but-empty list gives a
+    // RangeError. This runs during build for every video tile, outside any
+    // try/catch.
+    var aspectRatio = 1.0;
+    final ar = media.videoInfo?.aspectRatio;
+    if (ar != null && ar.length >= 2 && ar[1] != 0) {
+      aspectRatio = ar[0] / ar[1];
+    }
 
     var variants = media.videoInfo?.variants ?? [];
     var imageUrl = media.mediaUrlHttps!;

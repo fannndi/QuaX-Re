@@ -84,4 +84,44 @@ void main() {
           reason: 'No variant carries a URL, so there is nothing to play');
     });
   });
+
+  group('TweetVideoMetadata.fromMedia() aspect ratio', () {
+    Media mediaWith(List<int>? aspectRatio) => Media()
+      ..type = 'video'
+      ..mediaUrlHttps = 'https://pbs.twimg.com/poster.jpg'
+      ..videoInfo = VideoInfo()
+      ..videoInfo!.aspectRatio = aspectRatio
+      ..videoInfo!.variants = [];
+
+    double ratioOf(List<int>? aspectRatio) => TweetVideoMetadata.fromMedia(mediaWith(aspectRatio)).aspectRatio;
+
+    test('Should read a normal ratio', () {
+      expect(ratioOf([16, 9]), closeTo(16 / 9, 0.0001),
+          reason: 'A well-formed ratio is what sizes the player, so it must be used as given');
+    });
+
+    test('Should fall back to square instead of dividing by zero', () {
+      expect(ratioOf([0, 0]), 1.0,
+          reason: 'X has sent [0, 0] for media whose dimensions it dropped. Dividing by the zero '
+              'denominator gives Infinity, which flows into AspectRatio and asserts a finite '
+              'value — a red screen during build, outside any try/catch');
+    });
+
+    test('Should fall back to square on a present-but-empty list', () {
+      expect(ratioOf([]), 1.0,
+          reason: 'A list that is there but has no entries would otherwise be a RangeError on the '
+              'first index');
+    });
+
+    test('Should fall back to square on a single-element list', () {
+      expect(ratioOf([16]), 1.0,
+          reason: 'The denominator is the second element; a one-element list has none');
+    });
+
+    test('Should fall back to square when there is no ratio at all', () {
+      expect(ratioOf(null), 1.0,
+          reason: 'videoInfo.aspectRatio is optional, and its absence is the ordinary case for '
+              'media X has not fully processed');
+    });
+  });
 }
