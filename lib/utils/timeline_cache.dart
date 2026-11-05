@@ -50,7 +50,7 @@ class TimelineCache {
       final dir = await directory();
       final file = File(p.join(dir.path, _fileName(key)));
       await file.writeAsString(jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}));
-      await _prune(dir);
+      await prune(dir);
     } catch (_) {
       // The cache is best-effort.
     }
@@ -62,7 +62,7 @@ class TimelineCache {
   static const _maxEntries = 200;
   static const _maxAge = Duration(days: 30);
 
-  static Future<void> _prune(Directory dir) async {
+  static Future<void> prune(Directory dir) async {
     final entries = <MapEntry<File, DateTime>>[];
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
@@ -74,15 +74,26 @@ class TimelineCache {
     }
     if (entries.isEmpty) return;
 
-    entries.removeWhere((entry) => entry.value.isBefore(DateTime.now().subtract(_maxAge)));
-    entries.sort((a, b) => b.value.compareTo(a.value));
-
-    for (final stale in entries.skip(_maxEntries)) {
-      try {
-        await stale.key.delete();
-      } catch (_) {
-        // Another writer may have taken it already.
+    final cutoff = DateTime.now().subtract(_maxAge);
+    final fresh = <MapEntry<File, DateTime>>[];
+    for (final entry in entries) {
+      if (entry.value.isBefore(cutoff)) {
+        await _delete(entry.key);
+      } else {
+        fresh.add(entry);
       }
+    }
+    fresh.sort((a, b) => b.value.compareTo(a.value));
+    for (final old in fresh.skip(_maxEntries)) {
+      await _delete(old.key);
+    }
+  }
+
+  static Future<void> _delete(File file) async {
+    try {
+      await file.delete();
+    } catch (_) {
+      // Another writer may have taken it already.
     }
   }
 

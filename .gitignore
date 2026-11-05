@@ -57,8 +57,6 @@ app.*.map.json
 .venv/
 assets/icon-*.png
 
-.claude/tmp
-
 tool/record/.chrome-profile/
 tool/record/media/*.mp4
 tool/record/media/*.gif

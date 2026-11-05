@@ -453,6 +453,8 @@ class QuaxApplication : android.app.Application() {
                     }
                 }
             }
+        } else {
+            result.notImplemented()
         }
     }
 }

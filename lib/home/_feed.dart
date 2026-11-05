@@ -138,7 +138,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
               onPressed: () => Navigator.pushNamed(
                 context,
                 routeSearch,
-                arguments: SearchArguments(0, focusInputOnOpen: true),
+                arguments: SearchArguments(0),
               ),
             ),
             // Account switching lives here, not in Settings.

@@ -29,6 +29,20 @@ const String tableAccounts = 'accounts';
 /// column to the database — but three spellings across three files is how the
 /// next one becomes a real bug.
 const String columnSubscriptionInFeed = 'in_feed';
+const String columnSavedAt = 'saved_at';
+const String columnLikedAt = 'liked_at';
+
+/// Creates each index only when its table exists: a restored or partially
+/// upgraded database may be missing a table an earlier step should have made.
+Future<void> _createIndexesIfTableExists(
+    DatabaseExecutor db, List<(String, String, String)> specs) async {
+  for (final (index, table, columns) in specs) {
+    final exists =
+        await db.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
+    if (exists.isEmpty) continue;
+    await db.execute('CREATE INDEX IF NOT EXISTS $index ON $table ($columns)');
+  }
+}
 
 class Repository {
   static final log = Logger('Repository');
@@ -318,12 +332,10 @@ class Repository {
                 'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
         // The two lists that sort their whole table on every open: saved posts
         // and likes are the ones that grow without bound.
-        SqlMigration('CREATE INDEX IF NOT EXISTS idx_${tableSavedTweet}_saved_at '
-            'ON $tableSavedTweet (saved_at DESC)',
-            reverseSql: 'DROP INDEX IF EXISTS idx_${tableSavedTweet}_saved_at'),
-        SqlMigration('CREATE INDEX IF NOT EXISTS idx_${tableLikedTweet}_liked_at '
-            'ON $tableLikedTweet (liked_at DESC)',
-            reverseSql: 'DROP INDEX IF EXISTS idx_${tableLikedTweet}_liked_at'),
+        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
+              ('idx_${tableSavedTweet}_$columnSavedAt', tableSavedTweet, '$columnSavedAt DESC'),
+              ('idx_${tableLikedTweet}_$columnLikedAt', tableLikedTweet, '$columnLikedAt DESC'),
+            ]))),
       ],
       30: [
         // The numeric X user id, filled in at login from the home page (or once
@@ -342,25 +354,11 @@ class Repository {
         //   (`WHERE is_active = 1`) with no index behind it.
         // - subscription.screen_name: the profile lookup path, and the table is
         //   read in full on every subscriptions reload.
-        //
-        // Guarded per table: a migration step must not fail on a database that
-        // reached this version through some other path (a restore, a partial
-        // upgrade) and is missing a table the earlier steps were supposed to
-        // create. IF NOT EXISTS throughout, so a database that somehow already
-        // has one is not a migration failure either.
-        Migration(Operation((db) async {
-          for (final step in const [
-            ('idx_${tableSubscriptionGroupMember}_profile_id', tableSubscriptionGroupMember, 'profile_id'),
-            ('idx_${tableAccounts}_is_active', tableAccounts, 'is_active'),
-            ('idx_${tableSubscription}_screen_name', tableSubscription, 'screen_name'),
-          ]) {
-            final (index, table, column) = step;
-            final exists = await db.rawQuery(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
-            if (exists.isEmpty) continue;
-            await db.execute('CREATE INDEX IF NOT EXISTS $index ON $table ($column)');
-          }
-        })),
+        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
+              ('idx_${tableSubscriptionGroupMember}_profile_id', tableSubscriptionGroupMember, 'profile_id'),
+              ('idx_${tableAccounts}_is_active', tableAccounts, 'is_active'),
+              ('idx_${tableSubscription}_screen_name', tableSubscription, 'screen_name'),
+            ]))),
       ],
     });
     await openDatabase(

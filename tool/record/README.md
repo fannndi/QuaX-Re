@@ -40,6 +40,17 @@ Every GraphQL response, no filter: `queryId`, `features`, `variables`, status,
 allow-listed headers, body. Fixtures the run did not reproduce are deleted, so
 the directory always matches `links.json` — skipped when a page failed to load.
 
+## Focused capture
+
+`mini_capture.dart` records **one** URL from an already-running Chrome on debug port 9222 and
+writes every GraphQL response under `test/fixtures/<Operation>/` **without pruning**. Use it when a
+full `capture.dart` run risks being rate-limited (a full run prunes fixtures it did not reproduce):
+
+```bash
+fvm dart run tool/record/capture.dart --attach          # or start Chrome yourself on port 9222
+fvm dart run tool/record/mini_capture.dart https://x.com/quax_tests/status/2095920289687150903
+```
+
 ## Notes
 
 - `tool/record/.chrome-profile/` is gitignored. It holds `auth_token` and `ct0`.

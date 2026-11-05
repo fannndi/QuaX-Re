@@ -24,9 +24,8 @@ import 'package:provider/provider.dart';
 class SearchArguments {
   final int initialTab;
   final String? query;
-  final bool focusInputOnOpen;
 
-  SearchArguments(this.initialTab, {this.query, this.focusInputOnOpen = false});
+  SearchArguments(this.initialTab, {this.query});
 }
 
 class ResultsScreen extends StatelessWidget {
@@ -36,17 +35,15 @@ class ResultsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final arguments = ModalRoute.of(context)!.settings.arguments as SearchArguments;
 
-    return _ResultsScreen(
-        initialTab: arguments.initialTab, query: arguments.query, focusInputOnOpen: arguments.focusInputOnOpen);
+    return _ResultsScreen(initialTab: arguments.initialTab, query: arguments.query);
   }
 }
 
 class _ResultsScreen extends StatefulWidget {
   final int initialTab;
   final String? query;
-  final bool focusInputOnOpen;
 
-  const _ResultsScreen({required this.initialTab, this.query, this.focusInputOnOpen = false});
+  const _ResultsScreen({required this.initialTab, this.query});
 
   @override
   State<_ResultsScreen> createState() => _ResultsScreenState();
@@ -82,8 +79,6 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
     _queryController.text = initialQuery;
     _lastDispatchedQuery = initialQuery;
     _queryController.addListener(_onQueryChanged);
-
-    // TODO: Focussing makes the selection go to the start?!
 
     // The tweet tabs' first-page requests are fired automatically by their
     // PagedListViews using the initial query above; the user-search Store

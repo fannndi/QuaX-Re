@@ -52,8 +52,8 @@ class _HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<_HomeScreen> {
-  // No preference picks a starting tab anymore (its writer lived on a screen
-  // that was dropped), so the app always opens on the home feed.
+  // The starting nav tab is fixed; the For You / Following sub-tab is still
+  // remembered in optionHomeDefaultFeedTab by _feed.dart.
   late final int _initialPage = defaultHomePages.indexWhere((page) => page.id == 'feed');
 
   @override
@@ -100,6 +100,7 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
   late PageController _pageController;
   late int _currentPage;
   final Map<int, ScrollController> _scrollControllers = {};
+  final FeedRefreshController _feedRefreshController = FeedRefreshController();
 
   @override
   void initState() {
@@ -132,17 +133,20 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (page) {
-          setState(() {
-            _currentPage = page;
-          });
-          if (defaultHomePages[page].id == 'feed') {
-            homeFeedSelected.value++;
-          }
-        },
-        children: widget.builder(_scrollControllers),
+      body: Provider<FeedRefreshController>.value(
+        value: _feedRefreshController,
+        child: PageView(
+          controller: _pageController,
+          onPageChanged: (page) {
+            setState(() {
+              _currentPage = page;
+            });
+            if (defaultHomePages[page].id == 'feed') {
+              homeFeedSelected.value++;
+            }
+          },
+          children: widget.builder(_scrollControllers),
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentPage,
@@ -166,11 +170,8 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
         onDestinationSelected: (index) async {
           if (index == _currentPage) {
             final tappedId = widget.pages[index].id;
-            if (tappedId == "feed" || tappedId == "likes" || tappedId.startsWith("group-")) {
+            if (tappedId == "feed" || tappedId == "likes") {
               final scrollController = _scrollControllers[_currentPage];
-              // Read before any await: the tap handler is async because of the
-              // animation below.
-              final feedRefresh = context.read<FeedRefreshController>();
               // A tab whose list is not mounted (the Like tab showing another
               // sub-tab) has nothing to scroll back up.
               if (scrollController != null && scrollController.hasClients) {
@@ -181,7 +182,7 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
               // reader's position, which made "tap Home to go to top" do half
               // its job. FeedRefreshController is the seam the body registered
               // its real scroll-to-top on.
-              feedRefresh.scrollToTop();
+              _feedRefreshController.scrollToTop();
             }
           }
           _pageController.jumpToPage(index);

@@ -25,7 +25,6 @@ class GroupFeedShell extends StatefulWidget {
 }
 
 class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAliveClientMixin<GroupFeedShell> {
-  final FeedRefreshController _feedRefreshController = FeedRefreshController();
   int _refreshCounter = 0;
   // Cached refs captured in didChangeDependencies — accessing the InheritedWidget
   // tree via context.read in dispose() triggers a framework warning, since
@@ -75,7 +74,7 @@ class _GroupFeedShellState extends State<GroupFeedShell> with AutomaticKeepAlive
   Widget build(BuildContext context) {
     super.build(context);
     return Provider<FeedRefreshController>.value(
-      value: _feedRefreshController,
+      value: context.read<FeedRefreshController>(),
       child: NestedScrollView(
         controller: widget.scrollController,
         floatHeaderSlivers: true,

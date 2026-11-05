@@ -27,10 +27,6 @@ environment:
   flutter: ^3.47.4
 
 dependency_overrides:
-  # auto_direction pins an old intl (^0.17/^0.18) that conflicts with
-  # dart_twitter_api's intl ^0.20.0. auto_direction only uses the stable
-  # Bidi.detectRtlDirectionality API, so forcing the modern intl is safe.
-  intl: ^0.20.2
   # file_picker 12 (via windows_file_picker) / package_info_plus 10 / share_plus
   # 13 need win32 ^6, but arb_utils (dcli <=10) pulls dcli 7.x / dart_console
   # 4.x, whose Windows FFI code is written against the win32 ^5 API and fails
@@ -68,28 +64,13 @@ dependencies:
   webview_cookie_manager_plus: ^2.0.16
 
   # Localization & Styling
-  # Matches the override below rather than floating as `any`: the override is
-  # what actually pins this, and a reader seeing `any` would assume otherwise.
-  # The override can go once auto_direction ships an intl-0.20-compatible
-  # release.
   intl: ^0.20.2
   dynamic_color: ^2.1.0
 
   # State Management & Data
-  # material_ui migration merged upstream but not yet released on pub.dev
-  # (latest there is 2.8.0, from 2024-01-04). Pin the merge commit until 3.0.0
-  # ships on pub.dev, then switch back to a hosted constraint.
-  #
-  # Pinned at v3.0.0 rather than at the migration commit 7fa5971, because the
-  # four commits after it fix the migration itself — including slider.dart and
-  # radio.dart, which the settings screen's PrefSlider uses. A git dependency
-  # with a ref but no integrity hash is a supply-chain risk, so this is worth
-  # replacing the moment pub.dev has it.
-  pref:
-    git:
-      url: https://github.com/DavBfr/flutter_pref.git
-      ref: 9115c1e7c1f9ecb7e0f76627bf3a89adc29b918a
-      path: pref
+  # pref 3.0.0 is published on pub.dev; the git pin existed only while the
+  # material_ui migration was unreleased.
+  pref: ^3.0.0
   provider: ^6.0.4
   flutter_triple: ^3.0.0
   multi_select_flutter: ^4.1.3

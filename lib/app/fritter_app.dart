@@ -159,7 +159,7 @@ class _FritterAppState extends State<FritterApp> {
                   ],
                   supportedLocales: L10n.delegate.supportedLocales,
                   locale: const Locale('en'),
-                  title: 'QuaX',
+                  title: 'QuaX-Re',
                   theme: buildAppTheme(
                     colorScheme: _themeColor == 'accent'
                         ? lightDynamic ??

@@ -18,7 +18,6 @@ import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/home/_feed.dart';
 import 'package:quax/likes/liked_tweet_model.dart';
-import 'package:quax/search/search_model.dart';
 import 'package:quax/subscriptions/users_model.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/network_status.dart';
@@ -110,7 +109,6 @@ Future<void> _startApp() async {
           Provider(create: (context) => VideoControllerPool(maxSize: 2)),
           Provider(create: (context) => subscriptionsModel),
           Provider(create: (context) => LikedTweetModel()),
-          Provider(create: (context) => SearchUsersModel()),
           ChangeNotifierProvider(create: (_) => VideoContextState(prefService.get(optionMediaDefaultMute))),
         ],
         child: FritterApp(),
@@ -168,7 +166,7 @@ class _StartupFailedApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'QuaX',
+      title: 'QuaX-Re',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(brightness: Brightness.dark, colorSchemeSeed: const Color(0xFF080808)),
       home: Scaffold(

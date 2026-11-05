@@ -102,9 +102,13 @@ android {
         // with a release-signed one of the same applicationId.
         profile {
             signingConfig signingConfigs.release
-            minifyEnabled = true
-            shrinkResources = true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // AGP 9 does not feed Flutter plugin subproject classes into R8 for a
+            // custom build type: minifying here yields an APK whose
+            // GeneratedPluginRegistrant cannot find any plugin. Keep the release
+            // signing so `adb install -r` does not fight a debug-signed build; the
+            // release build type is the minified one that exercises these rules.
+            minifyEnabled = false
+            shrinkResources = false
         }
 
         release {
@@ -112,9 +116,10 @@ android {
 
             // An all-null release signing config makes AGP fall back to the
             // *debug* keystore, and the build succeeds silently: the app id gets
-            // claimed by a key nobody meant to ship. Refuse instead. Guarded to
-            // this build type so profile and debug builds (which have no
-            // keystore of their own) keep working.
+            // claimed by a key nobody meant to ship. Refuse instead. Gradle
+            // configures every build type, so this guard also gates profile
+            // (signed with signingConfigs.release) and debug builds — provide
+            // android/key.properties or the KEY_* env vars once.
             if (signingConfigs.release.storeFile == null) {
                 throw new GradleException(
                     "Release builds need a keystore: create android/key.properties " +

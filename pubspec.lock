@@ -928,11 +928,10 @@ packages:
   pref:
     dependency: "direct main"
     description:
-      path: pref
-      ref: "9115c1e7c1f9ecb7e0f76627bf3a89adc29b918a"
-      resolved-ref: "9115c1e7c1f9ecb7e0f76627bf3a89adc29b918a"
-      url: "https://github.com/DavBfr/flutter_pref.git"
-    source: git
+      name: pref
+      sha256: "5c70e449c5dc716663346b166accc4a71d8df00060975b1c18afbc4ae93fb59f"
+      url: "https://pub.dev"
+    source: hosted
     version: "3.0.0"
   process:
     dependency: transitive

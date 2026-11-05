@@ -33,6 +33,4 @@ class LruCache<K, V> {
   bool remove(K key) => _entries.remove(key) != null;
 
   int get length => _entries.length;
-
-  void clear() => _entries.clear();
 }

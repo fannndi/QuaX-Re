@@ -604,7 +604,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                               color: theme.colorScheme.primary,
                               onPressed: () => Navigator.pushNamed(context, routeSearch,
                                   arguments: SearchArguments(1,
-                                      focusInputOnOpen: true, query: 'from:@${(user.screenName!)} ')),
+                                      query: 'from:@${(user.screenName!)} ')),
                             ),
                             IconButton(
                               icon: Icon(

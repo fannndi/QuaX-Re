@@ -38,12 +38,19 @@ database (accounts, likes) — never use it. On Windows `generate_icons.py` cann
 cairo); generate the adaptive assets with `npx sharp-cli` + PIL as described in the last fork note
 below.
 
-A **release** build refuses to run without a keystore: `android/app/build.gradle` throws rather
-than letting AGP fall back to the debug key, which would claim the app id silently. Provide
-`android/key.properties` (gitignored) or the `KEY_PATH`/`KEY_STORE_PASSWORD`/`KEY_PASSWORD`/
-`KEY_ALIAS` env vars. The `profile` build type is declared explicitly and mirrors release's
-shrinking and signing, so a profile build exercises the same R8 path — a missing media3 keep rule
-is invisible in debug and only bites in release.
+No APK build runs without a keystore: `android/app/build.gradle` refuses an all-null release
+signing config rather than letting AGP silently fall back to the debug key and claim the app id.
+The check sits in the `release` block but Gradle configures **every** build type, so `debug` and
+`profile` builds are gated too. Provide `android/key.properties` (gitignored) or the `KEY_PATH`/
+`KEY_STORE_PASSWORD`/`KEY_PASSWORD`/`KEY_ALIAS` env vars once. The `profile` build type is
+declared explicitly and signs with `signingConfigs.release`, but is **not minified**: under AGP
+9.1.0 Flutter plugin subproject classes are not fed into R8 for a custom build type, so minifying
+`profile` produced an APK whose `GeneratedPluginRegistrant` registered no plugins. `--release` is
+the minified build that exercises the R8 rules in `proguard-rules.pro` — media3, the
+WorkManager/Room `WorkDatabase_Impl` (its reflective `<init>()` is otherwise stripped, crashing
+`androidx.startup` before Flutter starts), webview JS bridges and the plugin registrant. A missing
+keep rule is invisible in debug and profile and only bites in release, so always smoke-test a
+release APK on a device before shipping.
 
 ## Architecture
 
@@ -74,9 +81,8 @@ per request.
 | `group/` | `GroupFeedShell`, the app bar and refresh plumbing the home feed is wrapped in |
 | `home/` | Home screen with the For You / Following feed |
 | `library/` | Hidden media library (`.nomedia`) with scan, thumbnails, external open |
-| `likes/` | Like tab: local likes, Saved, the account's likes, X bookmarks |
+| `likes/` | Like tab: local likes, the account's likes, X bookmarks |
 | `profile/` | Profile header, tabs and media grid |
-| `saved/` | Saved posts, folders, folder picker |
 | `search/` | Tweet and user search, plus the offline Local tab |
 | `settings/` | The single-page settings screen |
 | `subscriptions/` | `SubscriptionsModel` (the followed accounts) and the followed-user index |
@@ -126,7 +132,9 @@ Network-level failures never taint account health (one retry after 1s). Dedicate
 
 `repository.dart` is the only SQLite access point. Schema changes **must** go through
 `sqflite_migration_plan` migrations — never ALTER tables outside one. Key entities: `Subscription`,
-`SubscriptionGroup`, `SavedTweet` (+ folders), `LikedTweet`, `Account` (health columns).
+`SubscriptionGroup`, `LikedTweet`, `Account` (health columns). The `saved_tweet` and
+`saved_tweet_folder` tables have no entity or model: they stay in the schema only so an upgraded
+install never drops posts a previous build saved (`repository_test.dart` pins this).
 
 Current schema version is in `Repository.migrate()` (`version: 31`); the test
 `Should end at the newest schema version` pins it, so adding a step means bumping both.
@@ -165,7 +173,7 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
 - The Android application id is `com.fannndi.quaxre` (display name "QuaX-Re") so the fork and
   upstream QuaX can be installed side by side; the Kotlin namespace stays `com.teskann.quax`.
 - Three navbar tabs, in this order: Download (queue / gallery) / Home (For You / Following,
-  centered) / Like (local likes / Saved / profile likes / bookmarks). Settings is behind the gear
+  centered) / Like (local likes / profile likes / bookmarks). Settings is behind the gear
   in the home app bar; search shares that app bar. There is no notifications screen — the bell and
   the `notifications/` folder it lived in are gone, along with the subscription-group screens the
   old navbar reached (`c38b45c`). Do not look for them, and do not document them.
@@ -177,8 +185,9 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   a page still in flight is cancelled (`CursorPagingController.reset`), so two timelines can never
   mix. The in-memory `activeAccount` (id + handle) drives the app-bar avatar and the per-account
   scroll keys (`scroll.home.*.<accountId>`); re-picking the current account is a no-op.
-- Saving is end-to-end: the footer bookmark saves/unsaves (long-press opens the folder sheet);
-  folders are configured in the Saved tab's Manage folders.
+- Saving was removed: the tweet footer has no bookmark, and there is no Saved tab, folder picker
+  or "Manage folders" control. Likes are local; X bookmarks are read from the Bookmarks endpoint.
+  Do not rebuild saving from the leftover `saved_tweet` schema.
 - Scroll performance: text is measured once per card (and the spans handed to the text widget are
   memoised, which is what lets that measurement survive a rebuild), seeded card colors and number
   formats are memoized, RTL is detected once per tile, pagination prefetches 8 items early, and the
@@ -188,26 +197,30 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
 - Fetching: timeline/profile/search/follows pages are decoded and parsed on a worker isolate
   (`parseChainsOnIsolate` / `parseOffThread` in `lib/client/client_parsing.dart`), which also loads
   the English strings there because tombstones resolve a message while parsing; the app shares a single
-  `http.Client` (`lib/client/http_client.dart`) so requests reuse the connection; and every list
-  first load paints a `lib/ui/skeletons.dart` placeholder instead of a spinner.
-- Downloads go to the hidden library only (`.nomedia`). A native foreground service owns progress
-  and its notification actions; the queue is persisted (`downloads.json`), one transfer at a time,
-  with pause/resume, Range resume, retries, space and integrity checks. No in-app player: gallery
-  media opens in the system viewer through a FileProvider.
+  `http.Client` (`lib/client/http_client.dart`) so requests reuse the connection (the download
+  worker keeps its own client so cancelling a transfer can close its socket); tweet lists paint a
+  `lib/ui/skeletons.dart` placeholder on first load, while grids and the download queue still show a
+  spinner.
+- Downloads normally go to the hidden library (`.nomedia`); without a configured library folder
+  they fall back to the system save dialog, and the Download tab's `show_in_gallery` switch removes
+  the `.nomedia` marker. A native foreground service owns progress and its notification actions;
+  the queue is persisted (`downloads.json`), one transfer at a time, with pause/resume, Range
+  resume, retries, space and integrity checks. No in-app player: gallery media opens in the system
+  viewer through a FileProvider.
 - Storage access is version-split: Android 10 and below run legacy external storage
   (`requestLegacyExternalStorage` plus the runtime WRITE permission, asked from the library flow and
   answered through `onRequestPermissionsResult`), Android 11+ uses all-files access
   (`MANAGE_EXTERNAL_STORAGE`). `hasAllFilesAccess` reports whichever route the running Android uses;
   `openAppSettings` is the fallback for ROMs (MIUI) that stop showing the permission dialog.
-- The X client is read-only: every request is a timeline/profile read, likes and saves are local,
-  and no mutation (favorites, follows, tweets, bookmark changes) is ever sent.
+- The X client is read-only: every request is a timeline/profile read, likes are local, and no
+  mutation (favorites, follows, tweets, bookmark changes) is ever sent.
   `test/client/read_only_test.dart` guards the operation list. Endpoint ids, feature flags and
   toggles mirror the live web client — the fixtures recorded 2026-10 in `test/fixtures/`
-  (Home/Following/Likes/Bookmarks/UserOriginals/UserReplies/UserVideo/UserReposts/photo grids)
-  pin the shapes the parsers must keep reading.
+  (`Bookmarks`, `Followers`, `Following`, `HomeTimeline`, `Likes`, `SearchTimeline`,
+  `TweetDetail`, `UserByScreenName`, `UserTweets`) pin the shapes the parsers must keep reading.
 
   That guard scans **all** of `lib/`, not three hand-listed files, and also asserts that HTTP is
-  only reached from the files that own the network layer (`client.dart`,
+  only reached from the files that own the network layer (`client.dart`, `http_client.dart`,
   `client_regular_account.dart`, `client_unauthenticated.dart`, `client_transaction.dart`,
   `utils/downloads.dart`, and the unauthenticated t.co resolver in `utils/urls.dart`). A new call
   site anywhere else bypasses the account selector, the rate-limit tracker and the read-only
@@ -216,11 +229,12 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   already-read thread opens from disk, `NetworkStatus` (DNS probe) retries when the connection
   returns, and downloaded clips play from disk. There is no cached first page for the feeds
   themselves — a cold start shows `TweetListSkeleton` — so do not promise an instant feed paint.
-- Local search (search screen's 5th tab) matches saved/liked posts in Dart
+- Local search (search screen's 5th tab) matches locally liked posts in Dart
   (`lib/database/local_post_search.dart`) and library media by file name — Android's SQLite ships
   without FTS5 (verified on device: `no such module: fts5`), so do not build an SQL index for it.
 - Settings is one page: General, Theme, Media, Tweets, Accessibility, Data, App info. Account
-  management lives in the account sheet, not in Settings.
+  management is reached from the account sheet, which pushes `SettingsAccountFragment`; it is not
+  a section of Settings.
 - Responsiveness around the app: video pool + visibility-based playback, gallery search/sort/bulk
   actions, transfer badge, onboarding wizard gating first run.
 - On Windows, generate the adaptive icon assets without `generate_icons.py`:

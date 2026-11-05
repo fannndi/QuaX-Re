@@ -104,8 +104,7 @@ List _parseMentionsAndHashtags(BuildContext context, String content) {
     if (type == '#') {
       onTap = () async {
         Navigator.pushNamed(context, routeSearch,
-            arguments:
-                SearchArguments(1, focusInputOnOpen: false, query: full));
+            arguments: SearchArguments(1, query: full));
       };
     }
     if (type == '@') {
@@ -162,7 +161,7 @@ List<Entity> _parseEntities(BuildContext context, dynamic newEntities) {
           hashtag,
           () => Navigator.pushNamed(context, routeSearch,
               arguments: SearchArguments(1,
-                  focusInputOnOpen: false, query: '#${hashtag.text}'))));
+                  query: '#${hashtag.text}'))));
     }
 
     for (UserMention mention in newEntities.userMentions ?? []) {

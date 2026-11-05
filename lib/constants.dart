@@ -27,7 +27,6 @@ const optionLibraryVisibleInGallery = 'library.visibleInGallery';
 const optionAutoCacheVideos = 'cache.videos';
 const optionAutoCacheWifiOnly = 'cache.wifiOnly';
 const optionVideoCacheLimitMb = 'cache.limitMb';
-// JSON map {fileName: lastReadMillis} — the library's resume-last-position map.
 
 const optionShouldCheckForUpdates = 'should_check_for_updates';
 const optionConfirmClose = 'confirm_close';

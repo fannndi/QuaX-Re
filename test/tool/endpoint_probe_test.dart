@@ -2,7 +2,7 @@
 // answer. Not part of `flutter test`'s normal run — it needs the network, and
 // X's answers are the thing under test, so it is opt-in:
 //
-//   flutter test test/tool/endpoint_probe_test.dart --plain-name "endpoint"
+//   QUAX_LIVE=1 flutter test test/tool/endpoint_probe_test.dart
 //
 // It has to live under test/ rather than tool/ because the client imports
 // Flutter (`dart:ui`), and `dart run` cannot load that outside a binding.
@@ -19,8 +19,6 @@
 //
 // Guest requests only: no account, no cookies, nothing sent. Everything the app
 // asks for is a read.
-@Tags(['live'])
-library;
 
 import 'dart:io' show Platform;
 import 'dart:ui' show Locale;

@@ -61,7 +61,9 @@ void main() {
             line.contains('http.Request(') ||
             line.contains('client.send(') ||
             line.contains('client.post(') ||
-            line.contains('client.get(');
+            line.contains('client.get(') ||
+            line.contains('client.getUrl(') ||
+            line.contains('HttpClient(');
         if (!isCall) continue;
         // Windows paths carry backslashes; compare on forward slashes.
         callSites.add('${file.path.replaceAll(r'\', '/')}:${i + 1}');
@@ -72,6 +74,7 @@ void main() {
       'lib/client/client.dart',
       'lib/client/client_regular_account.dart',
       'lib/client/client_unauthenticated.dart',
+      'lib/client/http_client.dart',
       'lib/client/x_client_transaction_id/client_transaction.dart',
       'lib/utils/downloads.dart',
       // The t.co resolver: a plain GET with no auth headers, following no
