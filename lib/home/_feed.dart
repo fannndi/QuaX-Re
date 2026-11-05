@@ -117,7 +117,6 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
     return GroupFeedShell(
       scrollController: widget.scrollController,
-      groupId: widget.id,
       titleBuilder: (context) => TabBar(
         controller: tabController,
         tabs: feedTabs.map((e) => Tab(text: e.titleBuilder(context))).toList(),

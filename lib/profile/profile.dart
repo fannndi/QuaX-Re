@@ -3,7 +3,6 @@ import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:quax/constants.dart';
-import 'package:quax/database/entities.dart';
 import 'package:quax/tweet/media_viewer.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/_follows.dart';
@@ -591,10 +590,6 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                           alignment: Alignment.topRight,
                           margin: EdgeInsets.fromLTRB(128, profileImageTop + 64, 16, 16),
                           child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                            FollowButton(
-                              user: UserSubscription.fromUser(user),
-                              color: theme.colorScheme.primary,
-                            ),
                             IconButton(
                               icon: const Icon(Icons.search),
                               color: theme.colorScheme.primary,

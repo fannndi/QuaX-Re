@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:quax/constants.dart';
-import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/search/search_media_grid.dart';
@@ -124,9 +123,6 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
             focusNode: _focusNode,
             textInputAction: TextInputAction.search,
             leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-            trailing: [
-              FollowButton(user: SearchSubscription(id: _queryController.text, createdAt: DateTime.now())),
-            ],
           ),
         ),
         bottom: TabBar(
@@ -202,7 +198,7 @@ class _UserSearchResultList extends StatelessWidget {
           padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
           itemCount: items.length,
           itemBuilder: (context, index) {
-            return UserTile(user: UserSubscription.fromUser(items[index]));
+            return UserTile(user: items[index]);
           },
         );
       },

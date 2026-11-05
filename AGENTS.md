@@ -77,14 +77,13 @@ per request.
 | `client/` | X API client wrappers, account selection/health, login webview, headers |
 | `database/` | SQLite repository (`repository.dart`) + entities + migrations |
 | `downloads/` | Download queue, native notification bridge, connectivity watcher, video cache |
-| `group/` | `GroupFeedShell`, the app bar and refresh plumbing the home feed is wrapped in |
+| `group/` | `GroupFeedShell` and `FeedRefreshController`: the app bar and refresh plumbing the home feed is wrapped in |
 | `home/` | Home screen with the For You / Following feed |
 | `library/` | Hidden media library (`.nomedia`) with scan, thumbnails, external open |
 | `likes/` | Like tab: local likes, the account's likes, X bookmarks |
 | `profile/` | Profile header, tabs and media grid |
 | `search/` | Tweet and user search |
 | `settings/` | The single-page settings screen |
-| `subscriptions/` | `SubscriptionsModel` (the followed accounts) and the followed-user index |
 | `tweet/` | Tweet cards, threads, media, video playback |
 | `ui/`, `utils/` | Shared widgets, errors, dates, paging, caches, downloads |
 | `l10n/` | The single English ARB source — the input to `intl_utils` |
@@ -130,10 +129,11 @@ Network-level failures never taint account health (one retry after 1s). Dedicate
 ### Database (`lib/database/`)
 
 `repository.dart` is the only SQLite access point. Schema changes **must** go through
-`sqflite_migration_plan` migrations — never ALTER tables outside one. Key entities: `Subscription`,
-`SubscriptionGroup`, `LikedTweet`, `Account` (health columns). The `saved_tweet` and
-`saved_tweet_folder` tables have no entity or model: they stay in the schema only so an upgraded
-install never drops posts a previous build saved (`repository_test.dart` pins this).
+`sqflite_migration_plan` migrations — never ALTER tables outside one. Key entities: `LikedTweet`,
+`Account` (health columns). The `saved_tweet` and `saved_tweet_folder` tables have no entity or
+model: they stay in the schema only so an upgraded install never drops posts a previous build
+saved (`repository_test.dart` pins this). The subscription/group tables are likewise retained
+for upgrade compatibility only - no model or screen reads them.
 
 Current schema version is in `Repository.migrate()` (`version: 31`); the test
 `Should end at the newest schema version` pins it, so adding a step means bumping both.
@@ -175,7 +175,8 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   centered) / Like (local likes / profile likes / bookmarks). Settings is behind the gear
   in the home app bar; search shares that app bar. There is no notifications screen — the bell and
   the `notifications/` folder it lived in are gone, along with the subscription-group screens the
-  old navbar reached (`c38b45c`). Do not look for them, and do not document them.
+  old navbar reached (`c38b45c`) and the local subscription/group state layer. Do not look for
+  them, and do not document them.
 - The Following tab uses `HomeLatestTimeline` (`getHomeLatestTimeline`). Its queryId is
   community-tracked — on 404s update the constant or re-record with `tool/record/`.
 - Account switching is a hard reset, never a refresh: `accountsRevision` (bumped only by a real

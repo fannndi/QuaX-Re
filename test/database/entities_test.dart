@@ -1,45 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/database/entities.dart';
-import 'package:quax/group/group_model.dart' show defaultGroupIcon;
 
 void main() {
-  group('SubscriptionGroup.fromMap()', () {
-    Map<String, Object?> group(Object? icon) => {
-          'id': 'g1',
-          'name': 'Dogs',
-          'icon': icon,
-          'color': null,
-          'created_at': '2026-09-04T12:00:00.000',
-        };
-
-    test('Should use the default icon for the old values saved before v2.15.0', () {
-      for (final old in [null, 'rss', '']) {
-        expect(SubscriptionGroup.fromMap(group(old)).icon, defaultGroupIcon,
-            reason: 'Groups coming from a backup older than v2.15.0 have "$old" as their icon, '
-                'which the icon pack cannot read, so it should be replaced by the default');
-      }
-    });
-
-    test('Should keep a real saved icon', () {
-      const icon = '{"pack":"material","key":"pets"}';
-      expect(SubscriptionGroup.fromMap(group(icon)).icon, icon,
-          reason: 'The check for old values should only replace those, and leave every other icon '
-              'untouched');
-    });
-
-    test('Should keep the colour through its ARGB number', () {
-      final restored = SubscriptionGroup.fromMap({
-        ...group(defaultGroupIcon),
-        'color': const Color(0xFF112233).toARGB32(),
-      });
-
-      expect(restored.color?.toARGB32(), 0xFF112233,
-          reason: 'The group colour is stored as a number, so it should come back the same, '
-              'including the alpha part');
-    });
-  });
-
   group('Account.isClean', () {
     test('Should be true when no 404 was ever counted', () {
       final account = Account(id: 'a', authHeader: '{}', screenName: 'a');
@@ -94,61 +56,6 @@ void main() {
       expect(account.userId, isNull,
           reason: 'A missing user_id must stay null so the likes tab knows to resolve it once, '
               'rather than crash on a cast');
-    });
-  });
-
-  Map<String, Object?> row({Object? verified, Object? inFeed, Object? createdAt}) => {
-        'id': '1',
-        'screen_name': 'dogs',
-        'name': 'Dogs',
-        'profile_image_url_https': null,
-        'verified': verified,
-        'created_at': createdAt,
-        'in_feed': inFeed,
-      };
-
-  group('UserSubscription.fromMap()', () {
-    test('Should read SQLite numbers as true and false', () {
-      final on = UserSubscription.fromMap(row(verified: 1, inFeed: 1, createdAt: '2026-09-04'));
-      final off = UserSubscription.fromMap(row(verified: 0, inFeed: 0, createdAt: '2026-09-04'));
-
-      expect(on.verified, isTrue, reason: 'The number 1 should be read as true');
-      expect(on.inFeed, isTrue,
-          reason: 'The number 1 should mean the account is shown in the home feed');
-      expect(off.verified, isFalse,
-          reason: 'The number 0 should be read as false, so the blue check stays hidden');
-      expect(off.inFeed, isFalse,
-          reason: 'The in_feed column says whether the account shows in the home feed, so 0 '
-              'should be read as false. Reading it as true would bring back accounts the user '
-              'hid');
-    });
-
-    test('Should use the current time when the row has no creation date', () {
-      final subscription = UserSubscription.fromMap(row(verified: 1, inFeed: 1, createdAt: null));
-
-      expect(subscription.createdAt.difference(DateTime.now()).abs(),
-          lessThan(const Duration(seconds: 5)),
-          reason: 'Rows saved before the created_at column existed still have to be sorted, so a '
-              'missing date should count as just added');
-    });
-  });
-
-  group('UserSubscription.toMap()', () {
-    test('Should write an afternoon time that fromMap can read back', () {
-      final afternoon = DateTime(2026, 9, 4, 13, 37, 5);
-      final subscription = UserSubscription(
-          id: '1',
-          screenName: 'dogs',
-          name: 'Dogs',
-          profileImageUrlHttps: null,
-          verified: false,
-          createdAt: afternoon,
-          inFeed: true);
-
-      expect(UserSubscription.fromMap(subscription.toMap()).createdAt, afternoon,
-          reason: 'created_at is what orders the subscription list, so a time written by toMap '
-              'should read back unchanged through fromMap. An afternoon time is used because a '
-              'morning one would still pass on a format that loses the hour');
     });
   });
 }

@@ -1,11 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/client/accounts.dart';
-import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
-import 'package:quax/group/group_model.dart';
 import 'package:quax/likes/liked_tweet_model.dart';
-import 'package:quax/subscriptions/followed_users_index.dart';
-import 'package:quax/subscriptions/users_model.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -43,8 +39,8 @@ void main() {
         tableAccounts,
       ]) {
         expect(tables, contains(table),
-            reason: '"$table" is queried by a model, so a fresh install without it would crash '
-                'the first time that screen opens');
+            reason: '"$table" is created by a migration, so a fresh install must match the '
+                'schema an upgraded install ends on');
       }
 
       for (final table in [tableSavedTweet, tableSavedTweetFolder]) {
@@ -83,15 +79,14 @@ void main() {
       await db.close();
 
       expect(indexes, contains('idx_subscription_group_member_profile_id'),
-          reason: 'Every "which groups is this account in" read and the cascade delete on unfollow '
-              'walk subscription_group_member by profile_id; without the index each one is a full '
-              'table scan');
+          reason: 'Migration 31 keeps this index on the retained group tables; a fresh install '
+              'missing it would differ from an upgraded one');
       expect(indexes, contains('idx_accounts_is_active'),
           reason: 'setActiveAccount clears the flag with `WHERE is_active = 1` on every account '
               'switch');
       expect(indexes, contains('idx_subscription_screen_name'),
-          reason: 'The profile lookup filters subscriptions by screen name, and the table is read '
-              'in full on every subscriptions reload');
+          reason: 'Migration 31 keeps this index on the retained subscription table; a fresh '
+              'install missing it would differ from an upgraded one');
     });
 
     test('Should add the columns of the saved, liked and account features', () async {
@@ -272,156 +267,6 @@ void main() {
 
       expect(activeAccount.value, isNull,
           reason: 'With no accounts left nothing may be shown as the active login');
-    });
-  });
-
-  group('Subscriptions and groups listing', () {
-    setUp(() async {
-      await Repository().migrate();
-      final db = await Repository.writable();
-      await db.delete(tableSubscription);
-      await db.delete(tableSearchSubscription);
-      await db.delete(tableSubscriptionGroup, where: 'id != ?', whereArgs: ['-1']);
-      await db.delete(tableSubscriptionGroupMember);
-    });
-
-    Future<void> follow(String id, String name) async {
-      final db = await Repository.writable();
-      await db.insert(tableSubscription, {
-        'id': id,
-        'screen_name': 'handle_$id',
-        'name': name,
-        'profile_image_url_https': null,
-        'verified': 0,
-      });
-    }
-
-    Future<void> saveSearch(String id) async {
-      final db = await Repository.writable();
-      await db.insert(tableSearchSubscription, {'id': id});
-    }
-
-    Future<void> createGroup(String id, String name) async {
-      final db = await Repository.writable();
-      await db.insert(tableSubscriptionGroup, {'id': id, 'name': name, 'icon': defaultGroupIcon});
-    }
-
-    test('Should list the followed accounts in name order', () async {
-      await follow('u1', 'zeta');
-      await follow('u2', 'Alpha');
-      await follow('u3', 'mike');
-
-      final model = SubscriptionsModel(GroupsModel());
-      await model.reloadSubscriptions();
-
-      expect(model.state.map((s) => s.name).toList(), ['Alpha', 'mike', 'zeta'],
-          reason: 'The list is read in order wherever it is shown, so leaving it in insertion order '
-              'would put the newest follow first and reshuffle the screen on every reload');
-    });
-
-    test('Should order the followed accounts case-insensitively', () async {
-      await follow('u1', 'alice');
-      await follow('u2', 'Bert');
-      await follow('u3', 'carol');
-
-      final model = SubscriptionsModel(GroupsModel());
-      await model.reloadSubscriptions();
-
-      expect(model.state.map((s) => s.name).toList(), ['alice', 'Bert', 'carol'],
-          reason: 'Comparing the raw values would sort every capital letter ahead of every lowercase '
-              'one, splitting the list into two halves that read as unsorted');
-    });
-
-    test('Should list a search subscription in the same order as the accounts', () async {
-      await follow('u1', 'zeta');
-      await saveSearch('aardvark');
-
-      final model = SubscriptionsModel(GroupsModel());
-      await model.reloadSubscriptions();
-
-      expect(model.state.map((s) => s.name).toList(), ['aardvark', 'zeta'],
-          reason: 'A search subscription carries its query as the name, so it belongs in the one '
-              'ordering rather than in a block of its own');
-    });
-
-    test('Should refresh the index tweet headers read follows from', () async {
-      await follow('u1', 'zeta');
-
-      final model = SubscriptionsModel(GroupsModel());
-      await model.reloadSubscriptions();
-
-      expect(FollowedUsersIndex().contains('u1'), isTrue,
-          reason: 'Post headers decide "you follow this account" from that index, so a reload that '
-              'left it stale would keep labelling follows from an earlier state');
-    });
-
-    test('Should report a follow the moment it lands, without a reload', () async {
-      final model = SubscriptionsModel(GroupsModel());
-      await model.reloadSubscriptions();
-
-      final zeta = UserSubscription(
-          id: 'u1',
-          screenName: 'zeta',
-          name: 'Zeta',
-          profileImageUrlHttps: null,
-          verified: false,
-          createdAt: DateTime.now(),
-          inFeed: true);
-
-      expect(model.isFollowed('u1'), isFalse,
-          reason: 'The follow button on a profile reads this index, so it starts unfilled');
-
-      await model.toggleSubscribe(zeta, false);
-
-      expect(model.isFollowed('u1'), isTrue,
-          reason: 'The button fills on the tap; waiting for a reload would leave it behind the '
-              'database by one step');
-      expect(model.feedsFrom('u1'), isTrue,
-          reason: 'A freshly followed account shows in the home feed by default, and the button '
-              'draws a different icon when it does not');
-
-      await model.toggleSubscribe(zeta, true);
-
-      expect(model.isFollowed('u1'), isFalse,
-          reason: 'Unfollowing has to be visible at once as well, or the button offers to follow '
-              'an account that is still followed');
-    });
-
-    test('Should list the groups in name order, regardless of case', () async {
-      await createGroup('g1', 'zoo');
-      await createGroup('g2', 'Alpha');
-
-      final model = GroupsModel();
-      await model.reloadGroups();
-
-      expect(model.state.map((g) => g.name).toList(), ['Alpha', 'zoo'],
-          reason: 'The group picker lists whatever this returns, so an unordered query would hand it '
-              'a different order every time the table changed');
-    });
-
-    test('Should leave the implicit "All" group out of the listing', () async {
-      // Migration 12 seeds the "-1" row that stands for every followed account.
-      await createGroup('g1', 'Alpha');
-
-      final model = GroupsModel();
-      await model.reloadGroups();
-
-      expect(model.state.map((g) => g.id).toList(), ['g1'],
-          reason: 'The sentinel says "everyone"; offering it next to the real groups would offer the '
-              'same thing twice');
-    });
-
-    test('Should count the members of each group', () async {
-      await createGroup('g1', 'Alpha');
-      final db = await Repository.writable();
-      await db.insert(tableSubscriptionGroupMember, {'group_id': 'g1', 'profile_id': 'u1'});
-
-      final model = GroupsModel();
-      await model.reloadGroups();
-
-      expect(model.state.single.numberOfMembers, 1,
-          reason: 'The count is what the group row shows, so a query that dropped the join would '
-              'render every group as empty');
     });
   });
 

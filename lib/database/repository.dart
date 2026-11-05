@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:quax/group/group_model.dart';
 import 'package:logging/logging.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_migration_plan/migration/sql.dart';
@@ -8,6 +7,9 @@ import 'package:sqflite_migration_plan/sqflite_migration_plan.dart';
 import 'package:uuid/uuid.dart';
 
 const String databaseName = 'quax.db';
+
+/// Icon written by migrations 16 and 20 for group rows created before v2.15.0.
+const String defaultGroupIcon = '{"pack":"custom","key":"rss_feed"}';
 
 const String tableFeedGroupChunk = 'feed_group_chunk';
 const String tableFeedGroupCursor = 'feed_group_cursor';

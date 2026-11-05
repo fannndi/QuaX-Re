@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'package:quax/client/client.dart';
-import 'package:quax/database/entities.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/user.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -67,7 +66,7 @@ class _ProfileFollowsState extends State<ProfileFollows> with AutomaticKeepAlive
             addAutomaticKeepAlives: false,
             builderDelegate: PagedChildBuilderDelegate(
               invisibleItemsThreshold: 8,
-              itemBuilder: (context, user, index) => UserTile(user: UserSubscription.fromUser(user)),
+              itemBuilder: (context, user, index) => UserTile(user: user),
               firstPageErrorIndicatorBuilder: (context) => FullPageErrorWidget(
                 error: pagingErrorOf(state)?.error,
                 stackTrace: pagingErrorOf(state)?.stackTrace,

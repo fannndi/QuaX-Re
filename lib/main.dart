@@ -15,10 +15,8 @@ import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/app/fritter_app.dart';
 import 'package:quax/app/startup.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
-import 'package:quax/group/group_model.dart';
 import 'package:quax/home/_feed.dart';
 import 'package:quax/likes/liked_tweet_model.dart';
-import 'package:quax/subscriptions/users_model.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
@@ -95,17 +93,13 @@ Future<void> _startApp() async {
 
   await migrateMediaQualityPrefs(prefService);
 
-  final groupsModel = GroupsModel();
-  final subscriptionsModel = SubscriptionsModel(groupsModel);
-  await _loadModels(prefService, groupsModel, subscriptionsModel);
+  await _loadModels(prefService);
 
   runApp(PrefService(
       service: prefService,
       child: MultiProvider(
         providers: [
-          Provider(create: (context) => groupsModel),
           Provider(create: (context) => VideoControllerPool(maxSize: 2)),
-          Provider(create: (context) => subscriptionsModel),
           Provider(create: (context) => LikedTweetModel()),
           ChangeNotifierProvider(create: (_) => VideoContextState(prefService.get(optionMediaDefaultMute))),
         ],
@@ -114,10 +108,9 @@ Future<void> _startApp() async {
 }
 
 /// Loads what the screens assume is already there before the first frame: the
-/// schema, the followed accounts and their groups, plus the background work
-/// that does not have to finish before anything is drawn.
-Future<void> _loadModels(
-    BasePrefService prefService, GroupsModel groupsModel, SubscriptionsModel subscriptionsModel) async {
+/// schema plus the background work that does not have to finish before anything
+/// is drawn.
+Future<void> _loadModels(BasePrefService prefService) async {
   // Run the migrations early, so models work. We also do this later on so we
   // can display errors to the user.
   try {
@@ -125,9 +118,6 @@ Future<void> _loadModels(
   } catch (_) {
     // Ignore, as we'll catch it later instead
   }
-
-  await groupsModel.reloadGroups();
-  await subscriptionsModel.reloadSubscriptions();
 
   // Foreground-service notifications wired up for the download queue, the
   // persisted queue/history loaded, and the connectivity watcher primed so a
