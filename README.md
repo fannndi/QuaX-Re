@@ -15,7 +15,7 @@ QuaX itself is forked from [Quacker](https://github.com/TheHCJ/Quacker) and
 
 - Home feed with For You and Following timelines
 - Like tab: posts liked in the app, the account's likes and X bookmarks
-- Tweet search (top / latest / media) and people search, plus an offline Local tab
+- Tweet search (top / latest / media) and people search
 - Download queue with pause/resume and a hidden media library (`.nomedia`) opened from the gallery
 - Offline mode: cached threads, locally liked posts, downloaded clips play from disk
 - Single-page settings: theme, media quality, autoplay/loop, text size, cache management

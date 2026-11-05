@@ -82,7 +82,7 @@ per request.
 | `library/` | Hidden media library (`.nomedia`) with scan, thumbnails, external open |
 | `likes/` | Like tab: local likes, the account's likes, X bookmarks |
 | `profile/` | Profile header, tabs and media grid |
-| `search/` | Tweet and user search, plus the offline Local tab |
+| `search/` | Tweet and user search |
 | `settings/` | The single-page settings screen |
 | `subscriptions/` | `SubscriptionsModel` (the followed accounts) and the followed-user index |
 | `tweet/` | Tweet cards, threads, media, video playback |
@@ -228,9 +228,6 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   already-read thread opens from disk, `NetworkStatus` (DNS probe) retries when the connection
   returns, and downloaded clips play from disk. There is no cached first page for the feeds
   themselves — a cold start shows `TweetListSkeleton` — so do not promise an instant feed paint.
-- Local search (search screen's 5th tab) matches locally liked posts in Dart
-  (`lib/database/local_post_search.dart`) and library media by file name — Android's SQLite ships
-  without FTS5 (verified on device: `no such module: fts5`), so do not build an SQL index for it.
 - Settings is one page: General, Theme, Media, Tweets, Accessibility, Data, App info. Account
   management is reached from the account sheet, which pushes `SettingsAccountFragment`; it is not
   a section of Settings.

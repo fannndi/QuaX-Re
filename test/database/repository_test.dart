@@ -1,26 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pref/pref.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/database/entities.dart';
-import 'package:quax/database/local_post_search.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/group/group_model.dart';
 import 'package:quax/likes/liked_tweet_model.dart';
-import 'package:quax/search/local_search_model.dart';
 import 'package:quax/subscriptions/followed_users_index.dart';
 import 'package:quax/subscriptions/users_model.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-/// A stored post the way `TweetWithCard.toJson()` writes it: the search reads
-/// `full_text` and the nested user.
-Map<String, dynamic> storedTweet(String id, String text,
-    {String name = 'Alice', String handle = 'alice'}) {
-  return {
-    'id_str': id,
-    'full_text': text,
-    'user': {'id_str': 'u1', 'name': name, 'screen_name': handle},
-  };
-}
 
 void main() {
   setUpAll(() {
@@ -35,15 +21,6 @@ void main() {
   Future<Set<Object?>> tableNames(Database db) async {
     final rows = await db.rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'");
     return rows.map((row) => row['name']).toSet();
-  }
-
-  /// The ids the local search would show for [query], best match first.
-  Future<List<String>> search(String query) async {
-    final db = await Repository.writable();
-    final docs = [
-      for (final post in await loadLocalPosts(db)) SearchDoc(post, searchBodyOfJson(post.content)),
-    ];
-    return rankLocalPosts(docs, query).map((match) => match.post.id).toList();
   }
 
   group('Repository.migrate()', () {
@@ -224,130 +201,6 @@ void main() {
       expect(rows.single['user_id'], isNull,
           reason: 'Accounts that existed before the column carry no id yet — the likes tab fills '
               'it in on first use');
-    });
-  });
-
-  group('Local search matching', () {
-    SearchDoc doc(String id, String body, {DateTime? keptAt}) => SearchDoc(
-        LocalPost(
-            id: id,
-            content: null,
-            keptAt: keptAt ?? DateTime.fromMillisecondsSinceEpoch(0)),
-        body.toLowerCase());
-
-    test('Should require every typed word', () {
-      final docs = [doc('a', 'a post about sandwiches'), doc('b', 'a post about sandwiches and bread')];
-
-      expect(rankLocalPosts(docs, 'sandwich bread').map((match) => match.post.id), ['b'],
-          reason: 'Typing more words has to narrow the results down, otherwise the tab shows '
-              'everything the first word matched');
-    });
-
-    test('Should rank a word start above a word buried inside another', () {
-      final docs = [doc('buried', 'a thousand reasons'), doc('start', 'a sandwich')];
-
-      expect(rankLocalPosts(docs, 'sand').map((match) => match.post.id), ['start', 'buried'],
-          reason: 'The posts the user means should come first, a substring hit inside another '
-              'word is a weaker match');
-    });
-
-    test('Should order equal matches newest first', () {
-      final docs = [
-        doc('old', 'sandwich', keptAt: DateTime(2024)),
-        doc('new', 'sandwich', keptAt: DateTime(2025)),
-      ];
-
-      expect(rankLocalPosts(docs, 'sandwich').map((match) => match.post.id), ['new', 'old'],
-          reason: 'The Saved tab is chronological, so equally good matches should read the same way');
-    });
-
-    test('Should treat punctuation in the query as plain characters', () {
-      final docs = [doc('a', '50% off everything')];
-
-      expect(rankLocalPosts(docs, '50%').map((match) => match.post.id), ['a'],
-          reason: 'Nothing the user types should be able to turn into a search operator');
-    });
-
-    test('Should index the author and the retweeted post next to the text', () {
-      final body = searchBodyOf({
-        'full_text': 'look at this',
-        'user': {'name': 'Alice', 'screen_name': 'alice'},
-        'retweetedStatusWithCard': {
-          'full_text': 'the original post',
-          'user': {'name': 'Bob', 'screen_name': 'bob'},
-        },
-      });
-
-      expect(body, contains('@alice'),
-          reason: 'Typing a handle with its @ should find the author\'s posts even when the text '
-              'never mentions them');
-      expect(body, contains('Bob'),
-          reason: 'A retweet has to stay findable through the post it carries, on some responses '
-              'its own full_text is only "RT @bob: ..."');
-    });
-  });
-
-  group('Local search', () {
-    // Emptying the table beats deleting the database file: the models hold on
-    // to cached connections, and a reopened database can keep pointing at a
-    // file that was only unlinked, not removed.
-    setUp(() async {
-      await Repository().migrate();
-      final db = await Repository.writable();
-      await db.delete(tableLikedTweet);
-    });
-
-    test('Should find a liked post by a word in its text', () async {
-      await LikedTweetModel().likeTweet('t1', 'u1', storedTweet('t1', 'a post about sandwiches'));
-
-      expect(await search('sandwiches'), ['t1'],
-          reason: 'Liking a post has to make it findable, or the Local tab stays empty for '
-              'everything the user kept');
-      expect(await search('SANDWICHES'), ['t1'],
-          reason: 'The box is not case-sensitive, users type what they remember');
-    });
-
-    test('Should find a post by its author', () async {
-      await LikedTweetModel().likeTweet(
-          't2', 'u9', storedTweet('t2', 'nothing to see', name: 'Bob Burger', handle: 'bobburger'));
-
-      expect(await search('@bobburger'), ['t2'],
-          reason: 'The Local tab is the only way to find a liked post whose text is not '
-              'memorable, the handle has to be searchable');
-    });
-
-    test('Should match while the word is still being typed', () async {
-      await LikedTweetModel().likeTweet('t3', null, storedTweet('t3', 'a large sandwich'));
-
-      expect(await search('sandw'), ['t3'],
-          reason: 'Search runs on a debounce as the user types, so partial words have to match or '
-              'results only appear once the whole word is there');
-    });
-
-    test('Should not match the storage format of a post', () async {
-      await LikedTweetModel().likeTweet('t4', null, storedTweet('t4', 'a sandwich'));
-
-      expect(await search('full_text'), isEmpty,
-          reason: 'Only what the post says is searchable; matching the raw JSON would return every '
-              'post for a word like "user"');
-    });
-
-    test('Should drop a post as soon as it is unliked', () async {
-      final liked = LikedTweetModel();
-      await liked.likeTweet('t7', null, storedTweet('t7', 'a sandwich'));
-      await liked.unlikeTweet('t7');
-
-      expect(await search('sandwich'), isEmpty,
-          reason: 'Unliking a post removes the only local copy left, it must not keep showing');
-    });
-
-    test('Should skip a post whose stored payload cannot be read', () async {
-      final db = await Repository.writable();
-      await db.insert(tableLikedTweet, {'id': 'broken', 'content': 'this is not json'});
-      await LikedTweetModel().likeTweet('t8', null, storedTweet('t8', 'a sandwich'));
-
-      expect(await search('sandwich'), ['t8'],
-          reason: 'One corrupt row must not break the whole tab');
     });
   });
 
@@ -595,53 +448,4 @@ void main() {
     });
   });
 
-  // The pure ranking is covered above; what is not covered is the Store around
-  // it, which is where the debounce guard lives: two keystrokes can overlap and
-  // only the newer answer may reach the screen.
-  group('Local search store', () {
-    setUp(() async {
-      await Repository().migrate();
-      final db = await Repository.writable();
-      await db.delete(tableLikedTweet);
-    });
-
-    test('Should clear what it found when the box is emptied', () async {
-      final model = LocalSearchModel(PrefServiceCache());
-      await LikedTweetModel().likeTweet('t1', null, storedTweet('t1', 'a sandwich'));
-
-      await model.search('sandwich');
-      expect(model.state, hasLength(1),
-          reason: 'Typing a word has to surface the post that contains it');
-
-      await model.search('   ');
-      expect(model.state, isEmpty,
-          reason: 'Clearing the box has to clear what it found, or results for the old word stay '
-              'on screen with nothing left to explain them');
-    });
-
-    test('Should hand back a hit that names the post it found', () async {
-      final model = LocalSearchModel(PrefServiceCache());
-      await LikedTweetModel().likeTweet('t1', null, storedTweet('t1', 'a sandwich'));
-
-      await model.search('sandwich');
-
-      expect(model.state, hasLength(1), reason: 'The one liked post mentioning the word is found');
-      expect(model.state.single, isA<LocalPostHit>(),
-          reason: 'A post hit has to carry the post itself so tapping it can open it; a media hit '
-              'would carry a file path instead');
-      expect((model.state.single as LocalPostHit).post.id, 't1',
-          reason: 'The id is what the screen uses to show the right post');
-    });
-
-    test('Should find nothing when no liked post mentions the word', () async {
-      final model = LocalSearchModel(PrefServiceCache());
-      await LikedTweetModel().likeTweet('t1', null, storedTweet('t1', 'a sandwich'));
-
-      await model.search('volcano');
-
-      expect(model.state, isEmpty,
-          reason: 'A miss has to read as a miss; carrying the previous answer over would show a '
-              'post that does not match what is in the box');
-    });
-  });
 }
