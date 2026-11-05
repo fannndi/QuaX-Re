@@ -603,7 +603,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                 color: theme.colorScheme.primary,
                               ),
                               onPressed: () =>
-                                  SharePlus.instance.share(ShareParams(text: "https://x.com/${user.screenName}")),
+                                  SharePlus.instance.share(ShareParams(text: "$shareLinkBase/${user.screenName}")),
                             ),
                           ]),
                         ),

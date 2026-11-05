@@ -24,7 +24,7 @@ void main() {
       await deleteDatabase(databaseName);
     });
 
-    test('Should create every table the app reads on a fresh install', () async {
+    test('Should create every schema table on a fresh install', () async {
       await Repository().migrate();
 
       final db = await openDatabase(databaseName, readOnly: true);

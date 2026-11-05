@@ -71,6 +71,8 @@ const Duration rateLimitFallback = Duration(minutes: 15);
 const Duration notFoundCooldown = Duration(hours: 6);
 const int notFoundThreshold = 3;
 
+const shareLinkBase = 'https://x.com';
+
 const routeHome = '/';
 const routeProfile = '/profile';
 const routeSearch = '/search';

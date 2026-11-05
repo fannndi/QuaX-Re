@@ -192,7 +192,7 @@
   "@local": {},
   "logging_in_quax": "Logging in QuaX-Re",
   "@logging_in_quax": {},
-  "logging_in_quax_information": "The account you're logged in with doesn't change your experience. Subscriptions and likes are local to the app and don't affect your real account. The authentication is needed to actually fetch data from X, and doesn't enable support for interacting with posts (like, repost, ...). You can log in with several accounts: QuaX-Re picks a healthy one for each request it makes to x.com (search, show a profile, display feed, ...), and moves away from accounts that are rate-limited or rejected.",
+  "logging_in_quax_information": "The account you're logged in with doesn't change your experience. Likes are local to the app and don't affect your real account. The authentication is needed to actually fetch data from X, and doesn't enable support for interacting with posts (like, repost, ...). You can log in with several accounts: QuaX-Re picks a healthy one for each request it makes to x.com (search, show a profile, display feed, ...), and moves away from accounts that are rate-limited or rejected.",
   "@logging_in_quax_information": {},
   "login": "Login",
   "@login": {},

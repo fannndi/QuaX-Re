@@ -33,9 +33,8 @@ FeedTab feedTabFromId(String? id) =>
 
 class FeedScreen extends StatefulWidget {
   final ScrollController scrollController;
-  final String id;
 
-  const FeedScreen({super.key, required this.scrollController, required this.id});
+  const FeedScreen({super.key, required this.scrollController});
 
   @override
   State<FeedScreen> createState() => _FeedScreenState();

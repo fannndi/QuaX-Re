@@ -25,12 +25,10 @@ const String tableSubscriptionGroupMember = 'subscription_group_member';
 
 const String tableAccounts = 'accounts';
 
-/// Column names shared between the schema, the entities and the queries, so a
-/// typo cannot produce a second spelling of the same column. SQLite compares
-/// identifiers case-insensitively, so `in_Feed` and `in_feed` are the same
-/// column to the database — but three spellings across three files is how the
-/// next one becomes a real bug.
-const String columnSubscriptionInFeed = 'in_feed';
+/// Column names shared between the schema and the migrations, so a typo cannot
+/// produce a second spelling of the same column. SQLite compares identifiers
+/// case-insensitively, so a misspelt name still works until a query uses a
+/// different one.
 const String columnSavedAt = 'saved_at';
 const String columnLikedAt = 'liked_at';
 
@@ -348,14 +346,9 @@ class Repository {
             reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN user_id'),
       ],
       31: [
-        // Indexes for the lookups that scan a whole table today.
-        //
-        // - subscription_group_member.profile_id: every "which groups is this
-        //   account in" read and the cascade delete on unfollow walk it.
-        // - accounts.is_active: setActiveAccount clears it on every switch
-        //   (`WHERE is_active = 1`) with no index behind it.
-        // - subscription.screen_name: the profile lookup path, and the table is
-        //   read in full on every subscriptions reload.
+        // Indexes kept on the retained tables so a fresh install matches an
+        // upgraded one. accounts.is_active is still read on every account
+        // switch (`WHERE is_active = 1`).
         Migration(Operation((db) => _createIndexesIfTableExists(db, const [
               ('idx_${tableSubscriptionGroupMember}_profile_id', tableSubscriptionGroupMember, 'profile_id'),
               ('idx_${tableAccounts}_is_active', tableAccounts, 'is_active'),

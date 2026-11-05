@@ -244,7 +244,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                             ),
                             createSheetButton(L10n.of(context).share_tweet_link, Icons.link, () async {
                               await SharePlus.instance.share(ShareParams(
-                                  text: 'https://x.com/${tweet.user!.screenName}/status/${tweet.idStr}'));
+                                  text: '$shareLinkBase/${tweet.user!.screenName}/status/${tweet.idStr}'));
                               if (context.mounted) Navigator.pop(context);
                             }),
                             createSheetButton(
@@ -253,7 +253,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                               () async {
                                 await SharePlus.instance.share(ShareParams(
                                     text:
-                                        '$tweetText\n\nhttps://x.com/${tweet.user!.screenName}/status/${tweet.idStr}'));
+                                        '$tweetText\n\n$shareLinkBase/${tweet.user!.screenName}/status/${tweet.idStr}'));
                                 if (context.mounted) Navigator.pop(context);
                               },
                             ),

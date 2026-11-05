@@ -68,7 +68,6 @@ class _HomeScreenState extends State<_HomeScreen> {
             case 'feed':
               return FeedScreen(
                 scrollController: scrollControllers[index]!,
-                id: '-1',
               );
             case 'downloads':
               return DownloadsTab(prefs: widget.prefs, scrollController: scrollControllers[index]!);
