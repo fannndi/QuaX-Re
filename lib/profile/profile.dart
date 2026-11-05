@@ -119,7 +119,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
   // whenever any dependency — theme, keyboard, a pref write — changed, which
   // also snapped the profile back to the first tab.
   late final TabController _tabController =
-      TabController(length: 4, vsync: this, initialIndex: widget.defaultTabIndex ?? 0);
+      TabController(length: 3, vsync: this, initialIndex: widget.defaultTabIndex ?? 0);
 
   bool _showBackToTopButton = false;
 
@@ -268,10 +268,6 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
 
     var metadataTextStyle = const TextStyle(fontSize: 12.5);
     var prefs = PrefService.of(context, listen: false);
-
-    var shareBaseUrlOption = prefs.get(optionShareBaseUrl);
-    var shareBaseUrl =
-        shareBaseUrlOption != null && shareBaseUrlOption.isNotEmpty ? shareBaseUrlOption : 'https://x.com';
 
     List<RichTextPart> descParts = [];
     if (user.description != null && user.description!.isNotEmpty) {
@@ -612,7 +608,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                 color: theme.colorScheme.primary,
                               ),
                               onPressed: () =>
-                                  SharePlus.instance.share(ShareParams(text: "$shareBaseUrl/${user.screenName}")),
+                                  SharePlus.instance.share(ShareParams(text: "https://x.com/${user.screenName}")),
                             ),
                           ]),
                         ),

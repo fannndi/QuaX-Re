@@ -79,21 +79,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 pref: optionDisableScreenshots,
               ),
               PrefSwitch(
-                title: Text(L10n.of(context).option_confirm_close_label),
-                subtitle: Text(L10n.of(context).option_confirm_close_description),
-                pref: optionConfirmClose,
-              ),
-              PrefSwitch(
                 title: Text(L10n.of(context).option_open_links_in_embedded_browser_label),
                 subtitle: Text(L10n.of(context).option_open_links_in_embedded_browser_description),
                 pref: optionOpenLinksInEmbeddedBrowser,
               ),
-              PrefSwitch(
-                title: Text(L10n.of(context).should_check_for_updates_label),
-                subtitle: Text(L10n.of(context).should_check_for_updates_description),
-                pref: optionShouldCheckForUpdates,
-              ),
-              _ShareBaseUrlTile(prefs: prefs),
             ],
           ),
           _SettingsSection(
@@ -355,56 +344,6 @@ class _LibraryFolderTileState extends State<_LibraryFolderTile> {
           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.chevron_right),
       onTap: _busy ? null : _pick,
-    );
-  }
-}
-
-/// Edits [optionShareBaseUrl], the base URL prepended to shared post links
-/// (x.com by default; useful for FxTwitter-style mirrors).
-class _ShareBaseUrlTile extends StatefulWidget {
-  final BasePrefService prefs;
-
-  const _ShareBaseUrlTile({required this.prefs});
-
-  @override
-  State<_ShareBaseUrlTile> createState() => _ShareBaseUrlTileState();
-}
-
-class _ShareBaseUrlTileState extends State<_ShareBaseUrlTile> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.prefs.get<String>(optionShareBaseUrl));
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    await widget.prefs.set(optionShareBaseUrl, _controller.text);
-    if (mounted) {
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PrefDialogButton(
-      title: Text(L10n.of(context).share_base_url),
-      subtitle: Text(L10n.of(context).share_base_url_description),
-      dialog: PrefDialog(
-        title: Text(L10n.of(context).share_base_url),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(L10n.of(context).cancel)),
-          TextButton(onPressed: _save, child: Text(L10n.of(context).save)),
-        ],
-        children: [
-          TextFormField(
-            controller: _controller,
-            decoration: const InputDecoration(hintText: 'https://x.com'),
-          ),
-        ],
-      ),
     );
   }
 }

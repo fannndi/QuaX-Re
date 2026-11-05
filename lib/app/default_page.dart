@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 
 import 'package:quax/app/account_prompt.dart';
 import 'package:quax/app/onboarding.dart';
@@ -165,45 +164,13 @@ class _DefaultPageState extends State<DefaultPage> {
           prefix: L10n.of(context).unable_to_run_the_database_migrations);
     }
 
-    return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, result) async {
-          if (didPop) return;
-          var prefService = PrefService.of(context);
-          if (!prefService.get(optionConfirmClose)) {
-            SystemNavigator.pop();
-            return;
-          }
-
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (c) => AlertDialog(
-              title: Text(L10n.current.are_you_sure),
-              content: Text(L10n.current.confirm_close_fritter),
-              actions: [
-                TextButton(
-                  child: Text(L10n.current.no),
-                  onPressed: () => Navigator.pop(c, false),
-                ),
-                TextButton(
-                  child: Text(L10n.current.yes),
-                  onPressed: () => Navigator.pop(c, true),
-                ),
-              ],
-            ),
-          );
-
-          if (confirmed == true && context.mounted) {
-            SystemNavigator.pop();
-          }
-        },
-        child: _setupDone
-            ? const HomeScreen()
-            : OnboardingScreen(
-                onFinished: () {
-                  setState(() => _setupDone = true);
-                  _maybePromptForAccount();
-                }));
+    return _setupDone
+        ? const HomeScreen()
+        : OnboardingScreen(
+            onFinished: () {
+              setState(() => _setupDone = true);
+              _maybePromptForAccount();
+            });
   }
 
   @override

@@ -1,8 +1,5 @@
-import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/rendering.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
@@ -103,8 +100,6 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   // rebuild walks the whole string through the bidi algorithm again.
   bool _isRtl = false;
 
-  final GlobalKey _globalKey = GlobalKey(); // needed for "share tweet as image"
-
   @override
   void initState() {
     super.initState();
@@ -185,7 +180,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
   }
 
-  Widget _buildFooterBar(TweetWithCard tweet, String tweetText, String shareBaseUrl, NumberFormat numberFormat, {bool isArticle = false}) {
+  Widget _buildFooterBar(TweetWithCard tweet, String tweetText, NumberFormat numberFormat, {bool isArticle = false}) {
     return Container(
       alignment: Alignment.center,
       margin: isArticle ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 8),
@@ -252,8 +247,8 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                               ),
                             createSheetButton(isArticle ? L10n.of(context).share_article_link : L10n.of(context).share_tweet_link, Icons.link,
                                 () async {
-                              await SharePlus.instance.share(
-                                  ShareParams(text: '$shareBaseUrl/${tweet.user!.screenName}/status/${tweet.idStr}'));
+                              await SharePlus.instance.share(ShareParams(
+                                  text: 'https://x.com/${tweet.user!.screenName}/status/${tweet.idStr}'));
                               if (context.mounted) Navigator.pop(context);
                             }),
                             if (!isArticle)
@@ -262,17 +257,9 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                                       () async {
                                         await SharePlus.instance.share(ShareParams(
                                             text:
-                                                '$tweetText\n\n$shareBaseUrl/${tweet.user!.screenName}/status/${tweet.idStr}'));
+                                                '$tweetText\n\nhttps://x.com/${tweet.user!.screenName}/status/${tweet.idStr}'));
                                         if (context.mounted) Navigator.pop(context);
                                       }),
-                            createSheetButton(isArticle ? L10n.of(context).share_article_as_image : L10n.of(context).share_tweet_as_image, Icons.screenshot, () async {
-                              Uint8List? imgBytes = await captureWidget();
-                              if (imgBytes != null) {
-                                await SharePlus.instance.share(ShareParams(
-                                    files: [XFile.fromData(imgBytes, mimeType: 'image/png')]));
-                              }
-                              if (context.mounted) Navigator.pop(context);
-                            }),
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 16),
                               child: Divider(
@@ -387,39 +374,9 @@ Color? buttonsColor(BuildContext c) {
     );
   }
 
-  Future<Uint8List?> captureWidget() async {
-    if (_globalKey.currentContext == null) {
-      return null;
-    }
-    final RenderRepaintBoundary boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-    // Capped: a media-bearing card at pixelRatio 3.0 on a 1440p phone is a
-    // 3240x5400 RGBA image — about 70 MB in one allocation, then a second
-    // ~35 MB PNG buffer, on the raster thread with no await in between. That is
-    // the single most likely OOM in the app, and it is reachable from the share
-    // sheet of any tweet with a video or a four-photo carousel. A share target
-    // cannot show the difference.
-    final ratio = math.min(2.0, MediaQuery.devicePixelRatioOf(context));
-    final ui.Image image = await boundary.toImage(pixelRatio: ratio);
-    try {
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        return null;
-      }
-      return byteData.buffer.asUint8List();
-    } finally {
-      // toByteData does not dispose the source, so without this every share
-      // leaks one full-card native image.
-      image.dispose();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final prefs = PrefService.of(context, listen: false);
-
-    var shareBaseUrlOption = prefs.get(optionShareBaseUrl);
-    var shareBaseUrl =
-        shareBaseUrlOption != null && shareBaseUrlOption.isNotEmpty ? shareBaseUrlOption : 'https://x.com';
 
     TweetWithCard tweet = this.tweet.retweetedStatusWithCard == null ? this.tweet : this.tweet.retweetedStatusWithCard!;
 
@@ -620,7 +577,7 @@ Color? buttonsColor(BuildContext c) {
           ));
     }
 
-    final footerBar = _buildFooterBar(tweet, tweetText, shareBaseUrl, numberFormat, isArticle: tweet.article != null);
+    final footerBar = _buildFooterBar(tweet, tweetText, numberFormat, isArticle: tweet.article != null);
 
     Widget article = const SizedBox.shrink();
     if (tweet.article != null) {
@@ -721,7 +678,6 @@ Color? buttonsColor(BuildContext c) {
 
     if (isThreadTile) {
       return RepaintBoundary(
-          key: _globalKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -753,7 +709,6 @@ Color? buttonsColor(BuildContext c) {
     }
 
     return RepaintBoundary(
-        key: _globalKey,
         child: Column(children: [
           Card(
             color: tweetCardColor(context),

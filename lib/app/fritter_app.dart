@@ -1,6 +1,5 @@
 import 'package:quax/app/privacy_shield.dart';
 import 'package:quax/app/theme.dart';
-import 'package:quax/app/update_checker.dart';
 import 'package:quax/app/default_page.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
@@ -29,14 +28,10 @@ class FritterApp extends StatefulWidget {
 class _FritterAppState extends State<FritterApp> {
   static final log = Logger('_MyAppState');
 
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>(); // NEW: Navigator key
-
   String _themeMode = 'system';
   String _themeColor = 'accent';
   bool _disableAnimations = false;
   bool _trueBlack = true;
-  bool _checkUpdates = false;
-  bool _updateDialogShown = false;
   bool _isSecure = false;
   double _textScaleFactor = 1.0;
 
@@ -57,7 +52,6 @@ class _FritterAppState extends State<FritterApp> {
     if (!identical(_prefs, prefs)) {
       _detachPreferenceListeners();
       _prefs = prefs;
-      prefs.addKeyListener(optionShouldCheckForUpdates, _onCheckUpdatesChanged);
       prefs.addKeyListener(optionThemeTrueBlack, _onTrueBlackChanged);
       prefs.addKeyListener(optionThemeMode, _onThemeModeChanged);
       prefs.addKeyListener(optionThemeColor, _onThemeColorChanged);
@@ -81,7 +75,6 @@ class _FritterAppState extends State<FritterApp> {
     final prefs = _prefs;
     if (prefs == null) return;
     _prefs = null;
-    prefs.removeKeyListener(optionShouldCheckForUpdates, _onCheckUpdatesChanged);
     prefs.removeKeyListener(optionThemeTrueBlack, _onTrueBlackChanged);
     prefs.removeKeyListener(optionThemeMode, _onThemeModeChanged);
     prefs.removeKeyListener(optionThemeColor, _onThemeColorChanged);
@@ -95,7 +88,6 @@ class _FritterAppState extends State<FritterApp> {
     _themeColor = prefs.get(optionThemeColor);
     _trueBlack = prefs.get(optionThemeTrueBlack);
     _disableAnimations = prefs.get(optionDisableAnimations);
-    _checkUpdates = prefs.get(optionShouldCheckForUpdates);
     _isSecure = prefs.get(optionDisableScreenshots);
     _textScaleFactor = prefs.get(optionTextScaleFactor);
   }
@@ -105,8 +97,6 @@ class _FritterAppState extends State<FritterApp> {
     if (prefs == null || !mounted) return;
     setState(() => read(prefs));
   }
-
-  void _onCheckUpdatesChanged() => _onPreferenceChanged((p) => _checkUpdates = p.get(optionShouldCheckForUpdates));
 
   void _onTrueBlackChanged() => _onPreferenceChanged((p) => _trueBlack = p.get(optionThemeTrueBlack));
 
@@ -152,7 +142,6 @@ class _FritterAppState extends State<FritterApp> {
         child: DynamicColorBuilder(builder: (lightDynamic, darkDynamic) {
           return Portal(
               child: MaterialApp(
-                  navigatorKey: _navigatorKey,
                   localizationsDelegates: const [
                     L10n.delegate,
                     ...GlobalMaterialLocalizations.delegates,
@@ -192,14 +181,6 @@ class _FritterAppState extends State<FritterApp> {
                     routeStatus: (context) => const StatusScreen(),
                   },
                   builder: (context, child) {
-                    if (_checkUpdates && !_updateDialogShown) {
-                      _updateDialogShown = true;
-                      // Use navigatorKey's context for showDialog
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        checkForUpdates(_navigatorKey.currentContext!);
-                      });
-                    }
-
                     // Replace the default red screen of death with a slightly friendlier one
                     ErrorWidget.builder = (FlutterErrorDetails details) => FullPageErrorWidget(
                           error: details.exception,

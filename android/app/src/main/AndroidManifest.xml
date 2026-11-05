@@ -99,30 +99,6 @@
                     android:host="t.co"
                     android:scheme="https" />
 
-                <data
-                    android:host="fxtwitter.com"
-                    android:scheme="https" />
-
-                <data
-                    android:host="vxtwitter.com"
-                    android:scheme="https" />
-
-                <data
-                    android:host="*vxtwitter.com"
-                    android:scheme="https" />
-                
-                <data
-                    android:host="fixupx.com"
-                    android:scheme="http" />
-
-                <data
-                    android:host="fixupx.com"
-                    android:scheme="https" />
-
-                <data
-                    android:host="*fixupx.com"
-                    android:scheme="https" />
-
             </intent-filter>
         </activity>
         <!-- Keeps transfers alive while the app is backgrounded, with the

@@ -53,7 +53,6 @@ Future<void> main() async {
 /// [_startApp] so the startup path reads as a sequence of steps rather than
 /// as a page of data wedged into the middle of one.
 final Map<String, dynamic> _prefDefaults = {
-    optionConfirmClose: true,
     optionDisableAnimations: false,
     optionTextScaleFactor: 1.0,
     optionDisableScreenshots: false,
@@ -74,7 +73,6 @@ final Map<String, dynamic> _prefDefaults = {
     optionMediaAllowBackgroundPlayOtherApps: false,
     optionMediaVideoPrefetchSeconds: 0,
     optionNonConfirmationBiasMode: false,
-    optionShouldCheckForUpdates: false,
     optionOpenLinksInEmbeddedBrowser: false,
     alwaysShowFullTweetContents: false,
     optionThemeMode: 'system',
