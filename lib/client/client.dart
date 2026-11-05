@@ -16,7 +16,6 @@ import 'package:quax/client/rate_limit_tracker.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile_model.dart';
-import 'package:quax/article/article.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/iterables.dart';
 import 'package:quax/utils/timeline_cache.dart';

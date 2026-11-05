@@ -12,7 +12,6 @@ import 'package:quax/status.dart';
 import 'package:quax/tweet/expandable_tweet_text.dart';
 import 'package:quax/tweet/_card.dart';
 import 'package:quax/tweet/_media.dart';
-import 'package:quax/article/article.dart';
 import 'package:quax/ui/dates.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:quax/user.dart';
@@ -180,10 +179,10 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     );
   }
 
-  Widget _buildFooterBar(TweetWithCard tweet, String tweetText, NumberFormat numberFormat, {bool isArticle = false}) {
+  Widget _buildFooterBar(TweetWithCard tweet, String tweetText, NumberFormat numberFormat) {
     return Container(
       alignment: Alignment.center,
-      margin: isArticle ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
       child: Scrollbar(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -236,30 +235,29 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                             child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (!isArticle)
-                              createSheetButton(
-                                L10n.of(context).share_tweet_content,
-                                Icons.text_snippet,
-                                      () async {
+                            createSheetButton(
+                              L10n.of(context).share_tweet_content,
+                              Icons.text_snippet,
+                              () async {
                                 await SharePlus.instance.share(ShareParams(text: tweetText));
                                 if (context.mounted) Navigator.pop(context);
                               },
-                              ),
-                            createSheetButton(isArticle ? L10n.of(context).share_article_link : L10n.of(context).share_tweet_link, Icons.link,
-                                () async {
+                            ),
+                            createSheetButton(L10n.of(context).share_tweet_link, Icons.link, () async {
                               await SharePlus.instance.share(ShareParams(
                                   text: 'https://x.com/${tweet.user!.screenName}/status/${tweet.idStr}'));
                               if (context.mounted) Navigator.pop(context);
                             }),
-                            if (!isArticle)
-                              createSheetButton(
-                                  L10n.of(context).share_tweet_content_and_link, Icons.add_link,
-                                      () async {
-                                        await SharePlus.instance.share(ShareParams(
-                                            text:
-                                                '$tweetText\n\nhttps://x.com/${tweet.user!.screenName}/status/${tweet.idStr}'));
-                                        if (context.mounted) Navigator.pop(context);
-                                      }),
+                            createSheetButton(
+                              L10n.of(context).share_tweet_content_and_link,
+                              Icons.add_link,
+                              () async {
+                                await SharePlus.instance.share(ShareParams(
+                                    text:
+                                        '$tweetText\n\nhttps://x.com/${tweet.user!.screenName}/status/${tweet.idStr}'));
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                            ),
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 16),
                               child: Divider(
@@ -276,7 +274,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
                       });
                 },
               ),
-              if (!isArticle) _freshnessLabel(),
+              _freshnessLabel(),
             ],
           ),
         ),
@@ -577,17 +575,7 @@ Color? buttonsColor(BuildContext c) {
           ));
     }
 
-    final footerBar = _buildFooterBar(tweet, tweetText, numberFormat, isArticle: tweet.article != null);
-
-    Widget article = const SizedBox.shrink();
-    if (tweet.article != null) {
-      article = ArticleWidget(
-        article: tweet.article!,
-        expand: widget.tweetOpened,
-        onTap: () => onClickOpenTweet(tweet),
-        bottomBar: widget.tweetOpened ? footerBar : null,
-      );
-    }
+    final footerBar = _buildFooterBar(tweet, tweetText, numberFormat);
 
     DateTime? createdAt;
     if (tweet.createdAt != null) {
@@ -665,12 +653,11 @@ Color? buttonsColor(BuildContext c) {
         : null;
 
     final bodyChildren = <Widget>[
-      if (tweet.article == null) content,
+      content,
       media,
       quotedTweet,
       TweetCard(tweet: tweet, card: tweet.card),
       birdwatchQuoted,
-      article,
       footerBar,
     ];
 

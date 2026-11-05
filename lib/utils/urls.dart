@@ -13,7 +13,7 @@ const _channel = MethodChannel('browser_resolver');
 /// Whether [uri] is a link the app may hand to another app. Only http(s):
 /// `launchUrlString`/`AndroidIntent` perform no scheme validation of their own
 /// in `externalApplication` mode, so a `file://`, `content://` or `intent://`
-/// string coming from X's API (an expanded card URL, an article entity) would
+/// string coming from X's API (an expanded card URL, for example) would
 /// otherwise reach `Activity.startActivity` intact.
 bool isLaunchableLink(String uri) {
   final parsed = Uri.tryParse(uri);

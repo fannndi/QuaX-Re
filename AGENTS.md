@@ -73,7 +73,6 @@ per request.
 | Folder | Description |
 |---|---|
 | `app/` | App shell (`fritter_app.dart`), routing setup, theme, onboarding, privacy shield |
-| `article/` | X long-form article rendering |
 | `catcher/` | Shared exception types (`HttpException`, account errors) |
 | `client/` | X API client wrappers, account selection/health, login webview, headers |
 | `database/` | SQLite repository (`repository.dart`) + entities + migrations |
