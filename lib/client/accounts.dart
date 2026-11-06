@@ -89,9 +89,11 @@ Future<void> loadActiveAccount() async {
 
 /// Switches the preferred account. The app then sends every request through it
 /// first, falling back to the health logic when it is rate-limited/flagged.
-/// Picking the account that is already active is a no-op.
-Future<void> setActiveAccount(String id) async {
-  if (activeAccount.value?.id == id) return;
+/// Picking the account that is already active is a no-op unless [force] is set
+/// (an import has to make sure the database flag agrees even when the in-memory
+/// value happens to match).
+Future<void> setActiveAccount(String id, {bool force = false}) async {
+  if (!force && activeAccount.value?.id == id) return;
 
   var database = await Repository.writable();
   await database.transaction((txn) async {
@@ -297,4 +299,134 @@ Future<void> updateAccountProfile(String id,
       },
       where: 'id = ?',
       whereArgs: [id]);
+}
+
+class AccountImportResult {
+  final int imported;
+  final int replaced;
+  final int kept;
+  final List<String> skipped;
+
+  const AccountImportResult({
+    required this.imported,
+    required this.replaced,
+    required this.kept,
+    this.skipped = const [],
+  });
+
+  int get total => imported + replaced + kept;
+}
+
+/// Merges accounts read from a vault into the database.
+///
+/// An account that already exists keeps its current session unless
+/// [replaceExisting] is true. Its stable local id is always preserved, so the
+/// likes saved while it was logged in stay attached. The backup's preferred
+/// account becomes active afterwards, which resets the feeds on an explicit
+/// restore.
+Future<AccountImportResult> importAccounts(List<Account> accounts,
+    {bool replaceExisting = false}) async {
+  final unique = <Account>[];
+  final seen = <String>{};
+  for (final account in accounts) {
+    final handle = account.screenName;
+    if (handle == null || handle.isEmpty) continue;
+    final key = account.userId == null ? 'h:${handle.toLowerCase()}' : 'u:${account.userId}';
+    if (seen.add(key)) unique.add(account);
+  }
+  if (unique.isEmpty) {
+    return const AccountImportResult(imported: 0, replaced: 0, kept: 0);
+  }
+
+  var imported = 0;
+  var replaced = 0;
+  var kept = 0;
+  final skipped = <String>[];
+  final database = await Repository.writable();
+
+  await database.transaction((txn) async {
+    final existingRows = await txn.query(tableAccounts);
+    final existing = existingRows.map((e) => Account.fromMap(e)).toList();
+    final usedLocalIds = existing.map((e) => e.localId).toSet();
+
+    for (final account in unique) {
+      Account? match;
+      for (final candidate in existing) {
+        final sameId = candidate.id == account.id;
+        final sameUser = account.userId != null && candidate.userId == account.userId;
+        final sameHandle = candidate.screenName?.toLowerCase() == account.screenName?.toLowerCase();
+        if (sameId || sameUser || sameHandle) {
+          match = candidate;
+          break;
+        }
+      }
+
+      if (match != null) {
+        if (!replaceExisting) {
+          kept++;
+          continue;
+        }
+        final localId = match.localId;
+        final wasActive = match.isActive;
+        await txn.delete(tableAccounts, where: 'id = ?', whereArgs: [match.id]);
+        await txn.insert(
+          tableAccounts,
+          Account(
+            id: account.id,
+            authHeader: account.authHeader,
+            screenName: account.screenName,
+            userId: account.userId ?? match.userId,
+            localId: localId,
+            isActive: wasActive,
+          ).toMap(),
+        );
+        replaced++;
+        continue;
+      }
+
+      var localId = account.localId;
+      if (localId.isEmpty || usedLocalIds.contains(localId)) {
+        localId = const Uuid().v4();
+      }
+      usedLocalIds.add(localId);
+      await txn.insert(
+        tableAccounts,
+        Account(
+          id: account.id,
+          authHeader: account.authHeader,
+          screenName: account.screenName,
+          userId: account.userId,
+          localId: localId,
+        ).toMap(),
+      );
+      imported++;
+    }
+  });
+
+  final preferred = unique.firstWhere((a) => a.isActive, orElse: () => unique.first);
+  var rows = <Map<String, Object?>>[];
+  if (preferred.userId != null) {
+    rows = await database.query(tableAccounts,
+        where: 'user_id = ?', whereArgs: [preferred.userId], limit: 1);
+  }
+  if (rows.isEmpty) {
+    rows = await database.query(tableAccounts,
+        where: 'screen_name = ? COLLATE NOCASE', whereArgs: [preferred.screenName], limit: 1);
+  }
+
+  if (rows.isEmpty) {
+    await promoteFirstAccountIfNoneActive();
+  } else {
+    if (activeAccount.value == null) {
+      await loadActiveAccount();
+    }
+    await setActiveAccount(rows.first['id'] as String, force: true);
+  }
+
+  return AccountImportResult(
+    imported: imported,
+    replaced: replaced,
+    kept: kept,
+    skipped: skipped,
+  );
 }

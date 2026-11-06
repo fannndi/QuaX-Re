@@ -97,6 +97,7 @@ dependencies:
   # Miscellaneous
   async_button_builder: ^3.0.0+1
   better_player_plus: ^2.0.0
+  cryptography: ^2.9.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
