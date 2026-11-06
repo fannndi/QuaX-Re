@@ -67,6 +67,11 @@ class QuaxApplication : android.app.Application() {
     // the main one.
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // One thumbnail worker for the whole process. A new executor per request
+    // parked a core thread forever, so scrolling a large gallery leaked one
+    // thread per clip until pthread_create failed.
+    private val thumbnailExecutor = Executors.newSingleThreadExecutor()
+
     private val mediaExtensions = setOf(
         "mp4", "mov", "webm", "mkv", "m4v", "avi", "ts", "3gp", "mpeg", "mpg", "wmv", "flv", "m2ts", "ogv",
         "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "avif", "tiff"
@@ -419,7 +424,7 @@ class QuaxApplication : android.app.Application() {
             // frames and can ANR. MethodChannel results must be delivered on
             // the main thread, hence the post back.
             val app = this
-            Executors.newSingleThreadExecutor().execute {
+            thumbnailExecutor.execute {
                 var success: String? = null
                 var failure: Pair<String, String?>? = null
                 var frame: Bitmap? = null

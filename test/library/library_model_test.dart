@@ -17,6 +17,7 @@ void main() {
   setUp(() async {
     source = await Directory.systemTemp.createTemp('quax-import-source-');
     library = await Directory.systemTemp.createTemp('quax-import-library-');
+    LibraryModel.debugNameIndexBuilds = 0;
   });
 
   tearDown(() async {
@@ -117,6 +118,51 @@ void main() {
           reason: 'A folder the reader picked once and that has since gone is not an import');
       expect(modelWith().state, isEmpty, reason: 'And nothing may appear in the library from it');
     });
+
+    test('Should refuse to import the library into itself', () async {
+      File('${library.path}/clip.mp4').writeAsStringSync('keep me');
+      final nested = Directory('${library.path}/nested')..createSync();
+      File('${nested.path}/clip.mp4').writeAsStringSync('keep me too');
+
+      final moved = await modelWith().importFromDirectory(library.path);
+
+      expect(moved, isFalse,
+          reason: 'Importing the library into itself used to rename every file with a timestamp');
+      expect(File('${library.path}/clip.mp4').readAsStringSync(), 'keep me',
+          reason: 'The original file must keep its name and bytes');
+      expect(File('${nested.path}/clip.mp4').readAsStringSync(), 'keep me too');
+    });
   });
 
+  group('name index', () {
+    test('Should share one scan across models and rebuild after refresh', () async {
+      final nested = Directory('${library.path}/nested')..createSync();
+      File('${nested.path}/clip.mp4').writeAsStringSync('media');
+
+      final first = modelWith();
+      expect(await first.localPathFor('https://x.com/clip.mp4'), isNotNull,
+          reason: 'The nested clip must be found by basename when the direct path misses');
+
+      expect(LibraryModel.debugNameIndexBuilds, 1,
+          reason: 'The first lookup builds the index once');
+
+      final second = modelWith();
+      expect(await second.localPathFor('https://x.com/clip.mp4'), isNotNull);
+      expect(LibraryModel.debugNameIndexBuilds, 1,
+          reason: 'A fresh LibraryModel per video tile must reuse the shared index instead of '
+              'recursively listing the whole library on every start');
+
+      await second.refresh();
+      expect(await second.localPathFor('https://x.com/clip.mp4'), isNotNull);
+      expect(LibraryModel.debugNameIndexBuilds, 2,
+          reason: 'refresh() must drop the index so a new download becomes visible immediately');
+    });
+
+    test('Should give nested clips with the same basename different thumbnails', () {
+      expect(thumbnailNameFor('a/clip.mp4'), isNot(thumbnailNameFor('b/clip.mp4')),
+          reason: 'A basename-only cache key showed the first clip\'s frame for every duplicate');
+      expect(thumbnailNameFor('a/clip.mp4'), thumbnailNameFor('a/clip.mp4'),
+          reason: 'The same path must map to the same cache file on every run');
+    });
+  });
 }

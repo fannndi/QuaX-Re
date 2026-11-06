@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +25,11 @@ const _videoExtensions = [
   '.m2ts', '.ogv'
 ];
 const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif', '.avif', '.tiff'];
+
+/// Thumbnail file name for a library-relative path. Hashing the path keeps two
+/// nested clips with the same basename from sharing (and overwriting) one frame.
+@visibleForTesting
+String thumbnailNameFor(String relativePath) => '${md5.convert(utf8.encode(relativePath))}.jpg';
 
 const _mimeTypes = {
   '.mp4': 'video/mp4',
@@ -158,7 +165,12 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     try {
       final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
       await cacheDir.create(recursive: true);
-      final cached = File(p.join(cacheDir.path, '${p.basenameWithoutExtension(entry.file.path)}.jpg'));
+      // Hash the path relative to the library, not the basename: two nested
+      // clips named clip.mp4 used to share one thumbnail and show the wrong
+      // frame (and a deleted clip's frame reappeared for a new one).
+      final relative =
+          libraryPath.isEmpty ? entry.file.path : p.relative(entry.file.path, from: libraryPath);
+      final cached = File(p.join(cacheDir.path, thumbnailNameFor(relative)));
       if (await cached.exists()) {
         return cached.path;
       }
@@ -199,38 +211,80 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     if (await direct.exists()) return direct.path;
 
     await _buildNameIndexIfStale();
-    final exact = _localNames[name];
-    if (exact != null) return exact;
+    final index = _nameIndexes[libraryPath] ?? const <String, List<String>>{};
+    final exact = index[name];
+    if (exact != null && exact.isNotEmpty) return exact.first;
 
     final stem = p.basenameWithoutExtension(name).toLowerCase();
     final extension = p.extension(name).toLowerCase();
-    for (final entry in _localNames.entries) {
+    for (final entry in index.entries) {
       if (p.extension(entry.key).toLowerCase() != extension) continue;
       if (p.basenameWithoutExtension(entry.key).toLowerCase().startsWith('$stem-')) {
-        return entry.value;
+        if (entry.value.isNotEmpty) return entry.value.first;
       }
     }
     return null;
   }
 
-  final Map<String, String> _localNames = {};
-  DateTime _namesBuiltAt = DateTime.fromMillisecondsSinceEpoch(0);
+  // The name index is shared by every LibraryModel for the same folder: the
+  // video player builds a fresh model per tile, so a per-instance index meant
+  // a full recursive scan every time a clip came into view.
+  static final Map<String, Map<String, List<String>>> _nameIndexes = {};
+  static final Map<String, DateTime> _nameIndexBuiltAt = {};
+  static final Map<String, Future<void>> _nameIndexBuilding = {};
 
   Future<void> _buildNameIndexIfStale() async {
-    final now = DateTime.now();
-    if (_localNames.isNotEmpty && now.difference(_namesBuiltAt).inMinutes < 5) return;
+    final path = libraryPath;
+    if (path.isEmpty) return;
 
-    _namesBuiltAt = now;
-    _localNames.clear();
+    final builtAt = _nameIndexBuiltAt[path];
+    if (builtAt != null && DateTime.now().difference(builtAt).inMinutes < 5) return;
+
+    final building = _nameIndexBuilding[path];
+    if (building != null) {
+      await building;
+      return;
+    }
+
+    final index = _nameIndexes[path] ??= {};
+    final future = _scanNames(path, index);
+    _nameIndexBuilding[path] = future;
     try {
-      final dir = Directory(libraryPath);
-      if (!await dir.exists()) return;
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
-        if (entity is File) _localNames[p.basename(entity.path)] = entity.path;
+      await future;
+    } finally {
+      _nameIndexBuilding.remove(path);
+    }
+  }
+
+  @visibleForTesting
+  static int debugNameIndexBuilds = 0;
+
+  Future<void> _scanNames(String path, Map<String, List<String>> index) async {
+    debugNameIndexBuilds++;
+    final scanned = <String, List<String>>{};
+    try {
+      final dir = Directory(path);
+      if (await dir.exists()) {
+        await for (final entity in dir.list(recursive: true, followLinks: false)) {
+          if (entity is! File) continue;
+          final name = p.basename(entity.path);
+          (scanned[name] ??= []).add(entity.path);
+        }
       }
     } catch (_) {
       // An unreadable folder simply yields no local matches.
     }
+
+    index
+      ..clear()
+      ..addAll(scanned);
+    _nameIndexBuiltAt[path] = DateTime.now();
+  }
+
+  /// Drops the shared index after the folder's contents changed.
+  void _invalidateNameIndex() {
+    _nameIndexes.remove(libraryPath);
+    _nameIndexBuiltAt.remove(libraryPath);
   }
 
   /// Configures [pickedPath] into the hidden library root, without running the
@@ -325,30 +379,43 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   Future<bool> importFromDirectory(String sourcePath) async {
     if (libraryPath.isEmpty) return false;
 
-    try {
-      final sourceDir = Directory(sourcePath);
-      if (!await sourceDir.exists()) return false;
+    final sourceDir = Directory(sourcePath);
+    if (!await sourceDir.exists()) return false;
 
+    // Importing the library into itself used to rename every file with a
+    // timestamp, because every target "already existed".
+    if (p.equals(sourcePath, libraryPath) || p.isWithin(libraryPath, sourcePath)) {
+      return false;
+    }
+
+    var allMoved = true;
+    try {
       await for (final entity in sourceDir.list()) {
         if (entity is! File || !_isMedia(entity.path)) continue;
 
-        var target = p.join(libraryPath, p.basename(entity.path));
-        // Keep copies of the same basename alive: prefix with the timestamp.
-        if (await File(target).exists()) {
-          target = p.join(
-              libraryPath,
-              '${p.basenameWithoutExtension(entity.path)}-${DateTime.now().millisecondsSinceEpoch}'
-              '${p.extension(entity.path)}');
+        try {
+          var target = p.join(libraryPath, p.basename(entity.path));
+          // Keep copies of the same basename alive: prefix with the timestamp.
+          if (await File(target).exists()) {
+            target = p.join(
+                libraryPath,
+                '${p.basenameWithoutExtension(entity.path)}-${DateTime.now().millisecondsSinceEpoch}'
+                '${p.extension(entity.path)}');
+          }
+          await entity.copy(target);
+          await entity.delete();
+        } catch (_) {
+          // One unreadable file must not abandon the rest of the batch.
+          allMoved = false;
         }
-        await entity.copy(target);
-        await entity.delete();
       }
-
-      await refresh();
-      return true;
     } on Exception {
-      return false;
+      allMoved = false;
+    } finally {
+      // The gallery must reflect the partial import even when it failed.
+      await refresh();
     }
+    return allMoved;
   }
 
   /// Moves all media files from a folder the user picks into the library —
@@ -373,6 +440,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   }
 
   Future<void> refresh() async {
+    _invalidateNameIndex();
     await execute(() async {
       final dir = Directory(libraryPath);
       if (!await dir.exists()) {
@@ -390,7 +458,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
         var modified = DateTime.fromMillisecondsSinceEpoch(0);
         var size = 0;
         try {
-          final stat = entity.statSync();
+          // Async: statSync blocked the UI isolate once per file, and a library
+          // with tens of thousands of files froze the gallery for seconds.
+          final stat = await entity.stat();
           modified = stat.modified;
           size = stat.size;
         } catch (_) {

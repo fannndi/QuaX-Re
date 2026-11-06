@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The library folder is chosen by the user and can live anywhere (SD cards
-     included), so the provider exposes the filesystem root read-only through
-     the app's granted URIs. -->
+<!-- The library folder is chosen by the user and can live anywhere on shared
+     storage (SD cards included). Expose only /storage, not the filesystem root:
+     a media grant must not also be able to wrap the app's databases or
+     preferences under /data. -->
 <paths>
-    <root-path name="root" path="/" />
+    <root-path name="storage" path="/storage/" />
 </paths>
