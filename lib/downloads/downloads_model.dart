@@ -7,6 +7,8 @@ import 'package:flutter_triple/flutter_triple.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:quax/downloads/download_notifications.dart';
+import 'package:quax/downloads/download_paths.dart';
+import 'package:quax/utils/atomic_file.dart';
 
 /// queued: waiting for its turn (downloads run one at a time, so parallel
 /// transfers never fight over the connection); paused: held by the user with
@@ -91,8 +93,15 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   DownloadsModel._() : super([]);
 
+  /// Test seam: the production ledger lives in the app support directory,
+  /// which path_provider cannot resolve in the unit-test binary.
+  @visibleForTesting
+  static Directory? debugDirectoryOverride;
+
   bool _loaded = false;
-  bool _saving = false;
+  Future<void>? _writeInFlight;
+  bool _dirty = false;
+  int _lastSaveAt = 0;
 
   /// Finished rows kept in the ledger; older ones are pruned on the next
   /// enqueue so the history cannot grow forever.
@@ -113,7 +122,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   void removeDoneListener(String key) => _doneListeners.remove(key);
 
   Future<File> _ledgerFile() async {
-    final dir = await getApplicationSupportDirectory();
+    final dir = debugDirectoryOverride ?? await getApplicationSupportDirectory();
     return File(p.join(dir.path, 'downloads.json'));
   }
 
@@ -143,21 +152,53 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   }
 
   Future<void> _save({bool force = false}) async {
-    // An in-flight guard, not a time-based one. The old check set _lastSaveAt
-    // *before* awaiting the write, so two overlapping calls both passed the
-    // throttle and both wrote — and jsonEncode(state) ran after the await, so a
-    // write could serialise a newer state than the one the throttle was checked
-    // against. Two concurrent writeAsString calls to the same path can
-    // interleave and corrupt downloads.json.
-    if (_saving) return;
-    _saving = true;
+    // Progress updates arrive several times a second; status changes are
+    // forced. The throttle only applies to progress, never to serialization.
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (!force && now - _lastSaveAt < 1500) return;
+    _lastSaveAt = now;
+
+    if (_writeInFlight != null) {
+      // A write is already running: mark the state dirty so that loop writes
+      // again. Dropping this call was how markDone/cancel/pause were lost.
+      _dirty = true;
+      return;
+    }
+
+    _writeInFlight = _writeLoop();
     try {
-      final file = await _ledgerFile();
-      await file.writeAsString(jsonEncode(state.map((e) => e.toJson()).toList()));
-    } catch (e) {
-      debugPrint('DownloadsModel save failed: $e');
+      await _writeInFlight;
+      // Close the window between the loop's last dirty check and this clear.
+      while (_dirty) {
+        _dirty = false;
+        await _writeLoop();
+      }
     } finally {
-      _saving = false;
+      _writeInFlight = null;
+    }
+  }
+
+  Future<void> _writeLoop() async {
+    do {
+      _dirty = false;
+      try {
+        final file = await _ledgerFile();
+        await writeAtomically(file, jsonEncode(state.map((e) => e.toJson()).toList()));
+      } catch (e) {
+        debugPrint('DownloadsModel save failed: $e');
+      }
+    } while (_dirty);
+  }
+
+  /// Test hook: waits for a forced save, including a write that was already
+  /// in flight when the call arrived.
+  @visibleForTesting
+  Future<void> saveNow() async {
+    while (true) {
+      await _save(force: true);
+      final inFlight = _writeInFlight;
+      if (inFlight == null) return;
+      await inFlight;
     }
   }
 
@@ -243,7 +284,10 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _cancelled.clear();
     _paused.clear();
     _doneListeners.clear();
-    _saving = false;
+    _writeInFlight = null;
+    _dirty = false;
+    _lastSaveAt = 0;
+    _loaded = false;
     update([], force: true);
   }
 
@@ -403,6 +447,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _paused.remove(fileName);
     _cancelHooks.remove(fileName)?.call();
     _cancelHooks.remove(fileName);
+    unawaited(deletePartial(fileName));
     final updated = state.where((item) => item.fileName != fileName).toList();
     update(updated, force: true);
     DownloadsModel._clearIfIdle(updated);
@@ -410,6 +455,13 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   }
 
   void remove(String fileName) {
+    // A running transfer must be aborted before its partial file is unlinked;
+    // otherwise the worker keeps writing to an unlinked path.
+    if (itemFor(fileName)?.status == DownloadStatus.running) {
+      cancel(fileName);
+      return;
+    }
+    unawaited(deletePartial(fileName));
     final updated = state.where((item) => item.fileName != fileName).toList();
     update(updated, force: true);
     DownloadsModel._clearIfIdle(updated);

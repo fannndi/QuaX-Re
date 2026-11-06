@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/utils/atomic_file.dart';
 
 class VideoCacheEntry {
   final String name;
@@ -39,11 +41,20 @@ class VideoCache {
   static const _folder = 'video_cache';
   static const _ledgerFile = 'video_cache.json';
 
+  @visibleForTesting
+  static Directory? debugDirectoryOverride;
+
   /// Only clips this short are worth fetching ahead of time.
   static const maxDurationMillis = 5 * 60 * 1000;
 
   final Map<String, VideoCacheEntry> _entries = {};
   bool _loaded = false;
+
+  @visibleForTesting
+  void resetForTests() {
+    _entries.clear();
+    _loaded = false;
+  }
 
   static bool isEligibleDuration(int? durationMillis) =>
       durationMillis != null && durationMillis > 0 && durationMillis <= maxDurationMillis;
@@ -52,8 +63,8 @@ class VideoCache {
   int get count => _entries.length;
 
   Future<Directory> directory() async {
-    final root = await getApplicationDocumentsDirectory();
-    final dir = Directory(p.join(root.path, _folder));
+    final dir = debugDirectoryOverride ??
+        Directory(p.join((await getApplicationDocumentsDirectory()).path, _folder));
     await dir.create(recursive: true);
     return dir;
   }
@@ -95,7 +106,7 @@ class VideoCache {
 
     try {
       final file = await _ledger();
-      await file.writeAsString(jsonEncode(_entries.values.map((e) => e.toJson()).toList()));
+      await writeAtomically(file, jsonEncode(_entries.values.map((e) => e.toJson()).toList()));
     } catch (_) {
       // Best-effort.
     }

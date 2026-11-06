@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/download_paths.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
@@ -221,7 +222,7 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
     }
   } catch (e) {
     if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
-    queue.fail(fileName, error: e.toString());
+    queue.fail(fileName, error: _downloadError(e));
     if (context != null && context.mounted) {
       showSnackBar(context, icon: '🙊', message: e.toString());
     }
@@ -247,6 +248,14 @@ bool _isRetryable(String? error) {
   if (error.startsWith('HTTP') && !error.startsWith('HTTP 408') && !error.startsWith('HTTP 5')) return false;
   if (error == 'no_space' || error == 'interrupted') return false;
   return true;
+}
+
+String _downloadError(Object e) {
+  if (e is TimeoutException) return 'timeout';
+  // ENOSPC: a full disk looks like a transient socket failure in the catch
+  // above, and the retry loop would download the same bytes three more times.
+  if (e is FileSystemException && e.osError?.errorCode == 28) return 'no_space';
+  return e.toString();
 }
 
 Future<String> _targetDirectory(BasePrefService prefs) async {
@@ -299,7 +308,8 @@ Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
     // _downloadToTemp tolerates a context whose screen is gone; only the error
     // snackbar is skipped.
     // ignore: use_build_context_synchronously
-    tempPath = await _downloadToTemp(context, uri, sanitizedFilename, targetDir: targetDir);
+    tempPath = await _downloadToTemp(context, uri, sanitizedFilename,
+        targetDir: targetDir, queueManaged: false);
     if (tempPath == null) return;
 
     if (context.mounted) {
@@ -341,7 +351,16 @@ Future<String?> _saveToDestination(BuildContext? context,
             '${p.basenameWithoutExtension(fileName)}-${DateTime.now().millisecondsSinceEpoch}'
             '${p.extension(fileName)}');
       }
-      await File(file).copy(savedFile);
+      final source = File(file);
+      try {
+        // Same volume: this is atomic and needs no second copy. The library is
+        // often on shared storage, though, and Android's rename cannot cross
+        // filesystems, so fall back to a copy and only then drop the temp.
+        await source.rename(savedFile);
+      } on FileSystemException {
+        await source.copy(savedFile);
+        await source.delete();
+      }
       return savedFile;
     }
   }
@@ -384,19 +403,21 @@ http.Request _rangeRequest(Uri uri, int offset) {
 /// only the error snackbar is skipped, which is why the call sites hand it a
 /// context that may already be dead.
 Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
-    {bool resume = false, required String targetDir}) async {
-  final tempDir = await getTemporaryDirectory();
-  final tempPath = p.join(tempDir.path, 'quax-download-$fileName');
+    {bool resume = false, required String targetDir, bool queueManaged = true}) async {
+  final tempPath =
+      queueManaged ? await partialPathFor(fileName) : await shareTempPathFor(fileName);
   final queue = DownloadsModel();
   final client = http.Client();
 
-  queue.attachCancel(fileName, () {
-    client.close(); // the stream loop surfaces as a ClientException and cleans up
-  });
+  if (queueManaged) {
+    queue.attachCancel(fileName, () {
+      client.close(); // the stream loop surfaces as a ClientException and cleans up
+    });
+  }
 
   try {
     // Resume only when the partial file still matches the recorded offset.
-    var offset = resume ? queue.resumeOffsetFor(fileName) : 0;
+    var offset = resume && queueManaged ? queue.resumeOffsetFor(fileName) : 0;
     if (offset > 0) {
       final partial = File(tempPath);
       if (!await partial.exists() || await partial.length() != offset) {
@@ -414,7 +435,7 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
 
     final isPartial = response.statusCode == 206;
     if (response.statusCode != 200 && !isPartial) {
-      queue.fail(fileName, error: 'HTTP ${response.statusCode}');
+      if (queueManaged) queue.fail(fileName, error: 'HTTP ${response.statusCode}');
       // _showStatusError checks the context itself, and the failure is recorded
       // whether or not it can be shown.
       // ignore: use_build_context_synchronously
@@ -444,8 +465,9 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
 
     await for (final chunk in response.stream.timeout(_idleTimeout)) {
       // Re-check every chunk: a pause that arrived before the abort hook was
-      // attached still has to stop the transfer here.
-      if (queue.isCancelled(fileName) || queue.isPaused(fileName)) break;
+      // attached still has to stop the transfer here. A share has no queue
+      // entry, so its flags must not abort an unrelated transfer.
+      if (queueManaged && (queue.isCancelled(fileName) || queue.isPaused(fileName))) break;
       sink.add(chunk);
       received += chunk.length;
 
@@ -456,7 +478,7 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
         lastSample = DateTime.now();
         lastReceived = received;
       }
-      queue.progress(fileName, received, totalBytes, speed);
+      if (queueManaged) queue.progress(fileName, received, totalBytes, speed);
     }
 
     await sink.close();
@@ -464,7 +486,7 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     // A pause or a cancel that arrived mid-stream (before the abort hook was
     // attached, or between chunks): the partial file stays on disk for the
     // resume, and the entry is already parked. Not a failure.
-    if (queue.isCancelled(fileName) || queue.isPaused(fileName)) return null;
+    if (queueManaged && (queue.isCancelled(fileName) || queue.isPaused(fileName))) return null;
 
     if (totalBytes != null && received < totalBytes) {
       // Truncated transfer: keep the partial so a retry can resume it.
@@ -474,6 +496,7 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
 
     return tempPath;
   } on Exception catch (e) {
+    if (!queueManaged) return null;
     if (queue.isCancelled(fileName)) {
       // User aborted from the queue: drop the partial file with the entry.
       _deleteTemp(tempPath);
@@ -481,7 +504,7 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
       // pause(): the entry is already parked and the partial file stays on
       // disk, so resuming sends a Range request from where it stopped.
     } else {
-      queue.fail(fileName, error: e is TimeoutException ? 'timeout' : e.toString());
+      queue.fail(fileName, error: _downloadError(e));
     }
     return null;
   } finally {
