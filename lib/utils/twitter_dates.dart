@@ -20,18 +20,30 @@ DateTime? convertTwitterDateTime(String? twitterDateString) {
     return DateTime.parse(twitterDateString);
   } catch (e) {
     try {
-      final dateString = formatTwitterDateString(twitterDateString);
-      return DateFormat('E MMM dd HH:mm:ss yyyy', 'en_US').parse(dateString, true);
+      final wall = DateFormat('E MMM dd HH:mm:ss yyyy', 'en_US')
+          .parse(formatTwitterDateString(twitterDateString), true);
+      final offset = RegExp(r'([+-])(\d{2})(\d{2})(?=\s|$)').firstMatch(twitterDateString);
+      if (offset == null) return wall;
+
+      // The legacy form carries the offset as a trailing token. Parsing the
+      // wall time as UTC and then applying it gives the real instant; the old
+      // code dropped only `+` and silently shifted `-0500` by five hours.
+      final sign = offset.group(1) == '-' ? -1 : 1;
+      final minutes = sign *
+          (int.parse(offset.group(2)!) * 60 + int.parse(offset.group(3)!));
+      return wall.subtract(Duration(minutes: minutes));
     } catch (e) {
       return null;
     }
   }
 }
 
-/// Drops the trailing timezone offset, which is always `+0000` on these
-/// strings, so the format above has something `DateFormat` can read.
+/// Drops the trailing timezone offset so the format above has something
+/// `DateFormat` can read. Both signs occur; dropping only `+` left `-0500` in
+/// the string and the parse returned null.
 String formatTwitterDateString(String twitterDateString) {
-  final sanitized = twitterDateString.split(' ')..removeWhere((part) => part.startsWith('+'));
+  final sanitized = twitterDateString.split(' ')
+    ..removeWhere((part) => RegExp(r'^[+-]\d{4}$').hasMatch(part));
 
   return sanitized.join(' ');
 }

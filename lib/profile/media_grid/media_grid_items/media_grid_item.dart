@@ -97,11 +97,7 @@ MediaGridItem? _itemFor(Media m, String tweetId, String username, int mediaIndex
 }
 
 CursorPage<String, MediaGridItem> mediaPageFromStatus(TweetStatus status, String? cursor) {
-  final next = status.cursorBottom;
-  if (next == cursor) {
-    return (items: const <MediaGridItem>[], nextCursor: null);
-  }
-  return (items: mediaItemsFromChains(status.chains), nextCursor: next);
+  return (items: mediaItemsFromChains(status.chains), nextCursor: status.cursorBottom);
 }
 
 List<MediaGridItem> mediaItemsFromChains(List<TweetChain> chains) {

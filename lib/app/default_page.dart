@@ -34,6 +34,10 @@ class _DefaultPageState extends State<DefaultPage> {
   bool _setupChecked = false;
   bool _setupDone = false;
 
+  // A link that arrived while the wizard was still up: opening the route then
+  // would put it on top of onboarding and skip the storage setup.
+  Uri? _pendingLink;
+
   // The "not logged in" prompt is owned here, not by the app shell: it must
   // wait for the wizard to finish instead of covering the setup steps.
   late final Future<void> _migration;
@@ -98,6 +102,10 @@ class _DefaultPageState extends State<DefaultPage> {
   }
 
   Future<void> handleInitialLink(Uri link) async {
+    if (!_setupDone) {
+      _pendingLink = link;
+      return;
+    }
     try {
       final parsed = await parseUri(link);
       if (!mounted) return;
@@ -180,6 +188,9 @@ class _DefaultPageState extends State<DefaultPage> {
             onFinished: () {
               setState(() => _setupDone = true);
               _maybePromptForAccount();
+              final pending = _pendingLink;
+              _pendingLink = null;
+              if (pending != null) unawaited(handleInitialLink(pending));
             });
   }
 

@@ -19,12 +19,14 @@ void main() {
               'and DateTime.parse cannot read it at all');
     });
 
-    test('Should read a legacy string with a non-UTC offset', () {
-      // The offset is always +0000 in practice, but dropping whatever is there
-      // is what makes the rest of the string parseable.
-      final parsed = convertTwitterDateTime('Wed Oct 11 00:00:00 +0200 2017');
+    test('Should apply a non-UTC legacy offset instead of shifting it', () {
+      final positive = convertTwitterDateTime('Wed Oct 11 00:00:00 +0200 2017');
+      final negative = convertTwitterDateTime('Wed Oct 11 00:00:00 -0500 2017');
 
-      expect(parsed, isNotNull, reason: 'A different offset must not turn a readable date into null');
+      expect(positive?.toUtc(), DateTime.utc(2017, 10, 10, 22),
+          reason: '00:00 at +0200 is 22:00 UTC the day before');
+      expect(negative?.toUtc(), DateTime.utc(2017, 10, 11, 5),
+          reason: '00:00 at -0500 is 05:00 UTC; dropping the sign shifted it five hours the wrong way');
     });
 
     test('Should return null for a missing or unreadable date', () {
@@ -46,7 +48,12 @@ void main() {
 
     test('Should leave a string with no offset alone', () {
       expect(formatTwitterDateString('Wed Oct 11 00:00:00 2017'), 'Wed Oct 11 00:00:00 2017',
-          reason: 'Nothing starts with a plus, so nothing should be removed');
+          reason: 'Nothing matches an offset, so nothing should be removed');
+    });
+
+    test('Should drop a negative offset too', () {
+      expect(formatTwitterDateString('Wed Oct 11 00:00:00 -0500 2017'), 'Wed Oct 11 00:00:00 2017',
+          reason: 'Dropping only +0000 left -0500 in the string and DateFormat returned null');
     });
   });
 }

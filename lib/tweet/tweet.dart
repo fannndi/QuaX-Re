@@ -67,14 +67,14 @@ class TweetTile extends StatefulWidget {
 class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixin {
   static final log = Logger('TweetTile');
 
-  late final bool clickable;
-  late final String? currentUsername;
-  late final TweetWithCard tweet;
-  late final bool isPinned;
-  late final bool isThread;
-  late final bool isQuotedTweet;
-  late final bool addSeparator;
-  late final bool isBirdwatchQuote;
+  late bool clickable;
+  late String? currentUsername;
+  late TweetWithCard tweet;
+  late bool isPinned;
+  late bool isThread;
+  late bool isQuotedTweet;
+  late bool addSeparator;
+  late bool isBirdwatchQuote;
 
   List<RichTextPart> _parts = [];
   List<InlineSpan>? _spans;
@@ -93,6 +93,10 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   }
 
   bool _isInitialized = false;
+
+  // The link colour is read from the theme when the spans are built; a theme
+  // switch must rebuild them, not keep yesterday's colour on live cards.
+  Color? _linkColor;
 
   // The text direction only changes when the text does; detecting it on every
   // rebuild walks the whole string through the bidi algorithm again.
@@ -116,9 +120,27 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (!_isInitialized) {
+    final linkColor = Theme.of(context).colorScheme.secondary;
+    if (!_isInitialized || _linkColor != linkColor) {
+      _linkColor = linkColor;
       _initializeTweetParts();
       _isInitialized = true;
+    }
+  }
+
+  @override
+  void didUpdateWidget(TweetTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    clickable = widget.clickable;
+    currentUsername = widget.currentUsername;
+    tweet = widget.tweet;
+    isPinned = widget.isPinned;
+    isThread = widget.isThread;
+    isQuotedTweet = widget.isQuotedTweet;
+    addSeparator = widget.addSeparator;
+    isBirdwatchQuote = widget.isBirdwatchQuote;
+    if (!identical(oldWidget.tweet, widget.tweet)) {
+      _initializeTweetParts();
     }
   }
 

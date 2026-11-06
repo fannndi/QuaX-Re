@@ -211,4 +211,33 @@ void main() {
           reason: 'Text that is not a number should give null rather than throw');
     });
   });
+
+  group('host and reserved-path guards', () {
+    test('Should reject a host that only looks like X', () async {
+      final result = await parse('https://x.com.evil.tld/DogsTrust/status/1');
+
+      expect(result, isA<UnknownResult>(),
+          reason: 'Only the t.co hop used to be checked, so a lookalike host was parsed as an X '
+              'post and opened inside the app');
+    });
+
+    test('Should send reserved X pages to the browser', () async {
+      for (final path in ['home', 'search', 'explore', 'notifications', 'messages', 'settings']) {
+        final result = await parse('https://x.com/$path');
+
+        expect(result, isA<UnknownResult>(),
+            reason: 'x.com/$path is not a handle; reading it as a profile showed "user not found" '
+                'instead of handing the link to the browser');
+      }
+    });
+
+    test('Should accept the documented X hosts', () async {
+      for (final host in ['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com']) {
+        final result = await parse('https://$host/DogsTrust');
+
+        expect(result, isA<ProfileUriInfo>(),
+            reason: 'A real X profile link on $host should still open the profile');
+      }
+    });
+  });
 }

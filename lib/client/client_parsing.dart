@@ -330,7 +330,11 @@ String? getCursor(List<dynamic> addEntries, List<dynamic> repEntries, String leg
   } else {
     cursorEntry = addEntries
         .where((e) => entryId(e)?.startsWith('sq-C') ?? false)
-        .firstWhere((e) => e['content']?['operation']?['cursor']?['cursorType'] == type, orElse: () => null);
+        .firstWhere(
+            (e) =>
+                (e['content']?['operation']?['cursor']?['cursorType'] as String?)?.toLowerCase() ==
+                type.toLowerCase(),
+            orElse: () => null);
   }
 
   dynamic raw;
@@ -351,8 +355,14 @@ String? getCursor(List<dynamic> addEntries, List<dynamic> repEntries, String leg
       (e) =>
           e is Map &&
           (e['replaceEntry'] is Map
-              ? (e['replaceEntry']['entryIdToReplace']?.contains(type) ?? false)
-              : (e['entry']?['content']?['cursorType']?.contains(type) ?? false)),
+              ? ((e['replaceEntry']['entryIdToReplace'] as String?)
+                      ?.toLowerCase()
+                      .contains(type.toLowerCase()) ??
+                  false)
+              : ((e['entry']?['content']?['cursorType'] as String?)
+                      ?.toLowerCase()
+                      .contains(type.toLowerCase()) ??
+                  false)),
       orElse: () => null,
     );
 

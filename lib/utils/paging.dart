@@ -78,8 +78,14 @@ class CursorPagingController<C, T> {
   }
 
   void _setNextCursor(C? next) {
-    _reachedEnd = next == null;
-    _nextCursor = next;
+    // One rule for every cursor feed: a missing, blank, `'0'` or non-advancing
+    // cursor is the end. Profile, media and status feeds used to pass `''`
+    // through as a real page and request it again.
+    final ended = next == null ||
+        next == _nextCursor ||
+        (next is String && (next.isEmpty || next == '0'));
+    _reachedEnd = ended;
+    _nextCursor = ended ? null : next;
   }
 
   /// Replaces the first page's items in place and re-seeds the cursor, *without*

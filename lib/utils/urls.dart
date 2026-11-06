@@ -65,8 +65,18 @@ ProfileUriInfo? _parseAsProfileLink(List<String> parts) {
     return null;
   }
 
+  // Reserved single-segment pages are not handles. Without this, opening
+  // x.com/home in QuaX showed a "user not found" profile instead of the
+  // browser.
+  const reserved = {
+    'home', 'search', 'explore', 'notifications', 'messages', 'settings', 'compose',
+    'login', 'logout', 'i', 'intent', 'share', 'tos', 'privacy', 'about', 'jobs',
+    'help', 'download', 'signup', 'account', 'ads', 'business', 'developers',
+  };
+
   // https://x.com/DogsTrust
   if (parts.length == 1) {
+    if (reserved.contains(parts.first.toLowerCase())) return null;
     return ProfileUriInfo(parts.first, null);
   }
 
@@ -154,6 +164,17 @@ Future<String?> _resolveShortUrl(Uri shortUrl) async {
 
 class UnknownResult extends UriParseResult {}
 
+/// Hosts the deep-link parser accepts. `t.co` is resolved first, and its target
+/// must be one of these too: a lookalike host such as x.com.evil.tld used to be
+/// parsed as an X post because only the t.co hop was checked.
+bool isXHost(String host) => const {
+      'x.com',
+      'www.x.com',
+      'twitter.com',
+      'www.twitter.com',
+      'mobile.twitter.com',
+    }.contains(host.toLowerCase());
+
 Future<UriParseResult> parseUri(Uri link, {int shortUrlHops = 0}) async {
   if (link.host == 't.co') {
     // A chain longer than a handful of hops means the shortener is looping (or
@@ -174,6 +195,7 @@ Future<UriParseResult> parseUri(Uri link, {int shortUrlHops = 0}) async {
     }
     return UnknownResult();
   }
+  if (!isXHost(link.host)) return UnknownResult();
   link = link.replace(path: link.path.replaceAll(RegExp(r'/$'), ''));
   final parts = link.pathSegments;
 

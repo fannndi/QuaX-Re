@@ -104,6 +104,63 @@ void main() {
                 'worked');
       });
     });
+    group('end cursors', () {
+      test('Should stop on a blank cursor', () async {
+        var fetches = 0;
+        final controller = CursorPagingController<String, int>((cursor) async {
+          fetches++;
+          return (items: [1], nextCursor: '');
+        });
+        addTearDown(controller.dispose);
+
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+
+        expect(fetches, 1,
+            reason: 'X serves an empty bottom cursor at the end; treating it as a page key '
+                'requested the same page again');
+        expect(controller.pagingController.value.hasNextPage, isFalse);
+      });
+
+      test('Should stop on the zero marker', () async {
+        var fetches = 0;
+        final controller = CursorPagingController<String, int>((cursor) async {
+          fetches++;
+          return (items: [1], nextCursor: '0');
+        });
+        addTearDown(controller.dispose);
+
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+
+        expect(fetches, 1, reason: '"0" is an end marker, not a cursor');
+      });
+
+      test('Should stop when the cursor does not advance', () async {
+        var fetches = 0;
+        final controller = CursorPagingController<String, int>((cursor) async {
+          fetches++;
+          return (items: [1], nextCursor: 'same');
+        });
+        addTearDown(controller.dispose);
+
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+
+        expect(fetches, 2,
+            reason: 'The second page returns the cursor it was asked for; a third request would '
+                'loop over the same results and burn rate-limit slots');
+        expect(controller.pagingController.value.hasNextPage, isFalse);
+      });
+    });
   });
 
   group('pagingErrorOf()', () {

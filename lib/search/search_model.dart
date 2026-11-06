@@ -41,7 +41,9 @@ class SearchTweetsPagination {
   void updateQuery(String newQuery) {
     if (newQuery == _query) return;
     _query = newQuery;
-    feed.controller.refresh();
+    // reset() bumps the epoch; a raw refresh let the old query's in-flight page
+    // write its cursor into the new chain.
+    feed.reset();
   }
 
   void dispose() {
@@ -68,7 +70,7 @@ class SearchMediaPagination {
   void updateQuery(String newQuery) {
     if (newQuery == _query) return;
     _query = newQuery;
-    _paging.pagingController.refresh();
+    _paging.reset();
   }
 
   void dispose() {

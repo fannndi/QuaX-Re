@@ -78,9 +78,7 @@ class _ProfileTweetFeedState extends State<ProfileTweetFeed> with AutomaticKeepA
       unawaited(prefetchChainImages(context, result.chains));
     }
 
-    // Stop when the cursor doesn't advance (or is gone), keeping the chains.
-    final next = result.cursorBottom;
-    return (items: result.chains, nextCursor: next == cursor ? null : next);
+    return (items: result.chains, nextCursor: result.cursorBottom);
   }
 
   @override

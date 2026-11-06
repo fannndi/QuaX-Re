@@ -57,6 +57,7 @@ class _TweetConversationState extends State<TweetConversation> {
 
     for (var i = 0; i < tweets.length; i++) {
       tiles.add(TweetTile(
+          key: ValueKey(tweets[i].idStr),
           clickable: true,
           tweet: tweets[i],
           currentUsername: widget.username,
