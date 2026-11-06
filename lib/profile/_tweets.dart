@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:pref/pref.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/_feed.dart';
@@ -12,15 +11,13 @@ class ProfileTweets extends StatelessWidget {
   final String type;
   final bool includeReplies;
   final List<String> pinnedTweets;
-  final BasePrefService pref;
 
   const ProfileTweets(
       {super.key,
       required this.user,
       required this.type,
       required this.includeReplies,
-      required this.pinnedTweets,
-      required this.pref});
+      required this.pinnedTweets});
 
   @override
   Widget build(BuildContext context) {

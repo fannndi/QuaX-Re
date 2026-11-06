@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:pref/pref.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/utils/downloads.dart';
+import 'package:quax/utils/network_status.dart';
 
 /// Brings failed downloads back to life on their own: while the queue holds
 /// retryable failures, a light reachability probe runs every 15 seconds and,
@@ -79,14 +79,9 @@ class ConnectivityWatcher {
     }
   }
 
-  Future<bool> _reachable() async {
-    try {
-      final addresses = await InternetAddress.lookup('x.com').timeout(const Duration(seconds: 5));
-      return addresses.isNotEmpty && addresses.first.rawAddress.isNotEmpty;
-    } on Exception {
-      return false;
-    }
-  }
+  /// Shares the app's single reachability probe: a second lookup and timer here
+  /// meant two DNS requests and two places to change the target.
+  Future<bool> _reachable() => NetworkStatus().check(force: true);
 
   void _stop() {
     _timer?.cancel();

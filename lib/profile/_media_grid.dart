@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
@@ -12,14 +11,13 @@ import 'package:quax/utils/paging.dart';
 
 class ProfileMediaGrid extends StatefulWidget {
   final UserWithExtra user;
-  final BasePrefService pref;
 
   /// `media` reads the video timeline, `photos` the photo grid: the web
   /// client split the old UserMedia endpoint into those two operations.
   final String mediaKind;
 
   const ProfileMediaGrid(
-      {super.key, required this.user, required this.pref, this.mediaKind = 'media'});
+      {super.key, required this.user, this.mediaKind = 'media'});
 
   @override
   State<ProfileMediaGrid> createState() => _ProfileMediaGridState();

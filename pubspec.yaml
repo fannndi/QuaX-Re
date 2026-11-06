@@ -59,7 +59,6 @@ dependencies:
   infinite_scroll_pagination: ^5.1.1
   file_picker: ^13.1.0
   flutter_file_dialog: ^3.0.1
-  flutter_portal: ^1.1.4
   webview_flutter: 4.14.1
   webview_cookie_manager_plus: ^2.0.16
 

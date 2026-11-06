@@ -43,10 +43,6 @@ class ProfileScreenArguments {
 
   ProfileScreenArguments(this.id, this.screenName, this.tabIndex);
 
-  factory ProfileScreenArguments.fromId(String id, int? tabIndex) {
-    return ProfileScreenArguments(id, null, tabIndex);
-  }
-
   factory ProfileScreenArguments.fromScreenName(String screenName, int? tabIndex) {
     return ProfileScreenArguments(null, screenName, tabIndex);
   }
@@ -650,18 +646,15 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                     user: user,
                     type: 'profile',
                     includeReplies: false,
-                    pinnedTweets: widget.profile.pinnedTweets,
-                    pref: prefs),
+                    pinnedTweets: widget.profile.pinnedTweets),
                 ProfileTweets(
                     user: user,
                     type: 'profile',
                     includeReplies: true,
-                    pinnedTweets: widget.profile.pinnedTweets,
-                    pref: prefs),
+                    pinnedTweets: widget.profile.pinnedTweets),
                 ProfileMediaGrid(
                     key: ValueKey('profile.media.$_mediaKind'),
                     user: user,
-                    pref: prefs,
                     mediaKind: _mediaKind),
               ],
             ),

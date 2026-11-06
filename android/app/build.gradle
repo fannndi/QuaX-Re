@@ -66,7 +66,6 @@ android {
         // requestLegacyExternalStorage is ignored from API 37 on, leaving the
         // whole storage story resting on MANAGE_EXTERNAL_STORAGE untested.
         targetSdkVersion 36
-        multiDexEnabled true
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
@@ -158,8 +157,6 @@ flutter {
 }
 
 dependencies {
-    implementation "androidx.multidex:multidex:2.0.1"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.4.0"
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.5"
 }
 

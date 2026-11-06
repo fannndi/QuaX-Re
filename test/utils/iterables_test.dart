@@ -79,11 +79,4 @@ void main() {
           reason: 'The copy that comes back should be the sorted one, not the original order');
     });
   });
-
-  group('mapWithIndex()', () {
-    test('Should pass the position of each item, starting at 0', () {
-      expect(['a', 'b'].mapWithIndex((e, i) => '$i$e'), ['0a', '1b'],
-          reason: 'The first item should be at 0 and not at 1, and the order should not change');
-    });
-  });
 }

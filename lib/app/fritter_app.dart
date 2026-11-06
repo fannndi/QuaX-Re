@@ -5,7 +5,6 @@ import 'package:quax/app/default_page.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_portal/flutter_portal.dart';
 
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
@@ -150,9 +149,8 @@ class _FritterAppState extends State<FritterApp> {
           textScaler: TextScaler.linear(_textScaleFactor * systemScaleFactor),
         ),
         child: DynamicColorBuilder(builder: (lightDynamic, darkDynamic) {
-          return Portal(
-              child: MaterialApp(
-                  localizationsDelegates: const [
+          return MaterialApp(
+              localizationsDelegates: const [
                     L10n.delegate,
                     ...GlobalMaterialLocalizations.delegates,
                   ],
@@ -205,7 +203,7 @@ class _FritterAppState extends State<FritterApp> {
                       ),
                     );
                   },
-                ));
+                );
         }));
   }
 }

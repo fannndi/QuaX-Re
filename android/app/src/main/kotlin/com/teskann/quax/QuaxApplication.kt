@@ -18,7 +18,6 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.core.content.FileProvider
-import androidx.multidex.MultiDex
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodCall
@@ -76,11 +75,6 @@ class QuaxApplication : android.app.Application() {
         "mp4", "mov", "webm", "mkv", "m4v", "avi", "ts", "3gp", "mpeg", "mpg", "wmv", "flv", "m2ts", "ogv",
         "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "avif", "tiff"
     )
-
-    override fun attachBaseContext(base: Context) {
-        super.attachBaseContext(base)
-        MultiDex.install(this)
-    }
 
     override fun onCreate() {
         super.onCreate()
