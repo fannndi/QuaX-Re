@@ -117,17 +117,46 @@ class _LocalLikesState extends State<_LocalLikes> with AutomaticKeepAliveClientM
                 controller: widget.scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(top: 4),
-                itemCount: likes.length,
-                itemBuilder: (context, index) =>
-                    LikedTweetTile(id: likes[index].id, content: likes[index].content),
+                itemCount: likes.length + (model.hasMore ? 1 : 0),
+                itemBuilder: (context, index) => index >= likes.length
+                    ? _LoadMoreLikes(model: model)
+                    : LikedTweetTile(id: likes[index].id, content: likes[index].content),
               ),
       ),
     );
   }
 }
 
-class _EmptyLikes extends StatelessWidget {
-  final String message;
+/// Triggered by the list building its last row: the next page is fetched only
+/// when the reader reaches the bottom, not on tab open.
+class _LoadMoreLikes extends StatefulWidget {
+  final LikedTweetModel model;
+
+  const _LoadMoreLikes({required this.model});
+
+  @override
+  State<_LoadMoreLikes> createState() => _LoadMoreLikesState();
+}
+
+class _LoadMoreLikesState extends State<_LoadMoreLikes> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.model.loadMoreLikedTweets();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _EmptyLikes extends StatelessWidget {  final String message;
 
   const _EmptyLikes({required this.message});
 
