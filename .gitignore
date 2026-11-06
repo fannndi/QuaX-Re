@@ -56,6 +56,12 @@ app.*.map.json
 .gradle/
 .venv/
 assets/icon-*.png
+# The adaptive-icon inputs are source assets, not generated output: without
+# them a fresh clone cannot run flutter_launcher_icons (and AAPT then fails on
+# @mipmap/ic_launcher). Keep the three tracked; the mipmaps stay generated.
+!assets/icon-background.png
+!assets/icon-foreground-432x432.png
+!assets/icon-monochrome-432x432.png
 
 tool/record/.chrome-profile/
 tool/record/media/*.mp4
