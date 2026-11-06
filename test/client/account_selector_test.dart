@@ -6,8 +6,15 @@ import 'package:quax/database/entities.dart';
 void main() {
   final now = DateTime(2026, 9, 4, 12);
 
-  Account account(String id, {DateTime? lastNotFoundAt, bool isActive = false}) =>
-      Account(id: id, authHeader: '{}', screenName: id, lastNotFoundAt: lastNotFoundAt, isActive: isActive);
+  Account account(String id,
+          {DateTime? lastNotFoundAt, DateTime? lastAuthErrorAt, bool isActive = false}) =>
+      Account(
+          id: id,
+          authHeader: '{}',
+          screenName: id,
+          lastNotFoundAt: lastNotFoundAt,
+          lastAuthErrorAt: lastAuthErrorAt,
+          isActive: isActive);
 
   group('AccountSelector.pick()', () {
     test('Should prefer an account that is not rate limited on this endpoint', () {
@@ -38,6 +45,17 @@ void main() {
       expect(selector.pick(exclude: {})?.id, 'recovered',
           reason: 'The mark is a cooldown and not a ban, so an account whose login was fixed '
               'should come back into use on its own');
+    });
+
+    test('Should prefer a healthy account over one whose session was rejected', () {
+      final selector = AccountSelector([
+        account('expired', lastAuthErrorAt: now),
+        account('healthy'),
+      ], now);
+
+      expect(selector.pick(exclude: {})?.id, 'healthy',
+          reason: 'A 401 is a hard session failure; retrying that login first only spends a '
+              'request to get the same rejection');
     });
 
     test('Should still return a marked account when no healthy one is left', () {

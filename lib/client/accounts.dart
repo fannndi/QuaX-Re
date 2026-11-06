@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/database/repository.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 /// Bumped whenever the preferred account actually changes, so feeds reload
 /// against the new account without knowing the settings screen exists. A
@@ -18,8 +20,17 @@ class ActiveAccount {
   // The numeric X user id, when a login page or profile request has filled it
   // in. The Likes endpoint needs it; it is not the ct0 token [id] holds.
   final String? userId;
+  // The stable owner key local likes (and future per-account data) use.
+  final String localId;
+  final bool sessionExpired;
 
-  const ActiveAccount({required this.id, this.screenName, this.userId});
+  const ActiveAccount(
+      {required this.id,
+      this.screenName,
+      this.userId,
+      String? localId,
+      this.sessionExpired = false})
+      : localId = localId ?? id;
 
   String? get handle => screenName == null || screenName!.isEmpty ? null : screenName;
 }
@@ -27,7 +38,8 @@ class ActiveAccount {
 final ValueNotifier<ActiveAccount?> activeAccount = ValueNotifier<ActiveAccount?>(null);
 
 Future<List<Account>> getAccounts() async {
-  final query = await Repository.read((db) => db.query(tableAccounts));
+  final query = await Repository.read((db) => db.query(tableAccounts,
+      orderBy: 'is_active DESC, screen_name COLLATE NOCASE'));
   return List.from(query).map((e) => Account.fromMap(e)).toList();
 }
 
@@ -41,14 +53,38 @@ Future<Account?> getActiveAccount() async {
   return null;
 }
 
+Future<String> _ensureLocalId(Database database, Account account) async {
+  if (account.localId.isNotEmpty && account.localId != account.id) {
+    return account.localId;
+  }
+
+  // A row inserted before the column existed, or by a test helper that only
+  // supplies the id, gets a real UUID on first use instead of keeping the ct0
+  // as its owner key (which would orphan its likes on the next login).
+  final localId = const Uuid().v4();
+  await database.update(tableAccounts, {columnLocalId: localId},
+      where: 'id = ?', whereArgs: [account.id]);
+  return localId;
+}
+
 /// Fills [activeAccount] from the database. Called once during startup, before
 /// the app builds: it does not touch [accountsRevision], so the feeds do not
 /// reload over a value that was only being restored.
 Future<void> loadActiveAccount() async {
   final account = await getActiveAccount();
-  activeAccount.value = account == null
-      ? null
-      : ActiveAccount(id: account.id, screenName: account.screenName, userId: account.userId);
+  if (account == null) {
+    activeAccount.value = null;
+    return;
+  }
+
+  final database = await Repository.writable();
+  final localId = await _ensureLocalId(database, account);
+  activeAccount.value = ActiveAccount(
+      id: account.id,
+      screenName: account.screenName,
+      userId: account.userId,
+      localId: localId,
+      sessionExpired: account.isSessionExpired);
 }
 
 /// Switches the preferred account. The app then sends every request through it
@@ -64,11 +100,31 @@ Future<void> setActiveAccount(String id) async {
   });
 
   final rows = await database.query(tableAccounts,
-      columns: ['screen_name', 'user_id'], where: 'id = ?', whereArgs: [id]);
-  final screenName = rows.isEmpty ? null : rows.first['screen_name'] as String?;
-  final userId = rows.isEmpty ? null : rows.first['user_id'] as String?;
+      columns: ['screen_name', 'user_id', columnLocalId, columnLastAuthErrorAt],
+      where: 'id = ?',
+      whereArgs: [id]);
+  if (rows.isEmpty) {
+    activeAccount.value = null;
+    accountsRevision.value++;
+    return;
+  }
 
-  activeAccount.value = ActiveAccount(id: id, screenName: screenName, userId: userId);
+  final row = rows.first;
+  final localId = await _ensureLocalId(
+      database,
+      Account(
+          id: id,
+          authHeader: '',
+          screenName: row['screen_name'] as String?,
+          userId: row['user_id'] as String?,
+          localId: row[columnLocalId] as String?));
+
+  activeAccount.value = ActiveAccount(
+      id: id,
+      screenName: row['screen_name'] as String?,
+      userId: row['user_id'] as String?,
+      localId: localId,
+      sessionExpired: row[columnLastAuthErrorAt] != null);
   accountsRevision.value++;
 }
 
@@ -82,13 +138,21 @@ Future<void> setActiveAccountUserId(String userId) async {
   var database = await Repository.writable();
   await database.update(tableAccounts, {'user_id': userId}, where: 'id = ?', whereArgs: [active.id]);
 
-  activeAccount.value = ActiveAccount(id: active.id, screenName: active.screenName, userId: userId);
+  activeAccount.value = ActiveAccount(
+      id: active.id,
+      screenName: active.screenName,
+      userId: userId,
+      localId: active.localId,
+      sessionExpired: active.sessionExpired);
 }
 
 /// Persists a fresh login and replaces any earlier row for the same handle or
 /// numeric id. X mints a new ct0 on every login and the row is keyed by that
 /// token, so re-adding an account used to leave the old row (and its expired
 /// session) behind as a second account.
+///
+/// The stable [Account.localId] is carried over: local likes attached to the
+/// old row must survive a re-login.
 Future<void> saveLoggedInAccount({
   required String id,
   required String screenName,
@@ -97,10 +161,21 @@ Future<void> saveLoggedInAccount({
 }) async {
   final database = await Repository.writable();
   await database.transaction((txn) async {
-    await txn.delete(tableAccounts, where: 'id = ?', whereArgs: [id]);
-    final identityWhere =
-        userId == null ? 'screen_name = ?' : 'screen_name = ? OR user_id = ?';
+    // Prefer the identity match over the ct0 match: the whole point is that a
+    // re-login gets a new ct0 but should keep the same local owner.
+    final identityWhere = userId == null ? 'screen_name = ?' : 'screen_name = ? OR user_id = ?';
     final identityArgs = userId == null ? [screenName] : [screenName, userId];
+    var existing =
+        await txn.query(tableAccounts, columns: [columnLocalId], where: identityWhere, whereArgs: identityArgs);
+    if (existing.isEmpty) {
+      existing = await txn.query(tableAccounts, columns: [columnLocalId], where: 'id = ?', whereArgs: [id]);
+    }
+    final existingLocalId = existing.isEmpty ? null : existing.first[columnLocalId] as String?;
+    final localId = existingLocalId == null || existingLocalId.isEmpty
+        ? const Uuid().v4()
+        : existingLocalId;
+
+    await txn.delete(tableAccounts, where: 'id = ?', whereArgs: [id]);
     await txn.delete(tableAccounts, where: identityWhere, whereArgs: identityArgs);
     await txn.insert(
       tableAccounts,
@@ -108,6 +183,7 @@ Future<void> saveLoggedInAccount({
         id: id,
         screenName: screenName,
         userId: userId,
+        localId: localId,
         authHeader: authHeader,
       ).toMap(),
     );
@@ -129,6 +205,30 @@ Future<void> promoteFirstAccountIfNoneActive() async {
   await setActiveAccount(accounts.first.id);
 }
 
+/// Removes an account together with the local likes owned by it. The tweet
+/// bodies those likes cached are deleted only when no other account still
+/// references them.
+Future<void> deleteAccountAndLocalLikes(String id) async {
+  final database = await Repository.writable();
+  final rows = await database.query(tableAccounts, columns: [columnLocalId], where: 'id = ?', whereArgs: [id]);
+  final localId = rows.isEmpty ? null : rows.first[columnLocalId] as String?;
+
+  await database.transaction((txn) async {
+    if (localId != null) {
+      await txn.delete(tableAccountLike, where: '$columnAccountLocalId = ?', whereArgs: [localId]);
+    }
+    await txn.delete(tableAccounts, where: 'id = ?', whereArgs: [id]);
+    await txn.rawDelete('''
+      DELETE FROM $tableLikedTweet
+      WHERE id NOT IN (SELECT DISTINCT $columnTweetId FROM $tableAccountLike)
+    ''');
+  });
+
+  if (activeAccount.value?.id == id) {
+    await promoteFirstAccountIfNoneActive();
+  }
+}
+
 /// Increment the consecutive-404 counter, flagging the account as not found only
 /// once it has thrown [notFoundThreshold] 404s in a row.
 Future<void> recordNotFound(String id) async {
@@ -141,7 +241,26 @@ Future<void> recordNotFound(String id) async {
     WHERE id = ?''', [DateTime.now().toIso8601String(), id]);
 }
 
-/// Clear the not-found flag after a successful response for the account.
+/// Records a 401 for this account. A session that X has revoked should not be
+/// retried on every request, and the account sheet needs to tell the reader
+/// which login needs a fresh sign-in.
+Future<void> recordAuthFailure(String id) async {
+  final database = await Repository.writable();
+  await database.update(tableAccounts, {columnLastAuthErrorAt: DateTime.now().toIso8601String()},
+      where: 'id = ?', whereArgs: [id]);
+
+  final active = activeAccount.value;
+  if (active == null || active.id != id || active.sessionExpired) return;
+  activeAccount.value = ActiveAccount(
+      id: active.id,
+      screenName: active.screenName,
+      userId: active.userId,
+      localId: active.localId,
+      sessionExpired: true);
+}
+
+/// Clear the not-found and session flags after a successful response for the
+/// account.
 Future<void> recordAccountSuccess(String id) async {
   var database = await Repository.writable();
   await database.update(
@@ -149,6 +268,32 @@ Future<void> recordAccountSuccess(String id) async {
       {
         'consecutive_not_found': 0,
         'last_not_found_at': null,
+        columnLastAuthErrorAt: null,
+      },
+      where: 'id = ?',
+      whereArgs: [id]);
+
+  final active = activeAccount.value;
+  if (active == null || active.id != id || !active.sessionExpired) return;
+  activeAccount.value = ActiveAccount(
+      id: active.id,
+      screenName: active.screenName,
+      userId: active.userId,
+      localId: active.localId,
+      sessionExpired: false);
+}
+
+/// Caches the profile fields the account switcher draws. Called once after a
+/// login, and lazily for accounts that predate the columns.
+Future<void> updateAccountProfile(String id,
+    {required String? displayName, required String? avatarUrl}) async {
+  final database = await Repository.writable();
+  await database.update(
+      tableAccounts,
+      {
+        columnDisplayName: displayName,
+        columnAvatarUrl: avatarUrl,
+        columnProfileFetchedAt: DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [id]);

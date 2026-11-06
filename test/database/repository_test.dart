@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   setUpAll(() {
+    databaseName = 'quax_repository_test.db';
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -36,6 +37,7 @@ void main() {
         tableSubscriptionGroup,
         tableSubscriptionGroupMember,
         tableLikedTweet,
+        tableAccountLike,
         tableAccounts,
       ]) {
         expect(tables, contains(table),
@@ -63,7 +65,7 @@ void main() {
       final version = await db.getVersion();
       await db.close();
 
-      expect(version, 31,
+      expect(version, 32,
           reason: 'The version has to match the last migration step, otherwise the next app launch '
               'replays steps on top of a schema that already has them and the ALTERs fail');
     });
@@ -87,6 +89,11 @@ void main() {
       expect(indexes, contains('idx_subscription_screen_name'),
           reason: 'Migration 31 keeps this index on the retained subscription table; a fresh '
               'install missing it would differ from an upgraded one');
+      expect(indexes, contains('idx_accounts_local_id'),
+          reason: 'Per-account likes look their owner up by local_id on every page read');
+      expect(indexes, contains('idx_account_like_account_liked_at'),
+          reason: 'The local likes tab orders one account\'s rows by liked_at; without this index '
+              'the query sorts the whole table on every open');
     });
 
     test('Should add the columns of the saved, liked and account features', () async {
@@ -281,7 +288,12 @@ void main() {
     });
 
     test('Should report a like and an unlike without a reload', () async {
+      final db = await Repository.writable();
+      await db.insert(tableAccounts,
+          {'id': 'a1', 'auth_header': '{}', 'screen_name': 'alice', columnLocalId: 'local-a1'});
+      await setActiveAccount('a1');
       final liked = LikedTweetModel();
+      addTearDown(liked.destroy);
 
       await liked.likeTweet('t1', 'u1', {'id_str': 't1'});
       expect(liked.isLiked('t1'), isTrue,

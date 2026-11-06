@@ -7,7 +7,12 @@ import 'package:sqflite_migration_plan/migration/sql.dart';
 import 'package:sqflite_migration_plan/sqflite_migration_plan.dart';
 import 'package:uuid/uuid.dart';
 
-const String databaseName = 'quax.db';
+const String _defaultDatabaseName = 'quax.db';
+
+/// The open database path. A test file points this at a unique name so the
+/// concurrently-run database suites do not delete each other's file.
+@visibleForTesting
+String databaseName = _defaultDatabaseName;
 
 /// Icon written by migrations 16 and 20 for group rows created before v2.15.0.
 const String defaultGroupIcon = '{"pack":"custom","key":"rss_feed"}';
@@ -18,6 +23,7 @@ const String tableFeedGroupCursor = 'feed_group_cursor';
 const String tableSavedTweet = 'saved_tweet';
 const String tableSavedTweetFolder = 'saved_tweet_folder';
 const String tableLikedTweet = 'liked_tweet';
+const String tableAccountLike = 'account_like';
 const String tableSearchSubscription = 'search_subscription';
 const String tableSearchSubscriptionGroupMember = 'search_subscription_group_member';
 const String tableSubscription = 'subscription';
@@ -32,6 +38,13 @@ const String tableAccounts = 'accounts';
 /// different one.
 const String columnSavedAt = 'saved_at';
 const String columnLikedAt = 'liked_at';
+const String columnAccountLocalId = 'account_local_id';
+const String columnTweetId = 'tweet_id';
+const String columnLocalId = 'local_id';
+const String columnLastAuthErrorAt = 'last_auth_error_at';
+const String columnAvatarUrl = 'avatar_url';
+const String columnDisplayName = 'display_name';
+const String columnProfileFetchedAt = 'profile_fetched_at';
 
 /// Creates each index only when its table exists: a restored or partially
 /// upgraded database may be missing a table an earlier step should have made.
@@ -75,6 +88,56 @@ Future<void> backfillSavedTweetUserIds(DatabaseExecutor db) async {
   }
 
   await batch.commit();
+}
+
+Future<bool> _tableExists(DatabaseExecutor db, String table) async {
+  final rows = await db.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
+  return rows.isNotEmpty;
+}
+
+/// Gives every account a stable local id. The account row is keyed by the ct0
+/// token, which X mints again on every login; likes and other local data must
+/// survive that, so they are attached to this id instead.
+@visibleForTesting
+Future<void> backfillAccountLocalIds(DatabaseExecutor db) async {
+  if (!await _tableExists(db, tableAccounts)) return;
+
+  final accounts = await db.query(tableAccounts, columns: ['id', columnLocalId]);
+  final uuid = const Uuid();
+  final batch = db.batch();
+
+  for (final account in accounts) {
+    if (account[columnLocalId] != null) continue;
+    batch.update(tableAccounts, {columnLocalId: uuid.v4()},
+        where: 'id = ?', whereArgs: [account['id']]);
+  }
+
+  await batch.commit();
+}
+
+/// Moves the local likes that existed before per-account likes onto one owner.
+/// The old schema did not record who liked a tweet, so the active account is
+/// the least surprising guess; when no account is active the first row wins.
+@visibleForTesting
+Future<void> backfillAccountLikes(DatabaseExecutor db) async {
+  if (!await _tableExists(db, tableAccounts)) return;
+  if (!await _tableExists(db, tableLikedTweet)) return;
+  if (!await _tableExists(db, tableAccountLike)) return;
+
+  var owner = await db.query(tableAccounts,
+      columns: [columnLocalId], where: 'is_active = 1', limit: 1);
+  if (owner.isEmpty || owner.first[columnLocalId] == null) {
+    owner = await db.query(tableAccounts, columns: [columnLocalId], orderBy: 'rowid', limit: 1);
+  }
+  final localId = owner.isEmpty ? null : owner.first[columnLocalId] as String?;
+  if (localId == null) return;
+
+  await db.rawInsert('''
+    INSERT OR IGNORE INTO $tableAccountLike
+      ($columnAccountLocalId, $columnTweetId, $columnLikedAt)
+    SELECT ?, id, COALESCE($columnLikedAt, CURRENT_TIMESTAMP)
+    FROM $tableLikedTweet
+  ''', [localId]);
 }
 
 class Repository {
@@ -366,10 +429,48 @@ class Repository {
               ('idx_${tableSubscription}_screen_name', tableSubscription, 'screen_name'),
             ]))),
       ],
+      32: [
+        // A stable per-install account identity, separate from the ct0 token
+        // the row is keyed on. Local likes (and future per-account data) are
+        // attached to this id, so logging in again does not orphan them.
+        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnLocalId VARCHAR DEFAULT NULL',
+            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnLocalId'),
+        // A 401 is a session problem, not the same signal as a 404. Keeping it
+        // in its own column lets the account sheet offer a re-login instead of
+        // silently treating the account as a wrong query id.
+        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnLastAuthErrorAt TEXT DEFAULT NULL',
+            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnLastAuthErrorAt'),
+        // Cached profile fields for the account switcher. Filled once after a
+        // login (or lazily from the sheet) so the list works offline after that.
+        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnAvatarUrl TEXT DEFAULT NULL',
+            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnAvatarUrl'),
+        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnDisplayName TEXT DEFAULT NULL',
+            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnDisplayName'),
+        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnProfileFetchedAt TEXT DEFAULT NULL',
+            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnProfileFetchedAt'),
+        // One row per (account, tweet). The tweet body stays in liked_tweet so
+        // two accounts liking the same post share one copy of it.
+        SqlMigration(
+            'CREATE TABLE IF NOT EXISTS $tableAccountLike ('
+            '$columnAccountLocalId VARCHAR NOT NULL, '
+            '$columnTweetId VARCHAR NOT NULL, '
+            '$columnLikedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, '
+            'PRIMARY KEY ($columnAccountLocalId, $columnTweetId))',
+            reverseSql: 'DROP TABLE $tableAccountLike'),
+        Migration(Operation((db) async {
+          await backfillAccountLocalIds(db);
+          await backfillAccountLikes(db);
+        })),
+        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
+              ('idx_${tableAccounts}_$columnLocalId', tableAccounts, columnLocalId),
+              ('idx_${tableAccountLike}_account_liked_at', tableAccountLike,
+                  '$columnAccountLocalId, $columnLikedAt DESC'),
+            ]))),
+      ],
     });
     await openDatabase(
       databaseName,
-      version: 31,
+      version: 32,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
       onDowngrade: myMigrationPlan.call,

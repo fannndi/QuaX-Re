@@ -15,6 +15,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   setUpAll(() {
+    databaseName = 'quax_request_policy_test.db';
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -86,6 +87,15 @@ void main() {
           reason: 'setActiveAccountUserId does not change which session sends the request, '
               'so an identical load can still share the response');
     });
+
+    test('Should not share a scoped and an unscoped request', () {
+      final uri = Uri.parse('https://x.com/i/api/graphql/x/HomeTimeline');
+      activeAccount.value = const ActiveAccount(id: 'A');
+
+      expect(requestCoalescingKey(uri, accountScoped: true), isNot(requestCoalescingKey(uri)),
+          reason: 'A scoped read must never join an unscoped request and skip the account '
+              'pre-check; the two have different failure rules');
+    });
   });
 
   group('account-scoped requests', () {
@@ -131,6 +141,27 @@ void main() {
             'quietly using another login',
       );
     });
+
+    test('Should not spend another request on a session X already rejected', () async {
+      await insertAccount('A', isActive: true);
+      var calls = 0;
+
+      XRegularAccount.debugFetchOverride =
+          (uri, {headers, body, required log, required authHeader}) async {
+        calls++;
+        return http.Response('{}', 401);
+      };
+
+      final uri = Uri.parse('https://x.com/i/api/graphql/x/Bookmarks');
+      await expectLater(Twitter.debugFetch(uri, accountScoped: true),
+          throwsA(isA<NoWorkingAccountException>()));
+      await expectLater(Twitter.debugFetch(uri, accountScoped: true),
+          throwsA(isA<NoWorkingAccountException>()));
+
+      expect(calls, 1,
+          reason: 'Once X answers 401 the session is known to be dead; repeating the request '
+              'wastes a round-trip and hides the re-login action behind another error');
+    });
   });
 
   group('account retry policy', () {
@@ -157,6 +188,28 @@ void main() {
       expect(seen, hasLength(3),
           reason: 'The old cap stopped after two auth failures and never reached the third account');
       expect(seen.last, 'auth_token=C');
+    });
+
+    test('Should rotate away from a session flagged by an earlier 401', () async {
+      await insertAccount('A', isActive: true);
+      await insertAccount('B');
+      final seen = <String>[];
+
+      XRegularAccount.debugFetchOverride =
+          (uri, {headers, body, required log, required authHeader}) async {
+        final cookie = authHeader['Cookie'] as String;
+        seen.add(cookie);
+        return cookie == 'auth_token=A' ? http.Response('{}', 401) : http.Response('{}', 200);
+      };
+
+      final uri = Uri.parse('https://x.com/i/api/graphql/x/SearchTimeline');
+      await Twitter.debugFetch(uri);
+      seen.clear();
+      await Twitter.debugFetch(uri);
+
+      expect(seen, ['auth_token=B'],
+          reason: 'A login that already answered 401 should not be the first choice for the next '
+              'public request; the selector has a healthy account available');
     });
   });
 

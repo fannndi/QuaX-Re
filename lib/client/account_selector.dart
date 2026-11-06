@@ -19,7 +19,10 @@ class AccountSelector {
 
   bool _notFoundFlagged(Account a) => a.lastNotFoundAt?.add(notFoundCooldown).isAfter(now) ?? false;
 
-  bool _healthy(Account a) => !_notFoundFlagged(a) && !isRateLimited(a);
+  /// A 401 is a hard session failure, unlike a 404 which is usually a rotated
+  /// endpoint. The account stays in the fallback pool but is not the first
+  /// choice while a healthy login exists.
+  bool _healthy(Account a) => !_notFoundFlagged(a) && !a.isSessionExpired && !isRateLimited(a);
 
   /// Picks an account not already tried this request, preferring healthy ones
   /// but falling back to flagged accounts so a request is always attempted while

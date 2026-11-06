@@ -5,7 +5,6 @@ import 'package:quax/client/accounts.dart';
 import 'package:quax/client/headers.dart';
 import 'package:quax/client/http_client.dart';
 import 'dart:async';
-import 'package:quax/database/repository.dart';
 
 /// Test seam for the account-selection policy. The production path is the
 /// default; a test can return canned responses without opening a socket.
@@ -53,11 +52,9 @@ class XRegularAccount {
         headers: {...?headers, ...baseHeaders, 'Content-Type': 'application/json'}, body: body);
   }
 
-  Future<void> deleteAccount(String username) async {
-    var database = await Repository.writable();
-    // Awaited: promoteFirstAccountIfNoneActive() reads straight afterwards and
-    // would happily promote the row we meant to remove.
-    await database.delete(tableAccounts, where: 'id = ?', whereArgs: [username]);
-    await promoteFirstAccountIfNoneActive();
+  Future<void> deleteAccount(String id) async {
+    // Also removes the local likes owned by this account; the shared tweet
+    // bodies are cleaned up only when no other account still references them.
+    await deleteAccountAndLocalLikes(id);
   }
 }

@@ -33,8 +33,9 @@ const Duration _defaultTimeout = Duration(seconds: 30);
 /// previous login's response. The revision catches a re-selection that changes
 /// which account is preferred even if the session id is unchanged.
 @visibleForTesting
-String requestCoalescingKey(Uri uri, {String? body}) =>
+String requestCoalescingKey(Uri uri, {String? body, bool accountScoped = false}) =>
     '${activeAccount.value?.id}\u0000${accountsRevision.value}\u0000'
+    '${accountScoped ? 'SCOPED' : 'ANY'}\u0000'
     '${body == null ? 'GET' : 'POST'}\u0000$uri\u0000${body ?? ''}';
 
 class _QuackerTwitterClient extends TwitterClient {
@@ -62,7 +63,7 @@ class _QuackerTwitterClient extends TwitterClient {
     // `timeout` is deliberately unused: a coalesced caller used to get the
     // *first* caller's deadline, so a caller asking for 5s silently waited 30s.
     // Callers that need a shorter bound can wrap the returned future.
-    final key = requestCoalescingKey(uri);
+    final key = requestCoalescingKey(uri, accountScoped: accountScoped);
     final running = _inflight[key];
     if (running != null) return running;
 
@@ -88,16 +89,16 @@ class _QuackerTwitterClient extends TwitterClient {
   /// request coalescing. Static because `TwitterApi.client` is typed as the
   /// package's AbstractTwitterClient, which has no such helper.
   static Future<http.Response> postJson(Uri uri,
-      {Map<String, String>? headers, required String body}) {
+      {Map<String, String>? headers, required String body, bool accountScoped = false}) {
     // Keyed on the method, body and account as well as the URI: a GET whose
     // string form happens to match must never share the response, and neither
     // must the same request after an account switch.
-    final key = requestCoalescingKey(uri, body: body);
+    final key = requestCoalescingKey(uri, body: body, accountScoped: accountScoped);
     final running = _inflight[key];
     if (running != null) return running;
 
     late final Future<http.Response> future;
-    future = fetch(uri, headers: headers, body: body)
+    future = fetch(uri, headers: headers, body: body, accountScoped: accountScoped)
         .timeout(_defaultTimeout)
         .then<http.Response>((response) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -144,6 +145,11 @@ class _QuackerTwitterClient extends TwitterClient {
     }
     if (accountScoped && RateLimitTracker.isLimited(active!.id, endpoint, now)) {
       throw RateLimitedException();
+    }
+    if (accountScoped && active!.isSessionExpired) {
+      // A rejected session cannot be retried into working. Answer straight away
+      // so the UI can offer a re-login instead of spending a request on a 401.
+      throw NoWorkingAccountException();
     }
     final tried = <String>{};
     var networkFailures = 0;
@@ -217,15 +223,22 @@ class _QuackerTwitterClient extends TwitterClient {
         RateLimitTracker.flag(account.id, endpoint, _resetFromHeaders(response));
         continue;
       }
-      if (code == 404 || code == 401) {
+      if (code == 401) {
+        // X rejected this login. Record it separately from the 404 counter so
+        // the account sheet can ask for a fresh sign-in instead of treating the
+        // account as a rotated query id.
+        TwitterHeaders.invalidateIfStale();
+        await recordAuthFailure(account.id);
+        continue;
+      }
+      if (code == 404) {
         // The keys behind x-client-transaction-id rotate with X's deploys, and
         // a stale generator answers 404 — let the header cache self-heal.
         TwitterHeaders.invalidateIfStale();
         // A 404 on a queryId-pinned GraphQL path usually means X rotated the
         // endpoint's queryId, not that this account's auth is broken — don't
-        // taint account health for it (see getHomeLatestTimeline). A 401 is X
-        // rejecting the session, so it counts as broken auth.
-        final staleQueryId = code == 404 && uri.path.contains('/i/api/graphql/');
+        // taint account health for it (see getHomeLatestTimeline).
+        final staleQueryId = uri.path.contains('/i/api/graphql/');
         if (!staleQueryId) {
           await recordNotFound(account.id);
         }
