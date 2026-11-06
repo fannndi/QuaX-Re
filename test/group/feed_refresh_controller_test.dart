@@ -2,56 +2,58 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/group/feed_refresh_controller.dart';
 
 void main() {
-  group('FeedRefreshController.scrollToTop()', () {
-    test('Should reach the scroll-to-top the feed body registered', () {
+  group('FeedRefreshController', () {
+    test('Should refresh and scroll only the active feed', () async {
       final controller = FeedRefreshController();
-      var scrolled = 0;
+      var forYou = 0;
+      var following = 0;
 
-      controller.registerScrollToTop(() => scrolled++);
+      controller.register('foryou', refresh: () async => forYou++, scrollToTop: () => forYou++);
+      controller.register('following',
+          refresh: () async => following++, scrollToTop: () => following++);
+
+      controller.activeFeedId = 'following';
+      await controller.refresh();
       controller.scrollToTop();
 
-      expect(scrolled, 1,
-          reason: 'Tapping the active nav tab has to scroll the feed list itself. The nav bar can '
-              'only reach the NestedScrollView outer controller, which collapses the app bar and '
-              'leaves the reader exactly where they were');
+      expect(following, 2,
+          reason: 'The app-bar refresh and the nav scroll must reach the feed the reader is on');
+      expect(forYou, 0,
+          reason: 'The hidden feed used to win the single registration slot, so the visible tab '
+              'showed no spinner and no new posts');
     });
 
-    test('Should do nothing when no body registered one', () {
+    test('Should do nothing when the active feed has no handler', () async {
       final controller = FeedRefreshController();
+      controller.activeFeedId = 'missing';
 
+      await expectLater(controller.refresh(), completes);
       expect(() => controller.scrollToTop(), returnsNormally,
-          reason: 'A feed without pull-to-refresh (or one that has not mounted yet) has nothing to '
-              'scroll, and the nav bar must not crash on it');
+          reason: 'A feed that has not mounted yet (or one without pull-to-refresh) must not crash '
+              'the app-bar button');
     });
 
-    test('Should stop reaching a body that unregistered', () {
+    test('Should stop reaching a feed that unregistered', () async {
       final controller = FeedRefreshController();
       var scrolled = 0;
-      void handler() => scrolled++;
 
-      controller.registerScrollToTop(handler);
-      controller.unregisterScrollToTop(handler);
+      controller.register('foryou', refresh: () async {}, scrollToTop: () => scrolled++);
+      controller.activeFeedId = 'foryou';
+      controller.unregister('foryou');
       controller.scrollToTop();
 
       expect(scrolled, 0,
-          reason: 'A disposed feed must not be scrolled any more, or the tap would act on a list '
-              'that is no longer on screen');
+          reason: 'A disposed feed must not be scrolled, or the tap acts on a list that is gone');
     });
 
-    test('Should not unregister a newer body when an older one goes away', () {
+    test('Should keep both home feeds registered at once', () {
       final controller = FeedRefreshController();
-      var first = 0;
-      var second = 0;
+      controller.register('foryou', refresh: () async {}, scrollToTop: () {});
+      controller.register('following', refresh: () async {}, scrollToTop: () {});
 
-      controller.registerScrollToTop(() => first++);
-      controller.registerScrollToTop(() => second++);
-      controller.unregisterScrollToTop(() => first++);
-      controller.scrollToTop();
-
-      expect(first, 0, reason: 'The stale handler is gone');
-      expect(second, 1,
-          reason: 'Only the handler that is actually registered may be removed; removing by value '
-              'would let a stale callback wipe the live one');
+      expect(controller.handlerCount, 2,
+          reason: 'For You and Following stay alive together; one slot let the last-mounted one '
+              'silently replace the other');
     });
   });
 }

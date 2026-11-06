@@ -82,6 +82,7 @@ class _ForYouTweetsState extends State<ForYouTweets> with AutomaticKeepAliveClie
     return TweetContextScope(
       child: PaginatedTweetList(
         feed: widget.feed,
+        feedId: 'foryou',
         loadPage: _loadTweets,
         username: _username,
         onRefresh: () async {},

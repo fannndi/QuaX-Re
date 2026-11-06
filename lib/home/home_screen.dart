@@ -140,7 +140,7 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
             setState(() {
               _currentPage = page;
             });
-            if (defaultHomePages[page].id == 'feed') {
+            if (widget.pages[page].id == 'feed') {
               homeFeedSelected.value++;
             }
           },

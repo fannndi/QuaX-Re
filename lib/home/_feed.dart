@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
+import 'package:provider/provider.dart';
 import 'package:quax/client/active_account_button.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/constants.dart';
@@ -9,6 +10,7 @@ import 'package:quax/home/home_events.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/_feed_shell.dart';
+import 'package:quax/group/feed_refresh_controller.dart';
 import 'package:quax/search/search.dart';
 import 'package:quax/ui/errors.dart';
 
@@ -44,6 +46,17 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   final TweetFeedController _followingFeed = TweetFeedController(mergeOnRefresh: true);
   final TweetFeedController _foryouFeed = TweetFeedController();
   TabController? _tabController;
+  FeedRefreshController? _refreshController;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    try {
+      _refreshController = context.read<FeedRefreshController>();
+    } on ProviderNotFoundException {
+      _refreshController = null;
+    }
+  }
 
   @override
   void initState() {
@@ -104,8 +117,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     controller.addListener(() {
       if (!controller.indexIsChanging) {
         prefs.set<String>(optionHomeDefaultFeedTab, feedTabs[controller.index].id.name);
+        _refreshController?.activeFeedId = feedTabs[controller.index].id.name;
       }
     });
+    _refreshController?.activeFeedId = feedTabs[initialIndex].id.name;
     return controller;
   }
 
@@ -113,6 +128,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final BasePrefService prefs = PrefService.of(context);
     final tabController = _tabController ??= _createTabController(prefs);
+    _refreshController?.activeFeedId = feedTabs[tabController.index].id.name;
 
     return GroupFeedShell(
       scrollController: widget.scrollController,

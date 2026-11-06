@@ -31,7 +31,8 @@ void main() {
             } on ProviderNotFoundException {
               controller = null;
             }
-            controller?.registerScrollToTop(() => scrolled++);
+            controller?.register('feed', refresh: () async {}, scrollToTop: () => scrolled++);
+            controller?.activeFeedId = 'feed';
             return const SizedBox.shrink();
           }),
         ],

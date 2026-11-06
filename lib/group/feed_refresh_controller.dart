@@ -10,35 +10,38 @@ import 'package:flutter/foundation.dart';
 /// only reach the NestedScrollView's *outer* controller, which collapses the app
 /// bar but leaves the inner list where the reader left it. The body owns the
 /// list's controller, so it registers the real scroll-to-top here.
+///
+/// Handlers are keyed by feed: the Home tab keeps For You and Following alive at
+/// the same time, and a single slot meant the last-mounted (usually hidden)
+/// feed received the app-bar refresh.
 class FeedRefreshController {
-  Future<void> Function()? _handler;
-  VoidCallback? _scrollToTop;
+  final Map<Object, _FeedHandlers> _handlers = {};
+  Object? activeFeedId;
 
-  void register(Future<void> Function() handler) {
-    _handler = handler;
+  void register(Object feedId,
+      {required Future<void> Function() refresh, required VoidCallback scrollToTop}) {
+    _handlers[feedId] = _FeedHandlers(refresh, scrollToTop);
   }
 
-  void unregister(Future<void> Function() handler) {
-    if (identical(_handler, handler)) {
-      _handler = null;
-    }
-  }
-
-  void registerScrollToTop(VoidCallback handler) {
-    _scrollToTop = handler;
-  }
-
-  void unregisterScrollToTop(VoidCallback handler) {
-    if (identical(_scrollToTop, handler)) {
-      _scrollToTop = null;
-    }
+  void unregister(Object feedId) {
+    _handlers.remove(feedId);
   }
 
   Future<void> refresh() async {
-    await _handler?.call();
+    await _handlers[activeFeedId]?.refresh();
   }
 
   void scrollToTop() {
-    _scrollToTop?.call();
+    _handlers[activeFeedId]?.scrollToTop();
   }
+
+  @visibleForTesting
+  int get handlerCount => _handlers.length;
+}
+
+class _FeedHandlers {
+  const _FeedHandlers(this.refresh, this.scrollToTop);
+
+  final Future<void> Function() refresh;
+  final VoidCallback scrollToTop;
 }

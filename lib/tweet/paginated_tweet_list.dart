@@ -151,6 +151,9 @@ class PaginatedTweetList extends StatefulWidget {
   final String emptyMessage;
   // Remembers the scroll offset across app restarts, per feed.
   final String? scrollKey;
+  // Identifies this body in the shared FeedRefreshController. Home keeps both
+  // feeds alive, so the app-bar refresh must target the visible one.
+  final Object? feedId;
 
   const PaginatedTweetList({
     super.key,
@@ -162,6 +165,7 @@ class PaginatedTweetList extends StatefulWidget {
     required this.emptyMessage,
     this.onRefresh,
     this.scrollKey,
+    this.feedId,
   });
 
   @override
@@ -172,6 +176,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
   final ScrollController _scrollController = ScrollController();
   FeedRefreshController? _refreshController;
+  Object? _registeredFeedId;
   bool _firstLoadStarted = false;
   bool _pendingInitialLoad = false;
   bool _onlineListenerAttached = false;
@@ -237,12 +242,14 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     } on ProviderNotFoundException {
       controller = null;
     }
-    if (!identical(controller, _refreshController)) {
-      _refreshController?.unregister(_showRefresh);
-      _refreshController?.unregisterScrollToTop(_scrollToTop);
+    final feedId = widget.feedId ?? widget.feed;
+    if (!identical(controller, _refreshController) || _registeredFeedId != feedId) {
+      if (_refreshController != null && _registeredFeedId != null) {
+        _refreshController!.unregister(_registeredFeedId!);
+      }
       _refreshController = controller;
-      _refreshController?.register(_showRefresh);
-      _refreshController?.registerScrollToTop(_scrollToTop);
+      _registeredFeedId = controller == null ? null : feedId;
+      controller?.register(feedId, refresh: _showRefresh, scrollToTop: _scrollToTop);
     }
   }
 
@@ -264,8 +271,9 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _scrollSaveTimer?.cancel();
-    _refreshController?.unregister(_showRefresh);
-    _refreshController?.unregisterScrollToTop(_scrollToTop);
+    if (_refreshController != null && _registeredFeedId != null) {
+      _refreshController!.unregister(_registeredFeedId!);
+    }
     if (_onlineListenerAttached) {
       NetworkStatus().online.removeListener(_onOnlineChanged);
     }

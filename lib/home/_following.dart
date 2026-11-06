@@ -66,6 +66,7 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
     return TweetContextScope(
       child: PaginatedTweetList(
         feed: widget.feed,
+        feedId: 'following',
         loadPage: _loadTweets,
         username: null,
         onRefresh: () async {},

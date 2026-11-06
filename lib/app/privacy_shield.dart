@@ -68,28 +68,30 @@ class _PrivacyShieldState extends State<PrivacyShield> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
-    if (!_obscured) return widget.child;
-
     final colors = Theme.of(context).colorScheme;
+    // The tree shape must stay stable: returning the child bare when visible
+    // and wrapped in a Stack when obscured remounted the whole Navigator on
+    // every background, losing the open route, scroll position and dialogs.
     return Stack(
       fit: StackFit.expand,
       children: [
         widget.child,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: ColoredBox(
-                  color: colors.surface.withValues(alpha: 0.55),
-                  child: Center(
-                    child: Icon(Icons.lock_outline, size: 56, color: colors.primary),
+        if (_obscured)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                  child: ColoredBox(
+                    color: colors.surface.withValues(alpha: 0.55),
+                    child: Center(
+                      child: Icon(Icons.lock_outline, size: 56, color: colors.primary),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
