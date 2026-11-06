@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:logging/logging.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_migration_plan/migration/sql.dart';
@@ -42,6 +43,38 @@ Future<void> _createIndexesIfTableExists(
     if (exists.isEmpty) continue;
     await db.execute('CREATE INDEX IF NOT EXISTS $index ON $table ($columns)');
   }
+}
+
+/// Backfills `saved_tweet.user_id` from the stored tweet JSON.
+///
+/// A restored or hand-edited database can carry JSON that is not a tweet
+/// object (a list, a truncated string). One throw here rolls back the whole
+/// upgrade and leaves the app unable to start, so a bad row is skipped instead
+/// of taking the migration down with it.
+@visibleForTesting
+Future<void> backfillSavedTweetUserIds(DatabaseExecutor db) async {
+  final tweets = await db.query(tableSavedTweet, columns: ['id', 'content']);
+  final batch = db.batch();
+
+  for (final tweet in tweets) {
+    final content = tweet['content'] as String?;
+    if (content == null) continue;
+
+    try {
+      final decodedTweet = jsonDecode(content);
+      if (decodedTweet is! Map) continue;
+      final user = decodedTweet['user'];
+      if (user is! Map) continue;
+      final userId = user['id_str'] as String?;
+      if (userId != null) {
+        batch.update(tableSavedTweet, {'user_id': userId}, where: 'id = ?', whereArgs: [tweet['id']]);
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+
+  await batch.commit();
 }
 
 class Repository {
@@ -234,29 +267,7 @@ class Repository {
         // Add a new column for saved tweet user IDs, and extract them from all existing records
         SqlMigration('ALTER TABLE $tableSavedTweet ADD COLUMN user_id VARCHAR DEFAULT NULL',
             reverseSql: 'ALTER TABLE $tableSavedTweet DROP COLUMN user_id'),
-        Migration(Operation((db) async {
-          var tweets = await db.query(tableSavedTweet, columns: ['id', 'content']);
-          var batch = db.batch();
-
-          for (var tweet in tweets) {
-            var content = tweet['content'] as String?;
-            if (content == null) {
-              continue;
-            }
-
-            var decodedTweet = jsonDecode(content);
-            if (decodedTweet == null) {
-              continue;
-            }
-
-            var userId = decodedTweet['user']?['id_str'] as String?;
-            if (userId != null) {
-              batch.update(tableSavedTweet, {'user_id': userId}, where: 'id = ?', whereArgs: [tweet['id']]);
-            }
-          }
-
-          await batch.commit();
-        })),
+        Migration(Operation(backfillSavedTweetUserIds)),
       ],
       20: [
         Migration(Operation((db) async {

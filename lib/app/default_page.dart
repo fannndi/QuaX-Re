@@ -61,6 +61,7 @@ class _DefaultPageState extends State<DefaultPage> {
       // migration error screen is the one that reports failures.
       await _migration;
       if (!mounted) return;
+      if (_migrationError != null) return;
       await checkForAccounts(context);
     });
   }
@@ -132,18 +133,27 @@ class _DefaultPageState extends State<DefaultPage> {
     }
   }
 
+  Future<void> _runMigration() async {
+    try {
+      await Repository().migrate();
+    } catch (e, stackTrace) {
+      // catchError on a Future<bool> returned the error object and threw
+      // "the error handler must return a value of the future's type", so the
+      // failure screen never got a chance to own the failure.
+      if (!mounted) return;
+      setState(() {
+        _migrationError = e;
+        _migrationStackTrace = stackTrace;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
     // Run the database migrations
-    _migration = Repository().migrate().catchError((e, s) {
-      setState(() {
-        _migrationError = e;
-        _migrationStackTrace = s;
-      });
-      return e;
-    });
+    _migration = _runMigration();
 
     final appLinks = AppLinks();
 
