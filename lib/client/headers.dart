@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:logging/logging.dart';
 import 'package:quax/client/x_client_transaction_id/client_transaction.dart';
 import 'package:quax/constants.dart';
@@ -39,6 +40,12 @@ class TwitterHeaders {
   // understand — every request would otherwise pay for a fresh attempt. Between
   // attempts, requests simply go without the header.
   static const _deriveCooldown = Duration(minutes: 5);
+
+  // A 403 means the transaction key itself is wrong, unlike the age-based 404
+  // path. Force one re-derivation, then back off so a broken page cannot make
+  // every request pay for the 16-chunk initialization.
+  static const _forcedInvalidationCooldown = Duration(seconds: 60);
+  static DateTime? _lastForcedInvalidation;
 
   static Future<Map<String, String>?> getXClientTransactionIdHeader(Uri? uri, {String method = 'GET'}) async {
     if (uri == null) {
@@ -96,6 +103,31 @@ class TwitterHeaders {
       _initFuture = null;
       _initializedAt = null;
     }
+  }
+
+  /// Drops the cached transaction generator after a 403, which means the key
+  /// itself is wrong (not merely old). Returns true when a retry is worth
+  /// making; the cooldown keeps a permanently broken page from re-running the
+  /// 16-chunk derivation on every request.
+  static bool invalidateNow() {
+    final now = DateTime.now();
+    final last = _lastForcedInvalidation;
+    if (last != null && now.difference(last) < _forcedInvalidationCooldown) {
+      return false;
+    }
+    _lastForcedInvalidation = now;
+    _initFuture = null;
+    _initializedAt = null;
+    _deriveDisabledUntil = null;
+    return true;
+  }
+
+  @visibleForTesting
+  static void resetForTests() {
+    _initFuture = null;
+    _initializedAt = null;
+    _deriveDisabledUntil = null;
+    _lastForcedInvalidation = null;
   }
 
   static Future<Map<String, String>> getHeaders(Uri? uri, Map<dynamic, dynamic>? authHeader,

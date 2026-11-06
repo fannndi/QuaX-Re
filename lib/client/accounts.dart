@@ -85,12 +85,44 @@ Future<void> setActiveAccountUserId(String userId) async {
   activeAccount.value = ActiveAccount(id: active.id, screenName: active.screenName, userId: userId);
 }
 
+/// Persists a fresh login and replaces any earlier row for the same handle or
+/// numeric id. X mints a new ct0 on every login and the row is keyed by that
+/// token, so re-adding an account used to leave the old row (and its expired
+/// session) behind as a second account.
+Future<void> saveLoggedInAccount({
+  required String id,
+  required String screenName,
+  String? userId,
+  required String authHeader,
+}) async {
+  final database = await Repository.writable();
+  await database.transaction((txn) async {
+    await txn.delete(tableAccounts, where: 'id = ?', whereArgs: [id]);
+    final identityWhere =
+        userId == null ? 'screen_name = ?' : 'screen_name = ? OR user_id = ?';
+    final identityArgs = userId == null ? [screenName] : [screenName, userId];
+    await txn.delete(tableAccounts, where: identityWhere, whereArgs: identityArgs);
+    await txn.insert(
+      tableAccounts,
+      Account(
+        id: id,
+        screenName: screenName,
+        userId: userId,
+        authHeader: authHeader,
+      ).toMap(),
+    );
+  });
+}
+
 /// Makes sure some account is active: called after a deletion, so an active
 /// flag never lingers on an account that no longer exists.
 Future<void> promoteFirstAccountIfNoneActive() async {
   final accounts = await getAccounts();
   if (accounts.isEmpty) {
-    activeAccount.value = null;
+    if (activeAccount.value != null) {
+      activeAccount.value = null;
+      accountsRevision.value++;
+    }
     return;
   }
   if (accounts.any((a) => a.isActive)) return;

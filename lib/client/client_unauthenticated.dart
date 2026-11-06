@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:quax/client/http_client.dart';
@@ -12,8 +13,19 @@ String? _guestToken;
 // change and a cached token was handed out forever — once X expired it, every
 // unauthenticated request failed until the app restarted.
 int _expiresAt = -1;
-int _tokenLimit = -1;
 int _tokenRemaining = -1;
+
+/// Whether the cached guest token can serve another request. The counters stay
+/// at -1 until an endpoint reports a window; that unknown state must not read
+/// as "expired" or "exhausted". A reported budget of zero is the one value that
+/// must force a new token: `remaining < limit` was true for an exhausted token
+/// and handed it out for the rest of the window.
+@visibleForTesting
+bool guestTokenUsable({required int nowMs, required int expiresAt, required int remaining}) {
+  if (remaining == 0) return false;
+  if (expiresAt == -1) return true;
+  return nowMs < expiresAt;
+}
 
 /// The guest path had no timeouts at all while every authenticated request was
 /// bounded by `_defaultTimeout`. A hang here is worse than a hang there:
@@ -23,16 +35,12 @@ int _tokenRemaining = -1;
 const _guestTimeout = Duration(seconds: 15);
 
 Future<String> getToken(Logger log) async {
-  if (_guestToken != null) {
-    // No rate limit reported yet: the token is as good as it was when we got it
-    if (_expiresAt == -1 && _tokenLimit == -1 && _tokenRemaining == -1) {
-      return _guestToken!;
-    }
-
-    // Still inside the window, with budget left
-    if (DateTime.now().millisecondsSinceEpoch < _expiresAt && _tokenRemaining < _tokenLimit) {
-      return _guestToken!;
-    }
+  if (_guestToken != null &&
+      guestTokenUsable(
+          nowMs: DateTime.now().millisecondsSinceEpoch,
+          expiresAt: _expiresAt,
+          remaining: _tokenRemaining)) {
+    return _guestToken!;
   }
 
   log.fine('Refreshing the X token');
@@ -63,24 +71,36 @@ Future<String> getToken(Logger log) async {
       'Unable to refresh the token. The response (${response.statusCode}) from Twitter was: ${response.body}');
 }
 
-Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? headers, required Logger log}) async {
-  // The path only: the full URL's `variables` JSON embeds the reader's userId
-  // and search terms, and this record reaches logcat in release.
-  log.fine('Fetching (unauthenticated) ${uri.path}');
-
-  var response = await quaxHttpClient.get(uri, headers: {
+Future<http.Response> _sendGuestRequest(Uri uri, Map<String, String>? headers, Logger log) async {
+  return quaxHttpClient.get(uri, headers: {
     ...?headers,
     'Authorization': bearerToken,
     'x-guest-token': await getToken(log),
     'x-twitter-active-user': 'yes',
     'user-agent': userAgentHeader['user-agent']!
   }).timeout(_guestTimeout);
+}
 
-  var headerRateLimitReset = response.headers['x-rate-limit-reset'];
-  var headerRateLimitRemaining = response.headers['x-rate-limit-remaining'];
-  var headerRateLimitLimit = response.headers['x-rate-limit-limit'];
+Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? headers, required Logger log}) async {
+  // The path only: the full URL's `variables` JSON embeds the reader's userId
+  // and search terms, and this record reaches logcat in release.
+  log.fine('Fetching (unauthenticated) ${uri.path}');
 
-  if (headerRateLimitReset == null || headerRateLimitRemaining == null || headerRateLimitLimit == null) {
+  var response = await _sendGuestRequest(uri, headers, log);
+
+  // A rejected guest token is not recovered by waiting: X keeps answering
+  // 401/403 until a new one is activated. Drop it and retry once.
+  if (response.statusCode == 401 || response.statusCode == 403) {
+    _guestToken = null;
+    _expiresAt = -1;
+    _tokenRemaining = -1;
+    response = await _sendGuestRequest(uri, headers, log);
+  }
+
+  final headerRateLimitReset = response.headers['x-rate-limit-reset'];
+  final headerRateLimitRemaining = response.headers['x-rate-limit-remaining'];
+
+  if (headerRateLimitReset == null || headerRateLimitRemaining == null) {
     // If the rate limit headers are missing, the endpoint probably doesn't send them back
     return response;
   }
@@ -90,11 +110,9 @@ Future<http.Response> fetchUnauthenticated(Uri uri, {Map<String, String>? header
   // doesn't report them keeps the "unknown" state and the token stays valid.
   final reset = int.tryParse(headerRateLimitReset);
   final remaining = int.tryParse(headerRateLimitRemaining);
-  final limit = int.tryParse(headerRateLimitLimit);
-  if (reset != null && remaining != null && limit != null) {
+  if (reset != null && remaining != null) {
     _expiresAt = reset * 1000;
     _tokenRemaining = remaining;
-    _tokenLimit = limit;
   }
 
   return response;

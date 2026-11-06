@@ -14,6 +14,7 @@ import 'package:quax/client/client_unauthenticated.dart';
 import 'package:quax/client/headers.dart';
 import 'package:quax/client/rate_limit_tracker.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/profile_model.dart';
 import 'package:quax/user.dart';
@@ -27,6 +28,15 @@ part 'client_models.dart';
 
 const Duration _defaultTimeout = Duration(seconds: 30);
 
+/// Key for the in-flight request map. The account identity is part of the key:
+/// an identical URI requested after an account switch must never join the
+/// previous login's response. The revision catches a re-selection that changes
+/// which account is preferred even if the session id is unchanged.
+@visibleForTesting
+String requestCoalescingKey(Uri uri, {String? body}) =>
+    '${activeAccount.value?.id}\u0000${accountsRevision.value}\u0000'
+    '${body == null ? 'GET' : 'POST'}\u0000$uri\u0000${body ?? ''}';
+
 class _QuackerTwitterClient extends TwitterClient {
   static final log = Logger('_QuackerTwitterClient');
 
@@ -38,17 +48,28 @@ class _QuackerTwitterClient extends TwitterClient {
   static final Map<String, Future<http.Response>> _inflight = {};
 
   @override
-  Future<http.Response> get(Uri uri, {Map<String, String>? headers, Duration? timeout}) {
-    // `timeout` is part of the overridden signature but is deliberately unused:
-    // a coalesced caller used to get the *first* caller's deadline, so a caller
-    // asking for 5s silently waited 30s. Callers that need a shorter bound can
-    // wrap the returned future themselves.
-    final key = uri.toString();
+  Future<http.Response> get(Uri uri, {Map<String, String>? headers, Duration? timeout}) =>
+      _coalesceGet(uri, headers: headers);
+
+  /// A request that must run as the account the user chose, never as whichever
+  /// other login the health selector would rotate to. Likes and Bookmarks are
+  /// the two endpoints in this app that X answers per session identity.
+  static Future<http.Response> getScoped(Uri uri, {Map<String, String>? headers}) =>
+      _coalesceGet(uri, headers: headers, accountScoped: true);
+
+  static Future<http.Response> _coalesceGet(Uri uri,
+      {Map<String, String>? headers, bool accountScoped = false}) {
+    // `timeout` is deliberately unused: a coalesced caller used to get the
+    // *first* caller's deadline, so a caller asking for 5s silently waited 30s.
+    // Callers that need a shorter bound can wrap the returned future.
+    final key = requestCoalescingKey(uri);
     final running = _inflight[key];
     if (running != null) return running;
 
     late final Future<http.Response> future;
-    future = fetch(uri, headers: headers).timeout(_defaultTimeout).then<http.Response>((response) {
+    future = fetch(uri, headers: headers, accountScoped: accountScoped)
+        .timeout(_defaultTimeout)
+        .then<http.Response>((response) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response;
       } else {
@@ -68,9 +89,10 @@ class _QuackerTwitterClient extends TwitterClient {
   /// package's AbstractTwitterClient, which has no such helper.
   static Future<http.Response> postJson(Uri uri,
       {Map<String, String>? headers, required String body}) {
-    // Keyed on the method as well as the URI: `uri.toString()|body` could
-    // otherwise collide with a GET whose string form happens to match.
-    final key = 'POST\u0000${uri.toString()}\u0000$body';
+    // Keyed on the method, body and account as well as the URI: a GET whose
+    // string form happens to match must never share the response, and neither
+    // must the same request after an account switch.
+    final key = requestCoalescingKey(uri, body: body);
     final running = _inflight[key];
     if (running != null) return running;
 
@@ -93,33 +115,48 @@ class _QuackerTwitterClient extends TwitterClient {
 
   /// Tries accounts (healthy ones first, then flagged ones as a fallback),
   /// retrying on another account when one returns a 429 (rate-limited for that
-  /// endpoint, tracked in memory), a 404 (retried once, then surfaced) or a 401
-  /// (session explicitly rejected: counted as broken auth). Rate limits are
-  /// per-endpoint, so a 429 on one endpoint never blocks another.
+  /// endpoint, tracked in memory) or a 401/404 (session or queryId rejected).
+  /// Rate limits are per-endpoint, so a 429 on one endpoint never blocks another.
   ///
   /// A real request is always attempted before any error: with accounts, each is
   /// tried; with none, an unauthenticated (guest) request is sent. Errors surface
   /// only from actual responses: [RateLimitedException] when every account was
   /// rate-limited on the endpoint, [NoWorkingAccountException] when they all
-  /// returned 404, and [NoAccountAvailableException] only when there is no account
-  /// and the guest request also failed. Network-level failures (socket, timeout,
-  /// TLS) are absorbed once per fetch with a short pause, since they never
-  /// reached X and are no account's fault; a second one is surfaced as-is.
-  static Future<http.Response> fetch(Uri uri, {Map<String, String>? headers, String? body}) async {
+  /// returned 404/401, and [NoAccountAvailableException] only when there is no
+  /// account and the guest request also failed. Network-level failures (socket,
+  /// timeout, TLS) are absorbed once per fetch with a short pause, since they
+  /// never reached X and are no account's fault; a second one is surfaced as-is.
+  ///
+  /// [accountScoped] turns off rotation: Likes and Bookmarks are answered per
+  /// session identity, so falling back to another login would show one account's
+  /// private data under another. If the active account is unusable the request
+  /// fails instead.
+  static Future<http.Response> fetch(Uri uri,
+      {Map<String, String>? headers, String? body, bool accountScoped = false}) async {
     final endpoint = uri.path;
     final now = DateTime.now();
     final accounts = await getAccounts();
     final selector = AccountSelector(accounts, now,
         isRateLimited: (a) => RateLimitTracker.isLimited(a.id, endpoint, now));
+    final active = accountScoped ? accounts.firstWhereOrNull((a) => a.isActive) : null;
+    if (accountScoped && active == null) {
+      throw NoAccountAvailableException();
+    }
+    if (accountScoped && RateLimitTracker.isLimited(active!.id, endpoint, now)) {
+      throw RateLimitedException();
+    }
     final tried = <String>{};
-    var authFailures = 0;
     var networkFailures = 0;
+    var retriedTransactionId = false;
+    Account? retryAccount;
     http.Response? lastError;
     Object? lastNetworkError;
     StackTrace? lastNetworkStackTrace;
 
     while (true) {
-      final account = selector.pick(exclude: tried);
+      final account = retryAccount ??
+          (accountScoped ? (tried.isEmpty ? active : null) : selector.pick(exclude: tried));
+      retryAccount = null;
       if (account == null) {
         break;
       }
@@ -152,6 +189,16 @@ class _QuackerTwitterClient extends TwitterClient {
         if (kDebugMode) debugPrint('QuaX fetch $code ${uri.path}');
       }
 
+      // A 403 means the transaction-id key is wrong, not that this account is
+      // unusable. Drop the cached generator and retry the same account once;
+      // a second 403 (or one inside the cooldown) is surfaced.
+      if (code == 403 && !retriedTransactionId && TwitterHeaders.invalidateNow()) {
+        retriedTransactionId = true;
+        tried.remove(account.id);
+        retryAccount = account;
+        continue;
+      }
+
       if (code >= 200 && code < 300) {
         if (response.headers['x-rate-limit-remaining'] == '0') {
           // That was the last call allowed on this endpoint for the window:
@@ -182,9 +229,6 @@ class _QuackerTwitterClient extends TwitterClient {
         if (!staleQueryId) {
           await recordNotFound(account.id);
         }
-        if (++authFailures >= 2) {
-          break; // tried enough accounts; surface the outcome below
-        }
         continue;
       }
       return response; // other errors surfaced immediately
@@ -193,7 +237,7 @@ class _QuackerTwitterClient extends TwitterClient {
     if (lastError == null && lastNetworkError != null) {
       Error.throwWithStackTrace(lastNetworkError, lastNetworkStackTrace!);
     }
-    if (tried.isEmpty) {
+    if (!accountScoped && tried.isEmpty) {
       // A POST body is private data; no account means no request.
       if (body != null) {
         throw NoAccountAvailableException();
@@ -209,8 +253,8 @@ class _QuackerTwitterClient extends TwitterClient {
     if (lastError?.statusCode == 429) {
       throw RateLimitedException(); // every account was rate-limited on this endpoint
     }
-    if (lastError?.statusCode == 404) {
-      throw NoWorkingAccountException(); // accounts tried all returned 404 (likely broken auth)
+    if (lastError?.statusCode == 404 || (accountScoped && lastError?.statusCode == 401)) {
+      throw NoWorkingAccountException(); // the account's session/query is not usable
     }
     return lastError!; // surface the real error
   }
@@ -230,6 +274,13 @@ class _QuackerTwitterClient extends TwitterClient {
 
 class Twitter {
   static final TwitterApi _twitterApi = TwitterApi(client: _QuackerTwitterClient());
+
+  /// Test seam for the account-selection policy: exercises the real fetch loop
+  /// (health, retries, 403 invalidation) without a socket. Production code
+  /// always goes through the client wrapper.
+  @visibleForTesting
+  static Future<http.Response> debugFetch(Uri uri, {String? body, bool accountScoped = false}) =>
+      _QuackerTwitterClient.fetch(uri, body: body, accountScoped: accountScoped);
 
   /// The feature flags the live web client sends with every timeline call
   /// (captured from x.com in 2026-10). X shapes and strips responses by these;
@@ -619,7 +670,7 @@ class Twitter {
       variables['cursor'] = cursor;
     }
 
-    var response = await _twitterApi.client.get(
+    var response = await _QuackerTwitterClient.getScoped(
       Uri.https('x.com', '/i/api/graphql/RQ7C2mINUB7QZE_0cjWojg/Likes', {
         'variables': jsonEncode(variables),
         'features': jsonEncode(_timelineFeatures),
@@ -658,7 +709,7 @@ class Twitter {
       "cursor": ?cursor,
     };
 
-    var response = await _twitterApi.client.get(
+    var response = await _QuackerTwitterClient.getScoped(
       Uri.https('x.com', '/i/api/graphql/OAtFv0SIZt6v3rZsF4gvJA/Bookmarks', {
         'variables': jsonEncode(variables),
         'features': jsonEncode(_timelineFeatures),

@@ -6,10 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/login_bootstrap.dart';
-import 'package:quax/database/entities.dart';
-import 'package:quax/database/repository.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import 'package:webview_cookie_manager_plus/webview_cookie_manager_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -170,18 +167,11 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
           "x-csrf-token": csrfToken,
         };
 
-        final database = await Repository.writable();
-        // Re-logging into the same account must refresh its cookies
-        // (the id = csrfToken), not crash on the UNIQUE constraint.
-        await database.insert(
-          tableAccounts,
-          Account(
-                  id: csrfToken,
-                  screenName: screenName,
-                  userId: userId,
-                  authHeader: json.encode(authHeader))
-              .toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
+        await saveLoggedInAccount(
+          id: csrfToken,
+          screenName: screenName,
+          userId: userId,
+          authHeader: json.encode(authHeader),
         );
         // No close(): this is sqflite's shared writable handle, so closing it
         // here would pull it out from under every other writer. It is not

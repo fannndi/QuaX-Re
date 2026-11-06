@@ -1,5 +1,16 @@
 part of 'client.dart';
 
+/// X normally sends counts as strings, but a JSON number in one tweet used to
+/// throw inside the per-tweet parser and silently drop that post. Accept both
+/// shapes instead of assuming the wire format never changes.
+@visibleForTesting
+int? parseIntLike(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 class TweetWithCard extends Tweet {
   String? noteText;
   Entities? noteEntities;
@@ -158,7 +169,7 @@ class TweetWithCard extends Tweet {
         user,
         retweetedStatus,
         quotedStatus,
-        int.tryParse(result['views']?['count'] ?? ''));
+        parseIntLike(result['views'] is Map ? result['views']['count'] : null));
 
     final card = result['card'];
     if (tweet.card == null && card is Map && card['legacy'] is Map<String, dynamic>) {
