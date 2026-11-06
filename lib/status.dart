@@ -1,14 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
-import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/profile/profile.dart';
 import 'package:quax/tweet/conversation.dart';
+import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/ui/skeletons.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:pref/pref.dart';
-import 'package:provider/provider.dart';
 import 'package:quax/utils/paging.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
@@ -159,8 +156,7 @@ class _StatusScreenState extends State<_StatusScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(),
-      body: ChangeNotifierProvider<TweetContextState>(
-        create: (context) => TweetContextState(PrefService.of(context, listen: false).get(optionTweetsHideSensitive)),
+      body: TweetContextScope(
         child: _showingPreview ? _buildPreview(context) : _buildConversation(context),
       ),
     );

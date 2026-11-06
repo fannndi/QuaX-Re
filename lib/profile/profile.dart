@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/tweet/media_viewer.dart';
+import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/_follows.dart';
 import 'package:quax/profile/_media_grid.dart';
@@ -17,7 +18,6 @@ import 'package:quax/utils/urls.dart';
 import 'package:quax/utils/rich_text.dart';
 import 'package:intl/intl.dart';
 import 'package:measure_size/measure_size.dart';
-import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -262,7 +262,6 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
     var appBarHeight = profileStuffTop + avatarHeight + metadataHeight + 8 + descriptionHeight;
 
     var metadataTextStyle = const TextStyle(fontSize: 12.5);
-    var prefs = PrefService.of(context, listen: false);
 
     List<RichTextPart> descParts = [];
     if (user.description != null && user.description!.isNotEmpty) {
@@ -634,11 +633,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                   ))
             ];
           },
-          body: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<TweetContextState>(
-                  create: (_) => TweetContextState(prefs.get(optionTweetsHideSensitive)))
-            ],
+          body: TweetContextScope(
             child: TabBarView(
               controller: _tabController,
               children: [

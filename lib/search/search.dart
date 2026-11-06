@@ -2,17 +2,13 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_triple/flutter_triple.dart';
-import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
-import 'package:quax/profile/profile.dart';
 import 'package:quax/search/search_media_grid.dart';
 import 'package:quax/search/search_model.dart';
-import 'package:quax/tweet/_video.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
+import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/user.dart';
-import 'package:pref/pref.dart';
-import 'package:provider/provider.dart';
 
 class SearchArguments {
   final int initialTab;
@@ -109,8 +105,6 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
-    var prefs = PrefService.of(context, listen: false);
-
     return Scaffold(
       // Needed as we're nesting Scaffolds, which causes Flutter to calculate keyboard height incorrectly
       resizeToAvoidBottomInset: false,
@@ -138,13 +132,7 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
           dividerColor: Theme.of(context).colorScheme.surfaceBright.withAlpha(150),
         ),
       ),
-      body: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<TweetContextState>(
-              create: (_) => TweetContextState(prefs.get(optionTweetsHideSensitive))),
-          ChangeNotifierProvider<VideoContextState>(
-              create: (_) => VideoContextState(prefs.get(optionMediaDefaultMute))),
-        ],
+      body: TweetContextScope(
         child: TabBarView(
           controller: _tabController,
           children: [
