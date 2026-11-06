@@ -163,6 +163,7 @@ class _QuaxControlsState extends State<QuaxControls> {
             qualities: widget.qualities,
             downloadUrl: widget.downloadUrl,
             accentColor: accent,
+            visible: _visible,
           ),
         ),
       ],
@@ -255,6 +256,7 @@ class _BottomBar extends StatelessWidget {
   final List<TweetVideoQuality> qualities;
   final String? downloadUrl;
   final Color accentColor;
+  final bool visible;
 
   const _BottomBar({
     required this.controller,
@@ -262,6 +264,7 @@ class _BottomBar extends StatelessWidget {
     required this.qualities,
     required this.downloadUrl,
     required this.accentColor,
+    required this.visible,
   });
 
   @override
@@ -290,7 +293,7 @@ class _BottomBar extends StatelessWidget {
           offset: const Offset(0, -8),
           child: Padding(
             padding: const EdgeInsets.only(left: 14, right: 16, bottom: 6),
-            child: _SeekBar(controller: controller, accentColor: accentColor),
+            child: _SeekBar(controller: controller, accentColor: accentColor, visible: visible),
           ),
         ),
       ],
@@ -482,8 +485,9 @@ class _PositionIndicator extends StatelessWidget {
 class _SeekBar extends StatefulWidget {
   final BetterPlayerController controller;
   final Color accentColor;
+  final bool visible;
 
-  const _SeekBar({required this.controller, required this.accentColor});
+  const _SeekBar({required this.controller, required this.accentColor, required this.visible});
 
   @override
   State<_SeekBar> createState() => _SeekBarState();
@@ -511,11 +515,22 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
       if (mounted) setState(_sync);
     };
     widget.controller.addEventsListener(_listener);
-    // Started only when something is actually playing: a ticker that runs from
-    // initState to dispose fires at ~60 Hz for every video that ever mounted
-    // controls, paused and buffering ones included, to drive a bar the eye reads
-    // at about 1 Hz.
-    if (_playing) _ticker.start();
+    // Started only when something is actually playing and the controls are on
+    // screen: a ticker that runs from initState to dispose fires at ~60 Hz for
+    // every video that ever mounted controls, paused and buffering ones
+    // included, to drive a bar the eye reads at about 1 Hz.
+    if (_playing && widget.visible) _ticker.start();
+  }
+
+  @override
+  void didUpdateWidget(_SeekBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible == widget.visible) return;
+    if (!widget.visible) {
+      if (_ticker.isActive) _ticker.stop();
+    } else if (_playing && !_ticker.isActive) {
+      _ticker.start();
+    }
   }
 
   // The player only samples position ~every 300ms; interpolate between samples
@@ -541,9 +556,9 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
     }
     // Follow the player: a seek or a pause has to stop the interpolation, and
     // resuming has to restart it.
-    if (_playing && !_ticker.isActive) {
+    if (_playing && widget.visible && !_ticker.isActive) {
       _ticker.start();
-    } else if (!_playing && _ticker.isActive) {
+    } else if ((!_playing || !widget.visible) && _ticker.isActive) {
       _ticker.stop();
     }
   }

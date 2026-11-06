@@ -2,6 +2,7 @@
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/downloads.dart';
 import 'package:path/path.dart' as path;
 import 'package:pref/pref.dart';
@@ -9,6 +10,12 @@ import 'package:pref/pref.dart';
 void showMediaActionsSheet(BuildContext context, Media item, String? username) {
   final isVideoLike = item.type == 'video' || item.type == 'animated_gif';
   final variantUrl = _largestVideoVariantUrl(item);
+  if (isVideoLike && variantUrl == null) {
+    // HLS-only clips have no progressive MP4; the old force-unwrap crashed the
+    // long-press handler and the share sheet never opened.
+    showSnackBar(context, icon: '🙊', message: L10n.of(context).download_media_no_url);
+    return;
+  }
   final mediaUrl = Uri.parse(isVideoLike ? variantUrl! : '${item.mediaUrlHttps}:orig');
   final fileName = '$username-${path.basename(mediaUrl.path)}';
 

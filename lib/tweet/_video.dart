@@ -70,6 +70,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   bool _autoPlay = false;
   bool _userRequestedPlay = false;
   bool _playbackError = false;
+  bool _resumeAfterBackground = false;
   bool _firstFrameRendered = false;
   bool _posterGone = false;
   bool _prefBackground = true;
@@ -93,10 +94,16 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // With background playback off, pause when the app leaves the foreground.
+    // With background playback off, pause when the app leaves the foreground
+    // and resume only the player that was actually playing. GIFs have no play
+    // button, so without the resume they stayed frozen after one background.
     if (_prefBackground) return;
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-      if (_pooled?.isPlaying ?? false) _pooled?.controller.pause();
+      _resumeAfterBackground = _pooled?.isPlaying ?? false;
+      if (_resumeAfterBackground) _pooled?.controller.pause();
+    } else if (state == AppLifecycleState.resumed && _resumeAfterBackground) {
+      _resumeAfterBackground = false;
+      _pooled?.controller.play();
     }
   }
 
@@ -190,24 +197,33 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     );
 
     final controller = BetterPlayerController(configuration);
-    final dataSource = localPath != null
-        ? BetterPlayerDataSource.file(localPath)
-        : BetterPlayerDataSource.network(
-            streamUrl,
-            cacheConfiguration: _videoCacheConfiguration,
-            bufferingConfiguration: _bufferingFor(prefetchSeconds),
-          );
-    await controller.setupDataSource(dataSource);
-    // Silent looping GIFs must never grab audio focus and pause other apps.
-    controller.setMixWithOthers(widget.disableControls || mixWithOthers);
-    await controller.setVolume(startMuted ? 0.0 : 1.0);
+    try {
+      final dataSource = localPath != null
+          ? BetterPlayerDataSource.file(localPath)
+          : BetterPlayerDataSource.network(
+              streamUrl,
+              cacheConfiguration: _videoCacheConfiguration,
+              bufferingConfiguration: _bufferingFor(prefetchSeconds),
+            );
+      await controller.setupDataSource(dataSource);
+      // Silent looping GIFs must never grab audio focus and pause other apps.
+      controller.setMixWithOthers(widget.disableControls || mixWithOthers);
+      await controller.setVolume(startMuted ? 0.0 : 1.0);
 
-    return PooledVideo(
-      controller: controller,
-      downloadUrl: downloadUrl,
-      qualities: qualities,
-      pausableByPolicy: !widget.disableControls,
-    );
+      return PooledVideo(
+        controller: controller,
+        downloadUrl: downloadUrl,
+        qualities: qualities,
+        pausableByPolicy: !widget.disableControls,
+      );
+    } catch (_) {
+      // setupDataSource throws on offline/403/decoder failures; without this
+      // the half-built native player stayed allocated forever.
+      try {
+        controller.dispose(forceDispose: true);
+      } catch (_) {}
+      rethrow;
+    }
   }
 
   Future<PooledVideo> _acquire(bool prefLoop) async {
@@ -229,7 +245,14 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
         return pooled;
       }
     } else {
-      pooled = await pool.acquire(key, create);
+      try {
+        pooled = await pool.acquire(key, create);
+      } on Object {
+        // acquire incremented the ref before create failed; drop the failed
+        // entry so the next attempt really creates a new player.
+        pool.discard(key);
+        rethrow;
+      }
       if (!mounted) {
         pool.release(key);
         return pooled;

@@ -9,6 +9,7 @@ import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/_media.dart';
 import 'package:quax/tweet/_video.dart';
+import 'package:quax/utils/image_decode.dart';
 import 'package:quax/utils/lru_cache.dart';
 import 'package:quax/utils/urls.dart';
 import 'package:intl/intl.dart';
@@ -42,7 +43,8 @@ class TweetCard extends StatelessWidget {
     );
   }
 
-  Widget _createImage(String size, Map<String, dynamic>? image, BoxFit fit, {double? aspectRatio}) {
+  Widget _createImage(String size, Map<String, dynamic>? image, BoxFit fit, BuildContext context,
+      {double? aspectRatio}) {
     if (image == null) {
       return Container();
     }
@@ -55,6 +57,9 @@ class TweetCard extends StatelessWidget {
       child = ExtendedImage.network(
         image['url'],
         cache: true,
+        // The card draws the thumbnail at about viewport width; decoding the
+        // 1200px source for every card wasted memory and decode time.
+        cacheWidth: decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32),
         fit: fit,
       );
     }
@@ -197,7 +202,8 @@ class TweetCard extends StatelessWidget {
               'width': media['original_info']['width'],
               'height': media['original_info']['height'],
             },
-            BoxFit.contain);
+            BoxFit.contain,
+            context);
         return _createWebsiteCard(context, unifiedCard, uri, imageSize, child);
       case 'video_website':
         // https://twitter.com/yenisafak/status/1560244349451096064
@@ -305,7 +311,7 @@ class TweetCard extends StatelessWidget {
             _findCardUrl(card),
             Row(
               children: [
-                Expanded(flex: 1, child: _createImage(imageSize, image, BoxFit.contain)),
+                Expanded(flex: 1, child: _createImage(imageSize, image, BoxFit.contain, context)),
                 Expanded(
                     flex: 4,
                     child: _createListTile(
@@ -325,7 +331,7 @@ class TweetCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _createImage(imageSize, image, BoxFit.contain),
+                _createImage(imageSize, image, BoxFit.contain, context),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
                   child: _createListTile(
@@ -344,7 +350,7 @@ class TweetCard extends StatelessWidget {
             _findCardUrl(card),
             Row(
               children: [
-                Expanded(flex: 1, child: _createImage(imageSize, image, BoxFit.cover, aspectRatio: 1)),
+                Expanded(flex: 1, child: _createImage(imageSize, image, BoxFit.cover, context, aspectRatio: 1)),
                 Expanded(
                     flex: 4,
                     child: _createListTile(
@@ -374,7 +380,7 @@ class TweetCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _createImage(imageSize, image, BoxFit.contain),
+                _createImage(imageSize, image, BoxFit.contain, context),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
                   child: _createListTile(context, title, null, vanityUrl),
@@ -401,7 +407,7 @@ class TweetCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _createImage(imageSize, image, BoxFit.contain),
+                _createImage(imageSize, image, BoxFit.contain, context),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
                   child: _createListTile(context, card['binding_values']['event_title']['string_value'],

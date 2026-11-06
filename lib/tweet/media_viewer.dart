@@ -46,12 +46,20 @@ Media createMediaFromUrl(String? url, double? height) {
 
 class _TweetMediaViewState extends State<TweetMediaView> {
   late Media _media;
+  late final ExtendedPageController _pageController;
 
   @override
   void initState() {
     super.initState();
 
     _media = widget.media[widget.initialIndex];
+    _pageController = ExtendedPageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   String originalMediaUrl() {
@@ -121,9 +129,7 @@ class _TweetMediaViewState extends State<TweetMediaView> {
               tweetId: widget.tweetId,
               mediaIndex: index);
         },
-        controller: ExtendedPageController(
-          initialPage: widget.initialIndex,
-        ),
+        controller: _pageController,
         onPageChanged: (index) => setState(() {
           _media = widget.media[index];
         }),

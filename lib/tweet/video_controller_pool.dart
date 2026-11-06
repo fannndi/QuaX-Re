@@ -43,14 +43,11 @@ class PooledVideo {
 class _Entry {
   final Future<PooledVideo> future;
   PooledVideo? value;
+  Object? error;
   int refCount = 0;
 
   _Entry(this.future) {
-    () async {
-      try {
-        value = await future;
-      } catch (_) {}
-    }();
+    future.then<void>((p) => value = p, onError: (Object e) => error = e);
   }
 
   void disposeWhenReady() {
@@ -104,11 +101,26 @@ class VideoControllerPool {
   }
 
   Future<PooledVideo> acquire(String key, Future<PooledVideo> Function() create) {
-    var entry = _entries.remove(key) ?? _Entry(create());
+    var entry = _entries.remove(key);
+    if (entry != null && entry.error != null) {
+      // A failed create leaves a permanently errored future. Keeping it meant
+      // Restart replayed the same error and the refCount stayed pinned.
+      entry.disposeWhenReady();
+      entry = null;
+    }
+    entry ??= _Entry(create());
     _entries[key] = entry;
     entry.refCount++;
     _evict();
     return entry.future;
+  }
+
+  /// Drops an entry even when a widget still counts as a holder. Only for the
+  /// failure path: the future never produced a controller to keep alive.
+  void discard(String key) {
+    final entry = _entries.remove(key);
+    _visibleTokens.remove(key);
+    entry?.disposeWhenReady();
   }
 
   void invalidate(String key) {
@@ -119,9 +131,7 @@ class VideoControllerPool {
     // The caller releases its own ref before invalidating, so the common
     // single-holder case still disposes here.
     if (entry.refCount > 0) return;
-    _entries.remove(key);
-    _visibleTokens.remove(key);
-    entry.disposeWhenReady();
+    discard(key);
   }
 
   void release(String key) {

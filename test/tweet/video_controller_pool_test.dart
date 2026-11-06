@@ -229,4 +229,40 @@ void main() {
               'evicted, so each one is a permanent native player');
     });
   });
+
+  group('VideoControllerPool failed create', () {
+    test('Should drop a failed entry so the next acquire builds again', () async {
+      final pool = VideoControllerPool(maxSize: 5);
+      var attempts = 0;
+
+      Future<PooledVideo> fail() async {
+        attempts++;
+        throw StateError('decoder unavailable');
+      }
+
+      await expectLater(pool.acquire('broken', fail), throwsStateError);
+      await pumpEventQueue();
+
+      await expectLater(pool.acquire('broken', fail), throwsStateError);
+
+      expect(attempts, 2,
+          reason: 'A failed create left a permanently errored future in the pool; Restart replayed '
+              'the same error and the refCount stayed pinned, so the video could never recover');
+    });
+
+    test('Should remove a discarded entry even while a failed acquire counted a holder', () async {
+      final pool = VideoControllerPool(maxSize: 5);
+
+      await expectLater(
+          pool.acquire('broken', () async => throw StateError('decoder unavailable')),
+          throwsStateError);
+      await pumpEventQueue();
+
+      pool.discard('broken');
+
+      expect(pool.contains('broken'), isFalse,
+          reason: 'The failure path has no controller to keep alive, so the entry must not stay '
+              'cached with a dead future');
+    });
+  });
 }
