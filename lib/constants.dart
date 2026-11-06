@@ -29,6 +29,11 @@ const optionLibraryVisibleInGallery = 'library.visibleInGallery';
 // QuaXAccount vault write. The backup screen reads it once; nothing writes it
 // on the hot path.
 const optionAccountVaultDirty = 'account.vault_dirty';
+
+// `count:max(liked_at)` at the last local-likes backup. The backup screen
+// compares it with the live table instead of writing a preference on every tap
+// on the heart.
+const optionLikesVaultSnapshot = 'account.likes_vault_snapshot';
 const optionAutoCacheVideos = 'cache.videos';
 const optionAutoCacheWifiOnly = 'cache.wifiOnly';
 const optionVideoCacheLimitMb = 'cache.limitMb';

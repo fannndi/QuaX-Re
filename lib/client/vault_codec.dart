@@ -48,6 +48,20 @@ class VaultCodec {
     required String passphrase,
     required String kind,
     required Map<String, dynamic> payload,
+  }) {
+    return encryptBytes(
+      passphrase: passphrase,
+      kind: kind,
+      bytes: utf8.encode(jsonEncode(payload)),
+    );
+  }
+
+  /// Encrypts arbitrary bytes. The local-likes backup uses this for its
+  /// gzipped NDJSON stream, avoiding a second base64 copy of the whole file.
+  Future<String> encryptBytes({
+    required String passphrase,
+    required String kind,
+    required List<int> bytes,
   }) async {
     _checkPassphrase(passphrase);
     if (kind.isEmpty) throw const VaultException(VaultFailure.corrupt);
@@ -60,7 +74,7 @@ class VaultCodec {
     final key = await _deriveKey(passphrase, salt, iterations);
     try {
       final box = await AesGcm.with256bits().encrypt(
-        utf8.encode(jsonEncode(payload)),
+        bytes,
         secretKey: key,
         nonce: nonce,
         aad: _aad(currentVersion, kind, salt, nonce, iterations),
@@ -94,6 +108,23 @@ class VaultCodec {
     required String kind,
     required String envelope,
   }) async {
+    final bytes = await decryptBytes(passphrase: passphrase, kind: kind, envelope: envelope);
+    try {
+      final decoded = jsonDecode(utf8.decode(bytes));
+      if (decoded is! Map<String, dynamic>) {
+        throw const VaultException(VaultFailure.corrupt);
+      }
+      return decoded;
+    } on FormatException {
+      throw const VaultException(VaultFailure.corrupt);
+    }
+  }
+
+  Future<Uint8List> decryptBytes({
+    required String passphrase,
+    required String kind,
+    required String envelope,
+  }) async {
     _checkPassphrase(passphrase);
     if (envelope.length > maxEnvelopeLength) throw const VaultException(VaultFailure.tooLarge);
 
@@ -119,15 +150,9 @@ class VaultCodec {
         secretKey: key,
         aad: _aad(version, kind, salt, nonce, iterations),
       );
-      final decoded = jsonDecode(utf8.decode(clear));
-      if (decoded is! Map<String, dynamic>) {
-        throw const VaultException(VaultFailure.corrupt);
-      }
-      return decoded;
+      return Uint8List.fromList(clear);
     } on SecretBoxAuthenticationError {
       throw const VaultException(VaultFailure.wrongPassphrase);
-    } on FormatException {
-      throw const VaultException(VaultFailure.corrupt);
     } finally {
       key.destroy();
     }

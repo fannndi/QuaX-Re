@@ -287,6 +287,73 @@
   "@liked_tweet_too_large": {},
   "likes": "Likes",
   "@likes": {},
+  "likes_backup": "Local likes backup",
+  "@likes_backup": {},
+  "likes_backup_count": "{count, plural, =1{1 local like} other{{count} local likes}}",
+  "@likes_backup_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "likes_backup_create": "Back up local likes",
+  "@likes_backup_create": {},
+  "likes_backup_description": "Save the posts liked inside QuaX-Re, per account, in a second encrypted vault. It uses the same passphrase as the account backup.",
+  "@likes_backup_description": {},
+  "likes_backup_file_missing": "The local likes backup file is gone.",
+  "@likes_backup_file_missing": {},
+  "likes_backup_import": "Import likes backup file",
+  "@likes_backup_import": {},
+  "likes_backup_missing": "No local likes backup yet.",
+  "@likes_backup_missing": {},
+  "likes_backup_needs_account_vault": "Create the account backup first; the likes backup uses the same passphrase.",
+  "@likes_backup_needs_account_vault": {},
+  "likes_backup_no_likes": "There are no local likes to back up.",
+  "@likes_backup_no_likes": {},
+  "likes_backup_none_restored": "None of these likes belong to an account on this device.",
+  "@likes_backup_none_restored": {},
+  "likes_backup_out_of_date": "Likes backup is out of date",
+  "@likes_backup_out_of_date": {},
+  "likes_backup_remove": "Remove likes backup",
+  "@likes_backup_remove": {},
+  "likes_backup_remove_confirm": "Delete the encrypted local-likes backup? The likes inside the app are not affected.",
+  "@likes_backup_remove_confirm": {},
+  "likes_backup_restore": "Restore local likes",
+  "@likes_backup_restore": {},
+  "likes_backup_restore_first": "Restore the accounts before restoring their local likes.",
+  "@likes_backup_restore_first": {},
+  "likes_backup_restored": "Restored {count} local likes",
+  "@likes_backup_restored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "likes_backup_restored_partial": "Restored {count} local likes; {skipped} rows were skipped.",
+  "@likes_backup_restored_partial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "likes_backup_saved": "Local likes backed up",
+  "@likes_backup_saved": {},
+  "likes_backup_share": "Share likes backup",
+  "@likes_backup_share": {},
+  "likes_backup_share_title": "QuaX-Re local likes backup",
+  "@likes_backup_share_title": {},
+  "likes_backup_too_large": "The local likes backup is too large; this build caps it at 16 MB compressed.",
+  "@likes_backup_too_large": {},
+  "likes_backup_up_to_date": "Likes backup is up to date",
+  "@likes_backup_up_to_date": {},
+  "likes_backup_update": "Update local likes backup",
+  "@likes_backup_update": {},
   "likes_stay_on_device_notice": "Likes stay on this device. X can't see them.",
   "@likes_stay_on_device_notice": {},
   "load_media_manually": "Load media manually",

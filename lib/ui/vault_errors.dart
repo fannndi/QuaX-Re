@@ -1,5 +1,6 @@
 import 'package:quax/client/account_vault.dart';
 import 'package:quax/client/accounts.dart';
+import 'package:quax/client/likes_vault.dart';
 import 'package:quax/client/vault_codec.dart';
 import 'package:quax/generated/l10n.dart';
 
@@ -12,6 +13,9 @@ String vaultErrorMessage(L10n l10n, Object error) => switch (error) {
       VaultException(failure: VaultFailure.unsupportedVersion) => l10n.account_backup_unsupported,
       VaultException(failure: VaultFailure.tooLarge) => l10n.account_backup_too_large,
       AccountVaultNotFound() => l10n.account_backup_file_missing,
+      LikesVaultNotFound() => l10n.likes_backup_file_missing,
+      LikesVaultNoAccounts() => l10n.likes_backup_restore_first,
+      LikesVaultTooLarge() => l10n.likes_backup_too_large,
       _ => '$error',
     };
 
