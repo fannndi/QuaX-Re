@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
+import 'package:quax/app/account_setup_step.dart';
+import 'package:quax/client/account_vault.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/ui/errors.dart';
@@ -20,7 +22,7 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBindingObserver {
   static const _storageChannel = MethodChannel('browser_resolver');
-  static const _steps = 4;
+  static const _steps = 5;
 
   final PageController _controller = PageController();
 
@@ -105,6 +107,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         _configured = true;
         _visibleInGallery = _library.galleryVisible;
       });
+      try {
+        await ensureAccountFolder(_library.libraryPath);
+      } catch (_) {
+        // The account step still offers login and manual import when the
+        // sibling folder cannot be created.
+      }
       await _offerImportOfOldFolder(p.dirname(_library.libraryPath));
       return;
     }
@@ -190,6 +198,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                   ),
                   _buildPermissionStep(),
                   _buildFolderStep(),
+                  _StepView(
+                    icon: Icons.people_outline,
+                    title: l10n.setup_accounts_title,
+                    body: l10n.setup_accounts_body,
+                    extra: AccountSetupStep(libraryPath: _library.libraryPath),
+                  ),
                   _buildDoneStep(context),
                 ],
               ),

@@ -4,6 +4,111 @@
   "@accessibility": {},
   "account": "Accounts",
   "@account": {},
+  "account_backup": "Account backup",
+  "@account_backup": {},
+  "account_backup_change_passphrase": "Change passphrase",
+  "@account_backup_change_passphrase": {},
+  "account_backup_corrupt": "The backup is damaged or the passphrase is wrong.",
+  "@account_backup_corrupt": {},
+  "account_backup_create": "Create account backup",
+  "@account_backup_create": {},
+  "account_backup_description": "Save your signed-in accounts to an encrypted vault in QuaXAccount, so a reinstall or a new ROM does not need the login page again.",
+  "@account_backup_description": {},
+  "account_backup_file_missing": "The backup file is gone.",
+  "@account_backup_file_missing": {},
+  "account_backup_folder": "Stored in QuaXAccount beside QuaXLibrary",
+  "@account_backup_folder": {},
+  "account_backup_hide": "Hide passphrase",
+  "@account_backup_hide": {},
+  "account_backup_import": "Import backup file",
+  "@account_backup_import": {},
+  "account_backup_invalid_file": "That file is not a QuaX-Re account backup.",
+  "@account_backup_invalid_file": {},
+  "account_backup_keep": "Keep current",
+  "@account_backup_keep": {},
+  "account_backup_kept": "Kept the current session",
+  "@account_backup_kept": {},
+  "account_backup_last_saved": "Last saved {date}",
+  "@account_backup_last_saved": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "account_backup_login_first": "Log in to an account first, then create the backup.",
+  "@account_backup_login_first": {},
+  "account_backup_missing": "No account backup yet.",
+  "@account_backup_missing": {},
+  "account_backup_no_library": "Set up the media library first.",
+  "@account_backup_no_library": {},
+  "account_backup_none": "No accounts yet.",
+  "@account_backup_none": {},
+  "account_backup_out_of_date": "Backup is out of date",
+  "@account_backup_out_of_date": {},
+  "account_backup_passphrase": "Passphrase",
+  "@account_backup_passphrase": {},
+  "account_backup_passphrase_confirm": "Confirm passphrase",
+  "@account_backup_passphrase_confirm": {},
+  "account_backup_passphrase_hint": "At least 8 characters. It cannot be recovered if you forget it.",
+  "@account_backup_passphrase_hint": {},
+  "account_backup_passphrase_mismatch": "The passphrases do not match.",
+  "@account_backup_passphrase_mismatch": {},
+  "account_backup_passphrase_wrong": "Wrong passphrase.",
+  "@account_backup_passphrase_wrong": {},
+  "account_backup_remove": "Remove backup",
+  "@account_backup_remove": {},
+  "account_backup_remove_confirm": "Delete the encrypted account backup? The accounts in the app are not affected.",
+  "@account_backup_remove_confirm": {},
+  "account_backup_replace": "Replace an existing session with the backup's session",
+  "@account_backup_replace": {},
+  "account_backup_replace_help": "Off keeps the session already in the app. On uses the session from the file.",
+  "@account_backup_replace_help": {},
+  "account_backup_restore": "Restore accounts",
+  "@account_backup_restore": {},
+  "account_backup_restore_warning": "Restoring changes the active account and reloads the feeds.",
+  "@account_backup_restore_warning": {},
+  "account_backup_restored": "Restored {count} accounts",
+  "@account_backup_restored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "account_backup_restored_partial": "Restored {count} accounts; {invalid} entries were skipped.",
+  "@account_backup_restored_partial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "invalid": {
+        "type": "int"
+      }
+    }
+  },
+  "account_backup_saved": "Backup saved",
+  "@account_backup_saved": {},
+  "account_backup_share": "Share backup",
+  "@account_backup_share": {},
+  "account_backup_share_title": "QuaX-Re account backup",
+  "@account_backup_share_title": {},
+  "account_backup_share_warning": "The backup is encrypted, but anyone with this file and the passphrase can sign in. Share it to a PC or cloud drive before a clean ROM flash, and keep the passphrase separate.",
+  "@account_backup_share_warning": {},
+  "account_backup_show": "Show passphrase",
+  "@account_backup_show": {},
+  "account_backup_too_large": "That backup file is too large.",
+  "@account_backup_too_large": {},
+  "account_backup_unsupported": "This backup was written by a newer version of QuaX-Re.",
+  "@account_backup_unsupported": {},
+  "account_backup_up_to_date": "Backup is up to date",
+  "@account_backup_up_to_date": {},
+  "account_backup_update": "Update account backup",
+  "@account_backup_update": {},
+  "account_backup_use_backup": "Use backup",
+  "@account_backup_use_backup": {},
+  "account_delete_local_likes": "This also removes the local likes saved for this account.",
+  "@account_delete_local_likes": {},
   "account_suspended": "Account suspended",
   "@account_suspended": {},
   "account_switched": "Now reading @{handle} — timelines were reloaded",
@@ -324,6 +429,28 @@
   "@select_all": {},
   "settings": "Settings",
   "@settings": {},
+  "setup_accounts_body": "Restore a backup from QuaXAccount, import one from a file, or log in now. You can skip this and log in later.",
+  "@setup_accounts_body": {},
+  "setup_accounts_have": "{count, plural, =1{1 account ready} other{{count} accounts ready}}",
+  "@setup_accounts_have": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "setup_accounts_import": "Import from file",
+  "@setup_accounts_import": {},
+  "setup_accounts_login": "Log in now",
+  "@setup_accounts_login": {},
+  "setup_accounts_restore_body": "Restore the sessions saved in QuaXAccount/accounts.quaxvault.",
+  "@setup_accounts_restore_body": {},
+  "setup_accounts_restore_title": "Account backup found",
+  "@setup_accounts_restore_title": {},
+  "setup_accounts_skip": "Skip for now",
+  "@setup_accounts_skip": {},
+  "setup_accounts_title": "Accounts",
+  "@setup_accounts_title": {},
   "setup_done_body": "Your library is ready. You can change the folder or gallery visibility anytime in the Download tab.",
   "@setup_done_body": {},
   "setup_done_title": "All set",

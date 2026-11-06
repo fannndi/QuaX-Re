@@ -24,6 +24,11 @@ const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
 // holding downloaded media with a .nomedia marker so gallery apps ignore it.
 const optionLibraryPath = 'library.path';
 const optionLibraryVisibleInGallery = 'library.visibleInGallery';
+
+// True when an account was added, re-signed in or removed after the last
+// QuaXAccount vault write. The backup screen reads it once; nothing writes it
+// on the hot path.
+const optionAccountVaultDirty = 'account.vault_dirty';
 const optionAutoCacheVideos = 'cache.videos';
 const optionAutoCacheWifiOnly = 'cache.wifiOnly';
 const optionVideoCacheLimitMb = 'cache.limitMb';

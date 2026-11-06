@@ -127,27 +127,81 @@ class AccountVault {
     final folder = accountFolderPathFor(libraryPath);
     if (folder == null) throw const AccountVaultNotFound();
 
-    final primary = File(p.join(folder, accountVaultFileName));
-    final backup = File(p.join(folder, accountVaultBackupFileName));
-    if (!await primary.exists() && !await backup.exists()) {
-      throw const AccountVaultNotFound();
+    final (payload, path) = await _decryptFromFolder(folder, passphrase);
+    return _parsePayload(payload, path);
+  }
+
+  /// Reads one vault file the reader picked from another location. It is not
+  /// copied into QuaXAccount until [adoptFile] is called.
+  Future<AccountVaultReadResult> readFile({
+    required String filePath,
+    required String passphrase,
+  }) async {
+    final payload = await _decryptFile(File(filePath), passphrase);
+    return _parsePayload(payload, filePath);
+  }
+
+  /// Copies an already-read vault file into the fixed QuaXAccount path, so the
+  /// next onboarding finds it automatically.
+  Future<void> adoptFile({required String sourcePath, required String libraryPath}) async {
+    final source = File(sourcePath);
+    if (!await source.exists()) throw const AccountVaultNotFound();
+    if (await source.length() > _codec.maxEnvelopeLength) {
+      throw const VaultException(VaultFailure.tooLarge);
     }
 
-    if (await primary.exists()) {
+    final envelope = await source.readAsString();
+    _checkEnvelopeShape(envelope);
+
+    final folder = await ensureAccountFolder(libraryPath);
+    if (folder == null) throw const VaultException(VaultFailure.corrupt);
+    final target = File(p.join(folder, accountVaultFileName));
+    final backup = File(p.join(folder, accountVaultBackupFileName));
+    if (await target.exists()) {
       try {
-        return await _readFile(primary, passphrase);
-      } on VaultException {
-        // The primary may have been replaced by a foreign or half-written file.
-        // Try the previous copy before surfacing the error; a wrong passphrase
-        // only costs a second KDF run.
-        if (!await backup.exists()) rethrow;
+        await target.copy(backup.path);
+      } catch (_) {
+        // Adopting the imported file still succeeds without a rollback copy.
       }
     }
+    await writeAtomically(target, envelope);
+  }
 
-    if (await backup.exists()) {
-      return _readFile(backup, passphrase);
-    }
-    throw const AccountVaultNotFound();
+  /// Re-encrypts the existing payload with [newPassphrase]. The old `.bak` is
+  /// removed after success so the old passphrase does not keep opening a copy.
+  Future<void> changePassphrase({
+    required String libraryPath,
+    required String oldPassphrase,
+    required String newPassphrase,
+  }) async {
+    final folder = accountFolderPathFor(libraryPath);
+    if (folder == null) throw const AccountVaultNotFound();
+
+    final (payload, _) = await _decryptFromFolder(folder, oldPassphrase);
+    final envelope = await _codec.encrypt(
+      passphrase: newPassphrase,
+      kind: _vaultKind,
+      payload: payload,
+    );
+
+    final target = File(p.join(folder, accountVaultFileName));
+    await writeAtomically(target, envelope);
+
+    final backup = File(p.join(folder, accountVaultBackupFileName));
+    if (await backup.exists()) await backup.delete();
+  }
+
+  Future<bool> exists(String libraryPath) async {
+    final path = accountVaultPathFor(libraryPath);
+    return path != null && await File(path).exists();
+  }
+
+  Future<DateTime?> lastSaved(String libraryPath) async {
+    final path = accountVaultPathFor(libraryPath);
+    if (path == null) return null;
+    final file = File(path);
+    if (!await file.exists()) return null;
+    return (await file.stat()).modified;
   }
 
   Future<void> delete(String libraryPath) async {
@@ -159,17 +213,54 @@ class AccountVault {
     }
   }
 
-  Future<AccountVaultReadResult> _readFile(File file, String passphrase) async {
+  Future<(Map<String, dynamic>, String)> _decryptFromFolder(
+      String folder, String passphrase) async {
+    final primary = File(p.join(folder, accountVaultFileName));
+    final backup = File(p.join(folder, accountVaultBackupFileName));
+    if (!await primary.exists() && !await backup.exists()) {
+      throw const AccountVaultNotFound();
+    }
+
+    if (await primary.exists()) {
+      try {
+        return (await _decryptFile(primary, passphrase), primary.path);
+      } on VaultException {
+        // The primary may have been replaced by a foreign or half-written file.
+        // Try the previous copy before surfacing the error; a wrong passphrase
+        // only costs a second KDF run.
+        if (!await backup.exists()) rethrow;
+      }
+    }
+
+    if (await backup.exists()) {
+      return (await _decryptFile(backup, passphrase), backup.path);
+    }
+    throw const AccountVaultNotFound();
+  }
+
+  Future<Map<String, dynamic>> _decryptFile(File file, String passphrase) async {
     if (await file.length() > _codec.maxEnvelopeLength) {
       throw const VaultException(VaultFailure.tooLarge);
     }
     final envelope = await file.readAsString();
-    final payload = await _codec.decrypt(
+    return _codec.decrypt(
       passphrase: passphrase,
       kind: _vaultKind,
       envelope: envelope,
     );
-    return _parsePayload(payload, file.path);
+  }
+
+  void _checkEnvelopeShape(String envelope) {
+    try {
+      final parsed = jsonDecode(envelope);
+      if (parsed is! Map ||
+          parsed['format'] != VaultCodec.format ||
+          parsed['kind'] != _vaultKind) {
+        throw const VaultException(VaultFailure.corrupt);
+      }
+    } on FormatException {
+      throw const VaultException(VaultFailure.corrupt);
+    }
   }
 
   AccountVaultReadResult _parsePayload(Map<String, dynamic> payload, String path) {

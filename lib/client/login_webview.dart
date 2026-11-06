@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/login_bootstrap.dart';
@@ -186,6 +187,12 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
         // A freshly added account becomes the one used everywhere, so the
         // timelines immediately speak for the new login.
         await setActiveAccount(csrfToken);
+        if (mounted) {
+          // A new ct0 means any existing vault is now behind; the backup screen
+          // shows "out of date" until the reader writes it again.
+          await PrefService.of(context, listen: false)
+              .set<bool>(optionAccountVaultDirty, true);
+        }
       }
       if (mounted) {
         Navigator.pop(context);

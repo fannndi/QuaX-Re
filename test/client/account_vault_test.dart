@@ -224,6 +224,51 @@ void main() {
             .having((e) => e.failure, 'failure', VaultFailure.wrongPassphrase)));
   });
 
+  test('Should change the passphrase and stop accepting the old one', () async {
+    await addAccount('a', handle: 'alice');
+    final vault = AccountVault();
+    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+
+    await vault.changePassphrase(
+        libraryPath: libraryPath, oldPassphrase: passphrase, newPassphrase: 'new horse battery');
+
+    await expectLater(
+        vault.read(libraryPath: libraryPath, passphrase: passphrase),
+        throwsA(isA<VaultException>()
+            .having((e) => e.failure, 'failure', VaultFailure.wrongPassphrase)),
+        reason: 'The old passphrase must stop opening the vault after a change');
+    final read = await vault.read(
+        libraryPath: libraryPath, passphrase: 'new horse battery');
+    expect(read.accounts.single.screenName, 'alice');
+    expect(
+        File(p.join(accountFolderPathFor(libraryPath)!, accountVaultBackupFileName)).existsSync(),
+        isFalse,
+        reason: 'The .bak copy was encrypted with the old passphrase, so keeping it would keep '
+            'the old secret valid');
+  });
+
+  test('Should adopt an imported file into the fixed QuaXAccount path', () async {
+    final other = await Directory.systemTemp.createTemp('quax-vault-other-');
+    addTearDown(() async {
+      if (await other.exists()) await other.delete(recursive: true);
+    });
+    final otherLibrary = p.join(other.path, 'QuaXLibrary');
+    await addAccount('a', handle: 'alice');
+    await AccountVault().write(libraryPath: otherLibrary, passphrase: passphrase);
+    final importedPath = accountVaultPathFor(otherLibrary)!;
+
+    final read = await AccountVault().readFile(filePath: importedPath, passphrase: passphrase);
+    expect(read.accounts.single.screenName, 'alice');
+
+    await AccountVault().adoptFile(sourcePath: importedPath, libraryPath: libraryPath);
+
+    expect(await AccountVault().exists(libraryPath), isTrue,
+        reason: 'The next onboarding should find the imported backup without asking for the file again');
+    expect(await AccountVault().lastSaved(libraryPath), isNotNull);
+    final restored = await AccountVault().read(libraryPath: libraryPath, passphrase: passphrase);
+    expect(restored.accounts.single.screenName, 'alice');
+  });
+
   test('Should remove both the vault and its backup', () async {
     await addAccount('a', handle: 'alice');
     final vault = AccountVault();
