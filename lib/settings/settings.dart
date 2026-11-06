@@ -327,7 +327,14 @@ class _LibraryFolderTileState extends State<_LibraryFolderTile> {
     setState(() => _busy = false);
 
     if (!ok && error.value != null) {
-      showSnackBar(context, icon: '🙊', message: error.value!);
+      if (error.value == 'storage_permission_needed') {
+        // The raw sentinel leaked into the snackbar; reuse the wizard's
+        // explanation instead of showing an internal code.
+        showSnackBar(context,
+            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+      } else {
+        showSnackBar(context, icon: '🙊', message: error.value!);
+      }
     }
   }
 

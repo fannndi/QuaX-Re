@@ -30,6 +30,15 @@ class VideoContextState extends ChangeNotifier {
     }
   }
 
+  /// Applies the preference or a settings write to the current player. Notifies
+  /// so a mounted TweetVideo can push the new volume without waiting for a
+  /// remount, which is what made the switch feel restart-only.
+  void setMuted(bool muted) {
+    if (_muted.value == muted) return;
+    _muted.value = muted;
+    notifyListeners();
+  }
+
   /// Test hook: back to the unmuted default with no preference applied, so one
   /// test's mute cannot decide the next one's starting state. `flutter test`
   /// runs every file in one process and [_muted] is static.

@@ -19,9 +19,22 @@ class SettingsAccountFragment extends StatefulWidget {
 }
 
 class _SettingsAccountFragment extends State<SettingsAccountFragment> {
+  late Future<List<Account>> _accountsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountsFuture = getAccounts();
+  }
+
+  void _reloadAccounts() {
+    if (!mounted) return;
+    setState(() => _accountsFuture = getAccounts());
+  }
+
   Future<void> _activate(Account account) async {
     await setActiveAccount(account.id);
-    if (mounted) setState(() {});
+    _reloadAccounts();
   }
 
   void _openProfile(Account account) {
@@ -60,13 +73,22 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
         ],
       ),
       body: FutureBuilder(
-          future: getAccounts(),
+          future: _accountsFuture,
           builder: (BuildContext listContext, AsyncSnapshot snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const LinearProgressIndicator();
             }
 
-            List<Account> data = snapshot.data;
+            if (snapshot.hasError) {
+              return Center(
+                child: TextButton(
+                  onPressed: _reloadAccounts,
+                  child: Text(L10n.of(context).retry),
+                ),
+              );
+            }
+
+            final List<Account> data = snapshot.data ?? const <Account>[];
             if (data.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -77,9 +99,29 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
                   final account = data[index];
                   return Dismissible(
                       key: ValueKey(account.id),
+                      confirmDismiss: (DismissDirection direction) async {
+                        return await showDialog<bool>(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                title: Text(L10n.of(dialogContext).are_you_sure),
+                                content: Text(L10n.of(dialogContext).delete),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialogContext, false),
+                                    child: Text(L10n.of(dialogContext).cancel),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialogContext, true),
+                                    child: Text(L10n.of(dialogContext).delete),
+                                  ),
+                                ],
+                              ),
+                            ) ??
+                            false;
+                      },
                       onDismissed: (DismissDirection direction) async {
                         await model.deleteAccount(account.id);
-                        setState(() {});
+                        _reloadAccounts();
                       },
                       child: Card(
                           child: ListTile(

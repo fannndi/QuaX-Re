@@ -85,7 +85,8 @@ class _FritterAppState extends State<FritterApp> {
 
   void _readPreferences(BasePrefService prefs) {
     _themeMode = prefs.get(optionThemeMode);
-    _themeColor = prefs.get(optionThemeColor);
+    final color = prefs.get<String>(optionThemeColor);
+    _themeColor = themeColors.containsKey(color) ? color! : 'accent';
     _trueBlack = prefs.get(optionThemeTrueBlack);
     _disableAnimations = prefs.get(optionDisableAnimations);
     _isSecure = prefs.get(optionDisableScreenshots);
@@ -102,7 +103,10 @@ class _FritterAppState extends State<FritterApp> {
 
   void _onThemeModeChanged() => _onPreferenceChanged((p) => _themeMode = p.get(optionThemeMode));
 
-  void _onThemeColorChanged() => _onPreferenceChanged((p) => _themeColor = p.get(optionThemeColor));
+  void _onThemeColorChanged() => _onPreferenceChanged((p) {
+        final color = p.get<String>(optionThemeColor);
+        _themeColor = themeColors.containsKey(color) ? color! : 'accent';
+      });
 
   void _onScreenshotsChanged() => _onPreferenceChanged((p) => _isSecure = p.get(optionDisableScreenshots));
 
@@ -131,7 +135,13 @@ class _FritterAppState extends State<FritterApp> {
         break;
     }
 
-    final systemOverlayStyle = SystemUiOverlayStyle.dark.copyWith(systemNavigationBarColor: Colors.transparent);
+    final darkMode = themeMode == ThemeMode.dark ||
+        (themeMode == ThemeMode.system &&
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+    // Dark icons on a black status bar are invisible. Pick the icon brightness
+    // from the theme that is actually active instead of always using .dark.
+    final systemOverlayStyle = (darkMode ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+        .copyWith(systemNavigationBarColor: Colors.transparent);
     SystemChrome.setSystemUIOverlayStyle(systemOverlayStyle);
     final systemScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
 
@@ -154,7 +164,7 @@ class _FritterAppState extends State<FritterApp> {
                         ? lightDynamic ??
                             ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.light)
                         : ColorScheme.fromSeed(
-                            seedColor: themeColors[_themeColor]!
+                            seedColor: (themeColors[_themeColor] ?? themeColors['accent']!)
                                 .harmonizeWith(lightDynamic?.primary ?? Colors.transparent),
                             brightness: Brightness.light),
                     trueBlack: _trueBlack,
@@ -164,7 +174,7 @@ class _FritterAppState extends State<FritterApp> {
                     colorScheme: (_themeColor == 'accent'
                             ? darkDynamic
                             : ColorScheme.fromSeed(
-                                seedColor: themeColors[_themeColor]!
+                                seedColor: (themeColors[_themeColor] ?? themeColors['accent']!)
                                     .harmonizeWith(darkDynamic?.primary ?? Colors.transparent),
                                 brightness: Brightness.dark)) ??
                         ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),

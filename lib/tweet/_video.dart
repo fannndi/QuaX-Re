@@ -63,6 +63,7 @@ class TweetVideo extends StatefulWidget {
 class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   VideoControllerPool? _pool;
   PooledVideo? _pooled;
+  VideoContextState? _videoContext;
   Future<PooledVideo>? _acquireFuture;
   bool _ownsControllers = false;
   bool _holdsPoolRef = false;
@@ -268,6 +269,11 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   void _attachListeners(PooledVideo pooled) {
     final controller = pooled.controller;
     final model = context.read<VideoContextState>();
+    if (!identical(model, _videoContext)) {
+      _videoContext?.removeListener(_onMuteChanged);
+      _videoContext = model;
+      _videoContext!.addListener(_onMuteChanged);
+    }
     controller.setVolume(model.isMuted ? 0.0 : 1.0);
 
     // A reused pooled controller is already initialized — skip the poster fade.
@@ -284,6 +290,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
           break;
         case BetterPlayerEventType.play:
           if (_playbackError) setState(() => _playbackError = false);
+          _onMuteChanged();
           _pool?.pauseOthers(pooled);
           if (widget.keepsScreenAwake) VideoWakelock.acquire(this);
           break;
@@ -318,8 +325,15 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     controller.addEventsListener(_onEvent!);
   }
 
+  void _onMuteChanged() {
+    final muted = _videoContext?.isMuted ?? true;
+    _pooled?.controller.setVolume(muted ? 0.0 : 1.0);
+  }
+
   void _detachListeners() {
     VideoWakelock.release(this);
+    _videoContext?.removeListener(_onMuteChanged);
+    _videoContext = null;
     if (_onEvent != null) {
       _pooled?.controller.removeEventsListener(_onEvent!);
       _onEvent = null;
