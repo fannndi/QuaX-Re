@@ -16,22 +16,39 @@ class ActiveAccountButton extends StatelessWidget {
         final handle = account?.handle;
         final scheme = Theme.of(context).colorScheme;
 
-        return IconButton(
-          tooltip: handle == null ? L10n.of(context).account : '@$handle',
-          onPressed: () => showAccountSwitcher(context),
-          icon: account == null
-              ? const Icon(Icons.person_outline)
-              : CircleAvatar(
-                  radius: 13,
-                  backgroundColor: scheme.primaryContainer,
-                  child: Text(
-                    handle == null ? '?' : handle[0].toUpperCase(),
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: scheme.onPrimaryContainer),
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              tooltip: handle == null ? L10n.of(context).account : '@$handle',
+              onPressed: () => showAccountSwitcher(context),
+              icon: account == null
+                  ? const Icon(Icons.person_outline)
+                  : CircleAvatar(
+                      radius: 13,
+                      backgroundColor: scheme.primaryContainer,
+                      child: Text(
+                        handle == null ? '?' : handle[0].toUpperCase(),
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelLarge
+                            ?.copyWith(color: scheme.onPrimaryContainer),
+                      ),
+                    ),
+            ),
+            if (account?.sessionExpired ?? false)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(color: scheme.error, shape: BoxShape.circle),
                   ),
                 ),
+              ),
+          ],
         );
       },
     );

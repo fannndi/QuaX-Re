@@ -43,6 +43,7 @@ void main() {
     String? userId,
     bool isActive = false,
     DateTime? lastNotFoundAt,
+    DateTime? lastAuthErrorAt,
     String? cookie,
   }) async {
     final database = await Repository.writable();
@@ -55,6 +56,7 @@ void main() {
         userId: userId,
         isActive: isActive,
         lastNotFoundAt: lastNotFoundAt,
+        lastAuthErrorAt: lastAuthErrorAt,
       ).toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -161,6 +163,31 @@ void main() {
       expect(calls, 1,
           reason: 'Once X answers 401 the session is known to be dead; repeating the request '
               'wastes a round-trip and hides the re-login action behind another error');
+    });
+
+    test('Should not rotate the Following timeline to another account', () async {
+      await insertAccount('A', isActive: true, lastAuthErrorAt: DateTime.now());
+      await insertAccount('B');
+      var calls = 0;
+
+      XRegularAccount.debugFetchOverride =
+          (uri, {headers, body, required log, required authHeader}) async {
+        calls++;
+        return http.Response('{}', 200);
+      };
+
+      await expectLater(
+        Twitter.getHomeLatestTimeline(
+          getTweetsCounter: () => 20,
+          incrementTweetsCounter: () {},
+          resetTweetsCounter: () {},
+        ),
+        throwsA(isA<NoWorkingAccountException>()),
+        reason: 'The chronological feed belongs to the chosen login; rotating to B would show a '
+            'different reader\'s follows under A\'s account button',
+      );
+      expect(calls, 0,
+          reason: 'An expired active session should fail before a request is sent');
     });
   });
 

@@ -8,6 +8,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:quax/catcher/exceptions.dart';
 
+import 'package:quax/client/account_sheet.dart';
+import 'package:quax/client/accounts.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/client/login_webview.dart';
 import 'package:quax/constants.dart';
@@ -198,6 +200,14 @@ Widget addAccountButton(BuildContext context) => ElevatedButton.icon(
       onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview())),
     );
 
+/// Button that opens the account sheet, so a rate-limited or expired login can
+/// be replaced without adding a second row.
+Widget switchAccountButton(BuildContext context) => OutlinedButton.icon(
+      icon: const Icon(Icons.switch_account_outlined),
+      label: Text(L10n.of(context).switch_account),
+      onPressed: () => showAccountSwitcher(context),
+    );
+
 class NoAccountErrorWidget extends FritterErrorWidget {
   final Function? onRetry;
 
@@ -230,6 +240,7 @@ class RateLimitErrorWidget extends FritterErrorWidget {
       title: L10n.of(context).rate_limited_title,
       details: L10n.of(context).rate_limited_message,
       actions: [
+        if (activeAccount.value != null) switchAccountButton(context),
         addAccountButton(context),
         if (onRetry != null)
           TextButton(child: Text(L10n.of(context).retry), onPressed: () => onRetry!()),
@@ -250,6 +261,7 @@ class NoWorkingAccountErrorWidget extends FritterErrorWidget {
       title: L10n.of(context).no_working_account_title,
       details: L10n.of(context).no_working_account_message,
       actions: [
+        if (activeAccount.value != null) switchAccountButton(context),
         addAccountButton(context),
         if (onRetry != null)
           TextButton(child: Text(L10n.of(context).retry), onPressed: () => onRetry!()),

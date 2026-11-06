@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/client/account_tile.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/client/client_regular_account.dart';
@@ -36,6 +37,11 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
 
   Future<void> _activate(Account account) async {
     await setActiveAccount(account.id);
+    _reloadAccounts();
+  }
+
+  Future<void> _relogin() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
     _reloadAccounts();
   }
 
@@ -141,17 +147,15 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
                               _reloadAccounts();
                             },
                             child: Card(
-                                child: ListTile(
-                              title: Text(account.screenName ?? L10n.of(context).unknown_username),
-                              leading: Icon(account.isActive
-                                  ? Icons.radio_button_checked
-                                  : Icons.account_circle),
+                                child: AccountTile(
+                              key: ValueKey(account.id),
+                              account: account,
+                              onTap: account.isActive ? null : () => _activate(account),
+                              onRelogin: _relogin,
                               trailing: IconButton(
                                 icon: const Icon(Icons.person_outline),
                                 onPressed: () => _openProfile(account),
                               ),
-                              selected: account.isActive,
-                              onTap: account.isActive ? null : () => _activate(account),
                             )));
                       });
                 }),

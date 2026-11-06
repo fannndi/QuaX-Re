@@ -599,6 +599,9 @@ class Twitter {
     final response = await _QuackerTwitterClient.postJson(
       Uri.https('x.com', '/i/api/graphql/V0wMxbYBxdrkfmV3kJSyRQ/HomeTimeline'),
       body: jsonEncode({'variables': variables, 'features': _timelineFeatures, 'fieldToggles': _timelineFieldToggles}),
+      // For You is personalised; falling back to another login would show a
+      // different reader's feed under the chosen account.
+      accountScoped: true,
     );
     // Pinned posts only belong on the first page.
     return parseChainsOnIsolate(
@@ -637,7 +640,9 @@ class Twitter {
     };
 
     // The live web client reads Following with a GET and enableRanking set.
-    final response = await _twitterApi.client.get(
+    // Scoped: the chronological list belongs to the chosen login, so the health
+    // selector must not swap in another account's timeline.
+    final response = await _QuackerTwitterClient.getScoped(
       Uri.https('x.com', '/i/api/graphql/5URyiXQyz6_8NZnoV37OVQ/HomeLatestTimeline', {
         'variables': jsonEncode(variables),
         'features': jsonEncode(_timelineFeatures),

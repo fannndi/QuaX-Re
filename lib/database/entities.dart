@@ -84,6 +84,23 @@ class Account with ToMappable {
         profileFetchedAt: _date(map[columnProfileFetchedAt]));
   }
 
+  Account copyWithProfile({String? displayName, String? avatarUrl, DateTime? profileFetchedAt}) {
+    return Account(
+      id: id,
+      authHeader: authHeader,
+      screenName: screenName,
+      userId: userId,
+      localId: localId,
+      lastNotFoundAt: lastNotFoundAt,
+      consecutiveNotFound: consecutiveNotFound,
+      isActive: isActive,
+      lastAuthErrorAt: lastAuthErrorAt,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      displayName: displayName ?? this.displayName,
+      profileFetchedAt: profileFetchedAt ?? this.profileFetchedAt,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) || other is Account && runtimeType == other.runtimeType && id == other.id;

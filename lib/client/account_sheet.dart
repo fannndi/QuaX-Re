@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:quax/client/account_tile.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/login_webview.dart';
 import 'package:quax/database/entities.dart';
@@ -45,6 +46,12 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
     navigator.push(MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
   }
 
+  void _relogin() {
+    final navigator = Navigator.of(context);
+    Navigator.pop(context);
+    navigator.push(MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -65,11 +72,12 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
                   title: Text(L10n.of(context).no_account_available_title),
                 ),
               for (final account in accounts)
-                ListTile(
-                  leading: Icon(account.isActive ? Icons.radio_button_checked : Icons.account_circle_outlined),
-                  title: Text(account.screenName ?? L10n.of(context).unknown_username),
-                  selected: account.isActive,
-                  onTap: () => _switch(account),
+                AccountTile(
+                  key: ValueKey(account.id),
+                  account: account,
+                  dense: true,
+                  onTap: account.isActive ? null : () => _switch(account),
+                  onRelogin: _relogin,
                 ),
               const Divider(height: 1),
               ListTile(

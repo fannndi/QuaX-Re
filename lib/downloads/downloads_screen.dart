@@ -2,6 +2,7 @@ import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
+import 'package:quax/client/active_account_button.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
@@ -164,6 +165,7 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
                 ],
               ),
         actions: [
+          if (!_selectionActive) const ActiveAccountButton(),
           ScopedBuilder<DownloadsModel, List<DownloadQueueItem>>(
             store: _queue,
             onError: (_, e) => Center(child: Text(e.toString())),

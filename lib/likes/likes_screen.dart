@@ -2,6 +2,7 @@ import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:quax/client/accounts.dart';
+import 'package:quax/client/active_account_button.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
@@ -60,6 +61,7 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
                 _ => const SizedBox.shrink(),
               },
             ),
+            const ActiveAccountButton(),
           ],
         ),
         body: TabBarView(
