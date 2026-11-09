@@ -11,6 +11,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/_likes.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/settings/account_backup.dart';
+import 'package:quax/ui/errors.dart';
 
 /// The accounts screen: add an account, delete one (swipe), pick the one the
 /// app talks to — and jump into your own profile or your likes.
@@ -23,6 +24,7 @@ class SettingsAccountFragment extends StatefulWidget {
 
 class _SettingsAccountFragment extends State<SettingsAccountFragment> {
   late Future<List<Account>> _accountsFuture;
+  bool _openingLikes = false;
 
   @override
   void initState() {
@@ -55,13 +57,23 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
   /// Opens the X likes timeline of the active account (private data: X answers
   /// this only for the requesting account itself).
   Future<void> _openMyLikes() async {
-    final active = await getActiveAccount();
-    final screenName = active?.screenName;
-    if (screenName == null || !mounted) return;
+    if (_openingLikes) return;
+    setState(() => _openingLikes = true);
+    try {
+      final active = await getActiveAccount();
+      final screenName = active?.screenName;
+      if (screenName == null || !mounted) return;
 
-    final profile = await Twitter.getProfileByScreenName(screenName);
-    if (!mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileLikesScreen(user: profile.user)));
+      final profile = await Twitter.getProfileByScreenName(screenName);
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileLikesScreen(user: profile.user)));
+    } catch (_) {
+      if (mounted) {
+        showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+      }
+    } finally {
+      if (mounted) setState(() => _openingLikes = false);
+    }
   }
 
   @override
@@ -72,9 +84,12 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
         title: Text(L10n.current.account),
         actions: [
           IconButton(
-              icon: const Icon(Icons.favorite_border),
+              icon: _openingLikes
+                  ? const SizedBox(
+                      width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.favorite_border),
               tooltip: L10n.current.favorites,
-              onPressed: _openMyLikes),
+              onPressed: _openingLikes ? null : _openMyLikes),
           IconButton(
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview())),
               icon: const Icon(Icons.add))

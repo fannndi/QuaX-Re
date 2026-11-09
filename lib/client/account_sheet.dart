@@ -63,7 +63,10 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
           }
 
           final accounts = snapshot.data ?? [];
-          return Column(
+          // The sheet is capped at 9/16 of the screen; a plain Column with a
+          // dozen accounts overflowed instead of scrolling.
+          return SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (accounts.isEmpty)
@@ -91,6 +94,7 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
                 onTap: _addAccount,
               ),
             ],
+            ),
           );
         },
       ),

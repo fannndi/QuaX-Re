@@ -369,6 +369,22 @@ class _StorageTiles extends StatefulWidget {
 class _StorageTilesState extends State<_StorageTiles> {
   late Future<StorageBreakdown> _report = computeStorageBreakdown(widget.prefs);
 
+  @override
+  void initState() {
+    super.initState();
+    widget.prefs.addKeyListener(optionLibraryPath, _onLibraryPathChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.prefs.removeKeyListener(optionLibraryPath, _onLibraryPathChanged);
+    super.dispose();
+  }
+
+  void _onLibraryPathChanged() {
+    if (mounted) _refresh();
+  }
+
   void _refresh() => setState(() => _report = computeStorageBreakdown(widget.prefs));
 
   Future<void> _clearCache(BuildContext context) async {

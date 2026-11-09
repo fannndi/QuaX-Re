@@ -17,6 +17,10 @@ Future<void> checkForAccounts(BuildContext context) async {
           content: Text(L10n.of(context).quax_doesnt_work_without_account_please_login),
           actions: [
             TextButton(
+              child: Text(L10n.of(context).later),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
               child: Text(L10n.of(context).login),
               onPressed: () {
                 Navigator.of(context).pop();

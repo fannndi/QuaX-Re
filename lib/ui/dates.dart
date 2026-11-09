@@ -23,44 +23,39 @@ class _TimestampState extends State<Timestamp> {
   // that does not exist yet, and the field is flipped by the tap below.
   late bool _useRelativeTimestamp;
 
-  String formattedTime = '';
-
   @override
   void initState() {
     super.initState();
-
     _useRelativeTimestamp = !widget.absoluteTimestamp;
+  }
 
-    var timestamp = widget.timestamp;
-    if (timestamp != null) {
-      if (_useRelativeTimestamp) {
-        formattedTime = createRelativeDate(timestamp);
-      } else {
-        formattedTime = absoluteDateFormat.format(timestamp.toLocal());
-      }
+  @override
+  void didUpdateWidget(Timestamp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The setting is read once when a card mounts. Without this, turning
+    // "absolute timestamp" on left every visible card on the old format until
+    // it was recycled by scrolling.
+    if (oldWidget.absoluteTimestamp != widget.absoluteTimestamp) {
+      _useRelativeTimestamp = !widget.absoluteTimestamp;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    var timestamp = widget.timestamp;
+    final timestamp = widget.timestamp;
     if (timestamp == null) {
       return Container();
     }
 
+    // Computed in build so a parent rebuild (the settings screen) reflects the
+    // current preference immediately.
+    final formattedTime = _useRelativeTimestamp
+        ? createRelativeDate(timestamp)
+        : absoluteDateFormat.format(timestamp.toLocal());
+
     return GestureDetector(
       child: Text(formattedTime),
-      onTap: () {
-        setState(() {
-          if (_useRelativeTimestamp) {
-            formattedTime = createRelativeDate(timestamp);
-          } else {
-            formattedTime = absoluteDateFormat.format(timestamp.toLocal());
-          }
-
-          _useRelativeTimestamp = !_useRelativeTimestamp;
-        });
-      },
+      onTap: () => setState(() => _useRelativeTimestamp = !_useRelativeTimestamp),
     );
   }
 }

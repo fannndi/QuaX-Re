@@ -281,7 +281,6 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                   pinned: true,
                   snap: false,
                   forceElevated: innerBoxIsScrolled,
-                  automaticallyImplyLeading: false,
                   bottom: AppBar(
                       automaticallyImplyLeading: false,
                       backgroundColor: theme.colorScheme.surface,

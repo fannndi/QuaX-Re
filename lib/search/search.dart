@@ -121,11 +121,11 @@ class _ResultsScreenState extends State<_ResultsScreen> with SingleTickerProvide
         ),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.trending_up)),
-            Tab(icon: Icon(Icons.access_time_outlined)),
-            Tab(icon: Icon(Icons.image)),
-            Tab(icon: Icon(Icons.person_search)),
+          tabs: [
+            Tab(icon: Icon(Icons.trending_up, semanticLabel: L10n.of(context).search_top)),
+            Tab(icon: Icon(Icons.access_time_outlined, semanticLabel: L10n.of(context).search_latest)),
+            Tab(icon: Icon(Icons.image, semanticLabel: L10n.of(context).media)),
+            Tab(icon: Icon(Icons.person_search, semanticLabel: L10n.of(context).search_people)),
           ],
           labelColor: Theme.of(context).appBarTheme.foregroundColor,
           indicatorColor: Theme.of(context).appBarTheme.foregroundColor,
