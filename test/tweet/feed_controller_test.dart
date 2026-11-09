@@ -85,6 +85,26 @@ void main() {
       feed.dispose();
     });
 
+    test('Should cap the merged Following window', () {
+      final feed = TweetFeedController(mergeOnRefresh: true);
+      feed.applyFirstPage((
+        chains: List.generate(10, (index) => chain('old$index')),
+        nextCursor: 'next',
+      ));
+      feed.applyFirstPage((
+        chains: List.generate(410, (index) => chain('new$index')),
+        nextCursor: 'next-2',
+      ));
+
+      expect(feed.items, hasLength(TweetFeedController.maxMergedChains),
+          reason: 'A chronological feed that refreshes all day must not keep every chain it ever '
+              'loaded; the tail is far above anything the reader will scroll back to');
+      expect(feed.items?.first.id, 'new0',
+          reason: 'The cap keeps the newest posts, not the oldest');
+
+      feed.dispose();
+    });
+
     test('Should drop a soft refresh that lands after a reset', () async {
       final feed = TweetFeedController();
       final inFlight = Completer<TweetPageResult>();

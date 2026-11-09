@@ -50,24 +50,35 @@ class TimelineCache {
       final dir = await directory();
       final file = File(p.join(dir.path, _fileName(key)));
       await file.writeAsString(jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}));
-      await prune(dir);
+      // Pruning stats up to 200 files; doing that on every thread open is
+      // wasted work while the reader is waiting for the screen.
+      final lastPrune = _lastPruneAt;
+      if (lastPrune == null || DateTime.now().difference(lastPrune) > _pruneInterval) {
+        _lastPruneAt = DateTime.now();
+        await prune(dir);
+      }
     } catch (_) {
       // The cache is best-effort.
     }
   }
 
+  static DateTime? _lastPruneAt;
+  static const _pruneInterval = Duration(minutes: 10);
+
   /// Bounds the shelf. Threads are cached as they are opened, so without a
   /// ceiling the folder grows by one body per post the reader ever opens — and
   /// every file here is read whole when the offline shelf is shown.
   static const _maxEntries = 200;
+  static const _maxBytes = 64 * 1024 * 1024;
   static const _maxAge = Duration(days: 30);
 
   static Future<void> prune(Directory dir) async {
-    final entries = <MapEntry<File, DateTime>>[];
+    final entries = <({File file, DateTime modified, int size})>[];
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
       try {
-        entries.add(MapEntry(entity, (await entity.stat()).modified));
+        final stat = await entity.stat();
+        entries.add((file: entity, modified: stat.modified, size: stat.size));
       } catch (_) {
         // Gone or unreadable: nothing for us to delete anyway.
       }
@@ -75,17 +86,25 @@ class TimelineCache {
     if (entries.isEmpty) return;
 
     final cutoff = DateTime.now().subtract(_maxAge);
-    final fresh = <MapEntry<File, DateTime>>[];
+    final fresh = <({File file, DateTime modified, int size})>[];
     for (final entry in entries) {
-      if (entry.value.isBefore(cutoff)) {
-        await _delete(entry.key);
+      if (entry.modified.isBefore(cutoff)) {
+        await _delete(entry.file);
       } else {
         fresh.add(entry);
       }
     }
-    fresh.sort((a, b) => b.value.compareTo(a.value));
-    for (final old in fresh.skip(_maxEntries)) {
-      await _delete(old.key);
+    fresh.sort((a, b) => b.modified.compareTo(a.modified));
+
+    var totalBytes = fresh.fold<int>(0, (sum, entry) => sum + entry.size);
+    var remaining = fresh.length;
+    // Drop the oldest until both the entry count and the byte budget fit.
+    for (var index = fresh.length - 1; index >= 0; index--) {
+      if (remaining <= _maxEntries && totalBytes <= _maxBytes) break;
+      final entry = fresh[index];
+      await _delete(entry.file);
+      remaining--;
+      totalBytes -= entry.size;
     }
   }
 

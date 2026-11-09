@@ -355,7 +355,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
       if (_autoPlay && !wasVisible && !pooled.isPlaying) {
         pooled.controller.play();
       }
-    } else if (!widget.alwaysPlay && wasVisible) {
+    } else if (wasVisible) {
       if (key != null) _pool?.markHidden(key, this);
       _pauseTimer ??= Timer(const Duration(milliseconds: 100), () {
         _pauseTimer = null;
@@ -492,7 +492,9 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
       );
     }
 
-    _autoPlay = prefAutoPlay;
+    // A GIF (alwaysPlay) has no play button, so returning to the viewport must
+    // resume it even when the reader has autoplay off.
+    _autoPlay = prefAutoPlay || widget.alwaysPlay;
     _acquireFuture ??= _acquire(prefLoop);
 
     return FutureBuilder(
@@ -579,7 +581,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     } else if (key != null && _holdsPoolRef) {
       // A fast fling can dispose this widget before the debounced pause timer
       // fires; releasing the pool ref alone leaves the player running off-screen.
-      if (!fullscreen && !widget.alwaysPlay && !(_pool?.anyVisible(key) ?? false)) {
+      if (!fullscreen && !(_pool?.anyVisible(key) ?? false)) {
         _pooled?.pause();
       }
       _pool?.release(key);

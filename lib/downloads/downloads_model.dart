@@ -334,6 +334,14 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
 
   bool isPaused(String fileName) => _paused.contains(fileName);
 
+  /// The worker has finished with [fileName] (success, failure, pause or
+  /// cancel). The live flags are only read while a transfer is in flight, so
+  /// clearing them here keeps the sets from growing for the app's lifetime.
+  void clearTransient(String fileName) {
+    _cancelled.remove(fileName);
+    _paused.remove(fileName);
+  }
+
   /// Holds the whole queue: the running transfer is paused in place and the
   /// waiting ones move to paused too, so Resume-all can bring every entry back
   /// in order (each resuming from its partial bytes).

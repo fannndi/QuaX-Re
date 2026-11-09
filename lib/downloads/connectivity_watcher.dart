@@ -61,6 +61,10 @@ class ConnectivityWatcher {
       if (prefs == null) return;
 
       final queue = DownloadsModel();
+      // Forget counters for files that left the queue: re-downloading the same
+      // name later starts from a fresh three-attempt budget.
+      final queuedNames = queue.state.map((item) => item.fileName).toSet();
+      _autoResumes.removeWhere((fileName, _) => !queuedNames.contains(fileName));
       final candidates = queue.state.where(_isCandidate).toList();
       if (candidates.isEmpty) {
         _stop();

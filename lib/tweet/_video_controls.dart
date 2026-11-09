@@ -276,7 +276,7 @@ class _BottomBar extends StatelessWidget {
           padding: const EdgeInsets.only(left: 14, right: 4),
           child: Row(
             children: [
-              _PositionIndicator(controller: controller),
+              _PositionIndicator(controller: controller, visible: visible),
               const Spacer(),
               _MuteButton(controller: controller),
               VideoMoreButton(
@@ -347,9 +347,6 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
           break;
         case BetterPlayerEventType.bufferingEnd:
           setState(() => _buffering = false);
-          break;
-        case BetterPlayerEventType.progress:
-          setState(() => _playing = widget.controller.isPlaying() ?? _playing);
           break;
         default:
           break;
@@ -441,8 +438,9 @@ class _AnimatedPlayPauseState extends State<AnimatedPlayPause>
 
 class _PositionIndicator extends StatelessWidget {
   final BetterPlayerController controller;
+  final bool visible;
 
-  const _PositionIndicator({required this.controller});
+  const _PositionIndicator({required this.controller, required this.visible});
 
   static String _fmt(Duration d) {
     final h = d.inHours;
@@ -457,7 +455,9 @@ class _PositionIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PlayerListenable(
       controller: controller,
-      watchProgress: true,
+      // Hidden controls do not need a three-times-a-second rebuild just to keep
+      // a timestamp current; they read the position when they reappear.
+      watchProgress: visible,
       builder: (context, value) {
         final duration = value.duration ?? Duration.zero;
         return RichText(

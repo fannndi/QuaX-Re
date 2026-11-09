@@ -36,6 +36,10 @@ final Map<String, BuildContext?> _workerContexts = {};
 
 void _kickWorker() {
   if (_worker != null || _workerPrefs == null) return;
+  // A cancelled/removed waiting entry never reaches the worker, so its
+  // BuildContext would otherwise stay alive for the process lifetime.
+  final queue = DownloadsModel();
+  _workerContexts.removeWhere((fileName, _) => !queue.contains(fileName));
   _worker = _drainQueue().whenComplete(() => _worker = null);
 }
 
@@ -50,6 +54,7 @@ Future<void> _drainQueue() async {
 
     final context = _workerContexts.remove(next.fileName);
     await _runDownload(context, Uri.parse(next.url), next.fileName, prefs: prefs, resume: true);
+    queue.clearTransient(next.fileName);
   }
 }
 

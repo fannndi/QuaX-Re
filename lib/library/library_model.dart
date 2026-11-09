@@ -242,6 +242,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
     final building = _nameIndexBuilding[path];
     if (building != null) {
+      // There is already an index in memory and a scan running: serve the old
+      // one now instead of blocking the player on the directory walk.
+      if (builtAt != null) return;
       await building;
       return;
     }
@@ -249,11 +252,20 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     final index = _nameIndexes[path] ??= {};
     final future = _scanNames(path, index);
     _nameIndexBuilding[path] = future;
-    try {
-      await future;
-    } finally {
-      _nameIndexBuilding.remove(path);
+
+    if (builtAt == null) {
+      // First use: the caller has nothing to fall back to, so it has to wait.
+      try {
+        await future;
+      } finally {
+        _nameIndexBuilding.remove(path);
+      }
+      return;
     }
+
+    // A stale index is still usable. Refresh it behind the current frame; the
+    // next lookup sees the new names, and this one never blocks playback.
+    future.whenComplete(() => _nameIndexBuilding.remove(path));
   }
 
   @visibleForTesting

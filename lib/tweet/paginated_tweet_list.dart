@@ -40,6 +40,11 @@ class TweetFeedController {
   /// handful of newer posts.
   final bool mergeOnRefresh;
 
+  /// A chronological feed that merges every refresh keeps every chain it has
+  /// ever loaded. The reader scrolls a few hundred posts down at most, so the
+  /// rest is memory that grows with uptime.
+  static const int maxMergedChains = 400;
+
   TweetFeedController({this.mergeOnRefresh = false}) {
     _paging = CursorPagingController<String, TweetChain>(_fetch);
   }
@@ -109,7 +114,10 @@ class TweetFeedController {
         ...result.chains,
         ...current!.where((chain) => !freshIds.contains(chain.id)),
       ];
-      _paging.replaceFirstPage(merged, cursor);
+      _paging.replaceFirstPage(
+        merged.length > maxMergedChains ? merged.sublist(0, maxMergedChains) : merged,
+        cursor,
+      );
       return true;
     }
 

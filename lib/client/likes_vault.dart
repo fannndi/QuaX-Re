@@ -117,7 +117,12 @@ class LikesVault {
       sink = gzFile.openWrite();
       gzipSink = gzip.encoder.startChunkedConversion(sink);
       count = await Repository.read((db) async {
-        var offset = 0;
+        // Keyset paging instead of ORDER BY/LIMIT/OFFSET: the old query sorted
+        // the whole table again for every page and skipped a row whenever a
+        // like landed while the backup was running.
+        var firstPage = true;
+        String? lastAt;
+        String? lastId;
         var total = 0;
         while (true) {
           final rows = await db.rawQuery('''
@@ -128,9 +133,10 @@ class LikesVault {
                    lt.content AS content
             FROM $tableAccountLike al
             JOIN $tableLikedTweet lt ON lt.id = al.$columnTweetId
-            ORDER BY al.$columnLikedAt DESC
-            LIMIT ? OFFSET ?
-          ''', [_pageSize, offset]);
+            ${firstPage ? '' : 'WHERE (al.$columnLikedAt < ? OR (al.$columnLikedAt = ? AND al.$columnTweetId < ?))'}
+            ORDER BY al.$columnLikedAt DESC, al.$columnTweetId DESC
+            LIMIT ?
+          ''', firstPage ? [_pageSize] : [lastAt, lastAt, lastId, _pageSize]);
           for (final row in rows) {
             gzipSink!.add(utf8.encode('${jsonEncode({
               'account': row['owner'],
@@ -142,7 +148,11 @@ class LikesVault {
             total++;
           }
           if (rows.length < _pageSize) break;
-          offset += rows.length;
+          final last = rows.last;
+          lastAt = last['liked_at'] as String?;
+          lastId = last['tweet'] as String?;
+          if (lastAt == null || lastId == null) break;
+          firstPage = false;
         }
         return total;
       });
