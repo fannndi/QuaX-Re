@@ -207,12 +207,13 @@ class _ProfileLikes extends StatelessWidget {
   ) async {
     var userId = user.idStr;
     if (userId == null || userId.isEmpty) {
+      final accountId = activeAccount.value?.id;
       final profile = await Twitter.getProfileByScreenName(user.screenName!);
       userId = profile.user.idStr;
       if (userId == null || userId.isEmpty) {
         throw StateError('X did not return a user id for @${user.screenName}');
       }
-      await setActiveAccountUserId(userId);
+      await setActiveAccountUserId(userId, expectedAccountId: accountId);
     }
 
     return Twitter.getLikes(

@@ -5,7 +5,6 @@ import 'package:async_button_builder/async_button_builder.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:quax/catcher/exceptions.dart';
 
 import 'package:quax/client/account_sheet.dart';
@@ -116,18 +115,16 @@ class EmojiErrorWidget extends FritterErrorWidget {
                 child: ElevatedButton(
                   child: Text(L10n.of(context).back),
                   onPressed: () {
-                    // Check if we can actually pop the last route, as we might have opened here directly from another app
+                    // Check if we can actually pop the last route, as we might have opened here directly from another app.
                     if (Navigator.canPop(context)) {
                       Navigator.pop(context);
                       return;
                     }
 
-                    // If we're running on Android, close the app gracefully. Otherwise, return to the home screen
-                    if (Platform.isAndroid) {
-                      SystemNavigator.pop();
-                    } else {
-                      Navigator.pushReplacementNamed(context, routeHome);
-                    }
+                    // At the root there is nothing to pop back to. Closing the
+                    // app here turned "Back" on an error card into an app exit;
+                    // returning to Home is the only safe destination.
+                    Navigator.pushReplacementNamed(context, routeHome);
                   },
                 ),
               ),

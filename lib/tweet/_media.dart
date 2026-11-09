@@ -176,6 +176,9 @@ class _TweetMediaState extends State<TweetMedia> {
             message: L10n.current.possibly_sensitive,
             errorMessage: L10n.current.possibly_sensitive_tweet,
             retryText: L10n.current.yes_please,
+            // This warning is part of a card, not a route: "Back" here used to
+            // pop the whole feed or, at the root, close the app.
+            showBackButton: false,
             onRetry: () async => model.setHideSensitive(false),
           )),
         );

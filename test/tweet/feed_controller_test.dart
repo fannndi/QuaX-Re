@@ -85,6 +85,27 @@ void main() {
       feed.dispose();
     });
 
+    test('Should drop a soft refresh that lands after a reset', () async {
+      final feed = TweetFeedController();
+      final inFlight = Completer<TweetPageResult>();
+      feed.loader = (_) => inFlight.future;
+
+      final refresh = feed.softRefresh();
+      // The reader switches accounts while the refresh is still on its way.
+      feed.reset();
+      inFlight.complete((chains: [chain('old-account-page')], nextCursor: 'old-cursor'));
+      await refresh;
+
+      expect(feed.hasItems, isFalse,
+          reason: 'A page fetched for the previous account must not be applied after reset(), '
+              'even through the soft-refresh path that does not go through the pager');
+      expect(feed.generation, 1,
+          reason: 'reset() is what invalidates the in-flight refresh; the counter is the only '
+              'thing distinguishing the new feed from the old one');
+
+      feed.dispose();
+    });
+
     test('Should drop a page that lands after the first page was replaced', () async {
       final feed = TweetFeedController();
       final inFlight = Completer<TweetPageResult>();

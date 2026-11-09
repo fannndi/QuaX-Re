@@ -1,6 +1,5 @@
-import 'dart:ui' show Locale;
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/ui/errors.dart';
@@ -10,6 +9,29 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await L10n.load(const Locale('en'));
+  });
+
+  testWidgets('Should not offer Back on an inline content warning', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: const [L10n.delegate, ...GlobalMaterialLocalizations.delegates],
+      supportedLocales: L10n.delegate.supportedLocales,
+      home: Scaffold(
+        body: EmojiErrorWidget(
+          emoji: '🙈',
+          message: 'hidden',
+          errorMessage: 'sensitive',
+          retryText: 'show',
+          showBackButton: false,
+          onRetry: () {},
+        ),
+      ),
+    ));
+
+    expect(find.text(L10n.current.back), findsNothing,
+        reason: 'The Back button belonged to the feed route, not to this card; on the home tab '
+            'it used to close the app instead of revealing the post');
+    expect(find.text('show'), findsOneWidget,
+        reason: 'The only action on a content warning is the reveal action');
   });
 
   group('createEmojiError()', () {

@@ -27,6 +27,14 @@ class TweetFeedController {
   late final CursorPagingController<String, TweetChain> _paging;
   TweetPageLoader? _loader;
 
+  /// Bumped by [reset] and [dispose]. A refresh that started before the feed
+  /// changed speaks for the old account/source and must not be applied after
+  /// the counter moved: its late page would otherwise replace the new feed or
+  /// cancel the new first page that is still in flight.
+  int _generation = 0;
+
+  int get generation => _generation;
+
   /// Chronological feeds (Following) merge a refreshed first page on top of
   /// what is already loaded; a refresh must never shorten the feed to just the
   /// handful of newer posts.
@@ -115,9 +123,15 @@ class TweetFeedController {
   /// to the first-page spinner the way [PagingController.refresh] does. Used by
   /// pull-to-refresh so the existing tweets stay visible under the indicator.
   Future<void> softRefresh() async {
+    final generation = _generation;
     try {
-      applyFirstPage(await fetchFirstPage());
+      final page = await fetchFirstPage();
+      // The account (or the feed source) changed while the page was on its
+      // way: this response belongs to the previous timeline.
+      if (generation != _generation) return;
+      applyFirstPage(page);
     } catch (e, stackTrace) {
+      if (generation != _generation) return;
       setError(e, stackTrace);
     }
   }
@@ -129,9 +143,15 @@ class TweetFeedController {
   /// the previous login's posts — and its pagination cursor — under the new
   /// ones. This clears both, and any page still in flight is cancelled, so a
   /// response fetched for the previous account cannot land in the new list.
-  void reset() => _paging.reset();
+  void reset() {
+    _generation++;
+    _paging.reset();
+  }
 
-  void dispose() => _paging.dispose();
+  void dispose() {
+    _generation++;
+    _paging.dispose();
+  }
 }
 
 /// Shared paginated tweet list used by the For-you feed, the group feed and
@@ -372,9 +392,13 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     if (!mounted) return;
 
     final before = _currentTopId();
+    final generation = widget.feed.generation;
     try {
       final result = await widget.feed.fetchFirstPage();
-      if (!mounted) return;
+      // A refresh that raced an account switch must not replace the new feed
+      // with the previous login's page, even if this state is still mounted
+      // for the rest of the frame.
+      if (!mounted || generation != widget.feed.generation) return;
 
       final after = result.chains.isEmpty ? null : result.chains.first.id;
       final scrolledDown = _scrollController.hasClients && _scrollController.offset > _pillThreshold;

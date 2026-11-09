@@ -93,6 +93,9 @@ class _ProfileTweetFeedState extends State<ProfileTweetFeed> with AutomaticKeepA
           errorMessage: L10n.current.possibly_sensitive_profile,
           onRetry: () async => model.setHideSensitive(false),
           retryText: L10n.current.yes_please,
+          // A tab must not leave the profile just because the reader dismissed
+          // a content warning; only the reveal action belongs here.
+          showBackButton: false,
         );
       }
 

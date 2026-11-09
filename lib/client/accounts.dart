@@ -133,9 +133,13 @@ Future<void> setActiveAccount(String id, {bool force = false}) async {
 /// Remembers the account's numeric X id once a request needed it, so the next
 /// launch (and the next tab opening) reads it from the database instead of
 /// asking X again.
-Future<void> setActiveAccountUserId(String userId) async {
+Future<void> setActiveAccountUserId(String userId, {String? expectedAccountId}) async {
   final active = activeAccount.value;
   if (active == null) return;
+  // A profile request can land after the reader switched accounts. Writing the
+  // numeric id then would stamp the old login's id onto the new account, which
+  // would show an empty Likes tab and mis-map a likes-vault export.
+  if (expectedAccountId != null && active.id != expectedAccountId) return;
 
   var database = await Repository.writable();
   await database.update(tableAccounts, {'user_id': userId}, where: 'id = ?', whereArgs: [active.id]);
