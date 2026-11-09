@@ -184,6 +184,7 @@
   "copied_version_to_clipboard": "Copied version to clipboard",
   "@copied_version_to_clipboard": {},
   "copy_details": "Copy details",
+  "@copy_details": {},
   "could_not_contact_twitter": "Could not contact X",
   "@could_not_contact_twitter": {},
   "could_not_find_any_tweets_by_this_user": "Couldn't find any posts by this user!",
@@ -197,6 +198,7 @@
   "delete_selected_media": "Delete the selected media?",
   "@delete_selected_media": {},
   "details_copied": "Details copied",
+  "@details_copied": {},
   "disable_animations": "Disable animations?",
   "@disable_animations": {},
   "disable_animations_description": "Disables animations within the app",
@@ -209,15 +211,25 @@
   "@download": {},
   "download_failed": "Download failed",
   "@download_failed": {},
+  "download_incomplete": "The transfer ended early. Retry to resume.",
+  "@download_incomplete": {},
   "download_interrupted": "Download interrupted — retry to resume",
   "@download_interrupted": {},
   "download_media_no_url": "Unable to download. This media may only be available as a stream, which QuaX cannot yet download.",
   "@download_media_no_url": {},
+  "download_no_space": "Not enough free space. Free some storage and retry.",
+  "@download_no_space": {},
   "download_path": "Download path",
   "@download_path": {},
+  "download_save_unavailable": "The destination folder is unavailable. Reconnect it and retry.",
+  "@download_save_unavailable": {},
+  "download_server_error": "X refused the download. Retry later.",
+  "@download_server_error": {},
+  "download_timed_out": "The download timed out. Retry to resume.",
+  "@download_timed_out": {},
   "downloads": "Downloads",
   "@downloads": {},
-  "downloads_empty": "No downloads in this session.",
+  "downloads_empty": "No downloads yet.",
   "@downloads_empty": {},
   "ended_timeago_format_endsAt_allowFromNow_true": "Ended {timeagoFormat}",
   "@ended_timeago_format_endsAt_allowFromNow_true": {},
@@ -245,12 +257,30 @@
   "@fritter": {},
   "gallery": "Gallery",
   "@gallery": {},
-  "gallery_hidden_count": "%d files hidden",
-  "@gallery_hidden_count": {},
-  "gallery_hide_incomplete": "%d files may still appear in the gallery",
-  "@gallery_hide_incomplete": {},
-  "gallery_shown_count": "%d files now appear in the gallery",
-  "@gallery_shown_count": {},
+  "gallery_hidden_count": "{count} files hidden",
+  "@gallery_hidden_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "gallery_hide_incomplete": "{count} files may still appear in the gallery",
+  "@gallery_hide_incomplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "gallery_shown_count": "{count} files now appear in the gallery",
+  "@gallery_shown_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "general": "General",
   "@general": {},
   "hide_sensitive_tweets": "Hide sensitive posts",
@@ -438,7 +468,7 @@
   "@page_not_found": {},
   "pause": "Pause",
   "@pause": {},
-  "pause_all": "Stop all",
+  "pause_all": "Pause all",
   "@pause_all": {},
   "paused": "Paused",
   "@paused": {},
@@ -526,7 +556,7 @@
   "@setup_accounts_skip": {},
   "setup_accounts_title": "Accounts",
   "@setup_accounts_title": {},
-  "setup_done_body": "Your library is ready. You can change the folder or gallery visibility anytime in the Download tab.",
+  "setup_done_body": "Your library is ready. Change the folder in Settings → Media → Library; gallery visibility is in the Download tab.",
   "@setup_done_body": {},
   "setup_done_title": "All set",
   "@setup_done_title": {},
@@ -691,7 +721,5 @@
   "whether_to_hide_tweets_marked_as_sensitive": "Whether to hide posts marked as sensitive",
   "@whether_to_hide_tweets_marked_as_sensitive": {},
   "yes_please": "Yes, please",
-  "@yes_please": {},
-  "@copy_details": {},
-  "@details_copied": {}
+  "@yes_please": {}
 }

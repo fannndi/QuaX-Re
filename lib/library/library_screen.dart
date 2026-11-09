@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
@@ -27,12 +28,12 @@ class LibraryScreen extends StatefulWidget {
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> {
+class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveClientMixin<LibraryScreen> {
   late final LibraryModel _model = LibraryModel(widget.prefs);
   late final DownloadsModel _queue = DownloadsModel();
   late final String _listenerKey = 'LibraryScreen-${identityHashCode(this)}';
   final TextEditingController _searchController = TextEditingController();
-  DateTime _lastAutoRefresh = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _refreshTimer;
   String _query = '';
   _LibrarySort _sort = _LibrarySort.newest;
   final Set<String> _selected = {};
@@ -40,25 +41,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool get _selectionActive => _selected.isNotEmpty;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     _configureOrLoad();
     // Downloads that finish while this screen is mounted re-scan the folder
-    // (debounced), so the gallery shows fresh entries without a manual refresh.
+    // after the batch settles, so the gallery shows fresh entries without a
+    // manual refresh. A leading throttle used to drop the last event of a
+    // batch, leaving the newest download invisible.
     _queue.addDoneListener(_listenerKey, _onDownloadDone);
   }
 
-  Future<void> _onDownloadDone() async {
-    final now = DateTime.now();
-    if (now.difference(_lastAutoRefresh).inMilliseconds < 1500) {
-      return;
-    }
-    _lastAutoRefresh = now;
-    await _model.refresh();
+  void _onDownloadDone() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) _model.refresh();
+    });
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _queue.removeDoneListener(_listenerKey);
     _searchController.dispose();
     super.dispose();
@@ -115,6 +120,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ScopedBuilder<LibraryModel, List<LibraryEntry>>.transition(
       store: _model,
       onError: (_, e) => ScaffoldErrorWidget(

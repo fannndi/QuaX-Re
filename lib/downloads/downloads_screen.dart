@@ -23,7 +23,8 @@ class DownloadsTab extends StatefulWidget {
   State<DownloadsTab> createState() => _DownloadsTabState();
 }
 
-class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderStateMixin {
+class _DownloadsTabState extends State<DownloadsTab>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin<DownloadsTab> {
   late final TabController _tabController = TabController(length: 2, vsync: this);
   late final DownloadsModel _queue = DownloadsModel();
   final Set<String> _selected = {};
@@ -31,13 +32,25 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
   bool get _selectionActive => _selected.isNotEmpty;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     _queue.load();
+    _tabController.addListener(_clearSelectionOnTabChange);
+  }
+
+  void _clearSelectionOnTabChange() {
+    if (_tabController.indexIsChanging) return;
+    if (_tabController.index != 0 && _selected.isNotEmpty) {
+      setState(_selected.clear);
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_clearSelectionOnTabChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -50,7 +63,12 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
 
   void _pauseSelected() {
     for (final name in _selected) {
-      _queue.pause(name);
+      final item = _queue.itemFor(name);
+      // pause() has no status guard; calling it on a finished row turned
+      // "Saved the media" back into "Paused".
+      if (item?.status == DownloadStatus.queued || item?.status == DownloadStatus.running) {
+        _queue.pause(name);
+      }
     }
     setState(_selected.clear);
   }
@@ -145,6 +163,7 @@ class _DownloadsTabState extends State<DownloadsTab> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // The Scaffold and the TabBarView sit outside the ScopedBuilder on
     // purpose. DownloadsModel.update() fires ~4x a second while a transfer
     // runs (progress is a read-modify-write of the whole list), and the
@@ -237,14 +256,14 @@ class _GalleryTabState extends State<_GalleryTab> {
       showSnackBar(
         context,
         icon: '⚠️',
-        message: l10n.gallery_hide_incomplete.replaceFirst('%d', '${result.remaining}'),
+        message: l10n.gallery_hide_incomplete(result.remaining),
       );
       return;
     }
 
     final message = value
-        ? l10n.gallery_shown_count.replaceFirst('%d', '${result.affected}')
-        : l10n.gallery_hidden_count.replaceFirst('%d', '${result.affected}');
+        ? l10n.gallery_shown_count(result.affected)
+        : l10n.gallery_hidden_count(result.affected);
     showSnackBar(context, icon: value ? '👀' : '🙈', message: message);
   }
 
@@ -588,12 +607,24 @@ class _ErrorCard extends StatelessWidget {
 
   const _ErrorCard({required this.item, required this.prefs});
 
+  String _message(BuildContext context) {
+    final l10n = L10n.of(context);
+    final error = item.error;
+    if (error == null || error.isEmpty) return l10n.download_failed;
+    if (error == 'interrupted') return l10n.download_interrupted;
+    if (error == 'no_space') return l10n.download_no_space;
+    if (error == 'incomplete') return l10n.download_incomplete;
+    if (error == 'save_unavailable') return l10n.download_save_unavailable;
+    if (error == 'timeout') return l10n.download_timed_out;
+    if (error.startsWith('HTTP ')) return l10n.download_server_error;
+    // Never surface a raw SocketException/TimeoutException in the queue.
+    return l10n.download_failed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final message = item.error == 'interrupted'
-        ? L10n.of(context).download_interrupted
-        : (item.error ?? L10n.of(context).download_failed);
+    final message = _message(context);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
@@ -643,7 +674,9 @@ class _DoneCard extends StatelessWidget {
     final libraryPath = prefs.get<String>(optionLibraryPath);
     if (libraryPath == null || libraryPath.isEmpty) return;
 
-    final path = p.join(libraryPath, item.fileName);
+    // A duplicate name is saved with a timestamp suffix; opening
+    // libraryPath/fileName then showed the previous file with that name.
+    final path = item.savedPath ?? p.join(libraryPath, item.fileName);
     final ok = await LibraryModel(prefs).openExternally(path);
     if (!ok && context.mounted) {
       showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);

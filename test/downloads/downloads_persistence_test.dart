@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pref/pref.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/downloads/download_paths.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/downloads/video_cache.dart';
@@ -24,6 +26,8 @@ void main() {
     model.resetForTests();
     DownloadsModel.debugDirectoryOverride = null;
     debugTempDirectoryOverride = null;
+    VideoCache().resetForTests();
+    VideoCache.debugDirectoryOverride = null;
     await support.delete(recursive: true);
     await temp.delete(recursive: true);
   });
@@ -99,5 +103,27 @@ void main() {
 
     expect(VideoCache().count, 0,
         reason: 'A broken cache ledger means an empty cache, not a crash on the first video');
+  });
+
+  test('Should serialize concurrent video-cache saves into one valid ledger', () async {
+    final cacheDir = Directory('${temp.path}/cache')..createSync();
+    final incoming = Directory('${temp.path}/incoming')..createSync();
+    VideoCache.debugDirectoryOverride = cacheDir;
+    final cache = VideoCache()..resetForTests();
+    final prefs = PrefServiceCache(cache: {optionVideoCacheLimitMb: 1024});
+    final first = File('${incoming.path}/one.mp4')..writeAsBytesSync([1, 2, 3]);
+    final second = File('${incoming.path}/two.mp4')..writeAsBytesSync([4, 5, 6]);
+
+    await Future.wait([
+      cache.put('https://video.twimg.com/one.mp4', first, prefs: prefs),
+      cache.put('https://video.twimg.com/two.mp4', second, prefs: prefs),
+    ]);
+
+    final decoded = jsonDecode(await File('${cacheDir.path}/video_cache.json').readAsString());
+    expect(decoded, isA<List>(),
+        reason: 'Two overlapping ledger writers used to be able to delete the file entirely');
+    expect((decoded as List), hasLength(2),
+        reason: 'Each completed put() must survive the other writer; losing one leaves the clip '
+            'on disk but outside the size limit and invisible after a restart');
   });
 }

@@ -217,6 +217,20 @@ void main() {
       expect(queue.contains('a.mp4'), isFalse, reason: 'Clearing history removes the finished rows');
       expect(queue.contains('b.mp4'), isTrue, reason: 'Waiting entries must survive a history cleanup');
     });
+
+    test('Should keep the path the file actually landed on', () {
+      queue.register('clip.mp4', 'https://x/clip.mp4', true);
+      queue.startRunning('clip.mp4');
+
+      queue.markDone('clip.mp4', savedPath: '/library/clip-123.mp4');
+
+      final item = queue.itemFor('clip.mp4')!;
+      expect(item.savedPath, '/library/clip-123.mp4',
+          reason: 'A duplicate name is saved with a timestamp suffix; the done row has to open '
+              'that file, not the older one that happened to keep the original name');
+      expect(DownloadQueueItem.fromJson(item.toJson()).savedPath, item.savedPath,
+          reason: 'The path must survive the queue ledger across a restart');
+    });
   });
 
   // Both indices come from ReorderableListView's onReorderItem, which hands the

@@ -195,25 +195,29 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
 
     var promoted = false;
     try {
-      // _saveToDestination returns null as soon as the context is dead, having
-      // checked it on entry.
+      // _saveToDestination returns a cancelled flag only when the reader
+      // actually dismissed the system dialog. A missing destination (the SD
+      // card was removed, there is no library and no screen to show the dialog)
+      // is a failure that must keep the entry retryable, not look like cancel.
       // ignore: use_build_context_synchronously
-      final savePath = await _saveToDestination(context,
+      final saved = await _saveToDestination(context,
           file: tempPath, fileName: fileName, prefs: prefs);
-      if (savePath != null) {
+      if (saved.path != null) {
         // Only now the file exists where the library scans: mark it done first,
         // so the done listeners see the finished entry, then celebrate.
-        queue.markDone(fileName);
+        queue.markDone(fileName, savedPath: saved.path);
         // _showSuccess returns early on a dead context; the file is saved either way.
         // ignore: use_build_context_synchronously
-        _showSuccess(context, savePath);
+        _showSuccess(context, saved.path!);
         if (cachedPath != null) {
           promoted = true;
           await cache.remove(uri.toString());
         }
-      } else {
+      } else if (saved.cancelled) {
         // The user cancelled the save dialog after a complete download.
         queue.remove(fileName);
+      } else {
+        queue.fail(fileName, error: 'save_unavailable');
       }
     } finally {
       // A cached file only leaves the cache once it landed in the library;
@@ -333,12 +337,14 @@ void _showStatusError(BuildContext? context, Object statusCode) {
           .unable_to_save_the_media_twitter_returned_a_status_of_response_statusCode(statusCode));
 }
 
-/// Saves the downloaded temp file to the user's destination and returns the
-/// path (null when cancelled). The hidden library is the normal destination;
-/// without a configured folder the system save dialog keeps downloads usable.
-/// An existing file with the same name is never overwritten: the new copy gets
-/// a timestamp suffix.
-Future<String?> _saveToDestination(BuildContext? context,
+/// Saves the downloaded temp file to the user's destination. `cancelled` is
+/// true only when the reader dismissed the system dialog; a missing library
+/// with nobody watching returns neither path nor cancellation, so the caller
+/// can fail the entry instead of deleting it. The hidden library is the normal
+/// destination; without a configured folder the system save dialog keeps
+/// downloads usable. An existing file with the same name is never overwritten:
+/// the new copy gets a timestamp suffix.
+Future<({String? path, bool cancelled})> _saveToDestination(BuildContext? context,
     {required String file, required String fileName, required BasePrefService prefs}) async {
   final libraryPath = prefs.get<String>(optionLibraryPath);
   if (libraryPath != null && libraryPath.isNotEmpty) {
@@ -361,16 +367,19 @@ Future<String?> _saveToDestination(BuildContext? context,
         await source.copy(savedFile);
         await source.delete();
       }
-      return savedFile;
+      return (path: savedFile, cancelled: false);
     }
   }
 
   // The system dialog needs a live screen; an automatic resume has none.
-  if (context == null || !context.mounted) return null;
+  if (context == null || !context.mounted) {
+    return (path: null, cancelled: false);
+  }
 
-  return FlutterFileDialog.saveFile(
+  final saved = await FlutterFileDialog.saveFile(
     params: SaveFileDialogParams(sourceFilePath: file, fileName: fileName),
   );
+  return (path: saved, cancelled: saved == null);
 }
 
 /// Queues the retry of a failed entry through the same one-at-a-time queue
@@ -452,7 +461,13 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     if (totalBytes != null) {
       final free = await _availableSpace(targetDir);
       if (free != null && totalBytes + _spaceMarginBytes > free) {
-        queue.fail(fileName, error: 'no_space');
+        if (queueManaged) {
+          queue.fail(fileName, error: 'no_space');
+        } else if (context != null && context.mounted) {
+          // A share has no queue entry; without this it failed in silence.
+          showSnackBar(context,
+              icon: '🙊', message: L10n.of(context).download_no_space);
+        }
         return null;
       }
     }
@@ -477,8 +492,11 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
         speed = speed == 0 ? sample : speed * 0.6 + sample * 0.4;
         lastSample = DateTime.now();
         lastReceived = received;
+        // Four updates per second are enough for a progress bar. Calling this
+        // per socket chunk rebuilt the whole queue (and its badge) thousands of
+        // times during one large transfer.
+        if (queueManaged) queue.progress(fileName, received, totalBytes, speed);
       }
-      if (queueManaged) queue.progress(fileName, received, totalBytes, speed);
     }
 
     await sink.close();

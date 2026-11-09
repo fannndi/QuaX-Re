@@ -27,6 +27,9 @@ class DownloadQueueItem {
   final double speedMbPerSec;
   final DownloadStatus status;
   final String? error;
+  // Where the file actually landed. Duplicate names get a timestamp suffix,
+  // so the queue row cannot assume libraryPath/fileName still points at it.
+  final String? savedPath;
 
   const DownloadQueueItem({
     required this.fileName,
@@ -37,6 +40,7 @@ class DownloadQueueItem {
     this.speedMbPerSec = 0,
     this.status = DownloadStatus.running,
     this.error,
+    this.savedPath,
   });
 
   double get receivedMb => receivedBytes / 1048576;
@@ -48,6 +52,7 @@ class DownloadQueueItem {
     double? speedMbPerSec,
     DownloadStatus? status,
     String? error,
+    String? savedPath,
     bool clearError = false,
   }) =>
       DownloadQueueItem(
@@ -59,6 +64,7 @@ class DownloadQueueItem {
         speedMbPerSec: speedMbPerSec ?? this.speedMbPerSec,
         status: status ?? this.status,
         error: clearError ? null : (error ?? this.error),
+        savedPath: savedPath ?? this.savedPath,
       );
 
   Map<String, dynamic> toJson() => {
@@ -69,6 +75,7 @@ class DownloadQueueItem {
         'totalBytes': totalBytes,
         'status': status.name,
         'error': error,
+        'savedPath': savedPath,
       };
 
   factory DownloadQueueItem.fromJson(Map<String, dynamic> json) => DownloadQueueItem(
@@ -80,6 +87,7 @@ class DownloadQueueItem {
         status: DownloadStatus.values.firstWhere((s) => s.name == json['status'],
             orElse: () => DownloadStatus.error),
         error: json['error'] as String?,
+        savedPath: json['savedPath'] as String?,
       );
 }
 
@@ -401,7 +409,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _save(force: true);
   }
 
-  void markDone(String fileName) {
+  void markDone(String fileName, {String? savedPath}) {
     _cancelHooks.remove(fileName);
     _paused.remove(fileName);
     final index = _indexOf(fileName);
@@ -410,7 +418,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     final updated = [
       for (final item in state)
         item.fileName == fileName
-            ? item.copyWith(status: DownloadStatus.done, clearError: true)
+            ? item.copyWith(status: DownloadStatus.done, clearError: true, savedPath: savedPath)
             : item
     ];
     update(updated, force: true);

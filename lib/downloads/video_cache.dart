@@ -54,6 +54,9 @@ class VideoCache {
   void resetForTests() {
     _entries.clear();
     _loaded = false;
+    _writeInFlight = null;
+    _dirty = false;
+    _lastSaveAt = 0;
   }
 
   static bool isEligibleDuration(int? durationMillis) =>
@@ -94,6 +97,8 @@ class VideoCache {
   }
 
   int _lastSaveAt = 0;
+  Future<void>? _writeInFlight;
+  bool _dirty = false;
 
   Future<void> _save({bool force = false}) async {
     // A recency bump is not worth rewriting the whole ledger: localPathFor runs
@@ -104,12 +109,35 @@ class VideoCache {
     if (!force && now - _lastSaveAt < 3000) return;
     _lastSaveAt = now;
 
-    try {
-      final file = await _ledger();
-      await writeAtomically(file, jsonEncode(_entries.values.map((e) => e.toJson()).toList()));
-    } catch (_) {
-      // Best-effort.
+    // Serialize writers: put() forces a save while localPathFor() may be
+    // bumping recency. Overlapping writes used to share one temp path and
+    // could delete the just-written ledger.
+    if (_writeInFlight != null) {
+      _dirty = true;
+      return;
     }
+    _writeInFlight = _writeLoop();
+    try {
+      await _writeInFlight;
+      while (_dirty) {
+        _dirty = false;
+        await _writeLoop();
+      }
+    } finally {
+      _writeInFlight = null;
+    }
+  }
+
+  Future<void> _writeLoop() async {
+    do {
+      _dirty = false;
+      try {
+        final file = await _ledger();
+        await writeAtomically(file, jsonEncode(_entries.values.map((e) => e.toJson()).toList()));
+      } catch (_) {
+        // Best-effort.
+      }
+    } while (_dirty);
   }
 
   /// The cached file for a media URL, or null when it was never cached. A hit
