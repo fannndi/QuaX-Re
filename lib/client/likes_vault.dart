@@ -240,17 +240,6 @@ class LikesVault {
     return _importDecrypted(decrypted);
   }
 
-  Future<void> adoptFile({required String sourcePath, required String libraryPath}) async {
-    final source = File(sourcePath);
-    if (!await source.exists()) throw const LikesVaultNotFound();
-    if (await source.length() > _codec.maxEnvelopeLength) {
-      throw const LikesVaultTooLarge();
-    }
-    final envelope = await source.readAsString();
-    _checkEnvelopeShape(envelope);
-    await _adoptEnvelope(libraryPath, envelope);
-  }
-
   Future<void> changePassphrase({
     required String libraryPath,
     required String oldPassphrase,

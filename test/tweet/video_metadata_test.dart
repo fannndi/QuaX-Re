@@ -1,6 +1,7 @@
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/tweet/_video.dart';
+import 'package:quax/tweet/media_actions.dart';
 
 void main() {
   Variant variant(String url, {int? bitrate, String contentType = 'video/mp4'}) => Variant()
@@ -82,6 +83,38 @@ void main() {
 
       expect((await built).streamUrl, isEmpty,
           reason: 'No variant carries a URL, so there is nothing to play');
+    });
+  });
+
+  group('largestVideoVariantUrl()', () {
+    Media mediaWithVariants(List<Variant> variants) {
+      final media = Media()
+        ..type = 'video'
+        ..mediaUrlHttps = 'https://pbs.twimg.com/poster.jpg'
+        ..videoInfo = VideoInfo();
+      media.videoInfo!.variants = variants;
+      return media;
+    }
+
+    test('Should pick the highest-bitrate MP4 and ignore an HLS master', () {
+      final media = mediaWithVariants([
+        variant('https://video.x.com/master.m3u8', contentType: 'application/x-mpegURL'),
+        variant('https://video.x.com/360.mp4', bitrate: 632000),
+        variant('https://video.x.com/720.mp4', bitrate: 2176000),
+      ]);
+
+      expect(largestVideoVariantUrl(media), 'https://video.x.com/720.mp4',
+          reason: 'The download/share action must keep the best file WhatsApp and the gallery can '
+              'play, not the HLS playlist or the lowest quality');
+    });
+
+    test('Should return null when the tweet has no MP4 variant', () {
+      final media = mediaWithVariants([
+        variant('https://video.x.com/master.m3u8', contentType: 'application/x-mpegURL'),
+      ]);
+
+      expect(largestVideoVariantUrl(media), isNull,
+          reason: 'Handing an HLS URL to the downloader used to save a playlist as a video');
     });
   });
 

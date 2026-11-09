@@ -296,6 +296,7 @@
   "label_old": "Old",
   "@label_old": {},
   "later": "Later",
+  "@later": {},
   "library": "Library",
   "@library": {},
   "library_import_existing": "Move media from another folder",
@@ -530,8 +531,11 @@
   "search": "Search",
   "@search": {},
   "search_latest": "Latest posts",
+  "@search_latest": {},
   "search_people": "People",
+  "@search_people": {},
   "search_top": "Top posts",
+  "@search_top": {},
   "select_all": "Select all",
   "@select_all": {},
   "session_expired": "Session expired",
@@ -725,9 +729,5 @@
   "whether_to_hide_tweets_marked_as_sensitive": "Whether to hide posts marked as sensitive",
   "@whether_to_hide_tweets_marked_as_sensitive": {},
   "yes_please": "Yes, please",
-  "@yes_please": {},
-  "@later": {},
-  "@search_latest": {},
-  "@search_people": {},
-  "@search_top": {}
+  "@yes_please": {}
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/downloads/connectivity_watcher.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
@@ -7,7 +8,7 @@ import 'package:quax/generated/l10n.dart';
 /// transfer runs (downloads survive backgrounding) and offers Pause/Cancel
 /// actions whose taps come back through the same channel.
 class DownloadNotifications {
-  static const _channel = MethodChannel('browser_resolver');
+  static const _channel = quaxMethodChannel;
   static bool _ready = false;
   static int _lastNotifyAt = 0;
 

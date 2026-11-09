@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -18,7 +17,7 @@ const libraryFolderName = 'QuaXLibrary';
 // Patched in MainActivity.kt: checks/opens Android's all-files-access screen,
 // which is what plain dart:io writes to a picked folder (with an SD card!)
 // depend on since scoped storage. Also serves the video-thumbnail handler.
-const MethodChannel _storageChannel = MethodChannel('browser_resolver');
+const _storageChannel = quaxMethodChannel;
 
 const _videoExtensions = [
   '.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi', '.ts', '.3gp', '.mpeg', '.mpg', '.wmv', '.flv',
@@ -69,8 +68,6 @@ class LibraryEntry {
         modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   final String name;
-
-  double get sizeMb => size / 1048576;
 }
 
 /// Outcome of a gallery show/hide pass: [affected] media files entered (or

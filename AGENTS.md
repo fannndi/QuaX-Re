@@ -135,7 +135,7 @@ model: they stay in the schema only so an upgraded install never drops posts a p
 saved (`repository_test.dart` pins this). The subscription/group tables are likewise retained
 for upgrade compatibility only - no model or screen reads them.
 
-Current schema version is in `Repository.migrate()` (`version: 31`); the test
+Current schema version is in `Repository.migrate()` (`version: 32`); the test
 `Should end at the newest schema version` pins it, so adding a step means bumping both.
 Column names that appear in more than one file (the migration, the entity, the query) are
 constants in `repository.dart` — `in_feed` had three spellings across three files and the

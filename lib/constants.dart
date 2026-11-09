@@ -1,4 +1,9 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
+
+/// The one native bridge the fork owns. Every Dart call has to use this name;
+/// a typo in one local copy only surfaced as a runtime MissingPluginException.
+const quaxMethodChannel = MethodChannel('browser_resolver');
 
 const optionDisableAnimations = 'accessibility.disable_animations';
 const optionTextScaleFactor = 'accessibility.text_scale_factor';

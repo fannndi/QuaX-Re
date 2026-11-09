@@ -331,13 +331,11 @@ class AccountImportResult {
   final int imported;
   final int replaced;
   final int kept;
-  final List<String> skipped;
 
   const AccountImportResult({
     required this.imported,
     required this.replaced,
     required this.kept,
-    this.skipped = const [],
   });
 
   int get total => imported + replaced + kept;
@@ -367,7 +365,6 @@ Future<AccountImportResult> importAccounts(List<Account> accounts,
   var imported = 0;
   var replaced = 0;
   var kept = 0;
-  final skipped = <String>[];
   final database = await Repository.writable();
 
   await database.transaction((txn) async {
@@ -453,6 +450,5 @@ Future<AccountImportResult> importAccounts(List<Account> accounts,
     imported: imported,
     replaced: replaced,
     kept: kept,
-    skipped: skipped,
   );
 }

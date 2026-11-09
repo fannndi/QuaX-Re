@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
@@ -48,7 +47,7 @@ bool isAllowedLoginHost(String url) {
 }
 
 class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
-  static const _channel = MethodChannel('browser_resolver');
+  static const _channel = quaxMethodChannel;
 
   /// The logged-in handle, then the slice of the page around it that carries
   /// the numeric id. A window instead of the whole document: the home HTML runs

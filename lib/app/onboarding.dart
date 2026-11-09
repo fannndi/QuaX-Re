@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
 import 'package:quax/app/account_setup_step.dart';
 import 'package:quax/client/account_vault.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/ui/errors.dart';
@@ -21,7 +21,7 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBindingObserver {
-  static const _storageChannel = MethodChannel('browser_resolver');
+  static const _storageChannel = quaxMethodChannel;
   static const _steps = 5;
 
   final PageController _controller = PageController();

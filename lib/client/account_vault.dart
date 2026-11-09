@@ -34,13 +34,6 @@ class AccountVaultReadResult {
   final String path;
 
   const AccountVaultReadResult(this.accounts, this.invalid, this.path);
-
-  Account? get preferredActive {
-    for (final account in accounts) {
-      if (account.isActive) return account;
-    }
-    return accounts.isEmpty ? null : accounts.first;
-  }
 }
 
 /// The folder beside `QuaXLibrary` that holds the encrypted account backup.

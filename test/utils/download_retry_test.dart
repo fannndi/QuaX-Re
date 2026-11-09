@@ -2,6 +2,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/utils/downloads.dart';
 
 void main() {
+  group('resumeOffset()', () {
+    test('Should resume from the recorded byte when the partial file matches', () {
+      expect(
+        resumeOffset(resume: true, recordedBytes: 4096, fileExists: true, fileLength: 4096),
+        4096,
+        reason: 'A matching partial is the only case where a Range request can continue the file',
+      );
+    });
+
+    test('Should restart when the partial file is missing or shorter than the ledger', () {
+      expect(resumeOffset(resume: true, recordedBytes: 4096, fileExists: false, fileLength: 0), 0,
+          reason: 'The OS may have cleared the temp file; appending to nothing would corrupt it');
+      expect(resumeOffset(resume: true, recordedBytes: 4096, fileExists: true, fileLength: 4000), 0,
+          reason: 'A shorter file means the ledger and the bytes disagree; start over instead of '
+              'leaving a hole at the join');
+    });
+
+    test('Should not resume a fresh transfer', () {
+      expect(resumeOffset(resume: false, recordedBytes: 4096, fileExists: true, fileLength: 4096), 0,
+          reason: 'Only a retry or an explicit resume may send a Range header');
+    });
+  });
+
   group('isRetryableDownloadError()', () {
     test('Should retry a server-side error', () {
       expect(isRetryableDownloadError('HTTP 500 Internal Server Error'), isTrue,

@@ -78,7 +78,7 @@ void main() {
 
     final read = await AccountVault().read(libraryPath: libraryPath, passphrase: passphrase);
     expect(read.accounts.map((a) => a.screenName), containsAll(['alice', 'bob']));
-    expect(read.preferredActive?.screenName, 'alice',
+    expect(read.accounts.firstWhere((a) => a.isActive).screenName, 'alice',
         reason: 'The active account is part of the backup so a restore comes back on the same login');
     final alice = read.accounts.firstWhere((a) => a.screenName == 'alice');
     expect(alice.localId, 'local-a',

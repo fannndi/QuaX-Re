@@ -61,10 +61,9 @@ android {
         applicationId "com.fannndi.quaxre"
         minSdkVersion flutter.minSdkVersion
         // 36, matching Flutter's own FlutterExtension and every plugin
-        // (better_player_plus compiles against 36). 37 opts into Android 37
-        // behaviour changes the app cannot be tested against here — and
-        // requestLegacyExternalStorage is ignored from API 37 on, leaving the
-        // whole storage story resting on MANAGE_EXTERNAL_STORAGE untested.
+        // (better_player_plus compiles against 36). On Android 11+ the library
+        // uses MANAGE_EXTERNAL_STORAGE; on Android 10 devices the legacy flag
+        // below is still honoured, which is why both routes exist.
         targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

@@ -9,7 +9,7 @@ import 'package:pref/pref.dart';
 
 void showMediaActionsSheet(BuildContext context, Media item, String? username) {
   final isVideoLike = item.type == 'video' || item.type == 'animated_gif';
-  final variantUrl = _largestVideoVariantUrl(item);
+  final variantUrl = largestVideoVariantUrl(item);
   if (isVideoLike && variantUrl == null) {
     // HLS-only clips have no progressive MP4; the old force-unwrap crashed the
     // long-press handler and the share sheet never opened.
@@ -49,7 +49,7 @@ void showMediaActionsSheet(BuildContext context, Media item, String? username) {
 
 /// The highest-bitrate MP4 variant of a tweet video or GIF — the one worth
 /// keeping on disk (a GIF's variant is a silent MP4, which WhatsApp accepts).
-String? _largestVideoVariantUrl(Media item) {
+String? largestVideoVariantUrl(Media item) {
   final variants =
       (item.videoInfo?.variants ?? const []).where((v) => v.contentType?.contains('mp4') ?? false).toList();
   variants.sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));

@@ -68,6 +68,14 @@
                     android:scheme="https" />
 
                 <data
+                    android:host="www.x.com"
+                    android:scheme="http" />
+
+                <data
+                    android:host="www.x.com"
+                    android:scheme="https" />
+
+                <data
                     android:host="twitter.com"
                     android:scheme="http" />
 

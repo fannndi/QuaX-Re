@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:quax/constants.dart';
@@ -19,7 +18,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:share_plus/share_plus.dart';
 
-const _storageChannel = MethodChannel('browser_resolver');
+const _storageChannel = quaxMethodChannel;
 
 /// The single download worker: it pulls the first waiting entry (top of the
 /// queue list = next to run, so dragging the queue reorders transfers), works
@@ -242,6 +241,20 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
 /// full disk and stale interrupted markers are left to the manual Retry.
 bool isRetryableDownloadError(String? error) => _isRetryable(error);
 
+/// The byte offset a resume may ask for: only when the partial file still
+/// matches what the queue recorded. A mismatch (a crash between the ledger and
+/// the socket write, a file truncated by the OS) restarts from zero instead of
+/// appending at the wrong place.
+int resumeOffset({
+  required bool resume,
+  required int recordedBytes,
+  required bool fileExists,
+  required int fileLength,
+}) {
+  if (!resume || recordedBytes <= 0 || !fileExists || fileLength != recordedBytes) return 0;
+  return recordedBytes;
+}
+
 /// Re-queues a failed entry without any UI: the connectivity watcher uses it
 /// when the network comes back.
 void resumeDownload(DownloadQueueItem item, {required BasePrefService prefs}) {
@@ -431,13 +444,15 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
 
   try {
     // Resume only when the partial file still matches the recorded offset.
-    var offset = resume && queueManaged ? queue.resumeOffsetFor(fileName) : 0;
-    if (offset > 0) {
-      final partial = File(tempPath);
-      if (!await partial.exists() || await partial.length() != offset) {
-        offset = 0;
-      }
-    }
+    final partial = File(tempPath);
+    final partialExists = await partial.exists();
+    final partialLength = partialExists ? await partial.length() : 0;
+    var offset = resumeOffset(
+      resume: resume && queueManaged,
+      recordedBytes: queueManaged ? queue.resumeOffsetFor(fileName) : 0,
+      fileExists: partialExists,
+      fileLength: partialLength,
+    );
 
     var response = await client.send(_rangeRequest(uri, offset));
     if (response.statusCode == 416 && offset > 0) {

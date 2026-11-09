@@ -1,6 +1,5 @@
 import 'dart:ui' show ImageFilter;
 
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
@@ -24,7 +23,7 @@ class PrivacyShield extends StatefulWidget {
 }
 
 class _PrivacyShieldState extends State<PrivacyShield> with WidgetsBindingObserver {
-  static const _channel = MethodChannel('browser_resolver');
+  static const _channel = quaxMethodChannel;
 
   bool _obscured = false;
   bool _flagSynced = false;

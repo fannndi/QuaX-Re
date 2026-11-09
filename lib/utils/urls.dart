@@ -5,10 +5,9 @@ import 'package:quax/constants.dart';
 import 'package:quax/profile/profile.dart' show profileTabs;
 import 'package:url_launcher/url_launcher_string.dart';
 
-import 'package:flutter/services.dart';
 import 'package:android_intent_plus/android_intent.dart';
 
-const _channel = MethodChannel('browser_resolver');
+const _channel = quaxMethodChannel;
 
 /// Whether [uri] is a link the app may hand to another app. Only http(s):
 /// `launchUrlString`/`AndroidIntent` perform no scheme validation of their own
