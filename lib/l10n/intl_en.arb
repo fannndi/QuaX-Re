@@ -183,6 +183,7 @@
   "@community_notes_header": {},
   "copied_version_to_clipboard": "Copied version to clipboard",
   "@copied_version_to_clipboard": {},
+  "copy_details": "Copy details",
   "could_not_contact_twitter": "Could not contact X",
   "@could_not_contact_twitter": {},
   "could_not_find_any_tweets_by_this_user": "Couldn't find any posts by this user!",
@@ -195,6 +196,7 @@
   "@delete": {},
   "delete_selected_media": "Delete the selected media?",
   "@delete_selected_media": {},
+  "details_copied": "Details copied",
   "disable_animations": "Disable animations?",
   "@disable_animations": {},
   "disable_animations_description": "Disables animations within the app",
@@ -372,6 +374,8 @@
   "@login_again": {},
   "login_blocked_navigation": "Blocked a navigation away from x.com while logging in",
   "@login_blocked_navigation": {},
+  "login_session_not_ready": "X has not finished the login yet. Go back and try again.",
+  "@login_session_not_ready": {},
   "loop_videos": "Loop videos",
   "@loop_videos": {},
   "loop_videos_description": "If enabled, videos will loop after completing",
@@ -687,5 +691,7 @@
   "whether_to_hide_tweets_marked_as_sensitive": "Whether to hide posts marked as sensitive",
   "@whether_to_hide_tweets_marked_as_sensitive": {},
   "yes_please": "Yes, please",
-  "@yes_please": {}
+  "@yes_please": {},
+  "@copy_details": {},
+  "@details_copied": {}
 }

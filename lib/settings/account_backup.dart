@@ -184,10 +184,20 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     });
   }
 
+  /// The primary file, or the rollback copy when the primary is gone. Restore
+  /// already falls back to `.bak`; sharing must offer the same file.
+  Future<String?> _existingVaultPath(String? primary) async {
+    if (primary == null) return null;
+    if (await File(primary).exists()) return primary;
+    final backup = '$primary.bak';
+    if (await File(backup).exists()) return backup;
+    return null;
+  }
+
   Future<void> _share() async {
     final l10n = L10n.of(context);
-    final path = accountVaultPathFor(_libraryPath);
-    if (path == null || !await File(path).exists()) {
+    final path = await _existingVaultPath(accountVaultPathFor(_libraryPath));
+    if (path == null) {
       if (mounted) showSnackBar(context, icon: '🙊', message: l10n.account_backup_missing);
       return;
     }
@@ -215,15 +225,19 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (newPassphrase == null || !mounted) return;
 
     await _run(() async {
+      // Verify both files with the old passphrase before writing either one.
+      // Changing the account vault first used to leave it on the new phrase
+      // while the likes vault still needed the old one, with no way to finish
+      // the change from the UI.
+      if (_hasLikesVault) {
+        await _likesVault.read(libraryPath: _libraryPath, passphrase: oldPassphrase);
+      }
       await _vault.changePassphrase(
         libraryPath: _libraryPath,
         oldPassphrase: oldPassphrase,
         newPassphrase: newPassphrase,
       );
       if (_hasLikesVault) {
-        // Both files are meant to share one passphrase. The account vault is
-        // already on the new one, so a failure here leaves the likes backup
-        // readable with the old phrase until it is recreated.
         await _likesVault.changePassphrase(
           libraryPath: _libraryPath,
           oldPassphrase: oldPassphrase,
@@ -316,6 +330,12 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (passphrase == null || !mounted) return;
 
     await _run(() async {
+      // Both files are meant to share one passphrase. Refuse a likes vault
+      // opened with a different phrase before touching the database, so a later
+      // passphrase change cannot get stuck halfway.
+      if (_hasVault) {
+        await _vault.read(libraryPath: _libraryPath, passphrase: passphrase);
+      }
       final result = await _likesVault.import(libraryPath: _libraryPath, passphrase: passphrase);
       if (!mounted) return;
       await context.read<LikedTweetModel>().refreshLikedTweets();
@@ -345,6 +365,9 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (passphrase == null || !mounted) return;
 
     await _run(() async {
+      if (_hasVault) {
+        await _vault.read(libraryPath: _libraryPath, passphrase: passphrase);
+      }
       final result = await _likesVault.importFile(
         filePath: path,
         libraryPath: _libraryPath,
@@ -359,8 +382,8 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
   Future<void> _shareLikes() async {
     final l10n = L10n.of(context);
-    final path = likesVaultPathFor(_libraryPath);
-    if (path == null || !await File(path).exists()) {
+    final path = await _existingVaultPath(likesVaultPathFor(_libraryPath));
+    if (path == null) {
       if (mounted) showSnackBar(context, icon: '🙊', message: l10n.likes_backup_file_missing);
       return;
     }
@@ -513,29 +536,34 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
                   Text(l10n.likes_backup_description,
                       style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 8),
-                  if (!_hasVault)
+                  if (!_hasVault && !_hasLikesVault)
                     Text(l10n.likes_backup_needs_account_vault,
                         style: TextStyle(color: Theme.of(context).colorScheme.error))
                   else ...[
-                    _likesStatusCard(l10n),
-                    _action(
-                      icon: Icons.favorite_border,
-                      title: _hasLikesVault
-                          ? l10n.likes_backup_update
-                          : l10n.likes_backup_create,
-                      onTap: _createLikesBackup,
-                    ),
-                    if (_hasLikesVault)
+                    if (_hasLikesVault) _likesStatusCard(l10n),
+                    if (!_hasVault)
+                      Text(l10n.likes_backup_needs_account_vault,
+                          style: TextStyle(color: Theme.of(context).colorScheme.error))
+                    else ...[
                       _action(
-                        icon: Icons.restore,
-                        title: l10n.likes_backup_restore,
-                        onTap: _restoreLikes,
+                        icon: Icons.favorite_border,
+                        title: _hasLikesVault
+                            ? l10n.likes_backup_update
+                            : l10n.likes_backup_create,
+                        onTap: _createLikesBackup,
                       ),
-                    _action(
-                      icon: Icons.file_open_outlined,
-                      title: l10n.likes_backup_import,
-                      onTap: _importLikesFile,
-                    ),
+                      if (_hasLikesVault)
+                        _action(
+                          icon: Icons.restore,
+                          title: l10n.likes_backup_restore,
+                          onTap: _restoreLikes,
+                        ),
+                      _action(
+                        icon: Icons.file_open_outlined,
+                        title: l10n.likes_backup_import,
+                        onTap: _importLikesFile,
+                      ),
+                    ],
                     if (_hasLikesVault) ...[
                       _action(
                         icon: Icons.ios_share,

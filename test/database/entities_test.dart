@@ -48,6 +48,22 @@ void main() {
               'should fall back to 0 rather than throw');
     });
 
+    test('Should read a malformed health timestamp as null instead of failing every request', () {
+      final account = Account.fromMap({
+        'id': 'a',
+        'auth_header': '{}',
+        'screen_name': 'a',
+        'last_not_found_at': 'yesterday',
+        'last_auth_error_at': 'later',
+      });
+
+      expect(account.lastNotFoundAt, isNull,
+          reason: 'A restored database can carry a non-ISO mark; getAccounts() runs before every '
+              'request, so throwing on this row would take the whole app offline');
+      expect(account.lastAuthErrorAt, isNull,
+          reason: 'The same tolerance applies to the 401 mark, which drives the re-login badge');
+    });
+
     test('Should carry the numeric user id through the map', () {
       final account = Account(id: 'a', authHeader: '{}', screenName: 'dogs', userId: '42');
 

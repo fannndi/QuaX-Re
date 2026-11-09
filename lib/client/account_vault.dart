@@ -224,10 +224,15 @@ class AccountVault {
     if (await primary.exists()) {
       try {
         return (await _decryptFile(primary, passphrase), primary.path);
-      } on VaultException {
+      } on VaultException catch (error) {
         // The primary may have been replaced by a foreign or half-written file.
         // Try the previous copy before surfacing the error; a wrong passphrase
-        // only costs a second KDF run.
+        // only costs a second KDF run. A vault from a newer format is not
+        // recoverable from the backup: falling back would silently restore an
+        // older account list and report success.
+        if (error.failure != VaultFailure.corrupt && error.failure != VaultFailure.tooLarge) {
+          rethrow;
+        }
         if (!await backup.exists()) rethrow;
       }
     }

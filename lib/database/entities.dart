@@ -60,7 +60,10 @@ class Account with ToMappable {
       this.profileFetchedAt})
       : localId = localId ?? id;
 
-  static DateTime? _date(Object? value) => value == null ? null : DateTime.parse(value as String);
+  // A restored or hand-edited database can carry a timestamp that is not ISO
+  // text. Throwing here would make every getAccounts() — and therefore every
+  // request — fail over one bad row; a null mark is the safe reading.
+  static DateTime? _date(Object? value) => value is String ? DateTime.tryParse(value) : null;
 
   /// No flag set, so a successful response needs no database write (hot-path guard).
   bool get isClean =>

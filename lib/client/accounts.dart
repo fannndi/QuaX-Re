@@ -71,7 +71,29 @@ Future<String> _ensureLocalId(Database database, Account account) async {
 /// the app builds: it does not touch [accountsRevision], so the feeds do not
 /// reload over a value that was only being restored.
 Future<void> loadActiveAccount() async {
-  final account = await getActiveAccount();
+  final accounts = await getAccounts();
+  Account? account;
+  for (final candidate in accounts) {
+    if (candidate.isActive) {
+      account = candidate;
+      break;
+    }
+  }
+
+  // A re-login can delete the active row while its replacement is inserted
+  // before the new flag is written. If that window is interrupted, every
+  // account-scoped feed would report "no account" even though the sessions are
+  // still in the database. Promote the first row instead of leaving it broken.
+  if (account == null && accounts.isNotEmpty) {
+    account = accounts.first;
+    final accountId = account.id;
+    final database = await Repository.writable();
+    await database.transaction((txn) async {
+      await txn.update(tableAccounts, {'is_active': 0}, where: 'is_active = 1');
+      await txn.update(tableAccounts, {'is_active': 1}, where: 'id = ?', whereArgs: [accountId]);
+    });
+  }
+
   if (account == null) {
     activeAccount.value = null;
     return;
@@ -171,18 +193,17 @@ Future<void> saveLoggedInAccount({
     // re-login gets a new ct0 but should keep the same local owner.
     final identityWhere = userId == null ? 'screen_name = ?' : 'screen_name = ? OR user_id = ?';
     final identityArgs = userId == null ? [screenName] : [screenName, userId];
-    var existing =
-        await txn.query(tableAccounts, columns: [columnLocalId], where: identityWhere, whereArgs: identityArgs);
-    if (existing.isEmpty) {
-      existing = await txn.query(tableAccounts, columns: [columnLocalId], where: 'id = ?', whereArgs: [id]);
-    }
-    final existingLocalId = existing.isEmpty ? null : existing.first[columnLocalId] as String?;
-    final localId = existingLocalId == null || existingLocalId.isEmpty
-        ? const Uuid().v4()
-        : existingLocalId;
+    final matchWhere = '($identityWhere) OR id = ?';
+    final matchArgs = [...identityArgs, id];
+    final existing = await txn.query(tableAccounts,
+        columns: [columnLocalId, 'is_active'], where: matchWhere, whereArgs: matchArgs);
+    final existingLocalId = existing
+        .map((row) => row[columnLocalId] as String?)
+        .firstWhere((value) => value != null && value.isNotEmpty, orElse: () => null);
+    final wasActive = existing.any((row) => row['is_active'] == 1);
+    final localId = existingLocalId ?? const Uuid().v4();
 
-    await txn.delete(tableAccounts, where: 'id = ?', whereArgs: [id]);
-    await txn.delete(tableAccounts, where: identityWhere, whereArgs: identityArgs);
+    await txn.delete(tableAccounts, where: matchWhere, whereArgs: matchArgs);
     await txn.insert(
       tableAccounts,
       Account(
@@ -190,6 +211,7 @@ Future<void> saveLoggedInAccount({
         screenName: screenName,
         userId: userId,
         localId: localId,
+        isActive: wasActive,
         authHeader: authHeader,
       ).toMap(),
     );

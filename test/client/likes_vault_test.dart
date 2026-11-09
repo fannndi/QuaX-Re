@@ -118,6 +118,65 @@ void main() {
     expect(await vault.count(), 5);
   });
 
+  test('Should not count likes that were already present as restored', () async {
+    await addAccount('a', userId: '101', handle: 'alice');
+    await seedLikes('local-a', 2);
+    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+
+    // Restore the same file a second time without clearing the database.
+    final imported = await vault.import(libraryPath: libraryPath, passphrase: passphrase);
+
+    expect(imported.restored, 0,
+        reason: 'The rows are already there; reporting 2 would tell the reader that a second '
+            'copy of their likes was written');
+    expect(imported.skipped, 0,
+        reason: 'A duplicate is not a malformed line; the file was fully readable');
+    expect(await vault.count(), 2,
+        reason: 'The duplicate restore must not add a second owner row');
+  });
+
+  test('Should delete the plaintext temp file when the gzip stream is corrupt', () async {
+    await addAccount('a', userId: '101', handle: 'alice');
+    final meta = utf8.encode(jsonEncode({
+      'format': 'quax.likes',
+      'version': 1,
+      'like_count': 1,
+      'accounts': [
+        {'local_id': 'local-a', 'screen_name': 'alice', 'user_id': '101'}
+      ],
+    }));
+    final container = <int>[
+      (meta.length >> 24) & 0xff,
+      (meta.length >> 16) & 0xff,
+      (meta.length >> 8) & 0xff,
+      meta.length & 0xff,
+      ...meta,
+      ...utf8.encode('not a gzip stream'),
+    ];
+    final envelope = await const VaultCodec(iterations: 10000).encryptBytes(
+      passphrase: passphrase,
+      kind: 'likes',
+      bytes: container,
+    );
+    final folder = await ensureAccountFolder(libraryPath);
+    await File(p.join(folder!, likesVaultFileName)).writeAsString(envelope);
+
+    await expectLater(
+      vault.import(libraryPath: libraryPath, passphrase: passphrase),
+      throwsA(isA<VaultException>()
+          .having((e) => e.failure, 'failure', VaultFailure.corrupt)),
+      reason: 'A bad gzip stream must surface as a corrupt vault, not a raw FormatException',
+    );
+    final leftovers = temp
+        .listSync()
+        .whereType<File>()
+        .where((file) => p.basename(file.path).startsWith('quax-likes-import-'))
+        .toList();
+    expect(leftovers, isEmpty,
+        reason: 'The decoded likes are personal data and must not stay in the temp directory '
+            'after a failed import');
+  });
+
   test('Should map a restored account by user id when its local id changed', () async {
     await addAccount('a', userId: '101', handle: 'alice');
     await seedLikes('local-a', 2);

@@ -152,48 +152,68 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
         return; // Leave the web view up; the login may still be settling.
       }
 
-      final csrfToken = RegExp(r'(ct0=(.+?));').firstMatch(cookies.toString())?.group(2);
-      if (csrfToken != null) {
-        final Map<String, String> authHeader = {
-          "Cookie": cookies
-              .where((cookie) =>
-                  cookie.name == "guest_id" ||
-                  cookie.name == "gt" ||
-                  cookie.name == "att" ||
-                  cookie.name == "auth_token" ||
-                  cookie.name == "ct0")
-              .map((cookie) => '${cookie.name}=${cookie.value}')
-              .join(";"),
-          "authorization": bearerToken,
-          "x-csrf-token": csrfToken,
-        };
-
-        await saveLoggedInAccount(
-          id: csrfToken,
-          screenName: screenName,
-          userId: userId,
-          authHeader: json.encode(authHeader),
-        );
-        // No close(): this is sqflite's shared writable handle, so closing it
-        // here would pull it out from under every other writer. It is not
-        // closed anywhere else either.
-
-        // The session now lives in the database; the WebView's copy has no
-        // further use. Leaving it means the full auth_token/ct0/att/gt set
-        // stays in the on-disk cookie jar indefinitely, re-readable by the
-        // next login flow or by any page this WebView later loads.
-        await _cookieManager.clearCookies();
-
-        // A freshly added account becomes the one used everywhere, so the
-        // timelines immediately speak for the new login.
-        await setActiveAccount(csrfToken);
-        if (mounted) {
-          // A new ct0 means any existing vault is now behind; the backup screen
-          // shows "out of date" until the reader writes it again.
-          await PrefService.of(context, listen: false)
-              .set<bool>(optionAccountVaultDirty, true);
+      // Read the cookie list rather than formatting it into one string: a
+      // regex that requires a trailing semicolon silently failed when ct0 was
+      // the last cookie, and the screen then closed without saving anything.
+      String? csrfToken;
+      for (final cookie in cookies) {
+        if (cookie.name == 'ct0' && cookie.value.isNotEmpty) {
+          csrfToken = cookie.value;
+          break;
         }
       }
+      if (csrfToken == null) {
+        _completing = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(L10n.of(context).login_session_not_ready)),
+          );
+        }
+        return;
+      }
+
+      final Map<String, String> authHeader = {
+        "Cookie": cookies
+            .where((cookie) =>
+                cookie.name == "guest_id" ||
+                cookie.name == "gt" ||
+                cookie.name == "att" ||
+                cookie.name == "auth_token" ||
+                cookie.name == "ct0")
+            .map((cookie) => '${cookie.name}=${cookie.value}')
+            .join(";"),
+        "authorization": bearerToken,
+        "x-csrf-token": csrfToken,
+      };
+
+      await saveLoggedInAccount(
+        id: csrfToken,
+        screenName: screenName,
+        userId: userId,
+        authHeader: json.encode(authHeader),
+      );
+      // No close(): this is sqflite's shared writable handle, so closing it
+      // here would pull it out from under every other writer. It is not
+      // closed anywhere else either.
+
+      // A freshly added account becomes the one used everywhere, so the
+      // timelines immediately speak for the new login. Do this before the
+      // cookie cleanup: a failure there must not leave the database with a new
+      // account row and no active account.
+      await setActiveAccount(csrfToken);
+      if (mounted) {
+        // A new ct0 means any existing vault is now behind; the backup screen
+        // shows "out of date" until the reader writes it again.
+        await PrefService.of(context, listen: false)
+            .set<bool>(optionAccountVaultDirty, true);
+      }
+
+      // The session now lives in the database; the WebView's copy has no
+      // further use. Leaving it means the full auth_token/ct0/att/gt set
+      // stays in the on-disk cookie jar indefinitely, re-readable by the
+      // next login flow or by any page this WebView later loads.
+      await _cookieManager.clearCookies();
+
       if (mounted) {
         Navigator.pop(context);
       }

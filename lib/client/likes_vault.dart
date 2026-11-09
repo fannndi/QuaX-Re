@@ -23,6 +23,11 @@ const int _pageSize = 500;
 /// envelope and its plaintext copies from exhausting a phone's memory.
 const int maxLikesCompressedBytes = 16 * 1024 * 1024;
 
+/// A gzip stream can expand far beyond the encrypted file's size. This bound
+/// is generous for real likes (JSON rarely compresses better than ~10x) while
+/// keeping a hand-crafted vault from filling the disk.
+const int maxLikesPlaintextBytes = maxLikesCompressedBytes * 16;
+
 String? likesVaultPathFor(String libraryPath) {
   final folder = accountFolderPathFor(libraryPath);
   return folder == null ? null : p.join(folder, likesVaultFileName);
@@ -335,7 +340,13 @@ class LikesVault {
     if (await primary.exists()) {
       try {
         return await _decryptFile(primary, passphrase);
-      } on VaultException {
+      } on VaultException catch (error) {
+        // Only a damaged/oversized primary is worth retrying from the older
+        // backup. A newer format must surface as unsupported instead of
+        // silently restoring an older snapshot.
+        if (error.failure != VaultFailure.corrupt && error.failure != VaultFailure.tooLarge) {
+          rethrow;
+        }
         if (!await backup.exists()) rethrow;
       }
     }
@@ -385,11 +396,12 @@ class LikesVault {
     final mapping = await _ownerMapping(decrypted.meta);
     if (mapping.isEmpty) throw const LikesVaultNoAccounts();
 
-    final temp = await _decompress(decrypted.compressed);
+    File? temp;
     var restored = 0;
     var skipped = 0;
     final rows = <_LikeRow>[];
     try {
+      temp = await _decompress(decrypted.compressed);
       await for (final line in temp
           .openRead()
           .transform(utf8.decoder)
@@ -402,15 +414,13 @@ class LikesVault {
         }
         rows.add(row);
         if (rows.length >= _pageSize) {
-          await _flush(rows);
-          restored += rows.length;
+          restored += await _flush(rows);
           rows.clear();
         }
       }
-      await _flush(rows);
-      restored += rows.length;
+      restored += await _flush(rows);
     } finally {
-      if (await temp.exists()) await temp.delete();
+      if (temp != null && await temp.exists()) await temp.delete();
     }
 
     final metaAccounts = (decrypted.meta['accounts'] as List?)?.length ?? 0;
@@ -471,10 +481,15 @@ class LikesVault {
     return mapping;
   }
 
-  Future<void> _flush(List<_LikeRow> rows) async {
-    if (rows.isEmpty) return;
+  /// Inserts one page and returns how many `account_like` rows were actually
+  /// new. `ConflictAlgorithm.ignore` made the old count include every duplicate
+  /// the file carried, so a second restore claimed to have restored likes that
+  /// were already there.
+  Future<int> _flush(List<_LikeRow> rows) async {
+    if (rows.isEmpty) return 0;
     final db = await Repository.writable();
-    await db.transaction((txn) async {
+    return db.transaction((txn) async {
+      final before = await txn.rawQuery('SELECT COUNT(*) AS c FROM $tableAccountLike');
       final batch = txn.batch();
       for (final row in rows) {
         batch.insert(
@@ -498,6 +513,10 @@ class LikesVault {
         );
       }
       await batch.commit(noResult: true);
+      final after = await txn.rawQuery('SELECT COUNT(*) AS c FROM $tableAccountLike');
+      final previous = (before.first['c'] as int?) ?? 0;
+      final current = (after.first['c'] as int?) ?? 0;
+      return current - previous;
     });
   }
 
@@ -506,12 +525,31 @@ class LikesVault {
     final file = File(p.join(dir.path,
         'quax-likes-import-${DateTime.now().microsecondsSinceEpoch}.jsonl'));
     final sink = file.openWrite();
+    var failed = false;
+    VaultException? failure;
     try {
-      final decoder = gzip.decoder.startChunkedConversion(sink);
+      final bounded = _BoundedSink(sink, maxLikesPlaintextBytes);
+      final decoder = gzip.decoder.startChunkedConversion(bounded);
       decoder.add(compressed);
       decoder.close();
+    } catch (error) {
+      failed = true;
+      if (error is VaultException) failure = error;
     } finally {
-      await sink.close();
+      try {
+        await sink.close();
+      } catch (_) {
+        failed = true;
+      }
+    }
+
+    if (failed) {
+      // A corrupt stream used to leave the decoded plaintext in the app's temp
+      // directory; the caller only received the exception.
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+      throw failure ?? const VaultException(VaultFailure.corrupt);
     }
     return file;
   }
@@ -542,4 +580,25 @@ class LikesVault {
       throw const VaultException(VaultFailure.corrupt);
     }
   }
+}
+
+/// Stops a gzip stream once the decoded output passes [limit].
+class _BoundedSink implements Sink<List<int>> {
+  _BoundedSink(this._sink, this._limit);
+
+  final IOSink _sink;
+  final int _limit;
+  int _written = 0;
+
+  @override
+  void add(List<int> data) {
+    _written += data.length;
+    if (_written > _limit) {
+      throw const VaultException(VaultFailure.tooLarge);
+    }
+    _sink.add(data);
+  }
+
+  @override
+  void close() => _sink.close();
 }

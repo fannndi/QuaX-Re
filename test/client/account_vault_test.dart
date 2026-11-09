@@ -210,6 +210,28 @@ void main() {
         reason: 'A write that was cut off must not make the previous backup unreachable');
   });
 
+  test('Should not fall back to .bak when the primary uses a newer format', () async {
+    await addAccount('a', active: true, handle: 'alice');
+    final vault = AccountVault();
+    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+
+    final primary = File(accountVaultPathFor(libraryPath)!);
+    primary.writeAsStringSync(jsonEncode({
+      'format': VaultCodec.format,
+      'version': VaultCodec.currentVersion + 1,
+      'kind': 'accounts',
+    }));
+
+    await expectLater(
+      vault.read(libraryPath: libraryPath, passphrase: passphrase),
+      throwsA(isA<VaultException>()
+          .having((e) => e.failure, 'failure', VaultFailure.unsupportedVersion)),
+      reason: 'Restoring the older .bak instead would report success while silently replacing '
+          'the newer account list with a stale one',
+    );
+  });
+
   test('Should report a missing or wrong-passphrase vault clearly', () async {
     await expectLater(
         AccountVault().read(libraryPath: libraryPath, passphrase: passphrase),
