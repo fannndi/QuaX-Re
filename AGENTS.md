@@ -79,7 +79,7 @@ per request.
 | `downloads/` | Download queue, native notification bridge, connectivity watcher, video cache |
 | `group/` | `GroupFeedShell` and `FeedRefreshController`: the app bar and refresh plumbing the home feed is wrapped in |
 | `home/` | Home screen with the For You / Following feed |
-| `library/` | Hidden media library (`.nomedia`) with scan, thumbnails, external open |
+| `library/` | Hidden media library with scan, thumbnails, external open and two storage modes (app-private or visible) |
 | `likes/` | Like tab: local likes, the account's likes, X bookmarks |
 | `profile/` | Profile header, tabs and media grid |
 | `search/` | Tweet and user search |
@@ -201,17 +201,27 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   worker keeps its own client so cancelling a transfer can close its socket); tweet lists paint a
   `lib/ui/skeletons.dart` placeholder on first load, while grids and the download queue still show a
   spinner.
-- Downloads normally go to the hidden library (`.nomedia`); without a configured library folder
-  they fall back to the system save dialog, and the Download tab's `show_in_gallery` switch removes
-  the `.nomedia` marker. A native foreground service owns progress and its notification actions;
+- Downloads go to the library, which has two storage modes. `hidden` puts the media in
+  `Android/data/<package>/files/.QuaXLibrary` on the chosen volume: other apps cannot reach that
+  tree on Android 11+, the dot keeps it out of legacy file managers on Android 10, and uninstall
+  deletes it (the storage sheet therefore offers Export). `visible` is the old picked folder with a
+  `.nomedia` marker; file managers can still browse it, and the Download tab's `show_in_gallery`
+  switch applies only there. Without a configured library folder downloads fall back to the system
+  save dialog. A native foreground service owns progress and its notification actions;
   the queue is persisted (`downloads.json`), one transfer at a time, with pause/resume, Range
   resume, retries, space and integrity checks. No in-app player: gallery media opens in the system
   viewer through a FileProvider.
+- The encrypted account/likes vault root is stored in `optionVaultRoot`, not derived from the
+  library: a hidden library lives under `Android/data` and is erased on uninstall, while the vault
+  must survive it. Migration pins the old `dirname(libraryPath)` once; a hidden setup on a new
+  volume uses `<volume>/QuaX-Re`.
 - Storage access is version-split: Android 10 and below run legacy external storage
   (`requestLegacyExternalStorage` plus the runtime WRITE permission, asked from the library flow and
   answered through `onRequestPermissionsResult`), Android 11+ uses all-files access
-  (`MANAGE_EXTERNAL_STORAGE`). `hasAllFilesAccess` reports whichever route the running Android uses;
-  `openAppSettings` is the fallback for ROMs (MIUI) that stop showing the permission dialog.
+  (`MANAGE_EXTERNAL_STORAGE`). Hidden storage itself needs no permission; the grant covers a visible
+  folder, exports and the shared-storage vault folder. `hasAllFilesAccess` reports whichever route
+  the running Android uses; `openAppSettings` is the fallback for ROMs (MIUI) that stop showing the
+  permission dialog.
 - The X client is read-only: every request is a timeline/profile read, likes are local, and no
   mutation (favorites, follows, tweets, bookmark changes) is ever sent.
   `test/client/read_only_test.dart` guards the operation list. Endpoint ids, feature flags and

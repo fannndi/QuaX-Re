@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
@@ -8,6 +10,7 @@ import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/library/library_screen.dart';
+import 'package:quax/library/library_storage_sheet.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/downloads.dart';
 
@@ -217,8 +220,8 @@ class _DownloadsTabState extends State<DownloadsTab>
   }
 }
 
-/// Gallery view of the Download tab: the live gallery-visibility toggle and
-/// the library path on top, the media grid (and TikTok viewer) below.
+/// Gallery view of the Download tab: the storage mode and gallery visibility
+/// on top, the media grid below.
 class _GalleryTab extends StatefulWidget {
   final BasePrefService prefs;
 
@@ -230,8 +233,33 @@ class _GalleryTab extends StatefulWidget {
 
 class _GalleryTabState extends State<_GalleryTab> {
   late final LibraryModel _model = LibraryModel(widget.prefs);
-  late bool _visible = _model.galleryVisible;
   bool _busy = false;
+  int _storageRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.prefs.addKeyListener(optionLibraryPath, _onLibraryLocationChanged);
+    widget.prefs.addKeyListener(optionLibraryStorageMode, _onLibraryLocationChanged);
+    widget.prefs.addKeyListener(optionLibraryVisibleInGallery, _onGalleryVisibilityChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.prefs.removeKeyListener(optionLibraryPath, _onLibraryLocationChanged);
+    widget.prefs.removeKeyListener(optionLibraryStorageMode, _onLibraryLocationChanged);
+    widget.prefs.removeKeyListener(optionLibraryVisibleInGallery, _onGalleryVisibilityChanged);
+    super.dispose();
+  }
+
+  void _onLibraryLocationChanged() {
+    if (!mounted) return;
+    setState(() => _storageRevision++);
+  }
+
+  void _onGalleryVisibilityChanged() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _toggle(bool value) async {
     if (_busy) return;
@@ -247,12 +275,12 @@ class _GalleryTabState extends State<_GalleryTab> {
       return;
     }
 
-    setState(() => _visible = value);
+    setState(() {});
 
     if (!value && result.remaining > 0) {
       // The marker is in place, but rows the app no longer owns survived: the
-      // gallery may keep showing those files until it rescans. The sync
-      // action re-applies the pass for galleries that need another nudge.
+      // gallery may keep showing those files until it rescans. The storage
+      // sheet can re-apply the pass for galleries that need another nudge.
       showSnackBar(
         context,
         icon: '⚠️',
@@ -267,48 +295,67 @@ class _GalleryTabState extends State<_GalleryTab> {
     showSnackBar(context, icon: value ? '👀' : '🙈', message: message);
   }
 
+  Future<void> _manage() async {
+    await showLibraryStorageSheet(context, widget.prefs);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final configured = _model.isConfigured;
+    final hidden = _model.isHidden;
+    final visible = _model.galleryVisible;
     final path = _model.libraryPath;
     final theme = Theme.of(context);
+    final l10n = L10n.of(context);
 
     return Column(
       children: [
         Card(
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: SwitchListTile(
-                  value: _visible,
-                  onChanged: configured && !_busy ? _toggle : null,
-                  secondary: Icon(_visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                  title: Text(L10n.of(context).show_in_gallery),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(L10n.of(context).download_path, style: theme.textTheme.labelSmall),
-                      Text(configured ? path : L10n.of(context).not_set,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
+          child: hidden
+              ? ListTile(
+                  leading: const Icon(Icons.shield_outlined),
+                  title: Text(l10n.library_storage_hidden),
+                  subtitle: Text(
+                    '${_model.isOnRemovableStorage ? l10n.library_volume_sd : l10n.library_volume_internal} · ${l10n.library_hidden_status}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.tune),
+                    tooltip: l10n.library_storage_manage,
+                    onPressed: _manage,
+                  ),
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: SwitchListTile(
+                        value: visible,
+                        onChanged: configured && !_busy ? _toggle : null,
+                        secondary: Icon(
+                            visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        title: Text(l10n.show_in_gallery),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(l10n.library_visible_status, style: theme.textTheme.labelSmall),
+                            Text(configured ? path : l10n.not_set,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.tune),
+                      tooltip: l10n.library_storage_manage,
+                      onPressed: _manage,
+                    ),
+                  ],
                 ),
-              ),
-              // Applies the current state again without flipping the switch:
-              // a gallery with its own index sometimes needs the marker/scan
-              // pass twice before it lets go.
-              IconButton(
-                icon: _busy
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sync),
-                tooltip: L10n.of(context).refresh,
-                onPressed: configured && !_busy ? () => _toggle(_visible) : null,
-              ),
-            ],
-          ),
         ),
-        Expanded(child: LibraryScreen(prefs: widget.prefs)),
+        Expanded(child: LibraryScreen(key: ValueKey(_storageRevision), prefs: widget.prefs)),
       ],
     );
   }
@@ -675,8 +722,13 @@ class _DoneCard extends StatelessWidget {
     if (libraryPath == null || libraryPath.isEmpty) return;
 
     // A duplicate name is saved with a timestamp suffix; opening
-    // libraryPath/fileName then showed the previous file with that name.
-    final path = item.savedPath ?? p.join(libraryPath, item.fileName);
+    // libraryPath/fileName then showed the previous file with that name. After
+    // a library move the saved path can be stale, so fall back to the current
+    // root before giving up.
+    var path = item.savedPath;
+    if (path == null || !await File(path).exists()) {
+      path = p.join(libraryPath, item.fileName);
+    }
     final ok = await LibraryModel(prefs).openExternally(path);
     if (!ok && context.mounted) {
       showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);

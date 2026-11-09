@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:quax/client/account_vault.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/likes_vault.dart';
+import 'package:quax/client/vault_paths.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/likes/liked_tweet_model.dart';
@@ -51,10 +52,10 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     _reload();
   }
 
-  String get _libraryPath => _prefs.get<String>(optionLibraryPath) ?? '';
+  String get _vaultRoot => vaultRootPathFor(_prefs);
 
   Future<void> _reload() async {
-    final path = _libraryPath;
+    final path = _vaultRoot;
     final hasVault = path.isNotEmpty && await _vault.exists(path);
     final lastSaved = path.isEmpty ? null : await _vault.lastSaved(path);
     final hasLikesVault = path.isNotEmpty && await _likesVault.exists(path);
@@ -98,7 +99,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
   Future<void> _createBackup() async {
     final l10n = L10n.of(context);
-    if (_libraryPath.isEmpty) {
+    if (_vaultRoot.isEmpty) {
       showSnackBar(context, icon: '🙊', message: l10n.account_backup_no_library);
       return;
     }
@@ -112,7 +113,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (passphrase == null || !mounted) return;
 
     await _run(() async {
-      final result = await _vault.write(libraryPath: _libraryPath, passphrase: passphrase);
+      final result = await _vault.write(vaultRoot: _vaultRoot, passphrase: passphrase);
       await _prefs.set<bool>(optionAccountVaultDirty, false);
       if (mounted) {
         showSnackBar(context,
@@ -127,7 +128,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
     AccountVaultReadResult result;
     try {
-      result = await _vault.read(libraryPath: _libraryPath, passphrase: passphrase);
+      result = await _vault.read(vaultRoot: _vaultRoot, passphrase: passphrase);
     } catch (error) {
       if (mounted) _showError(error);
       return;
@@ -146,7 +147,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
   Future<void> _importFile() async {
     final l10n = L10n.of(context);
-    if (_libraryPath.isEmpty) {
+    if (_vaultRoot.isEmpty) {
       showSnackBar(context, icon: '🙊', message: l10n.account_backup_no_library);
       return;
     }
@@ -178,7 +179,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
     await _run(() async {
       final imported = await importAccounts(result.accounts, replaceExisting: replace);
-      await _vault.adoptFile(sourcePath: path, libraryPath: _libraryPath);
+      await _vault.adoptFile(sourcePath: path, vaultRoot: _vaultRoot);
       await _prefs.set<bool>(optionAccountVaultDirty, false);
       _showRestored(result, imported);
     });
@@ -196,7 +197,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
   Future<void> _share() async {
     final l10n = L10n.of(context);
-    final path = await _existingVaultPath(accountVaultPathFor(_libraryPath));
+    final path = await _existingVaultPath(accountVaultPathFor(_vaultRoot));
     if (path == null) {
       if (mounted) showSnackBar(context, icon: '🙊', message: l10n.account_backup_missing);
       return;
@@ -230,16 +231,16 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
       // while the likes vault still needed the old one, with no way to finish
       // the change from the UI.
       if (_hasLikesVault) {
-        await _likesVault.read(libraryPath: _libraryPath, passphrase: oldPassphrase);
+        await _likesVault.read(vaultRoot: _vaultRoot, passphrase: oldPassphrase);
       }
       await _vault.changePassphrase(
-        libraryPath: _libraryPath,
+        vaultRoot: _vaultRoot,
         oldPassphrase: oldPassphrase,
         newPassphrase: newPassphrase,
       );
       if (_hasLikesVault) {
         await _likesVault.changePassphrase(
-          libraryPath: _libraryPath,
+          vaultRoot: _vaultRoot,
           oldPassphrase: oldPassphrase,
           newPassphrase: newPassphrase,
         );
@@ -260,7 +261,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (!mounted) return;
 
     await _run(() async {
-      await _vault.delete(_libraryPath);
+      await _vault.delete(_vaultRoot);
       await _prefs.set<bool>(optionAccountVaultDirty, false);
     });
   }
@@ -306,7 +307,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     // now keeps a different likes passphrase from making a later change fail
     // halfway through.
     try {
-      await _vault.read(libraryPath: _libraryPath, passphrase: passphrase);
+      await _vault.read(vaultRoot: _vaultRoot, passphrase: passphrase);
     } catch (error) {
       if (mounted) _showError(error);
       return;
@@ -314,7 +315,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (!mounted) return;
 
     await _run(() async {
-      final result = await _likesVault.write(libraryPath: _libraryPath, passphrase: passphrase);
+      final result = await _likesVault.write(vaultRoot: _vaultRoot, passphrase: passphrase);
       await _prefs.set<String>(optionLikesVaultSnapshot, await _likesVault.snapshot());
       if (mounted) {
         showSnackBar(context,
@@ -334,9 +335,9 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
       // opened with a different phrase before touching the database, so a later
       // passphrase change cannot get stuck halfway.
       if (_hasVault) {
-        await _vault.read(libraryPath: _libraryPath, passphrase: passphrase);
+        await _vault.read(vaultRoot: _vaultRoot, passphrase: passphrase);
       }
-      final result = await _likesVault.import(libraryPath: _libraryPath, passphrase: passphrase);
+      final result = await _likesVault.import(vaultRoot: _vaultRoot, passphrase: passphrase);
       if (!mounted) return;
       await context.read<LikedTweetModel>().refreshLikedTweets();
       if (mounted) _showLikesRestored(result);
@@ -366,11 +367,11 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
     await _run(() async {
       if (_hasVault) {
-        await _vault.read(libraryPath: _libraryPath, passphrase: passphrase);
+        await _vault.read(vaultRoot: _vaultRoot, passphrase: passphrase);
       }
       final result = await _likesVault.importFile(
         filePath: path,
-        libraryPath: _libraryPath,
+        vaultRoot: _vaultRoot,
         passphrase: passphrase,
       );
       await _prefs.set<String>(optionLikesVaultSnapshot, await _likesVault.snapshot());
@@ -382,7 +383,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
   Future<void> _shareLikes() async {
     final l10n = L10n.of(context);
-    final path = await _existingVaultPath(likesVaultPathFor(_libraryPath));
+    final path = await _existingVaultPath(likesVaultPathFor(_vaultRoot));
     if (path == null) {
       if (mounted) showSnackBar(context, icon: '🙊', message: l10n.likes_backup_file_missing);
       return;
@@ -409,7 +410,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (!mounted) return;
 
     await _run(() async {
-      await _likesVault.delete(_libraryPath);
+      await _likesVault.delete(_vaultRoot);
       await _prefs.set<String>(optionLikesVaultSnapshot, '');
     });
   }
@@ -487,7 +488,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
                 _statusCard(l10n),
                 const SizedBox(height: 12),
                 Text(l10n.account_backup_description),
-                if (_libraryPath.isEmpty) ...[
+                if (_vaultRoot.isEmpty) ...[
                   const SizedBox(height: 12),
                   Text(l10n.account_backup_no_library,
                       style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -596,7 +597,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
   }
 
   Widget _statusCard(L10n l10n) {
-    final status = _libraryPath.isEmpty
+    final status = _vaultRoot.isEmpty
         ? l10n.account_backup_no_library
         : !_hasVault
             ? l10n.account_backup_missing

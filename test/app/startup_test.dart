@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
 import 'package:quax/app/startup.dart';
 import 'package:quax/constants.dart';
@@ -9,6 +10,52 @@ import 'package:quax/constants.dart';
 /// starting state gets its own case.
 void main() {
   BasePrefService prefsWith(Map<String, dynamic> values) => PrefServiceCache(cache: values);
+
+  group('migrateLibraryStoragePrefs()', () {
+    test('Should pin the old sibling vault folder and keep the visible mode', () async {
+      final prefs = prefsWith({
+        optionLibraryPath: p.join('storage', 'Download', 'QuaXTest', 'QuaXLibrary'),
+      });
+
+      await migrateLibraryStoragePrefs(prefs);
+
+      expect(prefs.get<String>(optionLibraryStorageMode), libraryStorageVisible,
+          reason: 'An install that predates hidden storage has a user-picked folder, so it must '
+              'not suddenly claim to be hidden');
+      expect(prefs.get<String>(optionVaultRoot), p.join('storage', 'Download', 'QuaXTest'),
+          reason: 'The account vault lives beside QuaXLibrary today; pinning the parent before the '
+              'library can move keeps the backups readable');
+    });
+
+    test('Should derive a volume-root vault for a library already in Android/data', () async {
+      final prefs = prefsWith({
+        optionLibraryPath: p.join('storage', 'emulated', '0', 'Android', 'data', 'pkg', 'files', '.QuaXLibrary'),
+      });
+
+      await migrateLibraryStoragePrefs(prefs);
+
+      expect(prefs.get<String>(optionLibraryStorageMode), libraryStorageHidden,
+          reason: 'A path under Android/data could only come from hidden setup');
+      expect(prefs.get<String>(optionVaultRoot), p.join('storage', 'emulated', '0', 'QuaX-Re'),
+          reason: 'Android/data is erased on uninstall, so the vault has to sit on the volume root '
+              'instead of beside the hidden media');
+    });
+
+    test('Should not overwrite a mode or vault folder already chosen', () async {
+      final prefs = prefsWith({
+        optionLibraryPath: p.join('storage', 'QuaXLibrary'),
+        optionLibraryStorageMode: libraryStorageHidden,
+        optionVaultRoot: '/somewhere/else',
+      });
+
+      await migrateLibraryStoragePrefs(prefs);
+
+      expect(prefs.get<String>(optionLibraryStorageMode), libraryStorageHidden,
+          reason: 'The migration runs on every launch and must be idempotent');
+      expect(prefs.get<String>(optionVaultRoot), '/somewhere/else',
+          reason: 'A folder the reader chose (or a move already performed) must survive');
+    });
+  });
 
   group('migrateMediaQualityPrefs()', () {
     test('Should split one quality into the image and the video setting', () async {

@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The library folder is chosen by the user and can live anywhere on shared
-     storage (SD cards included). Expose only /storage, not the filesystem root:
-     a media grant must not also be able to wrap the app's databases or
-     preferences under /data. -->
+<!-- The library can be a folder the user picked anywhere on shared storage
+     (SD cards included) or the app's own tree under Android/data. Expose only
+     /storage, not the filesystem root: a media grant must not also be able to
+     wrap the app's databases or preferences under /data. The files-path entry
+     is the fallback when no external volume is available. -->
 <paths>
     <root-path name="storage" path="/storage/" />
+    <files-path name="app_files" path="." />
 </paths>

@@ -417,8 +417,29 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _save(force: true);
   }
 
-  void markDone(String fileName, {String? savedPath}) {
-    _cancelHooks.remove(fileName);
+  /// Rewrites the paths of finished entries after the library moved. The
+  /// stored path is what the done card opens; leaving it on the old root made
+  /// every finished row point at a file that is no longer there.
+  void relocateSavedPaths(String oldRoot, String newRoot) {
+    if (oldRoot.isEmpty || newRoot.isEmpty || p.equals(oldRoot, newRoot)) return;
+
+    var changed = false;
+    final updated = <DownloadQueueItem>[];
+    for (final item in state) {
+      final saved = item.savedPath;
+      if (saved != null && p.isWithin(oldRoot, saved)) {
+        updated.add(item.copyWith(savedPath: p.join(newRoot, p.relative(saved, from: oldRoot))));
+        changed = true;
+      } else {
+        updated.add(item);
+      }
+    }
+    if (!changed) return;
+    update(updated);
+    _save(force: true);
+  }
+
+  void markDone(String fileName, {String? savedPath}) {    _cancelHooks.remove(fileName);
     _paused.remove(fileName);
     final index = _indexOf(fileName);
     if (index < 0) return;

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:quax/downloads/downloads_model.dart';
 
 void main() {
@@ -230,6 +231,20 @@ void main() {
               'that file, not the older one that happened to keep the original name');
       expect(DownloadQueueItem.fromJson(item.toJson()).savedPath, item.savedPath,
           reason: 'The path must survive the queue ledger across a restart');
+    });
+
+    test('Should point finished rows at the new root after the library moves', () {
+      final oldRoot = p.join('storage', 'old');
+      final newRoot = p.join('storage', 'new');
+      queue.register('clip.mp4', 'https://x/clip.mp4', true);
+      queue.startRunning('clip.mp4');
+      queue.markDone('clip.mp4', savedPath: p.join(oldRoot, 'clip.mp4'));
+
+      queue.relocateSavedPaths(oldRoot, newRoot);
+
+      expect(queue.itemFor('clip.mp4')?.savedPath, p.join(newRoot, 'clip.mp4'),
+          reason: 'The done card opens savedPath directly; after a library move it pointed at a '
+              'file that no longer existed and every finished row looked broken');
     });
   });
 

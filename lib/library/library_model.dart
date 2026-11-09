@@ -14,6 +14,13 @@ import 'package:quax/utils/lru_cache.dart';
 const _nomedia = '.nomedia';
 const libraryFolderName = 'QuaXLibrary';
 
+/// A dot keeps the hidden root out of file managers that still reach
+/// `Android/data` (Android 10 with legacy storage). On Android 11+ the whole
+/// `Android/data/<package>` tree is already off-limits to other apps.
+const hiddenLibraryFolderName = '.QuaXLibrary';
+
+const _spaceMarginBytes = 16 * 1024 * 1024;
+
 // Patched in MainActivity.kt: checks/opens Android's all-files-access screen,
 // which is what plain dart:io writes to a picked folder (with an SD card!)
 // depend on since scoped storage. Also serves the video-thumbnail handler.
@@ -83,16 +90,136 @@ class GalleryVisibilityResult {
   final int remaining;
 }
 
-/// State of the Hentoid-style hidden library: a folder the user picked from
-/// the device storage (visible in file managers), holding every downloaded
-/// media and a `.nomedia` marker that keeps gallery apps from indexing it.
+enum LibraryStorageMode { hidden, visible }
+
+/// One storage volume that can hold the hidden library. `appFilesRoot` is the
+/// app-specific directory (`.../Android/data/<package>/files`), which needs no
+/// storage permission and is invisible to other apps on Android 11+.
+class LibraryVolume {
+  const LibraryVolume(this.appFilesRoot);
+
+  final String appFilesRoot;
+
+  /// App-specific dirs on the primary volume look like
+  /// `/storage/emulated/0/...`; a removable card arrives as
+  /// `/storage/XXXX-XXXX/...`.
+  bool get isPrimary => appFilesRoot.startsWith('/storage/emulated/');
+
+  String get hiddenRoot => p.join(appFilesRoot, hiddenLibraryFolderName);
+
+  /// `/storage/emulated/0/Android/data/...` -> `/storage/emulated/0`.
+  String get volumeRoot {
+    final parts = p.split(appFilesRoot);
+    final android = parts.indexOf('Android');
+    if (android > 0) return p.joinAll(parts.sublist(0, android));
+    return p.dirname(appFilesRoot);
+  }
+
+  /// Account backups live outside the media tree, on the same volume, so an
+  /// uninstall can delete the hidden library without touching the vault.
+  String get vaultRoot => p.join(volumeRoot, 'QuaX-Re');
+
+  @override
+  bool operator ==(Object other) => other is LibraryVolume && other.appFilesRoot == appFilesRoot;
+
+  @override
+  int get hashCode => appFilesRoot.hashCode;
+}
+
+class LibraryMoveResult {
+  const LibraryMoveResult({required this.moved, required this.failed, this.error});
+
+  const LibraryMoveResult.failed(this.error) : moved = 0, failed = 0;
+
+  final int moved;
+  final int failed;
+  final String? error;
+
+  bool get ok => error == null && failed == 0;
+}
+
+class LibraryExportResult {
+  const LibraryExportResult({required this.copied, required this.failed, this.path, this.error});
+
+  const LibraryExportResult.failed(this.error) : copied = 0, failed = 0, path = null;
+
+  final int copied;
+  final int failed;
+  final String? path;
+  final String? error;
+
+  bool get ok => error == null && failed == 0;
+}
+
+/// State of the downloaded-media library.
+///
+/// `visible` is the original Hentoid-style folder the reader picked, with a
+/// `.nomedia` marker: file managers still list it. `hidden` moves the media
+/// into the app-specific external directory on the chosen volume, which other
+/// apps cannot reach on Android 11+ and which a dot-prefixed folder keeps out
+/// of sight on Android 10 legacy file managers.
 class LibraryModel extends Store<List<LibraryEntry>> {
   final BasePrefService prefs;
   LibraryModel(this.prefs) : super([]);
 
+  /// Test seam: path_provider has no plugin in the unit-test binary.
+  @visibleForTesting
+  static Future<List<Directory>?> Function()? debugExternalDirectories;
+
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
 
   bool get isConfigured => libraryPath.isNotEmpty;
+
+  LibraryStorageMode get storageMode {
+    final value = prefs.get<String>(optionLibraryStorageMode);
+    if (value == libraryStorageHidden) return LibraryStorageMode.hidden;
+    if (value == libraryStorageVisible) return LibraryStorageMode.visible;
+
+    // Older builds stored only the path. A path under Android/data could only
+    // have come from hidden setup, so infer it instead of showing the visible
+    // folder controls over it.
+    final path = libraryPath;
+    if (path.contains('${p.separator}Android${p.separator}data${p.separator}')) {
+      return LibraryStorageMode.hidden;
+    }
+    return LibraryStorageMode.visible;
+  }
+
+  bool get isHidden => storageMode == LibraryStorageMode.hidden;
+
+  /// Whether the configured root sits on a removable card. Used by the status
+  /// row to say "SD card" instead of printing an `Android/data` path nobody
+  /// needs to read.
+  bool get isOnRemovableStorage {
+    final parts = p.split(libraryPath);
+    return parts.length > 2 && parts[1] == 'storage' && parts[2] != 'emulated';
+  }
+
+  /// Every volume the app can write to without a permission prompt. The
+  /// primary volume comes first so the UI has a sane default; a removable card
+  /// is what makes the "set it on the SD card" flow possible.
+  Future<List<LibraryVolume>> availableVolumes() async {
+    final dirs = await (debugExternalDirectories?.call() ?? getExternalStorageDirectories());
+    if (dirs == null) return const [];
+
+    final volumes = <LibraryVolume>[];
+    for (final dir in dirs) {
+      final volume = LibraryVolume(dir.path);
+      if (!volumes.contains(volume)) volumes.add(volume);
+    }
+    volumes.sort((a, b) {
+      if (a.isPrimary == b.isPrimary) return a.appFilesRoot.compareTo(b.appFilesRoot);
+      return a.isPrimary ? -1 : 1;
+    });
+    return volumes;
+  }
+
+  /// Whether the configured folder still exists. A removed SD card must show a
+  /// reconnect screen, not silently launch the folder picker.
+  Future<bool> get storageAvailable async {
+    final path = libraryPath;
+    return path.isNotEmpty && await Directory(path).exists();
+  }
 
   /// Whether the library is listed by gallery apps: true means the `.nomedia`
   /// marker is gone.
@@ -106,6 +233,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   Future<GalleryVisibilityResult> setGalleryVisible(bool visible) async {
     final path = libraryPath;
     if (path.isEmpty) return GalleryVisibilityResult.failed;
+    // MediaStore cannot index Android/data; the switch has no meaning there.
+    if (isHidden) return GalleryVisibilityResult.failed;
 
     try {
       final outcome = await _storageChannel.invokeMapMethod<String, dynamic>('setGalleryVisibility', {
@@ -291,12 +420,342 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   }
 
   /// Drops the shared index after the folder's contents changed.
-  void _invalidateNameIndex() {
-    _nameIndexes.remove(libraryPath);
-    _nameIndexBuiltAt.remove(libraryPath);
+  void _invalidateNameIndex() => _invalidateNameIndexAt(libraryPath);
+
+  void _invalidateNameIndexAt(String path) {
+    if (path.isEmpty) return;
+    _nameIndexes.remove(path);
+    _nameIndexBuiltAt.remove(path);
   }
 
-  /// Configures [pickedPath] into the hidden library root, without running the
+  /// Configures the library into the app-private directory of [volume]. No
+  /// storage permission is involved: the app owns this tree, and Android keeps
+  /// it away from other apps on 11+.
+  Future<bool> setupHiddenLibrary(LibraryVolume volume, {ValueNotifier<String?>? error}) async {
+    try {
+      final root = Directory(volume.hiddenRoot);
+      await root.create(recursive: true);
+      await _ensureNomedia(root);
+      await prefs.set<String>(optionLibraryPath, root.path);
+      await prefs.set<String>(optionLibraryStorageMode, libraryStorageHidden);
+      await prefs.set<bool>(optionLibraryVisibleInGallery, false);
+      await _pinVaultRoot(volume);
+      _invalidateNameIndexAt(root.path);
+      update([]);
+      return true;
+    } on Exception catch (e) {
+      error?.value = e.toString();
+      return false;
+    }
+  }
+
+  /// Moves the current media into [volume]'s hidden directory and switches the
+  /// library there. Callers pause the download queue first; a transfer that
+  /// lands mid-move would save into the folder that is being emptied.
+  Future<LibraryMoveResult> moveToHidden(LibraryVolume volume) async {
+    final result = await _moveRoot(Directory(volume.hiddenRoot), mode: LibraryStorageMode.hidden);
+    if (result.error == null) await _pinVaultRoot(volume);
+    return result;
+  }
+
+  /// Moves the current media into `<pickedParent>/QuaXLibrary` and switches to
+  /// the visible mode. The vault root deliberately stays where it is: account
+  /// backups must not follow a media folder into app-private storage.
+  Future<LibraryMoveResult> moveToVisibleAt(String pickedParent) {
+    return _moveRoot(Directory(p.join(pickedParent, libraryFolderName)),
+        mode: LibraryStorageMode.visible);
+  }
+
+  Future<void> _pinVaultRoot(LibraryVolume volume) async {
+    final current = prefs.get<String>(optionVaultRoot) ?? '';
+    if (current.isNotEmpty) return;
+    await prefs.set<String>(optionVaultRoot, volume.vaultRoot);
+  }
+
+  Future<LibraryMoveResult> _moveRoot(Directory target, {required LibraryStorageMode mode}) async {
+    final sourcePath = libraryPath;
+    final sourceWasVisible = !isHidden;
+    if (sourcePath.isEmpty) {
+      try {
+        await _configureTarget(target, mode);
+      } catch (e) {
+        return LibraryMoveResult.failed(e.toString());
+      }
+      return const LibraryMoveResult(moved: 0, failed: 0);
+    }
+
+    if (p.equals(sourcePath, target.path)) {
+      try {
+        await _configureTarget(target, mode);
+        await refresh();
+      } catch (e) {
+        return LibraryMoveResult.failed(e.toString());
+      }
+      return const LibraryMoveResult(moved: 0, failed: 0);
+    }
+
+    // Moving a library into itself (or over its own parent) would copy the
+    // target into the source while walking it. Refuse before touching a file.
+    if (p.isWithin(sourcePath, target.path) || p.isWithin(target.path, sourcePath)) {
+      return const LibraryMoveResult.failed('inside_library');
+    }
+
+    // Sizes come from the scan, and the free-space check is useless without
+    // them. This also means a library that was never opened still moves
+    // correctly.
+    await refresh();
+    final totalBytes = state.fold<int>(0, (sum, entry) => sum + entry.size);
+    // A same-volume move is a rename and needs no free space; checking it
+    // would refuse to tidy a nearly full disk that has nothing to copy.
+    if (!_sameStorage(sourcePath, target.path)) {
+      final free = await _availableSpace(target.path);
+      if (free != null && totalBytes + _spaceMarginBytes > free) {
+        return const LibraryMoveResult.failed('no_space');
+      }
+    }
+
+    final source = Directory(sourcePath);
+    if (!await source.exists()) {
+      try {
+        await _configureTarget(target, mode);
+        await refresh();
+      } catch (e) {
+        return LibraryMoveResult.failed(e.toString());
+      }
+      return const LibraryMoveResult(moved: 0, failed: 0);
+    }
+
+    try {
+      await target.create(recursive: true);
+    } catch (e) {
+      return LibraryMoveResult.failed(e.toString());
+    }
+
+    var moved = 0;
+    var failed = 0;
+    try {
+      // Collect first: moving entries out of a directory while its lazy
+      // listing is still walking it can skip files on some filesystems.
+      final files = <File>[];
+      await for (final entity in source.list(recursive: true, followLinks: false)) {
+        if (entity is File) files.add(entity);
+      }
+
+      for (final entity in files) {
+        final relative = p.relative(entity.path, from: sourcePath);
+        if (p.basename(relative) == _nomedia) continue;
+
+        try {
+          var destination = p.join(target.path, relative);
+          await Directory(p.dirname(destination)).create(recursive: true);
+          if (await File(destination).exists()) destination = _uniqueDestination(destination);
+
+          try {
+            // Same volume: rename is atomic and copies nothing. Across the SD
+            // card boundary Android refuses the rename, so fall back to a
+            // copy that only deletes the source after it succeeded.
+            await entity.rename(destination);
+          } on FileSystemException {
+            await entity.copy(destination);
+            await entity.delete();
+          }
+          moved++;
+        } catch (_) {
+          // One unreadable file must not abandon the rest of the library.
+          failed++;
+        }
+      }
+    } catch (e) {
+      return LibraryMoveResult(moved: moved, failed: failed, error: e.toString());
+    }
+
+    try {
+      await _configureTarget(target, mode);
+    } catch (e) {
+      return LibraryMoveResult(moved: moved, failed: failed, error: e.toString());
+    }
+
+    // Leave the old folder alone when a failed file is still in it; deleting
+    // it recursively would destroy the only copy.
+    try {
+      if (await _onlyNomediaRemains(source)) {
+        if (sourceWasVisible) {
+          // The old folder may still have MediaStore rows from when the gallery
+          // switch was on. Re-applying the marker before deleting it makes the
+          // provider drop those rows instead of showing broken thumbnails.
+          try {
+            await _storageChannel.invokeMethod('setGalleryVisibility', {
+              'path': sourcePath,
+              'visible': false,
+            });
+          } on Exception {
+            // The folder is about to disappear; a failed scan changes nothing.
+          }
+        }
+        await source.delete(recursive: true);
+      }
+    } catch (_) {
+      // A folder that refuses deletion is harmless.
+    }
+
+    await refresh();
+    return LibraryMoveResult(moved: moved, failed: failed);
+  }
+
+  Future<void> _configureTarget(Directory target, LibraryStorageMode mode) async {
+    await target.create(recursive: true);
+    final marker = File(p.join(target.path, _nomedia));
+    final visible = prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
+
+    if (mode == LibraryStorageMode.hidden) {
+      await _ensureNomedia(target);
+      await prefs.set<bool>(optionLibraryVisibleInGallery, false);
+    } else if (visible) {
+      if (await marker.exists()) await marker.delete();
+    } else {
+      await _ensureNomedia(target);
+    }
+
+    final oldPath = libraryPath;
+    await prefs.set<String>(optionLibraryPath, target.path);
+    await prefs.set<String>(
+      optionLibraryStorageMode,
+      mode == LibraryStorageMode.hidden ? libraryStorageHidden : libraryStorageVisible,
+    );
+    _invalidateNameIndexAt(oldPath);
+    _invalidateNameIndexAt(target.path);
+    update([]);
+
+    if (mode == LibraryStorageMode.visible && visible) {
+      try {
+        // A picked folder can already hold media: index it right away, so the
+        // gallery switch means what it says from the first run.
+        await _storageChannel.invokeMethod('setGalleryVisibility', {
+          'path': target.path,
+          'visible': true,
+        });
+      } on Exception {
+        // The folder still works; the switch can retry the scan.
+      }
+    }
+  }
+
+  Future<void> _ensureNomedia(Directory root) async {
+    final marker = File(p.join(root.path, _nomedia));
+    if (!await marker.exists()) await marker.create();
+  }
+
+  Future<bool> _onlyNomediaRemains(Directory dir) async {
+    await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File && p.basename(entity.path) != _nomedia) return false;
+    }
+    return true;
+  }
+
+  /// Whether two paths live on the same mounted volume. Android exposes the
+  /// primary storage as `/storage/emulated/<user>` and a card as
+  /// `/storage/<uuid>`; a rename between the two is refused.
+  bool _sameStorage(String a, String b) {
+    final pa = p.split(a);
+    final pb = p.split(b);
+    if (pa.length < 3 || pb.length < 3) return true;
+    if (pa[1] != 'storage' || pb[1] != 'storage') return true;
+    if (pa[2] != pb[2]) return false;
+    if (pa[2] == 'emulated') {
+      return pa.length > 3 && pb.length > 3 && pa[3] == pb[3];
+    }
+    return true;
+  }
+
+  static int _collisionSequence = 0;
+
+  String _uniqueDestination(String path) {
+    final stem = p.basenameWithoutExtension(path);
+    final extension = p.extension(path);
+    final suffix = '${DateTime.now().millisecondsSinceEpoch}-${_collisionSequence++}';
+    return p.join(p.dirname(path), '$stem-$suffix$extension');
+  }
+
+  Future<int?> _availableSpace(String path) async {
+    try {
+      return await _storageChannel.invokeMethod<int>('getAvailableSpace', {'path': path});
+    } on Exception {
+      return null;
+    }
+  }
+
+  /// Asks for the all-files grant the visible mode and exports need. Hidden
+  /// storage itself never asks: the app owns its `Android/data` tree.
+  Future<bool> ensureStorageAccess() async {
+    try {
+      var granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      if (granted != true) {
+        granted = await _storageChannel.invokeMethod<bool>('requestAllFilesAccess');
+      }
+      if (granted != true) {
+        granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      }
+      return granted == true;
+    } on Exception {
+      return false;
+    }
+  }
+
+  /// Copies the whole library (or just [entries]) into a new
+  /// `<destinationParent>/QuaX-Re Export` folder. Hidden media cannot be
+  /// reached from a file manager or survive an uninstall, so this is the way
+  /// out for the reader.
+  Future<LibraryExportResult> exportTo(String destinationParent,
+      {List<LibraryEntry>? entries}) async {
+    final sourcePath = libraryPath;
+    if (sourcePath.isEmpty) return const LibraryExportResult.failed('not_configured');
+
+    final selected = entries ?? state;
+    if (selected.isEmpty) return const LibraryExportResult.failed('empty');
+    if (p.equals(destinationParent, sourcePath) || p.isWithin(sourcePath, destinationParent)) {
+      // Putting the export inside the library would make the gallery list every
+      // exported copy as a new download.
+      return const LibraryExportResult.failed('inside_library');
+    }
+
+    var base = p.join(destinationParent, 'QuaX-Re Export');
+    if (await Directory(base).exists()) {
+      base = '$base-${DateTime.now().millisecondsSinceEpoch}';
+    }
+    final target = Directory(base);
+    try {
+      await target.create(recursive: true);
+    } catch (e) {
+      return LibraryExportResult.failed(e.toString());
+    }
+
+    final totalBytes = selected.fold<int>(0, (sum, entry) => sum + entry.size);
+    final free = await _availableSpace(target.path);
+    if (free != null && totalBytes + _spaceMarginBytes > free) {
+      return const LibraryExportResult.failed('no_space');
+    }
+
+    var copied = 0;
+    var failed = 0;
+    for (final entry in selected) {
+      try {
+        final relative = p.isWithin(sourcePath, entry.file.path)
+            ? p.relative(entry.file.path, from: sourcePath)
+            : entry.name;
+        var destination = p.join(target.path, relative);
+        await Directory(p.dirname(destination)).create(recursive: true);
+        if (await File(destination).exists()) destination = _uniqueDestination(destination);
+        await entry.file.copy(destination);
+        copied++;
+      } catch (_) {
+        failed++;
+      }
+    }
+
+    return LibraryExportResult(copied: copied, failed: failed, path: target.path);
+  }
+
+  /// Configures [pickedPath] into the visible library root, without running the
   /// system picker (the settings screen picks the folder itself).
   ///
   /// Fails (returns false, [error] filled) when the pick landed on storage the
@@ -322,14 +781,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       // Android 10 and below answer the request only after the user has chosen
       // in the runtime dialog; Android 11+ opens the all-files screen, and the
       // grant only shows on the next check (activity resume).
-      var granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
-      if (granted != true) {
-        granted = await _storageChannel.invokeMethod<bool>('requestAllFilesAccess');
-      }
-      if (granted != true) {
-        granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
-      }
-      if (granted != true) {
+      final granted = await ensureStorageAccess();
+      if (!granted) {
         error?.value = 'storage_permission_needed';
         return false;
       }
@@ -348,7 +801,14 @@ class LibraryModel extends Store<List<LibraryEntry>> {
         await nomedia.create();
       }
 
-      prefs.set<String>(optionLibraryPath, root.path);
+      await prefs.set<String>(optionLibraryPath, root.path);
+      await prefs.set<String>(optionLibraryStorageMode, libraryStorageVisible);
+      // Backup folder: the parent the reader picked, exactly where the old
+      // sibling-QuaXAccount layout already put it.
+      if ((prefs.get<String>(optionVaultRoot) ?? '').isEmpty) {
+        await prefs.set<String>(optionVaultRoot, pickedPath);
+      }
+      _invalidateNameIndexAt(root.path);
       update([]);
 
       if (visible) {
@@ -450,8 +910,13 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   Future<void> refresh() async {
     _invalidateNameIndex();
+    final path = libraryPath;
+    if (path.isEmpty) {
+      update([]);
+      return;
+    }
     await execute(() async {
-      final dir = Directory(libraryPath);
+      final dir = Directory(path);
       if (!await dir.exists()) {
         return <LibraryEntry>[];
       }

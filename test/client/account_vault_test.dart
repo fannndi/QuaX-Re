@@ -14,7 +14,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   const passphrase = 'correct horse battery';
   late Directory temp;
-  late String libraryPath;
+  late String vaultRoot;
 
   setUpAll(() {
     databaseName = 'quax_account_vault_test.db';
@@ -28,8 +28,8 @@ void main() {
     activeAccount.value = null;
     accountsRevision.value = 0;
     temp = await Directory.systemTemp.createTemp('quax-account-vault-');
-    libraryPath = p.join(temp.path, 'QuaXLibrary');
-    await Directory(libraryPath).create();
+    vaultRoot = p.join(temp.path, 'backups');
+    await Directory(vaultRoot).create();
   });
 
   tearDown(() async {
@@ -58,25 +58,25 @@ void main() {
         ).toMap());
   }
 
-  test('Should write the vault beside QuaXLibrary and read the sessions back', () async {
+  test('Should write the vault into the QuaXAccount folder and read the sessions back', () async {
     await addAccount('a', active: true, userId: '101', handle: 'alice');
     await addAccount('b', userId: '102', handle: 'bob');
 
-    final result = await AccountVault().write(libraryPath: libraryPath, passphrase: passphrase);
+    final result = await AccountVault().write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     expect(result.accounts, 2);
-    expect(File(accountVaultPathFor(libraryPath)!).existsSync(), isTrue);
-    expect(File(p.join(accountFolderPathFor(libraryPath)!, '.nomedia')).existsSync(), isTrue,
+    expect(File(accountVaultPathFor(vaultRoot)!).existsSync(), isTrue);
+    expect(File(p.join(accountFolderPathFor(vaultRoot)!, '.nomedia')).existsSync(), isTrue,
         reason: 'The account folder must not be indexed as media');
-    expect(p.basename(p.dirname(accountVaultPathFor(libraryPath)!)), accountFolderName);
+    expect(p.basename(p.dirname(accountVaultPathFor(vaultRoot)!)), accountFolderName);
 
-    final text = File(accountVaultPathFor(libraryPath)!).readAsStringSync();
+    final text = File(accountVaultPathFor(vaultRoot)!).readAsStringSync();
     expect(text, isNot(contains('auth_token')),
         reason: 'A vault copied off the device must not hand over a live cookie');
     expect(text, isNot(contains('alice')),
         reason: 'Handles are encrypted too');
 
-    final read = await AccountVault().read(libraryPath: libraryPath, passphrase: passphrase);
+    final read = await AccountVault().read(vaultRoot: vaultRoot, passphrase: passphrase);
     expect(read.accounts.map((a) => a.screenName), containsAll(['alice', 'bob']));
     expect(read.accounts.firstWhere((a) => a.isActive).screenName, 'alice',
         reason: 'The active account is part of the backup so a restore comes back on the same login');
@@ -93,13 +93,13 @@ void main() {
   test('Should import into an empty database and keep the active account', () async {
     await addAccount('a', active: true, userId: '101', handle: 'alice');
     await addAccount('b', userId: '102', handle: 'bob');
-    await AccountVault().write(libraryPath: libraryPath, passphrase: passphrase);
+    await AccountVault().write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     final db = await Repository.writable();
     await db.delete(tableAccounts);
     activeAccount.value = null;
 
-    final read = await AccountVault().read(libraryPath: libraryPath, passphrase: passphrase);
+    final read = await AccountVault().read(vaultRoot: vaultRoot, passphrase: passphrase);
     final imported = await importAccounts(read.accounts);
 
     expect(imported.imported, 2);
@@ -116,7 +116,7 @@ void main() {
   test('Should keep the current session unless the restore asks to replace it', () async {
     await addAccount('a', active: true, userId: '101', handle: 'alice');
     final vault = AccountVault();
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     final db = await Repository.writable();
     await db.update(tableAccounts, {'auth_header': authHeader('newer')}, where: 'id = ?', whereArgs: ['csrf-a']);
@@ -124,7 +124,7 @@ void main() {
     await db.insert(tableAccountLike,
         {columnAccountLocalId: 'local-a', columnTweetId: 'liked'});
 
-    final read = await vault.read(libraryPath: libraryPath, passphrase: passphrase);
+    final read = await vault.read(vaultRoot: vaultRoot, passphrase: passphrase);
     final kept = await importAccounts(read.accounts);
     expect(kept.kept, 1);
     expect(kept.replaced, 0);
@@ -144,7 +144,7 @@ void main() {
   });
 
   test('Should report invalid entries and reject a vault with none usable', () async {
-    await ensureAccountFolder(libraryPath);
+    await ensureAccountFolder(vaultRoot);
     final codec = VaultCodec(iterations: 10000);
     final envelope = await codec.encrypt(
       passphrase: passphrase,
@@ -168,9 +168,9 @@ void main() {
         ],
       },
     );
-    File(accountVaultPathFor(libraryPath)!).writeAsStringSync(envelope);
+    File(accountVaultPathFor(vaultRoot)!).writeAsStringSync(envelope);
 
-    final read = await AccountVault().read(libraryPath: libraryPath, passphrase: passphrase);
+    final read = await AccountVault().read(vaultRoot: vaultRoot, passphrase: passphrase);
     expect(read.accounts, hasLength(1),
         reason: 'One bad account must not discard the good one in the same backup');
     expect(read.invalid, 1,
@@ -187,10 +187,10 @@ void main() {
         ],
       },
     );
-    File(accountVaultPathFor(libraryPath)!).writeAsStringSync(noAccounts);
+    File(accountVaultPathFor(vaultRoot)!).writeAsStringSync(noAccounts);
 
     await expectLater(
-        AccountVault().read(libraryPath: libraryPath, passphrase: passphrase),
+        AccountVault().read(vaultRoot: vaultRoot, passphrase: passphrase),
         throwsA(isA<VaultException>()
             .having((e) => e.failure, 'failure', VaultFailure.corrupt)),
         reason: 'A vault with no usable session is not a successful restore');
@@ -199,13 +199,13 @@ void main() {
   test('Should fall back to .bak when the primary file is damaged', () async {
     await addAccount('a', active: true, handle: 'alice');
     final vault = AccountVault();
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
-    final primary = File(accountVaultPathFor(libraryPath)!);
+    final primary = File(accountVaultPathFor(vaultRoot)!);
     primary.writeAsStringSync('{not json');
 
-    final read = await vault.read(libraryPath: libraryPath, passphrase: passphrase);
+    final read = await vault.read(vaultRoot: vaultRoot, passphrase: passphrase);
     expect(read.accounts.single.screenName, 'alice',
         reason: 'A write that was cut off must not make the previous backup unreachable');
   });
@@ -213,10 +213,10 @@ void main() {
   test('Should not fall back to .bak when the primary uses a newer format', () async {
     await addAccount('a', active: true, handle: 'alice');
     final vault = AccountVault();
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
-    final primary = File(accountVaultPathFor(libraryPath)!);
+    final primary = File(accountVaultPathFor(vaultRoot)!);
     primary.writeAsStringSync(jsonEncode({
       'format': VaultCodec.format,
       'version': VaultCodec.currentVersion + 1,
@@ -224,7 +224,7 @@ void main() {
     }));
 
     await expectLater(
-      vault.read(libraryPath: libraryPath, passphrase: passphrase),
+      vault.read(vaultRoot: vaultRoot, passphrase: passphrase),
       throwsA(isA<VaultException>()
           .having((e) => e.failure, 'failure', VaultFailure.unsupportedVersion)),
       reason: 'Restoring the older .bak instead would report success while silently replacing '
@@ -234,14 +234,14 @@ void main() {
 
   test('Should report a missing or wrong-passphrase vault clearly', () async {
     await expectLater(
-        AccountVault().read(libraryPath: libraryPath, passphrase: passphrase),
+        AccountVault().read(vaultRoot: vaultRoot, passphrase: passphrase),
         throwsA(isA<AccountVaultNotFound>()));
 
     await addAccount('a', handle: 'alice');
-    await AccountVault().write(libraryPath: libraryPath, passphrase: passphrase);
+    await AccountVault().write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     await expectLater(
-        AccountVault().read(libraryPath: libraryPath, passphrase: 'wrong horse battery'),
+        AccountVault().read(vaultRoot: vaultRoot, passphrase: 'wrong horse battery'),
         throwsA(isA<VaultException>()
             .having((e) => e.failure, 'failure', VaultFailure.wrongPassphrase)));
   });
@@ -249,21 +249,21 @@ void main() {
   test('Should change the passphrase and stop accepting the old one', () async {
     await addAccount('a', handle: 'alice');
     final vault = AccountVault();
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     await vault.changePassphrase(
-        libraryPath: libraryPath, oldPassphrase: passphrase, newPassphrase: 'new horse battery');
+        vaultRoot: vaultRoot, oldPassphrase: passphrase, newPassphrase: 'new horse battery');
 
     await expectLater(
-        vault.read(libraryPath: libraryPath, passphrase: passphrase),
+        vault.read(vaultRoot: vaultRoot, passphrase: passphrase),
         throwsA(isA<VaultException>()
             .having((e) => e.failure, 'failure', VaultFailure.wrongPassphrase)),
         reason: 'The old passphrase must stop opening the vault after a change');
     final read = await vault.read(
-        libraryPath: libraryPath, passphrase: 'new horse battery');
+        vaultRoot: vaultRoot, passphrase: 'new horse battery');
     expect(read.accounts.single.screenName, 'alice');
     expect(
-        File(p.join(accountFolderPathFor(libraryPath)!, accountVaultBackupFileName)).existsSync(),
+        File(p.join(accountFolderPathFor(vaultRoot)!, accountVaultBackupFileName)).existsSync(),
         isFalse,
         reason: 'The .bak copy was encrypted with the old passphrase, so keeping it would keep '
             'the old secret valid');
@@ -276,32 +276,32 @@ void main() {
     });
     final otherLibrary = p.join(other.path, 'QuaXLibrary');
     await addAccount('a', handle: 'alice');
-    await AccountVault().write(libraryPath: otherLibrary, passphrase: passphrase);
+    await AccountVault().write(vaultRoot: otherLibrary, passphrase: passphrase);
     final importedPath = accountVaultPathFor(otherLibrary)!;
 
     final read = await AccountVault().readFile(filePath: importedPath, passphrase: passphrase);
     expect(read.accounts.single.screenName, 'alice');
 
-    await AccountVault().adoptFile(sourcePath: importedPath, libraryPath: libraryPath);
+    await AccountVault().adoptFile(sourcePath: importedPath, vaultRoot: vaultRoot);
 
-    expect(await AccountVault().exists(libraryPath), isTrue,
+    expect(await AccountVault().exists(vaultRoot), isTrue,
         reason: 'The next onboarding should find the imported backup without asking for the file again');
-    expect(await AccountVault().lastSaved(libraryPath), isNotNull);
-    final restored = await AccountVault().read(libraryPath: libraryPath, passphrase: passphrase);
+    expect(await AccountVault().lastSaved(vaultRoot), isNotNull);
+    final restored = await AccountVault().read(vaultRoot: vaultRoot, passphrase: passphrase);
     expect(restored.accounts.single.screenName, 'alice');
   });
 
   test('Should remove both the vault and its backup', () async {
     await addAccount('a', handle: 'alice');
     final vault = AccountVault();
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
-    await vault.delete(libraryPath);
+    await vault.delete(vaultRoot);
 
-    expect(File(accountVaultPathFor(libraryPath)!).existsSync(), isFalse);
+    expect(File(accountVaultPathFor(vaultRoot)!).existsSync(), isFalse);
     expect(
-        File(p.join(accountFolderPathFor(libraryPath)!, accountVaultBackupFileName)).existsSync(),
+        File(p.join(accountFolderPathFor(vaultRoot)!, accountVaultBackupFileName)).existsSync(),
         isFalse);
   });
 }

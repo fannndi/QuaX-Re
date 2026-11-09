@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -12,7 +11,7 @@ import 'package:quax/constants.dart';
 import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
-import 'package:quax/ui/errors.dart';
+import 'package:quax/library/library_storage_sheet.dart';
 import 'package:quax/utils/storage_report.dart';
 import 'package:quax/utils/timeline_cache.dart';
 
@@ -302,8 +301,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// The library folder row: shows where downloads live and re-runs the folder
-/// setup (hidden subfolder + `.nomedia`) when tapped.
+/// The library row: shows the mode and where downloads live, and opens the
+/// storage sheet where the reader can switch between hidden app storage and a
+/// visible folder without losing the media already downloaded.
 class _LibraryFolderTile extends StatefulWidget {
   final BasePrefService prefs;
 
@@ -314,43 +314,30 @@ class _LibraryFolderTile extends StatefulWidget {
 }
 
 class _LibraryFolderTileState extends State<_LibraryFolderTile> {
-  bool _busy = false;
-
-  Future<void> _pick() async {
-    final picked = await FilePicker.getDirectoryPath();
-    if (picked == null || !mounted) return;
-
-    setState(() => _busy = true);
-    final error = ValueNotifier<String?>(null);
-    final ok = await LibraryModel(widget.prefs).setupLibraryAt(picked, error: error);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!ok && error.value != null) {
-      if (error.value == 'storage_permission_needed') {
-        // The raw sentinel leaked into the snackbar; reuse the wizard's
-        // explanation instead of showing an internal code.
-        showSnackBar(context,
-            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
-      } else {
-        showSnackBar(context, icon: '🙊', message: error.value!);
-      }
-    }
+  Future<void> _manage() async {
+    await showLibraryStorageSheet(context, widget.prefs);
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final path = widget.prefs.get<String>(optionLibraryPath);
+    final model = LibraryModel(widget.prefs);
+    final path = model.libraryPath;
+    final hidden = model.isHidden;
+    final l10n = L10n.of(context);
+
+    final subtitle = path.isEmpty
+        ? l10n.not_set
+        : hidden
+            ? '${l10n.library_storage_hidden} · ${model.isOnRemovableStorage ? l10n.library_volume_sd : l10n.library_volume_internal}'
+            : '${l10n.library_storage_visible} · $path';
 
     return ListTile(
-      leading: const Icon(Icons.folder_outlined),
-      title: Text(L10n.of(context).library),
-      subtitle: Text(path == null || path.isEmpty ? L10n.of(context).not_set : path,
-          maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: _busy
-          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-          : const Icon(Icons.chevron_right),
-      onTap: _busy ? null : _pick,
+      leading: Icon(hidden ? Icons.shield_outlined : Icons.folder_outlined),
+      title: Text(l10n.library),
+      subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _manage,
     );
   }
 }

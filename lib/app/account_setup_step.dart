@@ -15,15 +15,15 @@ import 'package:quax/ui/vault_errors.dart';
 /// or log in now. It deliberately does not block the wizard if the reader wants
 /// to log in later.
 class AccountSetupStep extends StatefulWidget {
-  final String libraryPath;
+  final String vaultRoot;
 
   /// Test seams: the widget otherwise reads the database and the vault file.
   final Future<List<Account>> Function()? loadAccounts;
-  final Future<bool> Function(String libraryPath)? vaultExists;
+  final Future<bool> Function(String vaultRoot)? vaultExists;
 
   const AccountSetupStep({
     super.key,
-    required this.libraryPath,
+    required this.vaultRoot,
     this.loadAccounts,
     this.vaultExists,
   });
@@ -54,15 +54,15 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
   @override
   void didUpdateWidget(AccountSetupStep oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.libraryPath != widget.libraryPath) _reload();
+    if (oldWidget.vaultRoot != widget.vaultRoot) _reload();
   }
 
   Future<void> _reload() async {
     final accounts = await (widget.loadAccounts ?? getAccounts)();
-    final hasVault = widget.libraryPath.isNotEmpty &&
+    final hasVault = widget.vaultRoot.isNotEmpty &&
         await (widget.vaultExists != null
-            ? widget.vaultExists!(widget.libraryPath)
-            : _vault.exists(widget.libraryPath));
+            ? widget.vaultExists!(widget.vaultRoot)
+            : _vault.exists(widget.vaultRoot));
     if (!mounted) return;
     setState(() {
       _accounts = accounts;
@@ -95,7 +95,7 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
 
     AccountVaultReadResult result;
     try {
-      result = await _vault.read(libraryPath: widget.libraryPath, passphrase: passphrase);
+      result = await _vault.read(vaultRoot: widget.vaultRoot, passphrase: passphrase);
     } catch (error) {
       if (mounted) _showError(error);
       return;
@@ -138,8 +138,8 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
 
     await _run(() async {
       final imported = await importAccounts(result.accounts);
-      if (widget.libraryPath.isNotEmpty) {
-        await _vault.adoptFile(sourcePath: path, libraryPath: widget.libraryPath);
+      if (widget.vaultRoot.isNotEmpty) {
+        await _vault.adoptFile(sourcePath: path, vaultRoot: widget.vaultRoot);
       }
       await _prefs.set<bool>(optionAccountVaultDirty, false);
       if (mounted) {
@@ -162,7 +162,7 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
     if (passphrase == null || !mounted) return;
 
     await _run(() async {
-      await _vault.write(libraryPath: widget.libraryPath, passphrase: passphrase);
+      await _vault.write(vaultRoot: widget.vaultRoot, passphrase: passphrase);
       await _prefs.set<bool>(optionAccountVaultDirty, false);
       if (mounted) {
         showSnackBar(context, icon: '🔐', message: l10n.account_backup_saved);

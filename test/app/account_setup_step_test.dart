@@ -19,7 +19,7 @@ void main() {
         locale: const Locale('en'),
         home: Scaffold(
           body: AccountSetupStep(
-            libraryPath: '/tmp/QuaXLibrary',
+            vaultRoot: '/tmp/backups',
             loadAccounts: () async => accounts,
             vaultExists: (_) async => hasVault,
           ),

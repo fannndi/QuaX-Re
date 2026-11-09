@@ -92,6 +92,7 @@ Future<void> _startApp() async {
   final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: _prefDefaults);
 
   await migrateMediaQualityPrefs(prefService);
+  await migrateLibraryStoragePrefs(prefService);
 
   await _loadModels(prefService);
 

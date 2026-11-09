@@ -40,7 +40,7 @@
   "@account_backup_login_first": {},
   "account_backup_missing": "No account backup yet.",
   "@account_backup_missing": {},
-  "account_backup_no_library": "Set up the media library first.",
+  "account_backup_no_library": "Set up the media library or hidden storage first.",
   "@account_backup_no_library": {},
   "account_backup_none": "No accounts yet.",
   "@account_backup_none": {},
@@ -219,8 +219,6 @@
   "@download_media_no_url": {},
   "download_no_space": "Not enough free space. Free some storage and retry.",
   "@download_no_space": {},
-  "download_path": "Download path",
-  "@download_path": {},
   "download_save_unavailable": "The destination folder is unavailable. Reconnect it and retry.",
   "@download_save_unavailable": {},
   "download_server_error": "X refused the download. Retry later.",
@@ -299,20 +297,195 @@
   "@later": {},
   "library": "Library",
   "@library": {},
+  "library_clear_search": "Clear filters",
+  "@library_clear_search": {},
+  "library_date": "Date",
+  "@library_date": {},
+  "library_empty_hidden_body": "Media you download in QuaX-Re appears here. Nothing in this folder is visible to other apps.",
+  "@library_empty_hidden_body": {},
+  "library_empty_visible_body": "Media you download in QuaX-Re appears here. This folder can be browsed with a file manager.",
+  "@library_empty_visible_body": {},
+  "library_export_confirm_body": "{count, plural, =1{Copy 1 file to a folder you can browse?} other{Copy {count} files to a folder you can browse?}}",
+  "@library_export_confirm_body": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "library_export_confirm_title": "Export the library?",
+  "@library_export_confirm_title": {},
+  "library_export_done": "{count, plural, =1{Exported 1 file to {path}.} other{Exported {count} files to {path}.}}",
+  "@library_export_done": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "library_export_empty": "There is nothing to export yet.",
+  "@library_export_empty": {},
+  "library_export_inside": "Choose a folder outside the library.",
+  "@library_export_inside": {},
+  "library_export_no_space": "Not enough free space for the export.",
+  "@library_export_no_space": {},
+  "library_export_partial": "Export finished: {count} copied, {failed} failed.",
+  "@library_export_partial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "library_export_selected": "Export selected",
+  "@library_export_selected": {},
+  "library_file_info": "File info",
+  "@library_file_info": {},
+  "library_filter_all": "All",
+  "@library_filter_all": {},
+  "library_filter_photos": "Photos",
+  "@library_filter_photos": {},
+  "library_filter_videos": "Videos",
+  "@library_filter_videos": {},
+  "library_hidden_status": "Hidden from gallery and file managers",
+  "@library_hidden_status": {},
+  "library_import_count": "{count, plural, =1{Move 1 media file into the library?} other{Move {count} media files into the library?}}",
+  "@library_import_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "library_import_existing": "Move media from another folder",
   "@library_import_existing": {},
+  "library_import_failed": "Some files could not be moved. The rest are in the library.",
+  "@library_import_failed": {},
   "library_import_question": "There are media files in this folder. Move them into the library?",
   "@library_import_question": {},
+  "library_import_title": "Move media into the library",
+  "@library_import_title": {},
   "library_is_empty": "Nothing here yet!",
   "@library_is_empty": {},
-  "library_setup_description": "Pick a folder on your storage for downloaded media. It stays visible in file managers but gets a .nomedia marker so gallery apps never index it.",
+  "library_more_actions": "More actions",
+  "@library_more_actions": {},
+  "library_move_confirm_body": "{count, plural, =1{Move 1 file to {target}?} other{Move {count} files to {target}?}}",
+  "@library_move_confirm_body": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "library_move_confirm_title": "Move the library?",
+  "@library_move_confirm_title": {},
+  "library_move_done": "{count, plural, =1{Moved 1 file.} other{Moved {count} files.}}",
+  "@library_move_done": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "library_move_failed": "The library could not be moved.",
+  "@library_move_failed": {},
+  "library_move_no_space": "Not enough free space on the destination.",
+  "@library_move_no_space": {},
+  "library_move_partial": "Move finished: {count} moved, {failed} failed.",
+  "@library_move_partial": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "library_no_media_found": "No media files found in that folder.",
+  "@library_no_media_found": {},
+  "library_no_results": "No files match this filter.",
+  "@library_no_results": {},
+  "library_open_with": "Open with",
+  "@library_open_with": {},
+  "library_setup_description": "Choose where downloaded media lives. Hidden storage keeps it away from gallery apps and file managers; a visible folder is easier to reach from a PC.",
   "@library_setup_description": {},
   "library_setup_pick": "Choose a folder",
   "@library_setup_pick": {},
   "library_setup_title": "Set up your media library",
   "@library_setup_title": {},
+  "library_stats": "{count, plural, =1{1 file · {size}} other{{count} files · {size}}}",
+  "@library_stats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "library_storage_android10_note": "On Android 10, a file manager that shows hidden files may still reach the app folder.",
+  "@library_storage_android10_note": {},
+  "library_storage_apply": "Move library",
+  "@library_storage_apply": {},
+  "library_storage_change": "Change storage",
+  "@library_storage_change": {},
+  "library_storage_empty_note": "No media to move yet. The location is saved for the next download.",
+  "@library_storage_empty_note": {},
+  "library_storage_export": "Export library",
+  "@library_storage_export": {},
+  "library_storage_hidden": "Hidden storage",
+  "@library_storage_hidden": {},
+  "library_storage_hidden_description": "Media stays inside QuaX-Re's private storage. It is invisible to gallery apps and, on Android 11+, to file managers too.",
+  "@library_storage_hidden_description": {},
+  "library_storage_hidden_note": "These files are deleted if you uninstall QuaX-Re. Export anything you want to keep.",
+  "@library_storage_hidden_note": {},
+  "library_storage_manage": "Library storage",
+  "@library_storage_manage": {},
+  "library_storage_manage_body": "Where downloaded media lives. Hidden storage is the only mode that keeps file managers out.",
+  "@library_storage_manage_body": {},
+  "library_storage_no_folder": "No folder chosen yet",
+  "@library_storage_no_folder": {},
   "library_storage_permission_needed": "QuaX needs storage access to save there. Grant it, then try again.",
   "@library_storage_permission_needed": {},
+  "library_storage_pick_folder": "Choose folder",
+  "@library_storage_pick_folder": {},
+  "library_storage_show_in_gallery_note": "Turning this on lets gallery apps index this folder.",
+  "@library_storage_show_in_gallery_note": {},
+  "library_storage_unavailable": "Storage unavailable",
+  "@library_storage_unavailable": {},
+  "library_storage_unavailable_body": "The library folder is not reachable. Reconnect the SD card or choose another location.",
+  "@library_storage_unavailable_body": {},
+  "library_storage_use_hidden": "Use hidden storage",
+  "@library_storage_use_hidden": {},
+  "library_storage_visible": "Visible folder",
+  "@library_storage_visible": {},
+  "library_storage_visible_description": "Pick a folder you can browse. A .nomedia marker keeps it out of the gallery, but file managers can still see it.",
+  "@library_storage_visible_description": {},
+  "library_storage_volume": "Storage volume",
+  "@library_storage_volume": {},
+  "library_type": "Type",
+  "@library_type": {},
+  "library_visible_status": "Visible in file managers",
+  "@library_visible_status": {},
+  "library_volume_internal": "Internal storage",
+  "@library_volume_internal": {},
+  "library_volume_internal_description": "App-private folder on the phone's internal storage",
+  "@library_volume_internal_description": {},
+  "library_volume_sd": "SD card",
+  "@library_volume_sd": {},
+  "library_volume_sd_description": "App-private folder on the removable card",
+  "@library_volume_sd_description": {},
   "licenses": "Licenses",
   "@licenses": {},
   "light": "Light",
@@ -564,13 +737,13 @@
   "@setup_accounts_skip": {},
   "setup_accounts_title": "Accounts",
   "@setup_accounts_title": {},
-  "setup_done_body": "Your library is ready. Change the folder in Settings → Media → Library; gallery visibility is in the Download tab.",
+  "setup_done_body": "Your library is ready. Change the storage mode or folder in Settings → Media → Library.",
   "@setup_done_body": {},
   "setup_done_title": "All set",
   "@setup_done_title": {},
   "setup_finish": "Enter QuaX",
   "@setup_finish": {},
-  "setup_permission_body": "QuaX needs storage access to write to your chosen folder, SD cards included.",
+  "setup_permission_body": "QuaX needs storage access to write account backups and a visible media folder, SD cards included. Hidden storage needs no permission.",
   "@setup_permission_body": {},
   "setup_permission_grant": "Grant access",
   "@setup_permission_grant": {},

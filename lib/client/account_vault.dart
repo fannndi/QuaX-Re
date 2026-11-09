@@ -36,25 +36,24 @@ class AccountVaultReadResult {
   const AccountVaultReadResult(this.accounts, this.invalid, this.path);
 }
 
-/// The folder beside `QuaXLibrary` that holds the encrypted account backup.
-/// The library path is the user-picked parent plus `QuaXLibrary`; the account
-/// folder is a sibling, so changing the library does not put the vault inside
-/// the media tree.
-String? accountFolderPathFor(String libraryPath) {
-  if (libraryPath.isEmpty) return null;
-  final parent = p.dirname(libraryPath);
-  if (parent.isEmpty || parent == '.') return null;
-  return p.join(parent, accountFolderName);
+/// The folder that holds the encrypted account backup.
+///
+/// [vaultRoot] is the shared-storage folder chosen for backups, not the media
+/// library: a hidden library lives under `Android/data`, which is erased on
+/// uninstall, while the vault exists to survive it.
+String? accountFolderPathFor(String vaultRoot) {
+  if (vaultRoot.isEmpty) return null;
+  return p.join(vaultRoot, accountFolderName);
 }
 
-String? accountVaultPathFor(String libraryPath) {
-  final folder = accountFolderPathFor(libraryPath);
+String? accountVaultPathFor(String vaultRoot) {
+  final folder = accountFolderPathFor(vaultRoot);
   return folder == null ? null : p.join(folder, accountVaultFileName);
 }
 
 /// Creates `QuaXAccount` and its `.nomedia` marker. Returns the folder path.
-Future<String?> ensureAccountFolder(String libraryPath) async {
-  final path = accountFolderPathFor(libraryPath);
+Future<String?> ensureAccountFolder(String vaultRoot) async {
+  final path = accountFolderPathFor(vaultRoot);
   if (path == null) return null;
 
   final folder = Directory(path);
@@ -75,7 +74,7 @@ class AccountVault {
   final VaultCodec _codec;
 
   Future<AccountVaultWriteResult> write({
-    required String libraryPath,
+    required String vaultRoot,
     required String passphrase,
   }) async {
     final accounts = await getAccounts();
@@ -83,7 +82,7 @@ class AccountVault {
       throw StateError('There is no account to back up');
     }
 
-    final folder = await ensureAccountFolder(libraryPath);
+    final folder = await ensureAccountFolder(vaultRoot);
     if (folder == null) {
       throw const VaultException(VaultFailure.corrupt);
     }
@@ -114,10 +113,10 @@ class AccountVault {
   }
 
   Future<AccountVaultReadResult> read({
-    required String libraryPath,
+    required String vaultRoot,
     required String passphrase,
   }) async {
-    final folder = accountFolderPathFor(libraryPath);
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) throw const AccountVaultNotFound();
 
     final (payload, path) = await _decryptFromFolder(folder, passphrase);
@@ -136,7 +135,7 @@ class AccountVault {
 
   /// Copies an already-read vault file into the fixed QuaXAccount path, so the
   /// next onboarding finds it automatically.
-  Future<void> adoptFile({required String sourcePath, required String libraryPath}) async {
+  Future<void> adoptFile({required String sourcePath, required String vaultRoot}) async {
     final source = File(sourcePath);
     if (!await source.exists()) throw const AccountVaultNotFound();
     if (await source.length() > _codec.maxEnvelopeLength) {
@@ -146,7 +145,7 @@ class AccountVault {
     final envelope = await source.readAsString();
     _checkEnvelopeShape(envelope);
 
-    final folder = await ensureAccountFolder(libraryPath);
+    final folder = await ensureAccountFolder(vaultRoot);
     if (folder == null) throw const VaultException(VaultFailure.corrupt);
     final target = File(p.join(folder, accountVaultFileName));
     final backup = File(p.join(folder, accountVaultBackupFileName));
@@ -163,11 +162,11 @@ class AccountVault {
   /// Re-encrypts the existing payload with [newPassphrase]. The old `.bak` is
   /// removed after success so the old passphrase does not keep opening a copy.
   Future<void> changePassphrase({
-    required String libraryPath,
+    required String vaultRoot,
     required String oldPassphrase,
     required String newPassphrase,
   }) async {
-    final folder = accountFolderPathFor(libraryPath);
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) throw const AccountVaultNotFound();
 
     final (payload, _) = await _decryptFromFolder(folder, oldPassphrase);
@@ -184,21 +183,21 @@ class AccountVault {
     if (await backup.exists()) await backup.delete();
   }
 
-  Future<bool> exists(String libraryPath) async {
-    final path = accountVaultPathFor(libraryPath);
+  Future<bool> exists(String vaultRoot) async {
+    final path = accountVaultPathFor(vaultRoot);
     return path != null && await File(path).exists();
   }
 
-  Future<DateTime?> lastSaved(String libraryPath) async {
-    final path = accountVaultPathFor(libraryPath);
+  Future<DateTime?> lastSaved(String vaultRoot) async {
+    final path = accountVaultPathFor(vaultRoot);
     if (path == null) return null;
     final file = File(path);
     if (!await file.exists()) return null;
     return (await file.stat()).modified;
   }
 
-  Future<void> delete(String libraryPath) async {
-    final folder = accountFolderPathFor(libraryPath);
+  Future<void> delete(String vaultRoot) async {
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) return;
     for (final name in [accountVaultFileName, accountVaultBackupFileName]) {
       final file = File(p.join(folder, name));

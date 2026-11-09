@@ -13,7 +13,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   const passphrase = 'correct horse battery';
   late Directory temp;
-  late String libraryPath;
+  late String vaultRoot;
   late LikesVault vault;
 
   setUpAll(() {
@@ -26,8 +26,8 @@ void main() {
     await deleteDatabase(databaseName);
     await Repository().migrate();
     temp = await Directory.systemTemp.createTemp('quax-likes-vault-');
-    libraryPath = p.join(temp.path, 'QuaXLibrary');
-    await Directory(libraryPath).create();
+    vaultRoot = p.join(temp.path, 'backups');
+    await Directory(vaultRoot).create();
     vault = LikesVault(
       codec: const VaultCodec(iterations: 10000, maxEnvelopeLength: 48 * 1024 * 1024),
       tempDirectory: () async => temp,
@@ -77,10 +77,10 @@ void main() {
     await seedLikes('local-a', 3);
     await seedLikes('local-b', 2, prefix: 'b');
 
-    final result = await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    final result = await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     expect(result.likes, 5);
-    final file = File(p.join(accountFolderPathFor(libraryPath)!, likesVaultFileName));
+    final file = File(p.join(accountFolderPathFor(vaultRoot)!, likesVaultFileName));
     expect(file.existsSync(), isTrue);
     final text = file.readAsStringSync();
     expect(text, isNot(contains('tweet t0')),
@@ -88,7 +88,7 @@ void main() {
     expect(text, isNot(contains('alice')),
         reason: 'The account mapping is encrypted with the likes');
 
-    final read = await vault.read(libraryPath: libraryPath, passphrase: passphrase);
+    final read = await vault.read(vaultRoot: vaultRoot, passphrase: passphrase);
     expect(read.likes, 5);
     expect(read.accounts, 2);
     expect(await vault.count(), 5);
@@ -99,13 +99,13 @@ void main() {
     await addAccount('b', userId: '102', handle: 'bob');
     await seedLikes('local-a', 3);
     await seedLikes('local-b', 2, prefix: 'b');
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     final db = await Repository.writable();
     await db.delete(tableAccountLike);
     await db.delete(tableLikedTweet);
 
-    final imported = await vault.import(libraryPath: libraryPath, passphrase: passphrase);
+    final imported = await vault.import(vaultRoot: vaultRoot, passphrase: passphrase);
 
     expect(imported.restored, 5);
     expect(imported.skipped, 0);
@@ -121,10 +121,10 @@ void main() {
   test('Should not count likes that were already present as restored', () async {
     await addAccount('a', userId: '101', handle: 'alice');
     await seedLikes('local-a', 2);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     // Restore the same file a second time without clearing the database.
-    final imported = await vault.import(libraryPath: libraryPath, passphrase: passphrase);
+    final imported = await vault.import(vaultRoot: vaultRoot, passphrase: passphrase);
 
     expect(imported.restored, 0,
         reason: 'The rows are already there; reporting 2 would tell the reader that a second '
@@ -158,11 +158,11 @@ void main() {
       kind: 'likes',
       bytes: container,
     );
-    final folder = await ensureAccountFolder(libraryPath);
+    final folder = await ensureAccountFolder(vaultRoot);
     await File(p.join(folder!, likesVaultFileName)).writeAsString(envelope);
 
     await expectLater(
-      vault.import(libraryPath: libraryPath, passphrase: passphrase),
+      vault.import(vaultRoot: vaultRoot, passphrase: passphrase),
       throwsA(isA<VaultException>()
           .having((e) => e.failure, 'failure', VaultFailure.corrupt)),
       reason: 'A bad gzip stream must surface as a corrupt vault, not a raw FormatException',
@@ -180,7 +180,7 @@ void main() {
   test('Should map a restored account by user id when its local id changed', () async {
     await addAccount('a', userId: '101', handle: 'alice');
     await seedLikes('local-a', 2);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     final db = await Repository.writable();
     await db.update(tableAccounts, {columnLocalId: 'local-a-new'},
@@ -188,7 +188,7 @@ void main() {
     await db.delete(tableAccountLike);
     await db.delete(tableLikedTweet);
 
-    final imported = await vault.import(libraryPath: libraryPath, passphrase: passphrase);
+    final imported = await vault.import(vaultRoot: vaultRoot, passphrase: passphrase);
 
     expect(imported.restored, 2);
     final owners = await Repository.read((db) =>
@@ -200,25 +200,25 @@ void main() {
   test('Should refuse to restore when none of the owners exist locally', () async {
     await addAccount('a', userId: '101', handle: 'alice');
     await seedLikes('local-a', 1);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
     final db = await Repository.writable();
     await db.delete(tableAccounts);
 
     await expectLater(
-        vault.import(libraryPath: libraryPath, passphrase: passphrase),
+        vault.import(vaultRoot: vaultRoot, passphrase: passphrase),
         throwsA(isA<LikesVaultNoAccounts>()),
         reason: 'Importing likes without their accounts would make them invisible');
   });
 
-  test('Should import a file and adopt it beside QuaXLibrary', () async {
+  test('Should import a file and adopt it into QuaXAccount', () async {
     await addAccount('a', userId: '101', handle: 'alice');
     await seedLikes('local-a', 2);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
     final source = File(p.join(temp.path, 'from-pc.quaxvault'));
-    await File(p.join(accountFolderPathFor(libraryPath)!, likesVaultFileName))
+    await File(p.join(accountFolderPathFor(vaultRoot)!, likesVaultFileName))
         .copy(source.path);
-    await vault.delete(libraryPath);
+    await vault.delete(vaultRoot);
 
     final db = await Repository.writable();
     await db.delete(tableAccountLike);
@@ -226,12 +226,12 @@ void main() {
 
     final imported = await vault.importFile(
       filePath: source.path,
-      libraryPath: libraryPath,
+      vaultRoot: vaultRoot,
       passphrase: passphrase,
     );
 
     expect(imported.restored, 2);
-    expect(await vault.exists(libraryPath), isTrue,
+    expect(await vault.exists(vaultRoot), isTrue,
         reason: 'The imported file is copied into QuaXAccount so the next restore finds it');
     expect(await vault.count(), 2);
   });
@@ -239,25 +239,25 @@ void main() {
   test('Should fall back to .bak and change the passphrase', () async {
     await addAccount('a', userId: '101', handle: 'alice');
     await seedLikes('local-a', 1);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
-    await vault.write(libraryPath: libraryPath, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
 
-    final primary = File(p.join(accountFolderPathFor(libraryPath)!, likesVaultFileName));
+    final primary = File(p.join(accountFolderPathFor(vaultRoot)!, likesVaultFileName));
     primary.writeAsStringSync('{not json');
 
     await vault.changePassphrase(
-        libraryPath: libraryPath,
+        vaultRoot: vaultRoot,
         oldPassphrase: passphrase,
         newPassphrase: 'new horse battery');
 
     await expectLater(
-        vault.read(libraryPath: libraryPath, passphrase: passphrase),
+        vault.read(vaultRoot: vaultRoot, passphrase: passphrase),
         throwsA(isA<VaultException>()
             .having((e) => e.failure, 'failure', VaultFailure.wrongPassphrase)));
-    final read = await vault.read(libraryPath: libraryPath, passphrase: 'new horse battery');
+    final read = await vault.read(vaultRoot: vaultRoot, passphrase: 'new horse battery');
     expect(read.likes, 1);
     expect(
-        File(p.join(accountFolderPathFor(libraryPath)!, likesVaultBackupFileName)).existsSync(),
+        File(p.join(accountFolderPathFor(vaultRoot)!, likesVaultBackupFileName)).existsSync(),
         isFalse,
         reason: 'The .bak was encrypted with the old passphrase and must not keep it valid');
   });

@@ -28,8 +28,8 @@ const int maxLikesCompressedBytes = 16 * 1024 * 1024;
 /// keeping a hand-crafted vault from filling the disk.
 const int maxLikesPlaintextBytes = maxLikesCompressedBytes * 16;
 
-String? likesVaultPathFor(String libraryPath) {
-  final folder = accountFolderPathFor(libraryPath);
+String? likesVaultPathFor(String vaultRoot) {
+  final folder = accountFolderPathFor(vaultRoot);
   return folder == null ? null : p.join(folder, likesVaultFileName);
 }
 
@@ -97,10 +97,10 @@ class LikesVault {
   final Future<Directory> Function() _tempDirectory;
 
   Future<LikesVaultWriteResult> write({
-    required String libraryPath,
+    required String vaultRoot,
     required String passphrase,
   }) async {
-    final folder = await ensureAccountFolder(libraryPath);
+    final folder = await ensureAccountFolder(vaultRoot);
     if (folder == null) throw const VaultException(VaultFailure.corrupt);
 
     final accounts = await getAccounts();
@@ -197,10 +197,10 @@ class LikesVault {
   }
 
   Future<LikesVaultReadResult> read({
-    required String libraryPath,
+    required String vaultRoot,
     required String passphrase,
   }) async {
-    final folder = accountFolderPathFor(libraryPath);
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) throw const LikesVaultNotFound();
     final decrypted = await _decryptFromFolder(folder, passphrase);
     return LikesVaultReadResult(
@@ -213,7 +213,7 @@ class LikesVault {
   /// QuaXAccount so a later restore finds it automatically.
   Future<LikesVaultImportResult> importFile({
     required String filePath,
-    required String libraryPath,
+    required String vaultRoot,
     required String passphrase,
   }) async {
     final file = File(filePath);
@@ -226,26 +226,26 @@ class LikesVault {
         passphrase: passphrase, kind: _vaultKind, envelope: envelope);
     final decrypted = _parseContainer(bytes, filePath);
     final result = await _importDecrypted(decrypted);
-    await _adoptEnvelope(libraryPath, envelope);
+    await _adoptEnvelope(vaultRoot, envelope);
     return result;
   }
 
   Future<LikesVaultImportResult> import({
-    required String libraryPath,
+    required String vaultRoot,
     required String passphrase,
   }) async {
-    final folder = accountFolderPathFor(libraryPath);
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) throw const LikesVaultNotFound();
     final decrypted = await _decryptFromFolder(folder, passphrase);
     return _importDecrypted(decrypted);
   }
 
   Future<void> changePassphrase({
-    required String libraryPath,
+    required String vaultRoot,
     required String oldPassphrase,
     required String newPassphrase,
   }) async {
-    final folder = accountFolderPathFor(libraryPath);
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) throw const LikesVaultNotFound();
     final decrypted = await _decryptFromFolder(folder, oldPassphrase);
     final envelope = await _codec.encryptBytes(
@@ -260,14 +260,14 @@ class LikesVault {
     if (await backup.exists()) await backup.delete();
   }
 
-  Future<bool> exists(String libraryPath) async {
-    final folder = accountFolderPathFor(libraryPath);
+  Future<bool> exists(String vaultRoot) async {
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) return false;
     return File(p.join(folder, likesVaultFileName)).exists();
   }
 
-  Future<DateTime?> lastSaved(String libraryPath) async {
-    final folder = accountFolderPathFor(libraryPath);
+  Future<DateTime?> lastSaved(String vaultRoot) async {
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) return null;
     final file = File(p.join(folder, likesVaultFileName));
     if (!await file.exists()) return null;
@@ -290,8 +290,8 @@ class LikesVault {
     return '$count:${max ?? ''}';
   }
 
-  Future<void> delete(String libraryPath) async {
-    final folder = accountFolderPathFor(libraryPath);
+  Future<void> delete(String vaultRoot) async {
+    final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) return;
     for (final name in [likesVaultFileName, likesVaultBackupFileName]) {
       final file = File(p.join(folder, name));
@@ -553,9 +553,9 @@ class LikesVault {
     return file;
   }
 
-  Future<void> _adoptEnvelope(String libraryPath, String envelope) async {
+  Future<void> _adoptEnvelope(String vaultRoot, String envelope) async {
     _checkEnvelopeShape(envelope);
-    final folder = await ensureAccountFolder(libraryPath);
+    final folder = await ensureAccountFolder(vaultRoot);
     if (folder == null) throw const VaultException(VaultFailure.corrupt);
     final target = File(p.join(folder, likesVaultFileName));
     final backup = File(p.join(folder, likesVaultBackupFileName));

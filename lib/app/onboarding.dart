@@ -3,9 +3,11 @@ import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
 import 'package:quax/app/account_setup_step.dart';
 import 'package:quax/client/account_vault.dart';
+import 'package:quax/client/vault_paths.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
+import 'package:quax/library/library_storage_sheet.dart';
 import 'package:quax/ui/errors.dart';
 
 /// First-run wizard, Hentoid-style: the app is unusable until the storage
@@ -27,6 +29,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   final PageController _controller = PageController();
 
   late final LibraryModel _library;
+  late final BasePrefService _prefs;
+  List<LibraryVolume> _volumes = const [];
+  LibraryVolume? _volume;
   bool _initialized = false;
   int _step = 0;
   bool _hasAccess = false;
@@ -47,8 +52,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     _initialized = true;
 
     _library = LibraryModel(PrefService.of(context));
+    _prefs = PrefService.of(context, listen: false);
     _configured = _library.isConfigured;
     _visibleInGallery = _library.galleryVisible;
+    _loadVolumes();
     _refreshAccess();
   }
 
@@ -73,6 +80,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       if (mounted) setState(() => _hasAccess = granted == true);
     } on Exception {
       if (mounted) setState(() => _hasAccess = false);
+    }
+  }
+
+  Future<void> _loadVolumes() async {
+    try {
+      final volumes = await _library.availableVolumes();
+      if (!mounted) return;
+      setState(() {
+        _volumes = volumes;
+        _volume = volumes.firstOrNull;
+      });
+    } on Exception {
+      // The setup view offers a retry through the folder picker.
     }
   }
 
@@ -108,7 +128,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         _visibleInGallery = _library.galleryVisible;
       });
       try {
-        await ensureAccountFolder(_library.libraryPath);
+        await ensureAccountFolder(vaultRootPathFor(_prefs));
       } catch (_) {
         // The account step still offers login and manual import when the
         // sibling folder cannot be created.
@@ -202,7 +222,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                     icon: Icons.people_outline,
                     title: l10n.setup_accounts_title,
                     body: l10n.setup_accounts_body,
-                    extra: AccountSetupStep(libraryPath: _library.libraryPath),
+                    extra: AccountSetupStep(vaultRoot: vaultRootPathFor(_prefs)),
                   ),
                   _buildDoneStep(context),
                 ],
@@ -251,36 +271,147 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     );
   }
 
+  Future<void> _setupHidden() async {
+    final volume = _volume;
+    if (volume == null) return;
+
+    setState(() => _busy = true);
+    final error = ValueNotifier<String?>(null);
+    final ok = await _library.setupHiddenLibrary(volume, error: error);
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (ok) {
+      setState(() {
+        _configured = true;
+        _visibleInGallery = false;
+      });
+      try {
+        await ensureAccountFolder(vaultRootPathFor(_prefs));
+      } catch (_) {
+        // The account step still offers login and manual import when the
+        // backup folder cannot be created.
+      }
+      return;
+    }
+
+    if (error.value == 'storage_permission_needed') {
+      await _refreshAccess();
+      if (mounted) {
+        showSnackBar(context,
+            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+      }
+      return;
+    }
+    if (error.value != null && mounted) {
+      showSnackBar(context, icon: '🙊', message: error.value!);
+    }
+  }
+
+  Future<void> _manageStorage() async {
+    final changed = await showLibraryStorageSheet(context, _prefs);
+    if (!mounted) return;
+    setState(() {
+      _configured = _library.isConfigured;
+      _visibleInGallery = _library.galleryVisible;
+    });
+    if (changed == true) await _loadVolumes();
+  }
+
   Widget _buildFolderStep() {
     final l10n = L10n.of(context);
+    final theme = Theme.of(context);
 
     return _StepView(
-      icon: Icons.folder_outlined,
+      icon: Icons.video_library_outlined,
       title: l10n.library_setup_title,
       body: l10n.library_setup_description,
       extra: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_busy)
-            const CircularProgressIndicator()
-          else if (_configured)
-            Column(
-              children: [
-                Chip(
-                  avatar: const Icon(Icons.check_circle_outline, size: 18),
-                  label: Text(_library.libraryPath, overflow: TextOverflow.ellipsis),
+          if (_busy) const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: LinearProgressIndicator(),
+          ),
+          if (_configured)
+            Card(
+              child: ListTile(
+                leading: Icon(_library.isHidden ? Icons.shield_outlined : Icons.folder_outlined),
+                title: Text(_library.isHidden
+                    ? l10n.library_storage_hidden
+                    : l10n.library_storage_visible),
+                subtitle: Text(_library.libraryPath, maxLines: 2, overflow: TextOverflow.ellipsis),
+                trailing: TextButton(
+                  onPressed: _busy ? null : _manageStorage,
+                  child: Text(l10n.library_storage_change),
                 ),
-                TextButton(
-                  onPressed: _pickFolder,
-                  child: Text(l10n.library_setup_pick),
-                ),
-              ],
+              ),
             )
-          else
-            FilledButton.icon(
-              onPressed: _hasAccess ? _pickFolder : _requestAccess,
-              icon: const Icon(Icons.folder_open),
-              label: Text(l10n.library_setup_pick),
+          else ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.shield_outlined),
+                      title: Text(l10n.library_storage_hidden),
+                      subtitle: Text(l10n.library_storage_hidden_description),
+                    ),
+                    if (_volumes.isEmpty)
+                      Text(l10n.library_storage_unavailable_body,
+                          style: TextStyle(color: theme.colorScheme.error))
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final volume in _volumes)
+                            ChoiceChip(
+                              avatar: Icon(volume.isPrimary
+                                  ? Icons.phone_android
+                                  : Icons.sd_card_outlined),
+                              label: Text(libraryVolumeLabel(l10n, volume)),
+                              selected: _volume == volume,
+                              onSelected: _busy ? null : (_) => setState(() => _volume = volume),
+                            ),
+                        ],
+                      ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _busy || _volume == null ? null : _setupHidden,
+                      icon: const Icon(Icons.lock_outline),
+                      label: Text(l10n.library_storage_use_hidden),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.folder_outlined),
+                      title: Text(l10n.library_storage_visible),
+                      subtitle: Text(l10n.library_storage_visible_description),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : (_hasAccess ? _pickFolder : _requestAccess),
+                      icon: const Icon(Icons.folder_open),
+                      label: Text(l10n.library_setup_pick),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -295,12 +426,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       body: l10n.setup_done_body,
       extra: Card(
         margin: const EdgeInsets.symmetric(horizontal: 24),
-        child: SwitchListTile(
-          value: _visibleInGallery,
-          onChanged: _configured ? _toggleGalleryVisible : null,
-          secondary: Icon(_visibleInGallery ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-          title: Text(l10n.show_in_gallery),
-        ),
+        child: _library.isHidden
+            ? ListTile(
+                leading: const Icon(Icons.shield_outlined),
+                title: Text(l10n.library_storage_hidden),
+                subtitle: Text(l10n.library_hidden_status),
+              )
+            : SwitchListTile(
+                value: _visibleInGallery,
+                onChanged: _configured ? _toggleGalleryVisible : null,
+                secondary: Icon(
+                    _visibleInGallery ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                title: Text(l10n.show_in_gallery),
+              ),
       ),
     );
   }

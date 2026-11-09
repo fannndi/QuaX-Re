@@ -30,6 +30,22 @@ const optionMediaVideoPrefetchSeconds = 'media.video_prefetch_seconds';
 const optionLibraryPath = 'library.path';
 const optionLibraryVisibleInGallery = 'library.visibleInGallery';
 
+// `hidden` stores the media inside the app-specific directory on the chosen
+// volume (invisible to other apps on Android 11+), `visible` keeps the old
+// user-picked folder.
+const optionLibraryStorageMode = 'library.storageMode';
+const libraryStorageHidden = 'hidden';
+const libraryStorageVisible = 'visible';
+
+// The shared-storage folder that holds QuaXAccount. It is stored separately
+// from the library path because a hidden library lives under Android/data,
+// which is deleted on uninstall, while the encrypted account backup exists to
+// survive exactly that.
+const optionVaultRoot = 'account.vaultRoot';
+
+const optionLibrarySort = 'library.sort';
+const optionLibraryFilter = 'library.filter';
+
 // True when an account was added, re-signed in or removed after the last
 // QuaXAccount vault write. The backup screen reads it once; nothing writes it
 // on the hot path.
