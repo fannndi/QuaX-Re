@@ -540,7 +540,7 @@
   },
   "setup_permission_title": "Storage access",
   "@setup_permission_title": {},
-  "setup_welcome_body": "One step left: set up the media library. Every video you download lands in one hidden folder on this phone.",
+  "setup_welcome_body": "Set up the media library, then restore your accounts from QuaXAccount or log in. Every video you download lands in one hidden folder on this phone.",
   "@setup_welcome_body": {},
   "setup_welcome_title": "Welcome to QuaX",
   "@setup_welcome_title": {},
