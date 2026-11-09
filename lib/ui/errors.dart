@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:async_button_builder/async_button_builder.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/catcher/exceptions.dart';
 
@@ -363,16 +364,22 @@ class FullPageErrorWidget extends FritterErrorWidget {
                 style: TextStyle(color: Theme.of(context).hintColor),
               ),
             ),
-            Container(
-              alignment: Alignment.center,
-              margin: const EdgeInsets.only(top: 12),
-              child: Text('$error', textAlign: TextAlign.left, style: TextStyle(color: Theme.of(context).hintColor)),
-            ),
-            Container(
-              alignment: Alignment.center,
-              margin: const EdgeInsets.only(top: 12),
-              child: Text('$stackTrace', textAlign: TextAlign.left, style: TextStyle(color: Theme.of(context).hintColor)),
-            ),
+            // The exception text and the stack trace used to be printed here:
+            // they expose file paths and internal types to a reader who cannot
+            // act on them. Keep them one tap away for a bug report instead.
+            if (error != null)
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                child: TextButton.icon(
+                  icon: const Icon(Icons.copy_all_outlined, size: 18),
+                  label: Text(L10n.of(context).copy_details),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: '$error\n\n$stackTrace'));
+                    ScaffoldMessenger.maybeOf(context)
+                        ?.showSnackBar(SnackBar(content: Text(L10n.of(context).details_copied)));
+                  },
+                ),
+              ),
             if (onRetry != null)
               Container(
                 margin: const EdgeInsets.only(top: 12),

@@ -217,6 +217,23 @@ void main() {
       expect(seen.last, 'auth_token=C');
     });
 
+    test('Should report no working account when every account answers 401', () async {
+      await insertAccount('A', isActive: true);
+      await insertAccount('B');
+
+      XRegularAccount.debugFetchOverride =
+          (uri, {headers, body, required log, required authHeader}) async {
+        return http.Response('{}', 401);
+      };
+
+      await expectLater(
+        Twitter.debugFetch(Uri.parse('https://x.com/i/api/graphql/x/SearchTimeline')),
+        throwsA(isA<NoWorkingAccountException>()),
+        reason: 'Search is not account-scoped, but once every login was rejected the UI still '
+            'needs the re-login action instead of a generic 401 error page',
+      );
+    });
+
     test('Should rotate away from a session flagged by an earlier 401', () async {
       await insertAccount('A', isActive: true);
       await insertAccount('B');

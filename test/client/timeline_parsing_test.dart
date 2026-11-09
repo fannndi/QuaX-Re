@@ -37,6 +37,95 @@ void main() {
     });
   });
 
+  group('user lists', () {
+    Map<String, dynamic> userEntry(String id, String handle, Object? followers) => payload({
+          'entryId': 'user-$id',
+          'content': {
+            'itemContent': {
+              'user_results': {
+                'result': {
+                  'rest_id': id,
+                  'legacy': {'screen_name': handle, 'followers_count': followers},
+                },
+              },
+            },
+          },
+        });
+
+    test('Should skip one malformed Following user and keep the rest', () {
+      final body = payload({
+        'data': {
+          'user': {
+            'result': {
+              'timeline': {
+                'timeline': {
+                  'instructions': [
+                    {
+                      'type': 'TimelineAddEntries',
+                      'entries': [
+                        userEntry('1', 'bad', '12'),
+                        userEntry('2', 'good', 12),
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      });
+
+      final users = parseFollows(body);
+
+      expect(users.users?.map((user) => user.screenName), ['good'],
+          reason: 'A count that arrived as a string used to throw inside the parse isolate and '
+              'empty the whole Following page; one bad row should cost only that row');
+    });
+
+    test('Should skip one malformed People result and keep the rest', () {
+      final body = payload({
+        'data': {
+          'search_by_raw_query': {
+            'search_timeline': {
+              'timeline': {
+                'instructions': [
+                  {
+                    'type': 'TimelineAddEntries',
+                    'entries': [
+                      userEntry('1', 'bad', '12'),
+                      userEntry('2', 'good', 12),
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      final users = parseSearchUsers(body);
+
+      expect(users.map((user) => user.screenName), ['good'],
+          reason: 'The People tab uses the same user shape and needs the same per-row isolation');
+    });
+  });
+
+  test('Should treat TimelineAddEntries without entries as an empty page', () {
+    final status = parseTweetDetail(payload({
+      'data': {
+        'threaded_conversation_with_injections_v2': {
+          'instructions': [
+            {'type': 'TimelineAddEntries'},
+          ],
+        },
+      },
+    }));
+
+    expect(status.chains, isEmpty,
+        reason: 'A soft-error body can carry the instruction without the entries list; that is '
+            'an empty page, not a reason to throw inside the isolate');
+  });
+
   group('createTweets', () {
     test('Should skip an entry without an entryId', () {
       final chains = createTweets([payload({'content': {}})]);

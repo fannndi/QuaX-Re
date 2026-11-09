@@ -266,8 +266,8 @@ class _QuackerTwitterClient extends TwitterClient {
     if (lastError?.statusCode == 429) {
       throw RateLimitedException(); // every account was rate-limited on this endpoint
     }
-    if (lastError?.statusCode == 404 || (accountScoped && lastError?.statusCode == 401)) {
-      throw NoWorkingAccountException(); // the account's session/query is not usable
+    if (lastError?.statusCode == 404 || lastError?.statusCode == 401) {
+      throw NoWorkingAccountException(); // every account's session/query is unusable
     }
     return lastError!; // surface the real error
   }

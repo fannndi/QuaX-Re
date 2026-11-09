@@ -71,7 +71,14 @@ PaginatedUsers parseFollows(Map<String, dynamic> body) {
         // UserWithExtra() by hand from five fields, which dropped every modern
         // one -- followers_count, description, protected, verified_type -- so the
         // Following and Followers lists rendered with missing data.
-        users.users!.add(UserWithExtra.fromNonLegacyJson(userResult));
+        //
+        // One malformed user must not take the whole page down with it, exactly
+        // like _parseTweet below.
+        try {
+          users.users!.add(UserWithExtra.fromNonLegacyJson(userResult));
+        } catch (e) {
+          _QuackerTwitterClient.log.warning('Skipping an unparseable user: $e');
+        }
     }
   }
   return users;
@@ -163,7 +170,9 @@ List<TweetChain> createTweetChains(List<dynamic> addEntries) {
       List<TweetWithCard> tweets = [];
 
       // TODO: This is missing tombstone support
-      for (var item in entry['content']?['items']?.where((e) => isNotPromoted(e)) ?? const []) {
+      final items = entry['content']?['items'];
+      for (final item in (items is List ? items.whereType<Map<String, dynamic>>() : const <Map<String, dynamic>>[])) {
+        if (!isNotPromoted(item)) continue;
         final itemContent = item['item']?['itemContent'];
         if (itemContent?['itemType'] != 'TimelineTweet') continue;
         final tweet = _parseTweet(itemContent?['tweet_results']?['result']);
@@ -201,7 +210,8 @@ List<TweetChain> createTweets(List<dynamic> addEntries, [bool isPinned = false])
       replies.add(TweetChain(id: id, tweets: [tweet], isPinned: isPinned));
     } else if (entryId.startsWith('profile-grid-') || entryId.startsWith('profile-photo-grid-')) {
       // We got a tweet queried from the media tab
-      for (var mediaTweet in entry['content']?['items'] ?? const []) {
+      final items = entry['content']?['items'];
+      for (final mediaTweet in (items is List ? items.whereType<Map<String, dynamic>>() : const <Map<String, dynamic>>[])) {
         final item = mediaTweet['item'];
         if (item is! Map<String, dynamic>) continue;
 
@@ -224,7 +234,8 @@ List<TweetChain> createTweets(List<dynamic> addEntries, [bool isPinned = false])
       List<TweetWithCard> tweets = [];
 
       // TODO: This is missing tombstone support
-      for (var item in entry['content']?['items'] ?? const []) {
+      final items = entry['content']?['items'];
+      for (final item in (items is List ? items.whereType<Map<String, dynamic>>() : const <Map<String, dynamic>>[])) {
         final itemContent = item['item']?['itemContent'];
         if (itemContent?['itemType'] != 'TimelineTweet') continue;
         final tweet = _parseTweet(itemContent?['tweet_results']?['result']);
@@ -253,7 +264,7 @@ TweetStatus parseTweetDetail(Map<String, dynamic> result) {
     return TweetStatus(chains: [], cursorBottom: null, cursorTop: null);
   }
 
-  var addEntries = List.from(addEntriesInstructions['entries']);
+  var addEntries = List.from(addEntriesInstructions['entries'] ?? const []);
   var repEntries = List.from(instructions.where((e) => e['type'] == 'TimelineReplaceEntry'));
 
   // TODO: Could this use createUnconversationedChains at some point?
@@ -303,7 +314,7 @@ TweetStatus _createChainsFromGridModule(Map<String, dynamic> timeline) {
   ];
 
   List<TweetChain> chains = [];
-  for (var item in moduleItems) {
+  for (final item in moduleItems.whereType<Map>()) {
     var result = item['item']?['itemContent']?['tweet_results']?['result'] ??
         item['item']?['content']?['tweetResult']?['result'] ??
         item['item']?['content']?['tweet_results']?['result'];
@@ -565,13 +576,19 @@ List<UserWithExtra> parseSearchUsers(Map<String, dynamic> body) {
           const []);
   if (addEntries.isEmpty) return const [];
 
-  return addEntries
-      .where((entry) => entry['entryId']?.startsWith('user-') ?? false)
-      .map((entry) => entry['content']?['itemContent']?['user_results']?['result'])
-      .whereType<Map<String, dynamic>>()
-      .where((result) => result['rest_id'] != null)
-      .map(UserWithExtra.fromNonLegacyJson)
-      .toList();
+  final users = <UserWithExtra>[];
+  for (final entry in addEntries) {
+    if (!(entry['entryId']?.startsWith('user-') ?? false)) continue;
+    final result = entry['content']?['itemContent']?['user_results']?['result'];
+    if (result is! Map<String, dynamic> || result['rest_id'] == null) continue;
+    try {
+      users.add(UserWithExtra.fromNonLegacyJson(result));
+    } catch (e) {
+      // One changed user shape should cost that row, not the People page.
+      _QuackerTwitterClient.log.warning('Skipping an unparseable search user: $e');
+    }
+  }
+  return users;
 }
 
 /// The bookmarks timeline nests under its own key, unlike the other
@@ -654,7 +671,7 @@ TweetStatus createTimelineChains(Map<String, dynamic> result,
     return TweetStatus(chains: [], cursorBottom: null, cursorTop: null);
   }
   var addPinnedTweetsInstructions = instructions.firstWhereOrNull((e) => e['type'] == 'TimelinePinEntry');
-  var addEntries = List.from(addEntriesInstructions['entries']);
+  var addEntries = List.from(addEntriesInstructions['entries'] ?? const []);
   var repEntries = List.from(instructions.where((e) => e['type'] == 'TimelineReplaceEntry'));
   List addPinnedEntries = List<dynamic>.empty(growable: true);
   if (addPinnedTweetsInstructions != null) {

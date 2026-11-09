@@ -34,6 +34,25 @@ void main() {
         reason: 'The only action on a content warning is the reveal action');
   });
 
+  testWidgets('Should keep the raw exception and stack trace off the error page', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: const [L10n.delegate, ...GlobalMaterialLocalizations.delegates],
+      supportedLocales: L10n.delegate.supportedLocales,
+      home: Scaffold(
+        body: FullPageErrorWidget(
+          error: StateError('internal-path/secret'),
+          stackTrace: StackTrace.current,
+          prefix: 'Could not load',
+        ),
+      ),
+    ));
+
+    expect(find.textContaining('internal-path/secret'), findsNothing,
+        reason: 'The reader cannot act on a Dart exception, and the text exposed internal paths');
+    expect(find.text(L10n.current.copy_details), findsOneWidget,
+        reason: 'The details are still available for a bug report, one tap away');
+  });
+
   group('createEmojiError()', () {
     TwitterError errorWith(int code) => TwitterError(code: code, message: 'raw', uri: 'https://x.com/');
 
