@@ -265,34 +265,22 @@ class _GalleryTabState extends State<_GalleryTab> {
     if (_busy) return;
     setState(() => _busy = true);
 
-    final result = await _model.setGalleryVisible(value);
+    final ok = await _model.setGalleryVisible(value);
     if (!mounted) return;
     setState(() => _busy = false);
 
     final l10n = L10n.of(context);
-    if (!result.ok) {
-      showSnackBar(context, icon: '🙊', message: l10n.library_storage_permission_needed);
+    if (!ok) {
+      showSnackBar(context, icon: '🙊', message: l10n.gallery_toggle_failed);
       return;
     }
 
     setState(() {});
-
-    if (!value && result.remaining > 0) {
-      // The marker is in place, but rows the app no longer owns survived: the
-      // gallery may keep showing those files until it rescans. The storage
-      // sheet can re-apply the pass for galleries that need another nudge.
-      showSnackBar(
-        context,
-        icon: '⚠️',
-        message: l10n.gallery_hide_incomplete(result.remaining),
-      );
-      return;
-    }
-
-    final message = value
-        ? l10n.gallery_shown_count(result.affected)
-        : l10n.gallery_hidden_count(result.affected);
-    showSnackBar(context, icon: value ? '👀' : '🙈', message: message);
+    showSnackBar(
+      context,
+      icon: value ? '👀' : '🙈',
+      message: value ? l10n.gallery_shown : l10n.gallery_hidden,
+    );
   }
 
   Future<void> _manage() async {
@@ -306,7 +294,6 @@ class _GalleryTabState extends State<_GalleryTab> {
     final hidden = _model.isHidden;
     final visible = _model.galleryVisible;
     final path = _model.libraryPath;
-    final theme = Theme.of(context);
     final l10n = L10n.of(context);
 
     return Column(
@@ -321,10 +308,10 @@ class _GalleryTabState extends State<_GalleryTab> {
                         value: false,
                         onChanged: null,
                         secondary: const Icon(Icons.shield_outlined),
-                        title: Text(l10n.library_storage_hidden),
+                        title: Text(l10n.show_in_gallery),
                         subtitle: Text(
-                          '${_model.isOnRemovableStorage ? l10n.library_volume_sd : l10n.library_volume_internal} · ${l10n.library_hidden_status}\n${l10n.library_hidden_gallery_note}',
-                          maxLines: 3,
+                          l10n.library_hidden_gallery_note,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -345,13 +332,10 @@ class _GalleryTabState extends State<_GalleryTab> {
                         secondary: Icon(
                             visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                         title: Text(l10n.show_in_gallery),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(l10n.library_visible_status, style: theme.textTheme.labelSmall),
-                            Text(configured ? path : l10n.not_set,
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ],
+                        subtitle: Text(
+                          configured ? path : l10n.not_set,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),

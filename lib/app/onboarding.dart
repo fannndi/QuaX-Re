@@ -234,8 +234,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   }
 
   Future<void> _toggleGalleryVisible(bool value) async {
-    final result = await _library.setGalleryVisible(value);
-    if (result.ok && mounted) {
+    final ok = await _library.setGalleryVisible(value);
+    if (ok && mounted) {
       setState(() => _visibleInGallery = value);
     }
   }

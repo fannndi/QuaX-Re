@@ -103,19 +103,6 @@ class ExistingLibrary {
   final bool isHidden;
 }
 
-/// Outcome of a gallery show/hide pass: [affected] media files entered (or
-/// left) the gallery, [remaining] says how many rows stayed behind in the
-/// media database after hiding (0 means fully hidden).
-class GalleryVisibilityResult {
-  const GalleryVisibilityResult({required this.ok, this.affected = 0, this.remaining = 0});
-
-  static const failed = GalleryVisibilityResult(ok: false);
-
-  final bool ok;
-  final int affected;
-  final int remaining;
-}
-
 enum LibraryStorageMode { hidden, visible }
 
 /// One storage volume that can hold the hidden library. `appFilesRoot` is the
@@ -196,6 +183,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// binary, so tests can grant/refuse all-files access without an activity.
   @visibleForTesting
   static Future<bool> Function()? debugStorageAccess;
+
+  /// Test seam for the `.nomedia` pass, which also needs the MethodChannel.
+  @visibleForTesting
+  static Future<bool> Function(String path, bool visible)? debugGalleryVisibility;
 
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
 
@@ -424,30 +415,25 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   /// Live toggle for the gallery apps: drops/creates the `.nomedia` marker and
   /// asks Android to rescan the folder, so the videos appear or disappear from
-  /// the system gallery without a restart. Resolves only after the native side
-  /// finished the whole pass (scans included), reporting how many files were
-  /// touched and how many stayed visible.
-  Future<GalleryVisibilityResult> setGalleryVisible(bool visible) async {
+  /// the system gallery without a restart. The files themselves never move.
+  Future<bool> setGalleryVisible(bool visible) async {
     final path = libraryPath;
-    if (path.isEmpty) return GalleryVisibilityResult.failed;
+    if (path.isEmpty) return false;
     // MediaStore cannot index Android/data; the switch has no meaning there.
-    if (isHidden) return GalleryVisibilityResult.failed;
+    if (isHidden) return false;
 
     try {
-      final outcome = await _storageChannel.invokeMapMethod<String, dynamic>('setGalleryVisibility', {
-        'path': path,
-        'visible': visible,
-      });
-      if (outcome == null) return GalleryVisibilityResult.failed;
+      final ok = await (debugGalleryVisibility?.call(path, visible) ??
+          _storageChannel.invokeMethod<bool>('setGalleryVisibility', {
+            'path': path,
+            'visible': visible,
+          }));
+      if (ok != true) return false;
 
       prefs.set<bool>(optionLibraryVisibleInGallery, visible);
-      return GalleryVisibilityResult(
-        ok: true,
-        affected: (outcome['affected'] as num?)?.toInt() ?? 0,
-        remaining: (outcome['remaining'] as num?)?.toInt() ?? 0,
-      );
+      return true;
     } on Exception {
-      return GalleryVisibilityResult.failed;
+      return false;
     }
   }
 

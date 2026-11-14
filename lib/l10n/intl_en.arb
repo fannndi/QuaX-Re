@@ -255,30 +255,12 @@
   "@fritter": {},
   "gallery": "Gallery",
   "@gallery": {},
-  "gallery_hidden_count": "{count} files hidden",
-  "@gallery_hidden_count": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "gallery_hide_incomplete": "{count} files may still appear in the gallery",
-  "@gallery_hide_incomplete": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "gallery_shown_count": "{count} files now appear in the gallery",
-  "@gallery_shown_count": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
+  "gallery_hidden": "Hidden from gallery",
+  "@gallery_hidden": {},
+  "gallery_shown": "Shown in gallery",
+  "@gallery_shown": {},
+  "gallery_toggle_failed": "Could not change gallery visibility.",
+  "@gallery_toggle_failed": {},
   "general": "General",
   "@general": {},
   "hide_sensitive_tweets": "Hide sensitive posts",
@@ -305,6 +287,16 @@
   "@library_empty_hidden_body": {},
   "library_empty_visible_body": "Media you download in QuaX-Re appears here. This folder can be browsed with a file manager.",
   "@library_empty_visible_body": {},
+  "library_existing_failed": "That folder could not be used.",
+  "@library_existing_failed": {},
+  "library_existing_found": "Existing library found",
+  "@library_existing_found": {},
+  "library_existing_keep": "The files stay where they are. Nothing is moved.",
+  "@library_existing_keep": {},
+  "library_existing_scanning": "Looking for an existing library…",
+  "@library_existing_scanning": {},
+  "library_existing_use": "Use this library",
+  "@library_existing_use": {},
   "library_export_confirm_body": "{count, plural, =1{Copy 1 file to a folder you can browse?} other{Copy {count} files to a folder you can browse?}}",
   "@library_export_confirm_body": {
     "placeholders": {
@@ -353,6 +345,8 @@
   "@library_filter_photos": {},
   "library_filter_videos": "Videos",
   "@library_filter_videos": {},
+  "library_hidden_gallery_note": "Hidden storage can’t appear in the gallery. Use a visible folder to enable this switch.",
+  "@library_hidden_gallery_note": {},
   "library_hidden_status": "Hidden from gallery and file managers",
   "@library_hidden_status": {},
   "library_import_count": "{count, plural, =1{Move 1 media file into the library?} other{Move {count} media files into the library?}}",
@@ -363,16 +357,6 @@
       }
     }
   },
-  "library_existing_found": "Existing library found",
-  "@library_existing_found": {},
-  "library_existing_keep": "The files stay where they are. Nothing is moved.",
-  "@library_existing_keep": {},
-  "library_existing_failed": "That folder could not be used.",
-  "@library_existing_failed": {},
-  "library_existing_scanning": "Looking for an existing library…",
-  "@library_existing_scanning": {},
-  "library_existing_use": "Use this library",
-  "@library_existing_use": {},
   "library_import_existing": "Move media from another folder",
   "@library_import_existing": {},
   "library_import_failed": "Some files could not be moved. The rest are in the library.",
@@ -452,6 +436,19 @@
   "@library_storage_change": {},
   "library_storage_empty_note": "No media to move yet. The location is saved for the next download.",
   "@library_storage_empty_note": {},
+  "library_storage_existing_confirm_body": "Use the {count, plural, =1{1 media file} other{{count} media files}} already in {path}? Nothing is moved.",
+  "@library_storage_existing_confirm_body": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "library_storage_existing_confirm_title": "Use this folder as the library?",
+  "@library_storage_existing_confirm_title": {},
   "library_storage_export": "Export library",
   "@library_storage_export": {},
   "library_storage_hidden": "Hidden storage",
@@ -470,31 +467,16 @@
   "@library_storage_permission_needed": {},
   "library_storage_pick_folder": "Choose folder",
   "@library_storage_pick_folder": {},
-  "library_storage_use_existing": "Use this folder",
-  "@library_storage_use_existing": {},
-  "library_storage_use_existing_note": "Keep the files already in this folder. Nothing is moved.",
-  "@library_storage_use_existing_note": {},
-  "library_storage_existing_confirm_title": "Use this folder as the library?",
-  "@library_storage_existing_confirm_title": {},
-  "library_storage_existing_confirm_body": "Use the {count, plural, =1{1 media file} other{{count} media files}} already in {path}? Nothing is moved.",
-  "@library_storage_existing_confirm_body": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      },
-      "path": {
-        "type": "String"
-      }
-    }
-  },
-  "library_hidden_gallery_note": "Hidden storage can’t appear in the gallery. Use a visible folder to enable this switch.",
-  "@library_hidden_gallery_note": {},
   "library_storage_show_in_gallery_note": "Turning this on lets gallery apps index this folder.",
   "@library_storage_show_in_gallery_note": {},
   "library_storage_unavailable": "Storage unavailable",
   "@library_storage_unavailable": {},
   "library_storage_unavailable_body": "The library folder is not reachable. Reconnect the SD card or choose another location.",
   "@library_storage_unavailable_body": {},
+  "library_storage_use_existing": "Use this folder",
+  "@library_storage_use_existing": {},
+  "library_storage_use_existing_note": "Keep the files already in this folder. Nothing is moved.",
+  "@library_storage_use_existing_note": {},
   "library_storage_use_hidden": "Use hidden storage",
   "@library_storage_use_hidden": {},
   "library_storage_visible": "Visible folder",
@@ -505,8 +487,6 @@
   "@library_storage_volume": {},
   "library_type": "Type",
   "@library_type": {},
-  "library_visible_status": "Visible in file managers",
-  "@library_visible_status": {},
   "library_volume_internal": "Internal storage",
   "@library_volume_internal": {},
   "library_volume_internal_description": "App-private folder on the phone's internal storage",

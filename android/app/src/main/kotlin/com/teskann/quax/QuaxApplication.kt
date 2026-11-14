@@ -14,7 +14,6 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
-import android.provider.MediaStore
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.core.content.FileProvider
@@ -49,10 +48,6 @@ class QuaxApplication : android.app.Application() {
         @JvmStatic
         var currentActivity: WeakReference<Activity>? = null
 
-        // A gallery pass must always answer, even when the system scanner stays
-        // silent (an OEM provider with its own index, a headless emulator).
-        private const val SCAN_TIMEOUT_MS = 10_000L
-
         // Runtime storage request on Android 10 and below: the user's answer
         // arrives after the dialog, in Activity.onRequestPermissionsResult.
         private const val STORAGE_REQUEST_CODE = 4712
@@ -70,11 +65,6 @@ class QuaxApplication : android.app.Application() {
     // parked a core thread forever, so scrolling a large gallery leaked one
     // thread per clip until pthread_create failed.
     private val thumbnailExecutor = Executors.newSingleThreadExecutor()
-
-    private val mediaExtensions = setOf(
-        "mp4", "mov", "webm", "mkv", "m4v", "avi", "ts", "3gp", "mpeg", "mpg", "wmv", "flv", "m2ts", "ogv",
-        "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "avif", "tiff"
-    )
 
     override fun onCreate() {
         super.onCreate()
@@ -114,143 +104,39 @@ class QuaxApplication : android.app.Application() {
     }
 
     /**
-     * Shows or hides the library folder's media from gallery apps, and reports
-     * how many files were affected so the UI can confirm the outcome instead of
-     * guessing.
+     * Shows or hides the library folder's media from gallery apps.
      *
-     * Showing removes the `.nomedia` marker and scans every media file, so the
-     * gallery finds them again. Hiding writes the marker and scans the folder
-     * itself, which makes MediaProvider apply the folder rule and drop the
-     * indexed entries; scanning only the marker left the old rows in place.
-     * The rows that survive (a gallery app with its own index, an OEM provider)
-     * are only counted, never deleted, because deleting a MediaStore row
-     * deletes the file it points at.
-     *
-     * Answers at most [SCAN_TIMEOUT_MS] after the request even if the system
-     * scanner never calls back, so the switch can never hang.
+     * The whole mechanism is the `.nomedia` marker: hiding creates it, showing
+     * removes it, and one scan of the folder asks MediaProvider to refresh its
+     * index. No MediaStore row is ever deleted — deleting a row deletes the
+     * file it points at. The files themselves stay in place, so file managers
+     * still list them while gallery apps that respect the marker (the system
+     * gallery, MX Player) hide the folder.
      */
     private fun setGalleryVisibility(dirPath: String, visible: Boolean, result: MethodChannel.Result) {
         val dir = File(dirPath)
-        if (!dir.exists()) {
+        if (!dir.isDirectory) {
             result.error("INVALID_ARGUMENT", "Directory does not exist", null)
             return
         }
 
-        val media = try {
-            mediaFilesUnder(dir)
-        } catch (e: Exception) {
-            emptyList()
-        }
         val nomedia = File(dir, ".nomedia")
-
-        if (visible) {
-            try {
-                if (nomedia.exists()) nomedia.delete()
-            } catch (e: IOException) {
-                result.error("VISIBILITY_FAILED", e.message, null)
-                return
-            }
-
-            if (media.isEmpty()) {
-                result.success(mapOf("affected" to 0, "remaining" to 0))
-                return
-            }
-
-            scanMedia(media.toTypedArray(), result) {
-                val indexed = countMediaStoreRows(media)
-                mapOf("affected" to indexed, "remaining" to (media.size - indexed).coerceAtLeast(0))
-            }
-            return
-        }
-
         try {
-            if (!nomedia.exists()) nomedia.createNewFile()
+            if (visible) {
+                if (nomedia.exists()) nomedia.delete()
+            } else if (!nomedia.exists()) {
+                nomedia.createNewFile()
+            }
         } catch (e: IOException) {
             result.error("VISIBILITY_FAILED", e.message, null)
             return
         }
 
-        // Scan the folder, not just the marker: MediaProvider only applies
-        // the .nomedia rule to the files when it walks the directory.
-        scanMedia(arrayOf(dir.absolutePath), result, replyOnFirst = true) {
-            mapOf("affected" to media.size, "remaining" to countMediaStoreRows(media))
-        }
-    }
-
-    /**
-     * Hands [paths] to the system media scanner and answers with [answer] once
-     * the scanner reported every path — or when [SCAN_TIMEOUT_MS] passes, so a
-     * scanner that stays silent cannot leave the switch spinning forever.
-     */
-    private fun scanMedia(
-        paths: Array<String>,
-        result: MethodChannel.Result,
-        replyOnFirst: Boolean = false,
-        answer: () -> Map<String, Any>
-    ) {
-        var replied = false
-        val scanned = java.util.Collections.synchronizedSet(mutableSetOf<String>())
-
-        fun reply() {
-            if (replied) return
-            replied = true
-            result.success(answer())
-        }
-
-        mainHandler.postDelayed({ reply() }, SCAN_TIMEOUT_MS)
-        MediaScannerConnection.scanFile(this, paths, null) { path, _ ->
-            if (path != null) scanned.add(path)
-            if (replyOnFirst || scanned.size >= paths.size) mainHandler.post { reply() }
-        }
-    }
-
-    private fun mediaFilesUnder(dir: File): List<String> =
-        dir.walkTopDown()
-            .filter { it.isFile && it.extension.lowercase() in mediaExtensions }
-            .map { it.absolutePath }
-            .toList()
-
-    /** Shared-storage volumes the media database knows about (SD cards included). */
-    private fun externalVolumeNames(): List<String> {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MediaStore.getExternalVolumeNames(this).toList()
-            } else {
-                listOf("external")
-            }
-        } catch (e: Exception) {
-            listOf("external")
-        }
-    }
-
-    /**
-     * Counts how many of [paths] are still indexed in the media database.
-     *
-     * One query per volume with a batched `DATA IN (...)`, not one query per
-     * file: this used to issue a separate ContentResolver.query — a binder
-     * round-trip — for every file on every volume, on the main thread, inside a
-     * scan callback that is itself on the main thread. A 2000-file library on
-     * two volumes was 4000 IPCs.
-     */
-    private fun countMediaStoreRows(paths: List<String>): Int {
-        var remaining = 0
-        for (volume in externalVolumeNames()) {
-            val collection = MediaStore.Files.getContentUri(volume)
-            // SQLite's default bound on host parameters is 999; stay well under.
-            for (batch in paths.chunked(500)) {
-                val placeholders = batch.joinToString(",") { "?" }
-                try {
-                    contentResolver.query(
-                        collection, arrayOf(MediaStore.MediaColumns._ID),
-                        "${MediaStore.MediaColumns.DATA} IN ($placeholders)",
-                        batch.toTypedArray(), null
-                    )?.use { remaining += it.count }
-                } catch (e: Exception) {
-                    // An unreadable volume simply cannot report leftovers.
-                }
-            }
-        }
-        return remaining
+        // One scan of the folder: MediaProvider indexes the files on show and
+        // applies the marker on hide. Gallery apps that read the marker
+        // themselves need nothing else.
+        MediaScannerConnection.scanFile(this, arrayOf(dir.absolutePath), null, null)
+        result.success(true)
     }
 
     private fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {

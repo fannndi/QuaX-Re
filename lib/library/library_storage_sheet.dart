@@ -358,24 +358,22 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
   Future<void> _toggleGallery(bool value) async {
     if (_busy || _loading) return;
     setState(() => _busy = true);
-    final result = await _model.setGalleryVisible(value);
+    final ok = await _model.setGalleryVisible(value);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      if (result.ok) _galleryVisible = value;
+      if (ok) _galleryVisible = value;
     });
 
     final l10n = L10n.of(context);
-    if (!result.ok) {
-      showSnackBar(context, icon: '🙊', message: l10n.library_storage_permission_needed);
+    if (!ok) {
+      showSnackBar(context, icon: '🙊', message: l10n.gallery_toggle_failed);
       return;
     }
     showSnackBar(
       context,
       icon: value ? '👀' : '🙈',
-      message: value
-          ? l10n.gallery_shown_count(result.affected)
-          : l10n.gallery_hidden_count(result.affected),
+      message: value ? l10n.gallery_shown : l10n.gallery_hidden,
     );
   }
 

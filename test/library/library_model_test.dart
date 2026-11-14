@@ -21,11 +21,13 @@ void main() {
     LibraryModel.debugNameIndexBuilds = 0;
     LibraryModel.debugExternalDirectories = null;
     LibraryModel.debugStorageAccess = null;
+    LibraryModel.debugGalleryVisibility = null;
   });
 
   tearDown(() async {
     LibraryModel.debugExternalDirectories = null;
     LibraryModel.debugStorageAccess = null;
+    LibraryModel.debugGalleryVisibility = null;
     for (final dir in [source, library]) {
       if (await dir.exists()) await dir.delete(recursive: true);
     }
@@ -327,6 +329,39 @@ void main() {
           reason: 'The gallery must list the adopted folder immediately');
       expect((await clip.lastModified()).difference(modified).inSeconds.abs() < 2, isTrue,
           reason: 'Adoption must not rewrite the mtime the newest sort depends on');
+    });
+
+    test('Should only flip the gallery flag when the native pass succeeds', () async {
+      final prefs = PrefServiceCache()
+        ..put(optionLibraryPath, library.path)
+        ..put(optionLibraryStorageMode, libraryStorageVisible);
+      final model = LibraryModel(prefs);
+      LibraryModel.debugGalleryVisibility = (path, visible) async => true;
+
+      expect(await model.setGalleryVisible(true), isTrue);
+      expect(model.galleryVisible, isTrue,
+          reason: 'A successful pass must leave the switch showing the folder as visible');
+
+      LibraryModel.debugGalleryVisibility = (path, visible) async => false;
+      expect(await model.setGalleryVisible(false), isFalse);
+      expect(model.galleryVisible, isTrue,
+          reason: 'A failed pass must not claim the folder was hidden');
+    });
+
+    test('Should refuse the gallery switch for hidden storage', () async {
+      final prefs = PrefServiceCache()
+        ..put(optionLibraryPath, library.path)
+        ..put(optionLibraryStorageMode, libraryStorageHidden);
+      final model = LibraryModel(prefs);
+      var called = false;
+      LibraryModel.debugGalleryVisibility = (path, visible) async {
+        called = true;
+        return true;
+      };
+
+      expect(await model.setGalleryVisible(true), isFalse,
+          reason: 'Android/data cannot be indexed by gallery apps');
+      expect(called, isFalse, reason: 'The native pass must not run for a hidden root');
     });
 
     test('Should find an old X/QuaXLibrary under a volume root', () async {
