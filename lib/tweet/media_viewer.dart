@@ -31,10 +31,9 @@ class TweetMediaView extends StatefulWidget {
   State<TweetMediaView> createState() => _TweetMediaViewState();
 }
 
-Media createMediaFromUrl(String? url, double? height) {
+Media createMediaFromUrl(String? url) {
   Media media = Media();
   if (url != null) {
-    ExtendedImage.network(url, fit: BoxFit.fitWidth, height: height);
     media.url = url;
     media.mediaUrlHttps = url;
     media.displayUrl = url;

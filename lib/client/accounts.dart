@@ -166,6 +166,9 @@ Future<void> setActiveAccountUserId(String userId, {String? expectedAccountId}) 
   var database = await Repository.writable();
   await database.update(tableAccounts, {'user_id': userId}, where: 'id = ?', whereArgs: [active.id]);
 
+  // The switch may have landed while the write was in flight; the old id must
+  // not overwrite the new login in memory.
+  if (activeAccount.value?.id != active.id) return;
   activeAccount.value = ActiveAccount(
       id: active.id,
       screenName: active.screenName,
@@ -339,6 +342,10 @@ class AccountImportResult {
   });
 
   int get total => imported + replaced + kept;
+
+  /// Accounts the restore actually wrote: new rows plus rows whose session was
+  /// replaced. A kept row is unchanged, so it must not read as "restored".
+  int get restored => imported + replaced;
 }
 
 /// Merges accounts read from a vault into the database.

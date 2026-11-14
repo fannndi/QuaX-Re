@@ -180,8 +180,10 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
               // above only collapses the app bar; the feed's own list keeps the
               // reader's position, which made "tap Home to go to top" do half
               // its job. FeedRefreshController is the seam the body registered
-              // its real scroll-to-top on.
-              _feedRefreshController.scrollToTop();
+              // its real scroll-to-top on. Only Home has that seam: the Like
+              // tab owns its own controller, and calling this from there
+              // scrolled the hidden Home feed instead.
+              if (tappedId == "feed") _feedRefreshController.scrollToTop();
             }
           }
           _pageController.jumpToPage(index);

@@ -8,11 +8,13 @@ class HttpException {
   int get statusCode => response.statusCode;
   String? get reasonPhrase => response.reasonPhrase;
   String get body => response.body;
-  String? get uri => response.request?.url.toString();
+  // The path only: the query string carries the GraphQL variables (search
+  // terms, numeric user ids) and ends up on the clipboard via "Copy details".
+  String? get uri => response.request?.url.path;
 
   @override
   String toString() {
-    return 'HttpException{statusCode: $statusCode, reasonPhrase: $reasonPhrase, uri: $uri, body: $body';
+    return 'HttpException{statusCode: $statusCode, reasonPhrase: $reasonPhrase, uri: $uri}';
   }
 }
 

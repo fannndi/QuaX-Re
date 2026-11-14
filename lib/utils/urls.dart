@@ -101,11 +101,9 @@ ProfileUriInfo? _parseAsProfileLink(List<String> parts) {
 class PostUriInfo extends UriParseResult {
   String? screenName;
   String id;
-  bool direct = false;
   int? photoNumber;
 
   PostUriInfo(this.screenName, this.id, {this.photoNumber}) {
-    direct = id.endsWith(".jpg") || id.endsWith(".mp4");
     // In case of FX Twitter links
     // https://github.com/FxEmbed/FxEmbed?tab=readme-ov-file#direct-media-links
     id = id.replaceAll(RegExp(r'\.(?:jpg|mp4)$'), '');
@@ -169,6 +167,7 @@ class UnknownResult extends UriParseResult {}
 bool isXHost(String host) => const {
       'x.com',
       'www.x.com',
+      'mobile.x.com',
       'twitter.com',
       'www.twitter.com',
       'mobile.twitter.com',

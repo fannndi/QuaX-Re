@@ -217,12 +217,15 @@ class AccountVault {
       try {
         return (await _decryptFile(primary, passphrase), primary.path);
       } on VaultException catch (error) {
-        // The primary may have been replaced by a foreign or half-written file.
-        // Try the previous copy before surfacing the error; a wrong passphrase
-        // only costs a second KDF run. A vault from a newer format is not
+        // The primary may have been replaced by a foreign or half-written file,
+        // or one of its bytes may have rotted: a GCM tag failure is
+        // indistinguishable from a wrong passphrase, so try the backup for
+        // that too (one extra KDF run). A vault from a newer format is not
         // recoverable from the backup: falling back would silently restore an
         // older account list and report success.
-        if (error.failure != VaultFailure.corrupt && error.failure != VaultFailure.tooLarge) {
+        if (error.failure != VaultFailure.corrupt &&
+            error.failure != VaultFailure.tooLarge &&
+            error.failure != VaultFailure.wrongPassphrase) {
           rethrow;
         }
         if (!await backup.exists()) rethrow;

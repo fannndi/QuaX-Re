@@ -57,7 +57,17 @@ class ProfileScreen extends StatelessWidget {
 
     return Provider(
         create: (context) {
-          return ProfileModel()..loadProfileByScreenName(args.screenName!);
+          final model = ProfileModel();
+          // An id survives a renamed handle; a stale screen name 404s before
+          // the id fallback is ever tried.
+          final id = args.id;
+          final screenName = args.screenName;
+          if (id != null && id.isNotEmpty) {
+            model.loadProfileById(id);
+          } else if (screenName != null && screenName.isNotEmpty) {
+            model.loadProfileByScreenName(screenName);
+          }
+          return model;
         },
         child: _ProfileScreen(id: args.id, screenName: args.screenName, tabIndex: args.tabIndex));
   }
@@ -250,7 +260,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
             builder: (context) =>
                 TweetMediaView(
                     initialIndex: 0,
-                    media: [createMediaFromUrl(user.profileBannerUrl, bannerHeight)],
+                    media: [createMediaFromUrl(user.profileBannerUrl)],
                     username: user.screenName ?? "Unknown",
                     tweetMedia: false),
           ),
@@ -618,7 +628,7 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                     builder: (context) =>
                                         TweetMediaView(
                                             initialIndex: 0,
-                                            media: [createMediaFromUrl(user.profileImageUrlHttps?.replaceAll("_normal", "_400x400"), null)],
+                                            media: [createMediaFromUrl(user.profileImageUrlHttps?.replaceAll("_normal", "_400x400"))],
                                             username: user.screenName ?? "Unknown",
                                             tweetMedia: false),
                                   ),

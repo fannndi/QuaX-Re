@@ -32,5 +32,7 @@ class LruCache<K, V> {
   /// an error) has to stop being remembered so the next request retries.
   bool remove(K key) => _entries.remove(key) != null;
 
+  void clear() => _entries.clear();
+
   int get length => _entries.length;
 }

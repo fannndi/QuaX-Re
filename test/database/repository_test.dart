@@ -65,7 +65,7 @@ void main() {
       final version = await db.getVersion();
       await db.close();
 
-      expect(version, 32,
+      expect(version, 33,
           reason: 'The version has to match the last migration step, otherwise the next app launch '
               'replays steps on top of a schema that already has them and the ALTERs fail');
     });
@@ -94,6 +94,9 @@ void main() {
       expect(indexes, contains('idx_account_like_account_liked_at'),
           reason: 'The local likes tab orders one account\'s rows by liked_at; without this index '
               'the query sorts the whole table on every open');
+      expect(indexes, contains('idx_account_like_tweet_id'),
+          reason: 'unlikeTweet looks a like up by tweet_id alone; without this index the delete '
+              'scans every like on the device');
     });
 
     test('Should add the columns of the saved, liked and account features', () async {

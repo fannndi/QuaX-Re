@@ -7,7 +7,9 @@ void main() {
   setUpAll(() => initializeDateFormatting('en'));
   testWidgets('Should apply a changed absolute-timestamp setting to a mounted card', (tester) async {
     final timestamp = DateTime.utc(2026, 1, 2, 3, 4, 5);
-    final absolute = absoluteDateFormat.format(timestamp.toLocal());
+    // The test MediaQuery defaults to the 12-hour clock, and the widget now
+    // follows the device setting instead of always printing 24-hour time.
+    final absolute = absoluteDateFormat12h.format(timestamp.toLocal());
 
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(body: Timestamp(timestamp: timestamp, absoluteTimestamp: false)),

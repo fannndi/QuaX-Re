@@ -142,13 +142,7 @@ class _FritterAppState extends State<FritterApp> {
     final systemOverlayStyle = (darkMode ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
         .copyWith(systemNavigationBarColor: Colors.transparent);
     SystemChrome.setSystemUIOverlayStyle(systemOverlayStyle);
-    final systemScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-
-    return MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(_textScaleFactor * systemScaleFactor),
-        ),
-        child: DynamicColorBuilder(builder: (lightDynamic, darkDynamic) {
+    return DynamicColorBuilder(builder: (lightDynamic, darkDynamic) {
           return MaterialApp(
               localizationsDelegates: const [
                     L10n.delegate,
@@ -162,7 +156,7 @@ class _FritterAppState extends State<FritterApp> {
                         ? lightDynamic ??
                             ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.light)
                         : ColorScheme.fromSeed(
-                            seedColor: (themeColors[_themeColor] ?? themeColors['accent']!)
+                            seedColor: (themeColors[_themeColor] ?? themeColors['accent'] ?? Colors.blue)
                                 .harmonizeWith(lightDynamic?.primary ?? Colors.transparent),
                             brightness: Brightness.light),
                     trueBlack: _trueBlack,
@@ -172,7 +166,7 @@ class _FritterAppState extends State<FritterApp> {
                     colorScheme: (_themeColor == 'accent'
                             ? darkDynamic
                             : ColorScheme.fromSeed(
-                                seedColor: (themeColors[_themeColor] ?? themeColors['accent']!)
+                                seedColor: (themeColors[_themeColor] ?? themeColors['accent'] ?? Colors.blue)
                                     .harmonizeWith(darkDynamic?.primary ?? Colors.transparent),
                                 brightness: Brightness.dark)) ??
                         ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
@@ -196,15 +190,25 @@ class _FritterAppState extends State<FritterApp> {
                           prefix: L10n.of(context).something_broke_in_fritter,
                         );
 
-                    return PrivacyShield(
-                      child: SecureContentScope(
-                        enabled: _isSecure,
-                        child: child ?? Container(),
+                    // The text-scale override belongs here, below the
+                    // MediaQuery MaterialApp installs: reading it in build()
+                    // made the whole app rebuild for every keyboard inset
+                    // change.
+                    final systemScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
+                    return MediaQuery(
+                      data: MediaQuery.of(context).copyWith(
+                        textScaler: TextScaler.linear(_textScaleFactor * systemScaleFactor),
+                      ),
+                      child: PrivacyShield(
+                        child: SecureContentScope(
+                          enabled: _isSecure,
+                          child: child ?? Container(),
+                        ),
                       ),
                     );
                   },
                 );
-        }));
+        });
   }
 }
 

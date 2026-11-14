@@ -60,6 +60,11 @@ dependencies:
   file_picker: ^13.1.0
   flutter_file_dialog: ^3.0.1
   webview_flutter: 4.14.1
+  # WebViewPopups.kt extends a Pigeon-generated class from this package.
+  # It used to ride in transitively through webview_flutter; pinning it here
+  # keeps `flutter pub upgrade` from moving the generated class out from under
+  # the Kotlin source.
+  webview_flutter_android: 4.14.1
   webview_cookie_manager_plus: ^2.0.16
 
   # Localization & Styling

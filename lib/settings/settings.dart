@@ -61,7 +61,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final prefs = PrefService.of(context);
+    // The page itself does not need to rebuild on every preference write;
+    // the tiles that do are wrapped in a listening Builder below.
+    final prefs = PrefService.of(context, listen: false);
     final appVersion = 'v${_packageInfo.version}+${_packageInfo.buildNumber}';
 
     return Scaffold(
@@ -110,12 +112,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 pref: optionThemeTrueBlack,
                 subtitle: Text(L10n.of(context).use_true_black_for_the_dark_mode_theme),
               ),
-              PrefSwitch(
-                title: Text(L10n.of(context).true_black_tweet_cards),
-                pref: optionThemeTrueBlackTweetCards,
-                disabled: !(prefs.get<bool>(optionThemeTrueBlack) ?? false),
-                subtitle: Text(L10n.of(context).use_true_black_for_tweet_cards),
-              ),
+              Builder(builder: (tileContext) {
+                final tilePrefs = PrefService.of(tileContext);
+                return PrefSwitch(
+                  title: Text(L10n.of(context).true_black_tweet_cards),
+                  pref: optionThemeTrueBlackTweetCards,
+                  disabled: !(tilePrefs.get<bool>(optionThemeTrueBlack) ?? false),
+                  subtitle: Text(L10n.of(context).use_true_black_for_tweet_cards),
+                );
+              }),
               PrefSwitch(
                 title: Text(L10n.of(context).show_navigation_labels),
                 pref: optionShowNavigationLabels,
@@ -194,11 +199,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: Text(L10n.of(context).auto_cache_videos),
                 subtitle: Text(L10n.of(context).auto_cache_videos_description),
               ),
-              PrefSwitch(
-                pref: optionAutoCacheWifiOnly,
-                title: Text(L10n.of(context).auto_cache_wifi_only),
-                disabled: !(prefs.get<bool>(optionAutoCacheVideos) ?? false),
-              ),
+              Builder(builder: (tileContext) {
+                final tilePrefs = PrefService.of(tileContext);
+                return PrefSwitch(
+                  pref: optionAutoCacheWifiOnly,
+                  title: Text(L10n.of(context).auto_cache_wifi_only),
+                  disabled: !(tilePrefs.get<bool>(optionAutoCacheVideos) ?? false),
+                );
+              }),
               PrefDropdown(
                   fullWidth: false,
                   title: Text(L10n.of(context).cache_size_limit),
@@ -404,6 +412,7 @@ class _StorageTilesState extends State<_StorageTiles> {
     } catch (_) {
       // Thumbnails regenerate on demand.
     }
+    LibraryModel.clearThumbnailCache();
     clearMemoryImageCache();
     try {
       await clearDiskCachedImages();

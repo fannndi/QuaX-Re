@@ -24,8 +24,8 @@ String vaultErrorMessage(L10n l10n, Object error) => switch (error) {
 String accountRestoredMessage(
     L10n l10n, AccountVaultReadResult read, AccountImportResult imported) {
   final message = read.invalid > 0
-      ? l10n.account_backup_restored_partial(imported.total, read.invalid)
-      : l10n.account_backup_restored(imported.total);
+      ? l10n.account_backup_restored_partial(imported.restored, read.invalid)
+      : l10n.account_backup_restored(imported.restored);
   final kept = imported.kept > 0 ? ' ${l10n.account_backup_kept}.' : '';
   return '$message$kept';
 }

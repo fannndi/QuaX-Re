@@ -30,7 +30,8 @@ Future<void> main() async {
 
     stopwatch.stop();
     stdout.writeln('OK   ${stopwatch.elapsedMilliseconds} ms');
-    stdout.writeln('id   ${id.length} base64 chars, starts ${id.substring(0, 12)}…');
+    final head = id.length >= 12 ? id.substring(0, 12) : id;
+    stdout.writeln('id   ${id.length} base64 chars, starts $head…');
     stdout.writeln('');
     stdout.writeln('The generator found its inputs and produced an id.');
     stdout.writeln('');

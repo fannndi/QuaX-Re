@@ -117,6 +117,9 @@ class TweetFeedController {
       _paging.replaceFirstPage(
         merged.length > maxMergedChains ? merged.sublist(0, maxMergedChains) : merged,
         cursor,
+        // The old tail is still in the list, so continue from its cursor
+        // instead of re-requesting the pages the merge just brought in.
+        keepCursor: _paging.hasMore,
       );
       return true;
     }
@@ -205,6 +208,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   final ScrollController _scrollController = ScrollController();
   FeedRefreshController? _refreshController;
   Object? _registeredFeedId;
+  Object? _registeredFeedToken;
   bool _firstLoadStarted = false;
   bool _pendingInitialLoad = false;
   bool _onlineListenerAttached = false;
@@ -272,12 +276,13 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     }
     final feedId = widget.feedId ?? widget.feed;
     if (!identical(controller, _refreshController) || _registeredFeedId != feedId) {
-      if (_refreshController != null && _registeredFeedId != null) {
-        _refreshController!.unregister(_registeredFeedId!);
+      if (_refreshController != null && _registeredFeedId != null && _registeredFeedToken != null) {
+        _refreshController!.unregister(_registeredFeedId!, _registeredFeedToken!);
       }
       _refreshController = controller;
       _registeredFeedId = controller == null ? null : feedId;
-      controller?.register(feedId, refresh: _showRefresh, scrollToTop: _scrollToTop);
+      _registeredFeedToken =
+          controller?.register(feedId, refresh: _showRefresh, scrollToTop: _scrollToTop);
     }
   }
 
@@ -299,8 +304,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _scrollSaveTimer?.cancel();
-    if (_refreshController != null && _registeredFeedId != null) {
-      _refreshController!.unregister(_registeredFeedId!);
+    if (_refreshController != null && _registeredFeedId != null && _registeredFeedToken != null) {
+      _refreshController!.unregister(_registeredFeedId!, _registeredFeedToken!);
     }
     if (_onlineListenerAttached) {
       NetworkStatus().online.removeListener(_onOnlineChanged);

@@ -37,13 +37,29 @@ void main() {
       final controller = FeedRefreshController();
       var scrolled = 0;
 
-      controller.register('foryou', refresh: () async {}, scrollToTop: () => scrolled++);
+      final token = controller.register('foryou', refresh: () async {}, scrollToTop: () => scrolled++);
       controller.activeFeedId = 'foryou';
-      controller.unregister('foryou');
+      controller.unregister('foryou', token);
       controller.scrollToTop();
 
       expect(scrolled, 0,
           reason: 'A disposed feed must not be scrolled, or the tap acts on a list that is gone');
+    });
+
+    test('Should keep the new feed when the old one is disposed after a switch', () async {
+      final controller = FeedRefreshController();
+      var scrolled = 0;
+
+      final oldToken = controller.register('foryou', refresh: () async {}, scrollToTop: () {});
+      controller.register('foryou', refresh: () async {}, scrollToTop: () => scrolled++);
+      controller.activeFeedId = 'foryou';
+      // Flutter mounts the replacement before it disposes the old subtree.
+      controller.unregister('foryou', oldToken);
+      controller.scrollToTop();
+
+      expect(scrolled, 1,
+          reason: 'The old dispose used to remove the new handler by key alone, so the app-bar '
+              'refresh and the nav scroll did nothing after every account switch');
     });
 
     test('Should keep both home feeds registered at once', () {

@@ -85,6 +85,27 @@ void main() {
         expect(controller.pagingController.value.hasNextPage, isTrue,
             reason: 'A new cursor was given, so scrolling down should still be able to load more');
       });
+
+      test('Should keep pagination alive when a refresh returns the same cursor', () async {
+        var fetches = 0;
+        final controller = CursorPagingController<String, int>((cursor) async {
+          fetches++;
+          return (items: [fetches], nextCursor: 'same');
+        });
+        addTearDown(controller.dispose);
+
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+
+        // A refresh with no new posts answers the same bottom cursor as before.
+        controller.replaceFirstPage([9], 'same');
+        controller.pagingController.fetchNextPage();
+        await pumpEventQueue();
+
+        expect(fetches, 2,
+            reason: 'A refreshed first page starts a new cursor chain; comparing its cursor with '
+                'the previous chain read the unchanged bottom cursor as the end of the feed');
+      });
     });
 
     group('setError()', () {

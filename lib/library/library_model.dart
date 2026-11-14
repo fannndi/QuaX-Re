@@ -259,7 +259,12 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// and the local search hand `thumbnailFor` straight to a FutureBuilder, so
   /// without it every rebuild of a tile re-ran the directory lookup, the stat
   /// and the Android call for a path that had not changed.
-  final _thumbnailRequests = LruCache<String, Future<String?>>(400);
+  // Shared: the gallery builds its own model per screen, and Settings has to
+  // invalidate the lookups after it deletes the on-disk cache.
+  static final _thumbnailRequests = LruCache<String, Future<String?>>(400);
+
+  /// Drops the remembered lookups after the `thumbs/` directory was wiped.
+  static void clearThumbnailCache() => _thumbnailRequests.clear();
 
   /// Cached thumbnail of a video, generated once by the Android handler
   /// (MediaMetadataRetriever one second in). Serves both the grid tile and the
@@ -308,6 +313,27 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
+  /// Deletes one library file together with its derived state: the thumbnail
+  /// on disk and the remembered lookup. Without this a re-import at the same
+  /// name reused the deleted clip's frame.
+  Future<void> deleteEntry(LibraryEntry entry) async {
+    final key = entry.file.path;
+    _thumbnailRequests.remove(key);
+    try {
+      final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      final relative = libraryPath.isEmpty ? key : p.relative(key, from: libraryPath);
+      final thumb = File(p.join(cacheDir.path, thumbnailNameFor(relative)));
+      if (await thumb.exists()) await thumb.delete();
+    } catch (_) {
+      // The frame may never have been generated.
+    }
+    try {
+      await entry.file.delete();
+    } catch (_) {
+      // Already gone: the refresh settles the list either way.
+    }
+  }
+
   /// Opens a library file through the system player/viewer. No in-app player:
   /// the file URI is granted to the chosen app directly, so the folder stays
   /// hidden from the gallery while clips play like any other media file.
@@ -345,7 +371,14 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     final extension = p.extension(name).toLowerCase();
     for (final entry in index.entries) {
       if (p.extension(entry.key).toLowerCase() != extension) continue;
-      if (p.basenameWithoutExtension(entry.key).toLowerCase().startsWith('$stem-')) {
+      final keyStem = p.basenameWithoutExtension(entry.key).toLowerCase();
+      // Downloads are saved as `<username>-<name>` (and duplicates as
+      // `<username>-<name>-<timestamp>`), so the bare URL basename never
+      // matches a file that is already on disk.
+      if (keyStem == stem ||
+          keyStem.endsWith('-$stem') ||
+          keyStem.contains('-$stem-') ||
+          keyStem.startsWith('$stem-')) {
         if (entry.value.isNotEmpty) return entry.value.first;
       }
     }
@@ -516,13 +549,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
     final source = Directory(sourcePath);
     if (!await source.exists()) {
-      try {
-        await _configureTarget(target, mode);
-        await refresh();
-      } catch (e) {
-        return LibraryMoveResult.failed(e.toString());
-      }
-      return const LibraryMoveResult(moved: 0, failed: 0);
+      // A missing source is an ejected SD card, not "nothing to move": the
+      // files are still on that volume. Switching the root here made the
+      // gallery empty until the folder was picked again.
+      return const LibraryMoveResult.failed('source_missing');
     }
 
     try {
@@ -556,7 +586,16 @@ class LibraryModel extends Store<List<LibraryEntry>> {
             // copy that only deletes the source after it succeeded.
             await entity.rename(destination);
           } on FileSystemException {
+            // File.copy does not carry the source mtime; without this every
+            // file in a cross-volume move gets the move time and the
+            // newest/oldest sort becomes the copy order.
+            final modified = (await entity.stat()).modified;
             await entity.copy(destination);
+            try {
+              await File(destination).setLastModified(modified);
+            } catch (_) {
+              // The copy is still valid; only the sort order degrades.
+            }
             await entity.delete();
           }
           moved++;

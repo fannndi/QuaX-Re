@@ -112,12 +112,14 @@ def clean_en(ref_file):
     if not unused:
         print("  Nothing to remove.")
         return
+    backup = ref_file.with_name(ref_file.name + ".bak")
+    shutil.copy2(ref_file, backup)
     data = json.loads(ref_file.read_text(encoding="utf-8"))
     for k in unused:
         data.pop(k, None)
         data.pop(f"@{k}", None)
     ref_file.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"  Removed {len(unused)} keys from {ref_file.name}.")
+    print(f"  Removed {len(unused)} keys from {ref_file.name} (backup: {backup.name}).")
 
 
 def clean_locales(files, ref_file):

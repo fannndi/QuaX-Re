@@ -467,13 +467,32 @@ class Repository {
                   '$columnAccountLocalId, $columnLikedAt DESC'),
             ]))),
       ],
+      33: [
+        // `unlikeTweet` finds a like by tweet id alone, which the composite
+        // primary key cannot serve: every unlike scanned the table. The
+        // covering tail on the account index also lets the likes id-set query
+        // read tweet_id without touching the row.
+        SqlMigration('DROP INDEX IF EXISTS idx_${tableAccountLike}_account_liked_at'),
+        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
+              ('idx_${tableAccountLike}_account_liked_at', tableAccountLike,
+                  '$columnAccountLocalId, $columnLikedAt DESC, $columnTweetId DESC'),
+              ('idx_${tableAccountLike}_tweet_id', tableAccountLike, columnTweetId),
+            ]))),
+      ],
     });
     await openDatabase(
       databaseName,
-      version: 32,
+      version: 33,
       onUpgrade: myMigrationPlan.call,
       onCreate: myMigrationPlan.call,
-      onDowngrade: myMigrationPlan.call,
+      // The plan's reverse SQL drops columns and tables. On Android versions
+      // whose SQLite predates DROP COLUMN it throws inside the version
+      // transaction and the database can never be opened again; where it does
+      // work, the next upgrade re-runs the backfills and reattributes likes.
+      // Refuse before touching anything.
+      onDowngrade: (db, from, to) async {
+        throw StateError('Database downgrade from $from to $to is not supported');
+      },
     );
 
     log.info('Finished migrating database');

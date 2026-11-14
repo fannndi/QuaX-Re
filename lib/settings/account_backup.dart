@@ -140,7 +140,9 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
 
     await _run(() async {
       final imported = await importAccounts(result.accounts, replaceExisting: replace);
-      await _prefs.set<bool>(optionAccountVaultDirty, false);
+      if (imported.restored > 0) {
+        await _prefs.set<bool>(optionAccountVaultDirty, false);
+      }
       _showRestored(result, imported);
     });
   }
@@ -180,7 +182,9 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     await _run(() async {
       final imported = await importAccounts(result.accounts, replaceExisting: replace);
       await _vault.adoptFile(sourcePath: path, vaultRoot: _vaultRoot);
-      await _prefs.set<bool>(optionAccountVaultDirty, false);
+      if (imported.restored > 0) {
+        await _prefs.set<bool>(optionAccountVaultDirty, false);
+      }
       _showRestored(result, imported);
     });
   }

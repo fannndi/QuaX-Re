@@ -33,6 +33,13 @@ class _TweetPhotoState extends State<TweetPhoto> with SingleTickerProviderStateM
       AnimationController(duration: const Duration(milliseconds: 150), vsync: this);
 
   @override
+  void dispose() {
+    _doubleClickAnimation?.removeListener(_doubleClickAnimationListener);
+    _doubleClickAnimationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ExtendedImageSlidePage(
       slideAxis: SlideAxis.vertical,

@@ -27,4 +27,57 @@ void main() {
     expect(getCursor([], [], 'cursor-bottom', 'Bottom'), isNull,
         reason: 'A page without a cursor is the end of the feed, not an error');
   });
+
+  test('Should read the follows bottom cursor from a replace entry', () {
+    final users = parseFollows({
+      'data': {
+        'user': {
+          'result': {
+            'timeline': {
+              'timeline': {
+                'instructions': [
+                  {
+                    'type': 'TimelineAddEntries',
+                    'entries': [
+                      {
+                        'content': {
+                          'itemContent': {
+                            'user_results': {
+                              'result': {
+                                'rest_id': '1',
+                                'core': {'screen_name': 'alice', 'name': 'Alice'},
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    'type': 'TimelineReplaceEntry',
+                    'replaceEntry': {
+                      'entryIdToReplace': 'cursor-bottom-1',
+                      'entry': {
+                        'content': {
+                          'operation': {
+                            'cursor': {'cursorType': 'Bottom', 'value': 'next-page'}
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    });
+
+    expect(users.users?.single.screenName, 'alice',
+        reason: 'The populated follows page should keep the user it parsed');
+    expect(users.nextCursorStr, 'next-page',
+        reason: 'A replace-entry bottom cursor is the only way to reach the rest of the list; '
+            'dropping it stopped Following at the first page');
+  });
 }

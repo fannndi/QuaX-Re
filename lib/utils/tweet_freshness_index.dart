@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +22,9 @@ class TweetFreshnessIndex {
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
   Set<String> _baseline = {};
-  final List<String> _seenNow = [];
+  // A set, not a list: note() checks every id against it, and a long scroll
+  // made that quadratic.
+  final LinkedHashSet<String> _seenNow = LinkedHashSet<String>();
   bool _loaded = false;
   Timer? _saveTimer;
 

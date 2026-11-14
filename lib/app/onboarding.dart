@@ -189,7 +189,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
   bool get _canAdvance => switch (_step) {
         0 => true,
-        1 => _hasAccess,
+        // Hidden storage needs no permission, so this step must not block the
+        // wizard: the visible-folder button asks for the grant when picked.
+        1 => true,
         2 => _configured,
         _ => true,
       };

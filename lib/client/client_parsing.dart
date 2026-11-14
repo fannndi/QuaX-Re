@@ -59,11 +59,15 @@ PaginatedUsers parseFollows(Map<String, dynamic> body) {
   var users = PaginatedUsers()..users = [];
   dynamic instructions =
       body["data"]?["user"]?["result"]?["timeline"]?["timeline"]?["instructions"];
+  // A bottom cursor can arrive as a TimelineReplaceEntry instead of a plain
+  // entry; the other timeline parsers pass those to getCursor too.
+  final replaceEntries = List.from(
+      (instructions ?? const []).where((e) => e is Map && e['type'] == 'TimelineReplaceEntry'));
   for (final instruction in instructions ?? const []) {
       if (instruction["type"] != "TimelineAddEntries" || instruction["entries"] == null) continue;
       var entries = List.from(instruction["entries"]);
-      users.nextCursorStr = getCursor(entries, [], 'cursor-bottom', 'Bottom');
-      users.previousCursorStr = getCursor(entries, [], 'cursor-top', 'Top');
+      users.nextCursorStr = getCursor(entries, replaceEntries, 'cursor-bottom', 'Bottom');
+      users.previousCursorStr = getCursor(entries, replaceEntries, 'cursor-top', 'Top');
       for (final entry in entries) {
         final userResult = entry["content"]?["itemContent"]?["user_results"]?["result"];
         if (userResult is! Map<String, dynamic>) continue;
@@ -419,16 +423,14 @@ TweetStatus createUnconversationedChainsGraphql(
     return result?['rest_id'] ?? result?['tweet']?['rest_id'];
   }
 
-  // Sorting by a field not every entry carries: one without it sorts as if it
-  // had the lowest, rather than taking the comparison down with it.
-  int sortIndexOf(dynamic e) => (e is Map && e['sortIndex'] is int) ? e['sortIndex'] as int : 0;
-
-  var tweetEntries = addEntries
+  // Membership only: the order comes from the conversation map below. The old
+  // sort read `sortIndex` as an int, but X sends it as a string, so every
+  // comparison was 0 and the sorted list was discarded anyway.
+  final tweetEntries = addEntries
       .where((e) => e['entryId']?.contains(tweetIndicator) == true && entryRestId(e) != null)
-      .sorted((a, b) => sortIndexOf(b).compareTo(sortIndexOf(a)))
       .map(entryRestId)
-      .cast<String?>()
-      .toList();
+      .whereType<String>()
+      .toSet();
 
   Map<String, List<TweetWithCard>> conversations = tweets.values.where((e) => tweetEntries.contains(e.idStr)).groupBy(
     (e) {
@@ -468,8 +470,6 @@ TweetStatus createUnconversationedChains(
   Map<String, dynamic> result,
   String tweetIndicator,
   List<String> pinnedTweets,
-  bool mapToThreads,
-  bool includeReplies,
   bool showPinnedTweet,
   int Function() getTweetsCounter,
   void Function() increaseTweetCounter,
@@ -613,8 +613,6 @@ Future<TweetStatus> parseChainsOnIsolate(
   required bool conversationless,
   required String tweetIndicator,
   required List<String> pinnedTweets,
-  required bool mapToThreads,
-  required bool includeReplies,
   required bool showPinnedTweet,
   required int Function() getTweetsCounter,
   required void Function() incrementTweetsCounter,
@@ -623,10 +621,10 @@ Future<TweetStatus> parseChainsOnIsolate(
   TweetStatus parse() {
     final result = jsonDecode(body) as Map<String, dynamic>;
     return conversationless
-        ? createUnconversationedChains(result, tweetIndicator, pinnedTweets, mapToThreads, includeReplies,
-            showPinnedTweet, () => 0, () {})
-        : createTimelineChains(result, tweetIndicator, pinnedTweets, mapToThreads, includeReplies, showPinnedTweet,
-            () => 0, () {});
+        ? createUnconversationedChains(
+            result, tweetIndicator, pinnedTweets, showPinnedTweet, () => 0, () {})
+        : createTimelineChains(
+            result, tweetIndicator, pinnedTweets, showPinnedTweet, () => 0, () {});
   }
 
   // A tiny page (an empty one, usually) parses faster than an isolate spawns.
@@ -657,8 +655,6 @@ Future<TweetStatus> parseChainsOnIsolate(
 TweetStatus createTimelineChains(Map<String, dynamic> result,
   String tweetIndicator,
   List<String> pinnedTweets,
-  bool mapToThreads,
-  bool includeReplies,
   bool showPinnedTweet,
   int Function() getTweetsCounter,
   void Function() increaseTweetCounter,

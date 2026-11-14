@@ -81,9 +81,6 @@ void main() {
         expect(post.photoNumber, isNull,
             reason: 'This link points at the tweet and not at one of its images, so no image '
                 'number should be set');
-        expect(post.direct, isFalse,
-            reason: 'Only a link ending in .jpg or .mp4 points straight at a file, so this one '
-                'should not be marked direct');
       });
 
       test('Should read a topic link, which has no user name', () async {
@@ -121,16 +118,13 @@ void main() {
                 'should be read from the link');
       });
 
-      test('Should remove the FxEmbed file ending and mark the link as direct', () async {
+      test('Should remove the FxEmbed file ending', () async {
         final post = parsedAs<PostUriInfo>(await parse('https://x.com/DogsTrust/status/1729.jpg'),
             'The .jpg ending does not stop this from being a link to a tweet, so it should be '
                 'read as a post');
 
         expect(post.id, '1729',
             reason: 'The id is sent to the API, so the .jpg ending should be stripped first');
-        expect(post.direct, isTrue,
-            reason: 'This link should open the image rather than the tweet, and direct is the '
-                'flag that says so');
       });
     });
 
@@ -232,7 +226,14 @@ void main() {
     });
 
     test('Should accept the documented X hosts', () async {
-      for (final host in ['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com']) {
+      for (final host in [
+        'x.com',
+        'www.x.com',
+        'mobile.x.com',
+        'twitter.com',
+        'www.twitter.com',
+        'mobile.twitter.com',
+      ]) {
         final result = await parse('https://$host/DogsTrust');
 
         expect(result, isA<ProfileUriInfo>(),

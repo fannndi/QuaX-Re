@@ -34,15 +34,24 @@ bool guestTokenUsable({required int nowMs, required int expiresAt, required int 
 /// returns the hung future for the rest of the process.
 const _guestTimeout = Duration(seconds: 15);
 
-Future<String> getToken(Logger log) async {
+Future<String>? _tokenFuture;
+
+Future<String> getToken(Logger log) {
   if (_guestToken != null &&
       guestTokenUsable(
           nowMs: DateTime.now().millisecondsSinceEpoch,
           expiresAt: _expiresAt,
           remaining: _tokenRemaining)) {
-    return _guestToken!;
+    return Future.value(_guestToken!);
   }
 
+  // A cold start with no account fires several requests at once; without this
+  // each one POSTs guest/activate.json and all but the last token are thrown
+  // away (and guest activations are rate-limited).
+  return _tokenFuture ??= _refreshToken(log).whenComplete(() => _tokenFuture = null);
+}
+
+Future<String> _refreshToken(Logger log) async {
   log.fine('Refreshing the X token');
 
   // Bounded: without it a dead-but-not-reset connection (the classic mobile-NAT

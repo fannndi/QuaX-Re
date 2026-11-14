@@ -650,12 +650,9 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     );
     if (confirmed != true || !mounted) return;
 
-    for (final path in _selected) {
-      try {
-        await File(path).delete();
-      } catch (_) {
-        // Already gone: the refresh below settles the list either way.
-      }
+    final entries = _model.state.where((entry) => _selected.contains(entry.file.path)).toList();
+    for (final entry in entries) {
+      await _model.deleteEntry(entry);
     }
     setState(_selected.clear);
     await _model.refresh();

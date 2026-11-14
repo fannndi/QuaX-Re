@@ -148,7 +148,7 @@ class TweetTileState extends State<TweetTile> with SingleTickerProviderStateMixi
     // Get the text to display from the actual tweet, i.e. the retweet if there is one, otherwise we end up with "RT @" crap in our text
     var actualTweet = tweet.retweetedStatusWithCard ?? tweet;
     // get the longest tweet between legacy (still used most of the time) and noteText (mostly ny premium users?)
-    var tweetTextFinal = actualTweet.noteText ?? actualTweet.fullText ?? actualTweet.text!;
+    var tweetTextFinal = actualTweet.noteText ?? actualTweet.fullText ?? actualTweet.text ?? '';
     var entitiesFinal = actualTweet.noteEntities ?? actualTweet.entities;
 
     List<RichTextPart> tweetParts = buildRichText(context, tweetTextFinal, entitiesFinal);
@@ -550,10 +550,13 @@ Color? buttonsColor(BuildContext c) {
       );
     }
 
-    // Only create the tweet content if the tweet contains text
+    // Only create the tweet content if the tweet contains text. A restored
+    // liked tweet can lose displayTextRange in the JSON round-trip; showing
+    // the text is better than crashing the tile.
     Widget content = Container();
 
-    if (tweet.displayTextRange![1] != 0) {
+    final displayRange = tweet.displayTextRange;
+    if (displayRange == null || (displayRange.length > 1 && displayRange[1] != 0)) {
       content = Container(
           // Fill the width so both RTL and LTR text are displayed correctly
           width: double.infinity,
@@ -562,7 +565,9 @@ Color? buttonsColor(BuildContext c) {
             textDirection: _isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
             child: ExpandableTweetText(
               textSpans: _spans ??= displayRichText(_parts),
-              onTap: () => !widget.tweetOpened ? onClickOpenTweet(tweet) : null,
+              // The birdwatch quote is informational, so it opts out of the
+              // tap that opens the post.
+              onTap: clickable && !widget.tweetOpened ? () => onClickOpenTweet(tweet) : null,
               // The `prefs` local bound at the top of build(), already
               // listen: false — the listening variant here would rebuild every
               // visible card on every pref write.
@@ -587,7 +592,7 @@ Color? buttonsColor(BuildContext c) {
 
     void onTapProfile() {
       // If the tweet is by the currently-viewed profile, don't allow clicks as it doesn't make sense
-      if (currentUsername != null && tweet.user!.screenName!.endsWith(currentUsername!)) {
+      if (currentUsername != null && tweet.user?.screenName == currentUsername) {
         return;
       }
       Navigator.pushNamed(context, routeProfile,

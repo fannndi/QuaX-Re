@@ -33,10 +33,19 @@ if (keystorePropertiesFile.exists()) {
 
 def keystoreFile = System.getenv('KEY_PATH')
 if (keystoreFile != null && !keystoreFile.isEmpty()) {
-    keystoreProperties.setProperty('storePassword', System.getenv('KEY_STORE_PASSWORD'));
-    keystoreProperties.setProperty('keyPassword', System.getenv('KEY_PASSWORD'));
-    keystoreProperties.setProperty('keyAlias', System.getenv('KEY_ALIAS'));
-    keystoreProperties.setProperty('storeFile', System.getenv('KEY_PATH'));
+    def envSigning = [
+        storeFile    : keystoreFile,
+        storePassword: System.getenv('KEY_STORE_PASSWORD'),
+        keyPassword  : System.getenv('KEY_PASSWORD'),
+        keyAlias     : System.getenv('KEY_ALIAS'),
+    ]
+    if (envSigning.values().any { it == null || it.isEmpty() }) {
+        throw new GradleException(
+            "KEY_PATH is set but the rest of the keystore environment is missing: " +
+            "set KEY_STORE_PASSWORD, KEY_PASSWORD and KEY_ALIAS too."
+        )
+    }
+    envSigning.each { key, value -> keystoreProperties.setProperty(key, value) }
 }
 
 android {
@@ -91,13 +100,11 @@ android {
         }
 
         // Declared explicitly because the flutter-gradle-plugin does not
-        // initialize it from release. Without this a profile build got AGP's
-        // defaults: no minifyEnabled and no shrinkResources, so it never
-        // exercised the R8 path a release build runs (a missing media3 keep
-        // rule is invisible until release), and it was signed with the debug
-        // config — so `adb install -r app-arm64-v8a-profile.apk`, the workflow
-        // AGENTS.md documents, installs a debug-signed APK that cannot coexist
-        // with a release-signed one of the same applicationId.
+        // initialize it from release. It keeps the release signing so
+        // `adb install -r app-arm64-v8a-profile.apk` (the workflow AGENTS.md
+        // documents) does not install a debug-signed APK that cannot coexist
+        // with a release-signed one of the same applicationId. It is
+        // deliberately not minified: see the note below.
         profile {
             signingConfig signingConfigs.release
             // AGP 9 does not feed Flutter plugin subproject classes into R8 for a
@@ -118,7 +125,9 @@ android {
             // configures every build type, so this guard also gates profile
             // (signed with signingConfigs.release) and debug builds — provide
             // android/key.properties or the KEY_* env vars once.
-            if (signingConfigs.release.storeFile == null) {
+            def signing = signingConfigs.release
+            if (signing.storeFile == null || signing.storePassword == null ||
+                signing.keyAlias == null || signing.keyPassword == null) {
                 throw new GradleException(
                     "Release builds need a keystore: create android/key.properties " +
                     "(storeFile/storePassword/keyAlias/keyPassword) or set KEY_PATH, " +

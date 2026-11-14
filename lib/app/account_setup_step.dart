@@ -103,8 +103,12 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
     if (!mounted) return;
 
     await _run(() async {
-      final imported = await importAccounts(result.accounts);
-      await _prefs.set<bool>(optionAccountVaultDirty, false);
+      // The onboarding restore is the recovery path: the vault's session must
+      // replace an expired local one, not be silently kept behind it.
+      final imported = await importAccounts(result.accounts, replaceExisting: true);
+      if (imported.restored > 0) {
+        await _prefs.set<bool>(optionAccountVaultDirty, false);
+      }
       if (mounted) {
         showSnackBar(context,
             icon: '✅', message: accountRestoredMessage(L10n.of(context), result, imported));
@@ -137,11 +141,15 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
     if (!mounted) return;
 
     await _run(() async {
-      final imported = await importAccounts(result.accounts);
+      // An imported file is a restore too: replace the local session with the
+      // one the reader chose, instead of keeping an expired login.
+      final imported = await importAccounts(result.accounts, replaceExisting: true);
       if (widget.vaultRoot.isNotEmpty) {
         await _vault.adoptFile(sourcePath: path, vaultRoot: widget.vaultRoot);
       }
-      await _prefs.set<bool>(optionAccountVaultDirty, false);
+      if (imported.restored > 0) {
+        await _prefs.set<bool>(optionAccountVaultDirty, false);
+      }
       if (mounted) {
         showSnackBar(context,
             icon: '✅', message: accountRestoredMessage(L10n.of(context), result, imported));

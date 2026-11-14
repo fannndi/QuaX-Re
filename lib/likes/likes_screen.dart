@@ -213,6 +213,9 @@ class _ProfileLikes extends StatelessWidget {
       if (userId == null || userId.isEmpty) {
         throw StateError('X did not return a user id for @${user.screenName}');
       }
+      // Keep it on the object this feed reuses: without this every page
+      // resolved the profile again because the immutable snapshot stayed null.
+      user.idStr = userId;
       await setActiveAccountUserId(userId, expectedAccountId: accountId);
     }
 

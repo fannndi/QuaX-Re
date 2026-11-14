@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:quax/downloads/downloads_model.dart';
@@ -234,17 +236,43 @@ void main() {
     });
 
     test('Should point finished rows at the new root after the library moves', () {
-      final oldRoot = p.join('storage', 'old');
-      final newRoot = p.join('storage', 'new');
+      final oldRoot = Directory.systemTemp.createTempSync('quax-old-').path;
+      final newRoot = Directory.systemTemp.createTempSync('quax-new-').path;
+      addTearDown(() {
+        Directory(oldRoot).deleteSync(recursive: true);
+        Directory(newRoot).deleteSync(recursive: true);
+      });
+      final oldFile = File(p.join(oldRoot, 'clip.mp4'))..writeAsStringSync('x');
       queue.register('clip.mp4', 'https://x/clip.mp4', true);
       queue.startRunning('clip.mp4');
-      queue.markDone('clip.mp4', savedPath: p.join(oldRoot, 'clip.mp4'));
+      queue.markDone('clip.mp4', savedPath: oldFile.path);
 
+      // The move copies the file before the ledger is updated.
+      File(p.join(newRoot, 'clip.mp4')).writeAsStringSync('x');
       queue.relocateSavedPaths(oldRoot, newRoot);
 
       expect(queue.itemFor('clip.mp4')?.savedPath, p.join(newRoot, 'clip.mp4'),
           reason: 'The done card opens savedPath directly; after a library move it pointed at a '
               'file that no longer existed and every finished row looked broken');
+    });
+
+    test('Should leave a row on the old root when its file did not move', () {
+      final oldRoot = Directory.systemTemp.createTempSync('quax-old-').path;
+      final newRoot = Directory.systemTemp.createTempSync('quax-new-').path;
+      addTearDown(() {
+        Directory(oldRoot).deleteSync(recursive: true);
+        Directory(newRoot).deleteSync(recursive: true);
+      });
+      final oldFile = File(p.join(oldRoot, 'clip.mp4'))..writeAsStringSync('x');
+      queue.register('clip.mp4', 'https://x/clip.mp4', true);
+      queue.startRunning('clip.mp4');
+      queue.markDone('clip.mp4', savedPath: oldFile.path);
+
+      queue.relocateSavedPaths(oldRoot, newRoot);
+
+      expect(queue.itemFor('clip.mp4')?.savedPath, oldFile.path,
+          reason: 'A file that failed to move is still in the old root; pointing the ledger at the '
+              'new one made the done card open nothing');
     });
   });
 

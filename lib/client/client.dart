@@ -168,9 +168,9 @@ class _QuackerTwitterClient extends TwitterClient {
       }
       tried.add(account.id);
 
-      final authHeader = json.decode(account.authHeader as String);
       http.Response response;
       try {
+        final authHeader = json.decode(account.authHeader as String);
         response =
             await XRegularAccount().fetch(uri, headers: headers, body: body, log: log, authHeader: authHeader);
       } on Object catch (e, st) {
@@ -498,13 +498,17 @@ class Twitter {
       var response = await _twitterApi.client.get(
         Uri.https('x.com', '/i/api/graphql/z-3ZLa-NQ8Sp09diHkJNBg/TweetDetail', defaultParam),
       );
+      final parsed = await parseOffThread<TweetStatus>(response.body, ParseJob.tweetDetail);
       if (cursor == null) {
-        // The opened conversation is now readable offline, replies included.
+        // Cache only a body the parser accepted: a moved response shape must
+        // not overwrite the last readable thread.
         unawaited(TimelineCache.write(cacheKey, response.body));
       }
-      return await parseOffThread<TweetStatus>(response.body, ParseJob.tweetDetail);
-    } catch (e) {
+      return parsed;
+    } on Exception {
       // Offline (or X unreachable): serve the stored conversation, if any.
+      // Errors (TypeError/RangeError) mean the shape moved, and the cache is
+      // not a valid substitute for a body the parser cannot read.
       if (cursor == null) {
         final cached = await TimelineCache.read(cacheKey);
         if (cached != null) {
@@ -609,8 +613,6 @@ class Twitter {
       conversationless: false,
       tweetIndicator: 'tweet',
       pinnedTweets: pinnedTweets ?? [],
-      mapToThreads: includeReplies == false,
-      includeReplies: includeReplies,
       showPinnedTweet: cursor == null,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
@@ -654,8 +656,6 @@ class Twitter {
       conversationless: false,
       tweetIndicator: 'tweet',
       pinnedTweets: const [],
-      mapToThreads: true,
-      includeReplies: false,
       showPinnedTweet: false,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
@@ -700,8 +700,6 @@ class Twitter {
       conversationless: true,
       tweetIndicator: 'tweet',
       pinnedTweets: const [],
-      mapToThreads: true,
-      includeReplies: false,
       showPinnedTweet: false,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,
@@ -813,8 +811,6 @@ class Twitter {
       conversationless: true,
       tweetIndicator: 'tweet',
       pinnedTweets: pinnedTweets,
-      mapToThreads: includeReplies == false,
-      includeReplies: includeReplies,
       showPinnedTweet: showPinnedTweet,
       getTweetsCounter: getTweetsCounter,
       incrementTweetsCounter: incrementTweetsCounter,

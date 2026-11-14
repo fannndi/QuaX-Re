@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:quax/constants.dart';
 import 'package:quax/client/accounts.dart';
+import 'package:quax/client/likes_vault.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/downloads/connectivity_watcher.dart';
 import 'package:quax/downloads/download_notifications.dart';
@@ -130,6 +131,8 @@ Future<void> _loadModels(BasePrefService prefService) async {
   unawaited(VideoCache().load());
   // Snapshot of previously seen tweets, for the New/Old labels.
   unawaited(TweetFreshnessIndex().load());
+  // A killed likes import can leave its plaintext export in the cache.
+  unawaited(LikesVault.cleanupStaleImports());
   // Which login the app talks to: the app bar shows it and the feeds key
   // their per-account state (scroll positions) on it. A failure here must
   // not stop the app from starting, the button just falls back to its icon.

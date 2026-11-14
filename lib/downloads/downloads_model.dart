@@ -320,6 +320,24 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _save();
   }
 
+  /// Records the bytes actually flushed to disk after the sink closed. Unlike
+  /// [progress], it must run for a paused transfer: pause is exactly when the
+  /// ledger and the file have to agree for the next Range request.
+  void recordBytes(String fileName, int receivedBytes, int? totalBytes) {
+    if (_cancelled.contains(fileName)) return;
+    final index = _indexOf(fileName);
+    if (index < 0) return;
+
+    final updated = [
+      for (final item in state)
+        item.fileName == fileName
+            ? item.copyWith(receivedBytes: receivedBytes, totalBytes: totalBytes)
+            : item
+    ];
+    update(updated, force: true);
+    _save(force: true);
+  }
+
   /// Seed for a resumed download: the bytes already on disk in the temp file.
   int resumeOffsetFor(String fileName) {
     for (final item in state) {
@@ -382,12 +400,13 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   }
 
   /// Hands the next turn to a waiting entry: it becomes the one running
-  /// download (its partial bytes are kept for a resume).
-  void startRunning(String fileName) {
+  /// download (its partial bytes are kept for a resume). False when the entry
+  /// was removed while it waited, so the worker can stop before writing.
+  bool startRunning(String fileName) {
     _cancelled.remove(fileName);
     _paused.remove(fileName);
     final index = _indexOf(fileName);
-    if (index < 0) return;
+    if (index < 0) return false;
 
     final updated = [
       for (final item in state)
@@ -397,6 +416,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     ];
     update(updated, force: true);
     _save(force: true);
+    return true;
   }
 
   /// Puts a failed or paused entry back at the waiting line (a retry/resume
@@ -428,11 +448,16 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     for (final item in state) {
       final saved = item.savedPath;
       if (saved != null && p.isWithin(oldRoot, saved)) {
-        updated.add(item.copyWith(savedPath: p.join(newRoot, p.relative(saved, from: oldRoot))));
-        changed = true;
-      } else {
-        updated.add(item);
+        final moved = p.join(newRoot, p.relative(saved, from: oldRoot));
+        // A file that failed to move is still in the old root; pointing the
+        // ledger at the new one made the done card open nothing.
+        if (File(moved).existsSync()) {
+          updated.add(item.copyWith(savedPath: moved));
+          changed = true;
+          continue;
+        }
       }
+      updated.add(item);
     }
     if (!changed) return;
     update(updated);

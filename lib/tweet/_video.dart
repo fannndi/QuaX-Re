@@ -80,7 +80,31 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   Timer? _pauseTimer;
   void Function(BetterPlayerEvent)? _onEvent;
 
-  String? get _cacheKey => widget.tweetId == null ? null : '${widget.tweetId}:${widget.mediaIndex}';
+  String? _poolKey;
+
+  String? _computePoolKey() {
+    if (widget.tweetId == null) return null;
+    // Quality and loop are baked into the controller at creation. Including
+    // them means a changed setting builds a new player instead of reusing the
+    // old one until the pool happens to evict it.
+    final prefs = PrefService.of(context, listen: false);
+    return '${widget.tweetId}:${widget.mediaIndex}:'
+        '${prefs.get(optionMediaVideoQuality)}:${prefs.get(optionMediaDefaultLoop)}';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _poolKey = _computePoolKey();
+  }
+
+  @override
+  void didUpdateWidget(TweetVideo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tweetId != widget.tweetId || oldWidget.mediaIndex != widget.mediaIndex) {
+      _poolKey = _computePoolKey();
+    }
+  }
 
   @override
   void initState() {
@@ -235,7 +259,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final mixWithOthers = prefs.get<bool>(optionMediaAllowBackgroundPlayOtherApps) ?? false;
     create() => _createPooled(prefLoop, startMuted, quality, prefetchSeconds, mixWithOthers);
 
-    final key = _cacheKey;
+    final key = _poolKey;
     final pool = _pool;
     PooledVideo pooled;
     if (key == null || pool == null) {
@@ -342,7 +366,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
   void _onVisibilityChanged(VisibilityInfo info, PooledVideo pooled) {
     if (!mounted) return;
-    final key = _cacheKey;
+    final key = _poolKey;
     final wasVisible = _lastVisibleFraction >= 0.5;
     final isVisible = info.visibleFraction >= 0.5;
     _lastVisibleFraction = info.visibleFraction;
@@ -355,7 +379,10 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
       if (_autoPlay && !wasVisible && !pooled.isPlaying) {
         pooled.controller.play();
       }
-    } else if (wasVisible) {
+    } else {
+      // Not only when it was previously visible: a GIF autoplays as soon as
+      // its data source is ready, which happens in the cacheExtent before the
+      // tile is ever on screen. Without this it decodes and downloads forever.
       if (key != null) _pool?.markHidden(key, this);
       _pauseTimer ??= Timer(const Duration(milliseconds: 100), () {
         _pauseTimer = null;
@@ -386,13 +413,16 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
   Future<void> _restartVideo() async {
     _detachListeners();
-    final key = _cacheKey;
+    final key = _poolKey;
     if (key != null && _pool != null) {
       if (_holdsPoolRef) {
         _pool!.release(key);
         _holdsPoolRef = false;
       }
-      _pool!.invalidate(key);
+      // A broken controller must go even when the same video is open in
+      // another tile: invalidate() keeps it while any ref is held, and the
+      // re-acquire would hand back the same error.
+      _pool!.discard(key);
     } else {
       _pooled?.pause();
       await _pooled?.dispose();
@@ -463,7 +493,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final prefAutoPlay = prefs.get(optionMediaDefaultAutoPlay);
     _prefBackground = prefs.get<bool>(optionMediaBackgroundPlayback) ?? true;
 
-    final key = _cacheKey;
+    final key = _poolKey;
     final alreadyCached = key != null && (_pool?.contains(key) ?? false);
 
     if (!prefAutoPlay && !widget.alwaysPlay && !_userRequestedPlay && !alreadyCached) {
@@ -568,7 +598,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _pauseTimer?.cancel();
     _detachListeners();
-    final key = _cacheKey;
+    final key = _poolKey;
     if (key != null) _pool?.markHidden(key, this);
     // Keep the *controller* alive across the fullscreen route — the pool owns
     // it and the fullscreen player is using it. The pool ref is a different

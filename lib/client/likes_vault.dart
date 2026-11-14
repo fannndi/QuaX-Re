@@ -340,10 +340,14 @@ class LikesVault {
       try {
         return await _decryptFile(primary, passphrase);
       } on VaultException catch (error) {
-        // Only a damaged/oversized primary is worth retrying from the older
-        // backup. A newer format must surface as unsupported instead of
-        // silently restoring an older snapshot.
-        if (error.failure != VaultFailure.corrupt && error.failure != VaultFailure.tooLarge) {
+        // A damaged, oversized or bit-rotted primary is worth retrying from
+        // the older backup; a GCM tag failure looks exactly like a wrong
+        // passphrase, so the backup has to be tried for it too. A newer format
+        // must surface as unsupported instead of silently restoring an older
+        // snapshot.
+        if (error.failure != VaultFailure.corrupt &&
+            error.failure != VaultFailure.tooLarge &&
+            error.failure != VaultFailure.wrongPassphrase) {
           rethrow;
         }
         if (!await backup.exists()) rethrow;
@@ -445,7 +449,7 @@ class LikesVault {
         id,
         user is String ? user : null,
         content,
-        at is String ? at : DateTime.now().toIso8601String(),
+        at is String ? at : DateTime.now().toUtc().toIso8601String(),
       );
     } on FormatException {
       return null;
@@ -517,6 +521,25 @@ class LikesVault {
       final current = (after.first['c'] as int?) ?? 0;
       return current - previous;
     });
+  }
+
+  /// Removes plaintext exports a killed import left behind. The import path
+  /// deletes its own temp in `finally`, but a process death cannot run it.
+  static Future<void> cleanupStaleImports() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      await for (final entity in dir.list()) {
+        if (entity is! File) continue;
+        if (!p.basename(entity.path).startsWith('quax-likes-import-')) continue;
+        try {
+          await entity.delete();
+        } catch (_) {
+          // Another process may hold it; the next launch tries again.
+        }
+      }
+    } catch (_) {
+      // The cache is best-effort.
+    }
   }
 
   Future<File> _decompress(Uint8List compressed) async {

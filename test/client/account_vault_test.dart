@@ -210,6 +210,25 @@ void main() {
         reason: 'A write that was cut off must not make the previous backup unreachable');
   });
 
+  test('Should fall back to .bak when the primary fails its authentication tag', () async {
+    await addAccount('a', active: true, handle: 'alice');
+    final vault = AccountVault();
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
+    await vault.write(vaultRoot: vaultRoot, passphrase: passphrase);
+
+    final primary = File(accountVaultPathFor(vaultRoot)!);
+    final envelope = jsonDecode(primary.readAsStringSync()) as Map<String, dynamic>;
+    final mac = envelope['mac'] as String;
+    // Flip one character while keeping the envelope well-formed: a GCM tag
+    // failure looks exactly like a wrong passphrase.
+    envelope['mac'] = '${mac[0] == 'A' ? 'B' : 'A'}${mac.substring(1)}';
+    primary.writeAsStringSync(jsonEncode(envelope));
+
+    final read = await vault.read(vaultRoot: vaultRoot, passphrase: passphrase);
+    expect(read.accounts.single.screenName, 'alice',
+        reason: 'One flipped byte must not hide the good backup behind a wrong-passphrase error');
+  });
+
   test('Should not fall back to .bak when the primary uses a newer format', () async {
     await addAccount('a', active: true, handle: 'alice');
     final vault = AccountVault();

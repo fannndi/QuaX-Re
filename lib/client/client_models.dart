@@ -255,7 +255,7 @@ class TweetWithCard extends Tweet {
     tweet.entities = e['entities'] == null ? null : Entities.fromJson(e['entities']);
     tweet.extendedEntities = e['extended_entities'] == null ? null : Entities.fromJson(e['extended_entities']);
     tweet.favorited = e['favorited'] as bool?;
-    tweet.favoriteCount = e['favorite_count'] as int?;
+    tweet.favoriteCount = parseIntLike(e['favorite_count']);
     tweet.viewCount = tweetViewCount;
     tweet.fullText = e['full_text'] as String?;
     tweet.idStr = e['id_str'] as String?;
@@ -266,13 +266,13 @@ class TweetWithCard extends Tweet {
     tweet.isTombstone = e['is_tombstone'] as bool?;
     tweet.lang = e['lang'] as String?;
     tweet.possiblySensitive = e['possibly_sensitive'] as bool?;
-    tweet.quoteCount = e['quote_count'] as int?;
+    tweet.quoteCount = parseIntLike(e['quote_count']);
     tweet.quotedStatusIdStr = e['quoted_status_id_str'] as String?;
     tweet.quotedStatusPermalink = e['quoted_status_permalink'] == null
         ? null
         : QuotedStatusPermalink.fromJson(e['quoted_status_permalink']);
-    tweet.replyCount = e['reply_count'] as int?;
-    tweet.retweetCount = e['retweet_count'] as int?;
+    tweet.replyCount = parseIntLike(e['reply_count']);
+    tweet.retweetCount = parseIntLike(e['retweet_count']);
     tweet.retweeted = e['retweeted'] as bool?;
     tweet.source = e['source'] as String?;
     tweet.text = e['text'] ?? e['full_text'] as String?;
@@ -287,7 +287,8 @@ class TweetWithCard extends Tweet {
     tweet.quotedStatus = quotedStatus;
     tweet.quotedStatusWithCard = quotedStatus;
 
-    tweet.displayTextRange = (e['display_text_range'] as List<dynamic>?)?.map((e) => e as int).toList();
+    tweet.displayTextRange =
+        (e['display_text_range'] as List<dynamic>?)?.map(parseIntLike).whereType<int>().toList();
 
     // TODO
     tweet.coordinates = null;

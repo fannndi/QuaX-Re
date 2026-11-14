@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
@@ -164,8 +162,13 @@ class _TweetMediaState extends State<TweetMedia> {
 
   @override
   Widget build(BuildContext context) {
-    var largestAspectRatio =
-    widget.media.map((e) => ((e.sizes!.large!.w) ?? 1) / ((e.sizes!.large!.h) ?? 1)).reduce(math.min);
+    // X sizes the gallery from its first item. reduce(min) picked the
+    // narrowest ratio (the tallest box) and letterboxed every other page;
+    // a missing size used to crash on the null assertions.
+    final large = widget.media.isEmpty ? null : widget.media.first.sizes?.large;
+    final width = large?.w ?? 1;
+    final height = large?.h ?? 1;
+    final aspectRatio = height == 0 ? 1.0 : width / height;
 
     return Consumer<TweetContextState>(builder: (context, model, child) {
       if (model.hideSensitive && (widget.sensitive ?? false)) {
@@ -187,7 +190,7 @@ class _TweetMediaState extends State<TweetMedia> {
       return Container(
         margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
         child: AspectRatio(
-          aspectRatio: largestAspectRatio,
+          aspectRatio: aspectRatio,
           child: PageView.builder(
             controller: _controller,
             scrollDirection: Axis.horizontal,

@@ -61,6 +61,9 @@ class CursorPagingController<C, T> {
   /// The flattened items fetched so far, or `null` before the first page loads.
   List<T>? get items => pagingController.value.items;
 
+  /// Whether the current cursor chain has a next page.
+  bool get hasMore => !_reachedEnd;
+
   Future<List<T>> _fetchPage(int pageKey) async {
     final epoch = _epoch;
     if (pageKey == 0) {
@@ -93,14 +96,24 @@ class CursorPagingController<C, T> {
   /// does — used by pull-to-refresh so existing items stay visible. A page
   /// still in flight belongs to the cursor chain being replaced, so it is
   /// cancelled before the new page lands.
-  void replaceFirstPage(List<T> items, C? nextCursor) {
+  ///
+  /// [keepCursor] is for a merged chronological refresh: the old tail is still
+  /// on screen, so pagination must continue from the cursor it already had
+  /// instead of re-walking the pages that were merged in.
+  void replaceFirstPage(List<T> items, C? nextCursor, {bool keepCursor = false}) {
     _epoch = Object();
     pagingController.cancel();
-    _setNextCursor(nextCursor);
+    if (!keepCursor) {
+      // A replaced first page starts a new cursor chain. Comparing its cursor
+      // with the previous chain's would read the common "same bottom cursor"
+      // (a refresh with no new posts) as "did not advance" and end pagination.
+      _nextCursor = null;
+      _setNextCursor(nextCursor);
+    }
     pagingController.value = PagingState<int, T>(
       pages: [items],
       keys: const [0],
-      hasNextPage: nextCursor != null,
+      hasNextPage: !_reachedEnd,
       error: null,
     );
   }

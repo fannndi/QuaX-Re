@@ -116,8 +116,16 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     final controller = TabController(length: feedTabs.length, vsync: this, initialIndex: initialIndex);
     controller.addListener(() {
       if (!controller.indexIsChanging) {
-        prefs.set<String>(optionHomeDefaultFeedTab, feedTabs[controller.index].id.name);
-        _refreshController?.activeFeedId = feedTabs[controller.index].id.name;
+        // Straight to SharedPreferences: the tab already moved, and set()
+        // notifies PrefService (an InheritedNotifier), rebuilding the whole
+        // three-tab PageView and every visible card on each switch.
+        final id = feedTabs[controller.index].id.name;
+        if (prefs is PrefServiceShared) {
+          prefs.sharedPreferences.setString('${prefs.prefix}$optionHomeDefaultFeedTab', id);
+        } else {
+          prefs.set<String>(optionHomeDefaultFeedTab, id);
+        }
+        _refreshController?.activeFeedId = id;
       }
     });
     _refreshController?.activeFeedId = feedTabs[initialIndex].id.name;

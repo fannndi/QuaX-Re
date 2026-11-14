@@ -18,13 +18,18 @@ class FeedRefreshController {
   final Map<Object, _FeedHandlers> _handlers = {};
   Object? activeFeedId;
 
-  void register(Object feedId,
+  /// Registers [refresh]/[scrollToTop] and returns an ownership token. A feed
+  /// rebuilt by an account switch mounts before the old one is disposed; the
+  /// token stops the old dispose from removing the new handler.
+  Object register(Object feedId,
       {required Future<void> Function() refresh, required VoidCallback scrollToTop}) {
-    _handlers[feedId] = _FeedHandlers(refresh, scrollToTop);
+    final token = Object();
+    _handlers[feedId] = _FeedHandlers(refresh, scrollToTop, token);
+    return token;
   }
 
-  void unregister(Object feedId) {
-    _handlers.remove(feedId);
+  void unregister(Object feedId, Object token) {
+    if (_handlers[feedId]?.token == token) _handlers.remove(feedId);
   }
 
   Future<void> refresh() async {
@@ -40,8 +45,9 @@ class FeedRefreshController {
 }
 
 class _FeedHandlers {
-  const _FeedHandlers(this.refresh, this.scrollToTop);
+  const _FeedHandlers(this.refresh, this.scrollToTop, this.token);
 
   final Future<void> Function() refresh;
   final VoidCallback scrollToTop;
+  final Object token;
 }

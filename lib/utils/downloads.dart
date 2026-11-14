@@ -34,12 +34,17 @@ BasePrefService? _workerPrefs;
 final Map<String, BuildContext?> _workerContexts = {};
 
 void _kickWorker() {
-  if (_worker != null || _workerPrefs == null) return;
   // A cancelled/removed waiting entry never reaches the worker, so its
-  // BuildContext would otherwise stay alive for the process lifetime.
+  // BuildContext would otherwise stay alive for the process lifetime. Prune
+  // before the early return too: a cancel during a running transfer has no
+  // later enqueue to trigger the cleanup.
   final queue = DownloadsModel();
   _workerContexts.removeWhere((fileName, _) => !queue.contains(fileName));
-  _worker = _drainQueue().whenComplete(() => _worker = null);
+  if (_worker != null || _workerPrefs == null) return;
+  _worker = _drainQueue().whenComplete(() {
+    _worker = null;
+    _workerContexts.removeWhere((fileName, _) => !queue.contains(fileName));
+  });
 }
 
 Future<void> _drainQueue() async {
@@ -102,8 +107,11 @@ Future<void> cacheVideoAhead(
       if (await LibraryModel(prefs).localPathFor(target) != null) return;
 
       final name = VideoCache.fileNameFor(target);
+      // Not queue-managed: this name is never a queue row, so a cancel hook
+      // would leak for the process lifetime and the resumable temp name would
+      // be reused by an unrelated later attempt.
       final temp = await _downloadToTemp(null, Uri.parse(target), 'cache-$name',
-          targetDir: (await cache.directory()).path);
+          targetDir: (await cache.directory()).path, queueManaged: false);
       if (temp == null) return;
 
       await cache.put(target, File(temp), prefs: prefs);
@@ -124,7 +132,11 @@ Future<bool?> isMeteredConnection() async {
 }
 
 String _sanitized(String fileName) {
-  final name = p.basename(fileName.split('?').first);
+  // X media URLs carry a size suffix (`photo.jpg:orig`). Left in, the saved
+  // file's extension becomes `.jpg:orig` and the library scan skips it.
+  final name = p
+      .basename(fileName.split('?').first)
+      .replaceFirst(RegExp(r':(orig|large|medium|small|thumb)$'), '');
   if (name.isEmpty || name.length > 180) {
     // Android rejects names this long in the media scanner.
     return 'media-${DateTime.now().millisecondsSinceEpoch}';
@@ -173,7 +185,7 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
     String? tempPath = cachedPath;
     if (cachedPath == null) {
       for (var attempt = 0; attempt < _maxAttempts; attempt++) {
-        queue.startRunning(fileName);
+        if (!queue.startRunning(fileName)) return;
 
         // _downloadToTemp only hands the context to _showStatusError, which
         // checks it itself; a transfer must not stop because the screen that
@@ -196,8 +208,12 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
       }
     }
     if (tempPath == null) return;
+    // The row can be swiped away while the transfer finishes; do not copy an
+    // orphan into the library after that.
+    if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
 
     var promoted = false;
+    var keepTemp = false;
     try {
       // _saveToDestination returns a cancelled flag only when the reader
       // actually dismissed the system dialog. A missing destination (the SD
@@ -222,11 +238,13 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
         queue.remove(fileName);
       } else {
         queue.fail(fileName, error: 'save_unavailable');
+        // The bytes are complete; a retry only has to save them again.
+        keepTemp = true;
       }
     } finally {
       // A cached file only leaves the cache once it landed in the library;
       // a cancelled save keeps it for the next attempt.
-      if (cachedPath == null || promoted) _deleteTemp(tempPath);
+      if ((cachedPath == null || promoted) && !keepTemp) _deleteTemp(tempPath);
     }
   } catch (e) {
     if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
@@ -268,7 +286,7 @@ void resumeDownload(DownloadQueueItem item, {required BasePrefService prefs}) {
 bool _isRetryable(String? error) {
   if (error == null || error.isEmpty) return false;
   if (error.startsWith('HTTP') && !error.startsWith('HTTP 408') && !error.startsWith('HTTP 5')) return false;
-  if (error == 'no_space' || error == 'interrupted') return false;
+  if (error == 'no_space' || error == 'interrupted' || error == 'save_unavailable') return false;
   return true;
 }
 
@@ -420,6 +438,30 @@ http.Request _rangeRequest(Uri uri, int offset) {
   return request;
 }
 
+/// The first byte position of a 206 body, or null when the header is missing
+/// or malformed.
+int? _contentRangeStart(http.StreamedResponse response) {
+  final value = response.headers['content-range'];
+  if (value == null) return null;
+  final match = RegExp(r'bytes\s+(\d+)-').firstMatch(value);
+  return match == null ? null : int.tryParse(match.group(1)!);
+}
+
+/// Test seam for the transfer path: production callers always go through the
+/// queue worker, and the HTTP client is injectable so a fake server can answer
+/// 200/206/416 without a socket.
+@visibleForTesting
+Future<String?> debugDownloadToTemp(
+  Uri uri,
+  String fileName, {
+  bool resume = false,
+  required String targetDir,
+  bool queueManaged = true,
+  http.Client? client,
+}) =>
+    _downloadToTemp(null, uri, fileName,
+        resume: resume, targetDir: targetDir, queueManaged: queueManaged, client: client);
+
 /// Streams the response to a temporary file while feeding the downloads queue
 /// (visible on the Downloads navbar tab) — Hentoid-style: the reader stays
 /// usable while files download in the background. Cancels through the queue.
@@ -430,15 +472,19 @@ http.Request _rangeRequest(Uri uri, int offset) {
 /// only the error snackbar is skipped, which is why the call sites hand it a
 /// context that may already be dead.
 Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
-    {bool resume = false, required String targetDir, bool queueManaged = true}) async {
+    {bool resume = false,
+    required String targetDir,
+    bool queueManaged = true,
+    http.Client? client}) async {
   final tempPath =
       queueManaged ? await partialPathFor(fileName) : await shareTempPathFor(fileName);
   final queue = DownloadsModel();
-  final client = http.Client();
+  final httpClient = client ?? http.Client();
+  var keepTemp = false;
 
   if (queueManaged) {
     queue.attachCancel(fileName, () {
-      client.close(); // the stream loop surfaces as a ClientException and cleans up
+      httpClient.close(); // the stream loop surfaces as a ClientException and cleans up
     });
   }
 
@@ -447,6 +493,20 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     final partial = File(tempPath);
     final partialExists = await partial.exists();
     final partialLength = partialExists ? await partial.length() : 0;
+
+    // A save that failed after a complete transfer leaves the whole file in
+    // the temp path. Do not download it again just to retry the copy.
+    final item = queueManaged ? queue.itemFor(fileName) : null;
+    if (resume &&
+        item != null &&
+        item.totalBytes != null &&
+        item.receivedBytes >= item.totalBytes! &&
+        partialExists &&
+        partialLength == item.receivedBytes) {
+      keepTemp = true;
+      return tempPath;
+    }
+
     var offset = resumeOffset(
       resume: resume && queueManaged,
       recordedBytes: queueManaged ? queue.resumeOffsetFor(fileName) : 0,
@@ -454,12 +514,20 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
       fileLength: partialLength,
     );
 
-    var response = await client.send(_rangeRequest(uri, offset));
+    var response = await httpClient.send(_rangeRequest(uri, offset));
     if (response.statusCode == 416 && offset > 0) {
       // The partial bytes no longer match the remote file: start over clean.
       await _deleteTemp(tempPath);
       offset = 0;
-      response = await client.send(_rangeRequest(uri, 0));
+      response = await httpClient.send(_rangeRequest(uri, 0));
+    }
+
+    // A 206 that does not start where we asked would be appended at the wrong
+    // place. Trust the header, not the status code.
+    if (offset > 0 && response.statusCode == 206 && _contentRangeStart(response) != offset) {
+      await _deleteTemp(tempPath);
+      offset = 0;
+      response = await httpClient.send(_rangeRequest(uri, 0));
     }
 
     final isPartial = response.statusCode == 206;
@@ -479,8 +547,12 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
         : (append ? offset + contentLength : contentLength);
 
     if (totalBytes != null) {
-      final free = await _availableSpace(targetDir);
-      if (free != null && totalBytes + _spaceMarginBytes > free) {
+      // The bytes are written to the temp directory first and only then moved
+      // to the library, so both volumes need room.
+      final needed = totalBytes + _spaceMarginBytes;
+      final freeTemp = await _availableSpace(p.dirname(tempPath));
+      final freeTarget = await _availableSpace(targetDir);
+      if ((freeTemp != null && needed > freeTemp) || (freeTarget != null && needed > freeTarget)) {
         if (queueManaged) {
           queue.fail(fileName, error: 'no_space');
         } else if (context != null && context.mounted) {
@@ -498,28 +570,34 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     var lastReceived = 0;
     var speed = 0.0;
 
-    await for (final chunk in response.stream.timeout(_idleTimeout)) {
-      // Re-check every chunk: a pause that arrived before the abort hook was
-      // attached still has to stop the transfer here. A share has no queue
-      // entry, so its flags must not abort an unrelated transfer.
-      if (queueManaged && (queue.isCancelled(fileName) || queue.isPaused(fileName))) break;
-      sink.add(chunk);
-      received += chunk.length;
+    try {
+      await for (final chunk in response.stream.timeout(_idleTimeout)) {
+        // Re-check every chunk: a pause that arrived before the abort hook was
+        // attached still has to stop the transfer here. A share has no queue
+        // entry, so its flags must not abort an unrelated transfer.
+        if (queueManaged && (queue.isCancelled(fileName) || queue.isPaused(fileName))) break;
+        sink.add(chunk);
+        received += chunk.length;
 
-      final elapsed = DateTime.now().difference(lastSample).inMilliseconds;
-      if (elapsed >= 250) {
-        final sample = (received - lastReceived) * 1000 / elapsed;
-        speed = speed == 0 ? sample : speed * 0.6 + sample * 0.4;
-        lastSample = DateTime.now();
-        lastReceived = received;
-        // Four updates per second are enough for a progress bar. Calling this
-        // per socket chunk rebuilt the whole queue (and its badge) thousands of
-        // times during one large transfer.
-        if (queueManaged) queue.progress(fileName, received, totalBytes, speed);
+        final elapsed = DateTime.now().difference(lastSample).inMilliseconds;
+        if (elapsed >= 250) {
+          final sample = (received - lastReceived) * 1000 / elapsed;
+          speed = speed == 0 ? sample : speed * 0.6 + sample * 0.4;
+          lastSample = DateTime.now();
+          lastReceived = received;
+          // Four updates per second are enough for a progress bar. Calling this
+          // per socket chunk rebuilt the whole queue (and its badge) thousands of
+          // times during one large transfer.
+          if (queueManaged) queue.progress(fileName, received, totalBytes, speed);
+        }
       }
+    } finally {
+      // The progress samples lag the stream by up to 250 ms; close first, then
+      // record the bytes that are actually on disk. A pause is exactly when
+      // the ledger must match the file for the next Range request.
+      await sink.close();
+      if (queueManaged && received > 0) queue.recordBytes(fileName, received, totalBytes);
     }
-
-    await sink.close();
 
     // A pause or a cancel that arrived mid-stream (before the abort hook was
     // attached, or between chunks): the partial file stays on disk for the
@@ -532,6 +610,7 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
       return null;
     }
 
+    keepTemp = true;
     return tempPath;
   } on Exception catch (e) {
     if (!queueManaged) return null;
@@ -546,6 +625,8 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     }
     return null;
   } finally {
-    client.close();
+    httpClient.close();
+    // A share/auto-cache temp must never outlive a failed transfer.
+    if (!queueManaged && !keepTemp) await _deleteTemp(tempPath);
   }
 }

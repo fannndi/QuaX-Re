@@ -28,6 +28,7 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
   double? _measuredAtWidth;
   double? _measuredScale;
   TextDirection? _measuredDirection;
+  TextStyle? _measuredStyle;
   bool? _measuredTruncated;
 
   /// Test-only: the result of the last overflow measurement, or null when the
@@ -46,15 +47,21 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
     // switching between an LTR and an RTL tweet at the same width reuses the
     // LTR answer.
     final direction = Directionality.of(context);
+    // Measure with the style the Text.rich below actually draws with: the
+    // engine default has no letterSpacing/height, so a post that just fits on
+    // line 8 in the measurement wraps to line 9 when drawn and loses its
+    // "show more" button.
+    final style = DefaultTextStyle.of(context).style;
     if (_measuredTruncated != null &&
         _measuredAtWidth == width &&
         _measuredScale == scale &&
-        _measuredDirection == direction) {
+        _measuredDirection == direction &&
+        _measuredStyle == style) {
       return _measuredTruncated!;
     }
 
     final painter = TextPainter(
-      text: TextSpan(children: widget.textSpans),
+      text: TextSpan(style: style, children: widget.textSpans),
       textDirection: direction,
       textScaler: MediaQuery.textScalerOf(context),
     );
@@ -66,6 +73,7 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
     _measuredAtWidth = width;
     _measuredScale = scale;
     _measuredDirection = direction;
+    _measuredStyle = style;
     _measuredTruncated = truncated;
     return truncated;
   }

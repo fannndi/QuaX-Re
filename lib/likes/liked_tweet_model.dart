@@ -182,7 +182,9 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
     final database = await Repository.writable();
     final encodedContent = jsonEncode(content);
     final alreadyLiked = _likedIds.contains(id);
-    final now = DateTime.now().toIso8601String();
+    // UTC: the column also receives SQL CURRENT_TIMESTAMP (UTC) from the
+    // migration backfills, and the list sorts these strings as text.
+    final now = DateTime.now().toUtc().toIso8601String();
 
     await database.transaction((txn) async {
       await txn.insert(tableLikedTweet,

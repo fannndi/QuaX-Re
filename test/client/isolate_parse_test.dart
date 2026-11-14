@@ -26,8 +26,6 @@ void main() {
           conversationless: false,
           tweetIndicator: 'tweet',
           pinnedTweets: const [],
-          mapToThreads: true,
-          includeReplies: false,
           showPinnedTweet: false,
           getTweetsCounter: counter,
           incrementTweetsCounter: bump,

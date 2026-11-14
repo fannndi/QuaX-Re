@@ -51,7 +51,7 @@ void main() {
     final version = await db.getVersion();
     await db.close();
 
-    expect(version, 32);
+    expect(version, 33);
     expect(accounts, hasLength(2), reason: 'The upgrade must not drop a login');
     final localIds = accounts.map((row) => row[columnLocalId] as String?).toList();
     expect(localIds.every((id) => id != null && id.isNotEmpty), isTrue,
