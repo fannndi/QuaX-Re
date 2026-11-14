@@ -314,19 +314,27 @@ class _GalleryTabState extends State<_GalleryTab> {
         Card(
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: hidden
-              ? ListTile(
-                  leading: const Icon(Icons.shield_outlined),
-                  title: Text(l10n.library_storage_hidden),
-                  subtitle: Text(
-                    '${_model.isOnRemovableStorage ? l10n.library_volume_sd : l10n.library_volume_internal} · ${l10n.library_hidden_status}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.tune),
-                    tooltip: l10n.library_storage_manage,
-                    onPressed: _manage,
-                  ),
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: SwitchListTile(
+                        value: false,
+                        onChanged: null,
+                        secondary: const Icon(Icons.shield_outlined),
+                        title: Text(l10n.library_storage_hidden),
+                        subtitle: Text(
+                          '${_model.isOnRemovableStorage ? l10n.library_volume_sd : l10n.library_volume_internal} · ${l10n.library_hidden_status}\n${l10n.library_hidden_gallery_note}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.tune),
+                      tooltip: l10n.library_storage_manage,
+                      onPressed: _manage,
+                    ),
+                  ],
                 )
               : Row(
                   children: [

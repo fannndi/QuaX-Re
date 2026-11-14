@@ -48,6 +48,9 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
   LibraryVolume? _volume;
   bool _missing = false;
   bool _importing = false;
+  List<ExistingLibrary> _existing = const [];
+  bool _existingScanned = false;
+  bool _searchingExisting = false;
 
   bool get _selectionActive => _selected.isNotEmpty;
 
@@ -92,6 +95,7 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     if (!_model.isConfigured) {
       if (mounted) setState(() => _missing = false);
       await _loadVolumes();
+      if (!_existingScanned) await _findExistingLibraries();
       return;
     }
     if (!await Directory(_model.libraryPath).exists()) {
@@ -100,6 +104,42 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     }
     if (mounted && _missing) setState(() => _missing = false);
     await _model.refresh();
+    // An empty configured library is exactly the case where the reader may
+    // have an older folder on the card; offer it instead of an empty grid.
+    if (_model.state.isEmpty && !_existingScanned) await _findExistingLibraries();
+  }
+
+  Future<void> _findExistingLibraries() async {
+    if (_searchingExisting) return;
+    _searchingExisting = true;
+    final found = await _model.findExistingLibraries();
+    if (!mounted) return;
+    setState(() {
+      _existing = found;
+      _existingScanned = true;
+      _searchingExisting = false;
+    });
+  }
+
+  Future<void> _adoptExisting(ExistingLibrary candidate) async {
+    final error = ValueNotifier<String?>(null);
+    final ok = await _model.adoptExistingLibrary(candidate.path, error: error);
+    if (!mounted) return;
+    if (!ok) {
+      showSnackBar(
+        context,
+        icon: '??',
+        message: error.value == 'storage_permission_needed'
+            ? L10n.of(context).library_storage_permission_needed
+            : L10n.of(context).library_existing_failed,
+      );
+      return;
+    }
+    setState(() {
+      _missing = false;
+      _existing = const [];
+      _existingScanned = true;
+    });
   }
 
   Future<void> _loadVolumes() async {
@@ -218,6 +258,55 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     );
   }
 
+  Widget _buildExistingLibraries(BuildContext context) {
+    if (_existing.isEmpty) return const SizedBox.shrink();
+    final l10n = L10n.of(context);
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.folder_special_outlined, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(l10n.library_existing_found, style: theme.textTheme.titleMedium),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(l10n.library_existing_keep, style: theme.textTheme.bodySmall),
+            for (final candidate in _existing) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                    candidate.isHidden ? Icons.shield_outlined : Icons.folder_outlined),
+                title: Text(
+                    l10n.library_stats(candidate.mediaCount, formatBytes(candidate.bytes))),
+                subtitle: Text(candidate.path, maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: () => _adoptExisting(candidate),
+                trailing: const Icon(Icons.chevron_right),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _adoptExisting(candidate),
+                  icon: const Icon(Icons.folder_open),
+                  label: Text(l10n.library_existing_use),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSetup(BuildContext context) {
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
@@ -225,6 +314,7 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
+        _buildExistingLibraries(context),
         Icon(Icons.video_library_outlined, size: 48, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(l10n.library_setup_title,
@@ -353,6 +443,12 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(32),
       children: [
+        _buildExistingLibraries(context),
+        if (_searchingExisting) ...[
+          const LinearProgressIndicator(minHeight: 2),
+          const SizedBox(height: 8),
+          Text(l10n.library_existing_scanning, textAlign: TextAlign.center),
+        ],
         const SizedBox(height: 48),
         Icon(Icons.collections_outlined, size: 48, color: theme.colorScheme.primary),
         const SizedBox(height: 16),

@@ -80,6 +80,8 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
   bool _loading = true;
   int _count = 0;
   int _bytes = 0;
+  ExistingLibrary? _target;
+  bool _targetLoading = false;
 
   @override
   void initState() {
@@ -113,6 +115,41 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
       _bytes = _model.state.fold<int>(0, (sum, entry) => sum + entry.size);
       _loading = false;
     });
+    // The current visible library is already counted by refresh(); only a
+    // different picked folder needs the extra scan.
+    if (_visibleParent != null && !_targetIsCurrent) await _inspectTarget();
+  }
+
+  String? get _targetPath {
+    final parent = _visibleParent;
+    return parent == null ? null : libraryRootForPickedFolder(parent);
+  }
+
+  Future<void> _inspectTarget() async {
+    final path = _targetPath;
+    if (path == null) {
+      if (mounted) setState(() => _target = null);
+      return;
+    }
+    if (mounted) setState(() => _targetLoading = true);
+    final target = await _model.inspectLibrary(path);
+    if (!mounted) return;
+    setState(() {
+      _target = target;
+      _targetLoading = false;
+    });
+  }
+
+  bool get _targetIsCurrent {
+    final path = _targetPath;
+    return path != null && !_model.isHidden && p.equals(_model.libraryPath, path);
+  }
+
+  bool get _canUseExisting {
+    if (_busy || _loading || _targetLoading) return false;
+    final path = _targetPath;
+    if (path == null || _target == null) return false;
+    return !_targetIsCurrent;
   }
 
   bool get _canApply {
@@ -122,14 +159,61 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
       if (volume == null) return false;
       return !(_model.isHidden && p.equals(_model.libraryPath, volume.hiddenRoot));
     }
-    final parent = _visibleParent;
-    if (parent == null) return false;
-    return !(!_model.isHidden && p.equals(_model.libraryPath, p.join(parent, libraryFolderName)));
+    final path = _targetPath;
+    if (path == null) return false;
+    return !(!_model.isHidden && p.equals(_model.libraryPath, path));
   }
 
   Future<void> _pickVisible() async {
     final picked = await FilePicker.getDirectoryPath();
-    if (picked != null && mounted) setState(() => _visibleParent = picked);
+    if (picked == null || !mounted) return;
+    // A reader who navigates into the existing QuaXLibrary should keep it as
+    // the root; a parent pick still gets the child created on apply.
+    setState(() => _visibleParent = p.dirname(libraryRootForPickedFolder(picked)));
+    await _inspectTarget();
+  }
+
+  Future<void> _useExisting() async {
+    if (!_canUseExisting) return;
+    final path = _targetPath!;
+    final target = _target!;
+    final l10n = L10n.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.library_storage_existing_confirm_title),
+        content: Text(l10n.library_storage_existing_confirm_body(target.mediaCount, path)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l10n.library_storage_use_existing),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    final error = ValueNotifier<String?>(null);
+    final ok = await _model.adoptExistingLibrary(path, error: error);
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!ok) {
+      showSnackBar(
+        context,
+        icon: '??',
+        message: error.value == 'storage_permission_needed'
+            ? l10n.library_storage_permission_needed
+            : l10n.library_existing_failed,
+      );
+      return;
+    }
+    if (mounted) Navigator.pop(context, true);
   }
 
   Future<void> _apply() async {
@@ -137,7 +221,7 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
 
     final target = _mode == LibraryStorageMode.hidden
         ? libraryVolumeLabel(L10n.of(context), _selectedVolume!)
-        : p.join(_visibleParent!, libraryFolderName);
+        : libraryRootForPickedFolder(_visibleParent!);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -364,7 +448,7 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
                       child: Text(
                         _visibleParent == null
                             ? l10n.library_storage_no_folder
-                            : p.join(_visibleParent!, libraryFolderName),
+                            : libraryRootForPickedFolder(_visibleParent!),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall,
@@ -377,6 +461,31 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
                   ],
                 ),
               ),
+              if (_target != null && !_targetIsCurrent)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(44, 0, 8, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        l10n.library_stats(_target!.mediaCount, formatBytes(_target!.bytes)),
+                        style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l10n.library_storage_use_existing_note,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton(
+                          onPressed: _canUseExisting ? _useExisting : null,
+                          child: Text(l10n.library_storage_use_existing),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (!_model.isHidden)
                 SwitchListTile(
                   contentPadding: const EdgeInsets.only(left: 44, right: 8),

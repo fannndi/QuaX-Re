@@ -19,9 +19,13 @@ void main() {
     source = await Directory.systemTemp.createTemp('quax-import-source-');
     library = await Directory.systemTemp.createTemp('quax-import-library-');
     LibraryModel.debugNameIndexBuilds = 0;
+    LibraryModel.debugExternalDirectories = null;
+    LibraryModel.debugStorageAccess = null;
   });
 
   tearDown(() async {
+    LibraryModel.debugExternalDirectories = null;
+    LibraryModel.debugStorageAccess = null;
     for (final dir in [source, library]) {
       if (await dir.exists()) await dir.delete(recursive: true);
     }
@@ -89,7 +93,7 @@ void main() {
       await putInSource('clip.mp4');
       // Point the library at a file: joining a name onto it yields a path whose
       // parent is not a directory, so every copy throws.
-      await putInSource('a-file', 'not a directory');
+      File('${library.path}/a-file').writeAsStringSync('not a directory');
 
       final moved = await modelWith(configuredPath: '${library.path}/a-file')
           .importFromDirectory(source.path);
@@ -283,6 +287,109 @@ void main() {
       expect(inside.error, 'inside_library',
           reason: 'Exporting into the library would make the gallery list every copy as a new '
               'download');
+    });
+  });
+
+  group('existing library', () {
+    test('Should use a picked QuaXLibrary folder as the root, not nest another one', () {
+      final pickedRoot = p.join(source.path, 'X', libraryFolderName);
+
+      expect(libraryRootForPickedFolder(pickedRoot), p.normalize(pickedRoot),
+          reason: 'Selecting the old library folder itself must not create '
+              'QuaXLibrary/QuaXLibrary');
+      expect(libraryRootForPickedFolder(p.join(source.path, 'X')),
+          p.join(source.path, 'X', libraryFolderName),
+          reason: 'Selecting the parent still creates the conventional child folder');
+    });
+
+    test('Should adopt an existing folder without moving its files', () async {
+      final existing = Directory(p.join(source.path, 'X', libraryFolderName))
+        ..createSync(recursive: true);
+      final clip = File(p.join(existing.path, 'clip.mp4'))..writeAsStringSync('clip');
+      final modified = DateTime(2024, 1, 2, 3, 4, 5);
+      await clip.setLastModified(modified);
+      final prefs = PrefServiceCache()
+        ..put(optionLibraryPath, library.path)
+        ..put(optionLibraryStorageMode, libraryStorageHidden)
+        ..put(optionVaultRoot, source.path);
+      LibraryModel.debugStorageAccess = () async => true;
+      final model = LibraryModel(prefs);
+
+      final adopted = await model.adoptExistingLibrary(existing.path);
+
+      expect(adopted, isTrue, reason: 'The old folder has to become the library root');
+      expect(prefs.get<String>(optionLibraryPath), p.normalize(existing.path));
+      expect(prefs.get<String>(optionLibraryStorageMode), libraryStorageVisible);
+      expect(await clip.exists(), isTrue, reason: 'Adoption keeps the original file in place');
+      expect(await File(p.join(existing.path, libraryFolderName)).exists(), isFalse,
+          reason: 'Adoption must not create a nested QuaXLibrary inside the old root');
+      expect(model.state.map((entry) => entry.name), contains('clip.mp4'),
+          reason: 'The gallery must list the adopted folder immediately');
+      expect((await clip.lastModified()).difference(modified).inSeconds.abs() < 2, isTrue,
+          reason: 'Adoption must not rewrite the mtime the newest sort depends on');
+    });
+
+    test('Should find an old X/QuaXLibrary under a volume root', () async {
+      final appFiles = p.join(source.path, 'Android', 'data', 'pkg', 'files');
+      final oldLibrary = Directory(p.join(source.path, 'X', libraryFolderName))
+        ..createSync(recursive: true);
+      File(p.join(oldLibrary.path, 'clip.mp4')).writeAsStringSync('clip');
+      LibraryModel.debugExternalDirectories = () async => [Directory(appFiles)];
+      final prefs = PrefServiceCache()
+        ..put(optionLibraryPath, library.path)
+        ..put(optionLibraryStorageMode, libraryStorageHidden);
+      final model = LibraryModel(prefs);
+
+      final found = await model.findExistingLibraries();
+
+      expect(found.map((candidate) => candidate.path), contains(p.normalize(oldLibrary.path)),
+          reason: 'The old SD-card layout is exactly what the reader is trying to reuse');
+      final candidate =
+          found.firstWhere((candidate) => candidate.path == p.normalize(oldLibrary.path));
+      expect(candidate.mediaCount, 1);
+      expect(candidate.isHidden, isFalse);
+      expect(candidate.bytes, greaterThan(0));
+    });
+
+    test('Should count and import media in subfolders', () async {
+      final nested = Directory(p.join(source.path, 'nested'))..createSync();
+      final clip = File(p.join(nested.path, 'clip.mp4'))..writeAsStringSync('clip');
+      final modified = DateTime(2024, 1, 2, 3, 4, 5);
+      await clip.setLastModified(modified);
+      final model = modelWith();
+
+      expect(await model.countImportableIn(source.path), 1,
+          reason: 'A nested clip is still media the reader can import');
+
+      final moved = await model.importFromDirectory(source.path);
+
+      expect(moved, isTrue);
+      final target = File(p.join(library.path, 'nested', 'clip.mp4'));
+      expect(await target.exists(), isTrue,
+          reason: 'The import keeps the relative folder so nested clips do not collide');
+      expect(await clip.exists(), isFalse, reason: 'The import is still a move');
+      expect((await target.lastModified()).difference(modified).inSeconds.abs() < 2, isTrue,
+          reason: 'A copy that loses the source mtime breaks the newest/oldest sort');
+    });
+
+    test('Should not import the library into itself when its parent is picked', () async {
+      final root = await Directory.systemTemp.createTemp('quax-parent-');
+      addTearDown(() => root.delete(recursive: true));
+      final rootLibrary = Directory(p.join(root.path, libraryFolderName))..createSync();
+      final clip = File(p.join(rootLibrary.path, 'clip.mp4'))..writeAsStringSync('keep');
+      final prefs = PrefServiceCache()
+        ..put(optionLibraryPath, rootLibrary.path)
+        ..put(optionLibraryStorageMode, libraryStorageVisible);
+      final model = LibraryModel(prefs);
+
+      final moved = await model.importFromDirectory(root.path);
+
+      expect(moved, isTrue);
+      expect(await clip.exists(), isTrue,
+          reason: 'The library lives inside the picked parent; importing it would delete the '
+              'original');
+      expect(await File(p.join(rootLibrary.path, libraryFolderName, 'clip.mp4')).exists(), isFalse,
+          reason: 'A recursive import must not copy the library into a nested QuaXLibrary');
     });
   });
 

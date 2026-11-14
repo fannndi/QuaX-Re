@@ -9,6 +9,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/library/library_storage_sheet.dart';
 import 'package:quax/ui/errors.dart';
+import 'package:quax/utils/storage_report.dart';
 
 /// First-run wizard, Hentoid-style: the app is unusable until the storage
 /// permission is granted and the hidden media library folder is picked. Only
@@ -38,6 +39,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   bool _configured = false;
   bool _visibleInGallery = false;
   bool _busy = false;
+  List<ExistingLibrary> _existing = const [];
+  bool _searchingExisting = false;
 
   @override
   void initState() {
@@ -78,6 +81,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     try {
       final granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
       if (mounted) setState(() => _hasAccess = granted == true);
+      // The first scan runs before the grant, when the card is unreadable.
+      // Retry it as soon as Android says the app can see the folder.
+      if (granted == true && mounted && _existing.isEmpty) {
+        await _findExistingLibraries();
+      }
     } on Exception {
       if (mounted) setState(() => _hasAccess = false);
     }
@@ -93,6 +101,51 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       });
     } on Exception {
       // The setup view offers a retry through the folder picker.
+    }
+    await _findExistingLibraries();
+  }
+
+  Future<void> _findExistingLibraries() async {
+    if (_searchingExisting) return;
+    _searchingExisting = true;
+    final found = await _library.findExistingLibraries();
+    if (!mounted) return;
+    setState(() {
+      _existing = found;
+      _searchingExisting = false;
+    });
+  }
+
+  Future<void> _useExisting(ExistingLibrary candidate) async {
+    setState(() => _busy = true);
+    final error = ValueNotifier<String?>(null);
+    final ok = await _library.adoptExistingLibrary(candidate.path, error: error);
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!ok) {
+      if (error.value == 'storage_permission_needed') {
+        await _refreshAccess();
+        if (mounted) {
+          showSnackBar(context,
+              icon: '??', message: L10n.of(context).library_storage_permission_needed);
+        }
+      } else {
+        showSnackBar(context, icon: '??', message: L10n.of(context).library_existing_failed);
+      }
+      return;
+    }
+
+    setState(() {
+      _configured = true;
+      _visibleInGallery = _library.galleryVisible;
+      _existing = const [];
+    });
+    try {
+      await ensureAccountFolder(vaultRootPathFor(_prefs));
+    } catch (_) {
+      // The account step still offers login and manual import when the
+      // sibling folder cannot be created.
     }
   }
 
@@ -320,6 +373,54 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     if (changed == true) await _loadVolumes();
   }
 
+  Widget _buildExistingLibraries(BuildContext context) {
+    final l10n = L10n.of(context);
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.folder_special_outlined, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(l10n.library_existing_found, style: theme.textTheme.titleMedium),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(l10n.library_existing_keep, style: theme.textTheme.bodySmall),
+            for (final candidate in _existing) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                    candidate.isHidden ? Icons.shield_outlined : Icons.folder_outlined),
+                title: Text(
+                    l10n.library_stats(candidate.mediaCount, formatBytes(candidate.bytes))),
+                subtitle: Text(candidate.path, maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: _busy ? null : () => _useExisting(candidate),
+                trailing: const Icon(Icons.chevron_right),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _busy ? null : () => _useExisting(candidate),
+                  icon: const Icon(Icons.folder_open),
+                  label: Text(l10n.library_existing_use),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFolderStep() {
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
@@ -331,6 +432,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       extra: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_existing.isNotEmpty) _buildExistingLibraries(context),
+          if (_searchingExisting) const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
           if (_busy) const Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: LinearProgressIndicator(),

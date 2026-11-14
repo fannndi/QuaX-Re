@@ -363,6 +363,16 @@
       }
     }
   },
+  "library_existing_found": "Existing library found",
+  "@library_existing_found": {},
+  "library_existing_keep": "The files stay where they are. Nothing is moved.",
+  "@library_existing_keep": {},
+  "library_existing_failed": "That folder could not be used.",
+  "@library_existing_failed": {},
+  "library_existing_scanning": "Looking for an existing library…",
+  "@library_existing_scanning": {},
+  "library_existing_use": "Use this library",
+  "@library_existing_use": {},
   "library_import_existing": "Move media from another folder",
   "@library_import_existing": {},
   "library_import_failed": "Some files could not be moved. The rest are in the library.",
@@ -460,6 +470,25 @@
   "@library_storage_permission_needed": {},
   "library_storage_pick_folder": "Choose folder",
   "@library_storage_pick_folder": {},
+  "library_storage_use_existing": "Use this folder",
+  "@library_storage_use_existing": {},
+  "library_storage_use_existing_note": "Keep the files already in this folder. Nothing is moved.",
+  "@library_storage_use_existing_note": {},
+  "library_storage_existing_confirm_title": "Use this folder as the library?",
+  "@library_storage_existing_confirm_title": {},
+  "library_storage_existing_confirm_body": "Use the {count, plural, =1{1 media file} other{{count} media files}} already in {path}? Nothing is moved.",
+  "@library_storage_existing_confirm_body": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "library_hidden_gallery_note": "Hidden storage can’t appear in the gallery. Use a visible folder to enable this switch.",
+  "@library_hidden_gallery_note": {},
   "library_storage_show_in_gallery_note": "Turning this on lets gallery apps index this folder.",
   "@library_storage_show_in_gallery_note": {},
   "library_storage_unavailable": "Storage unavailable",

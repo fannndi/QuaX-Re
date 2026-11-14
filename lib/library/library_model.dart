@@ -19,6 +19,16 @@ const libraryFolderName = 'QuaXLibrary';
 /// `Android/data/<package>` tree is already off-limits to other apps.
 const hiddenLibraryFolderName = '.QuaXLibrary';
 
+/// Resolves a folder picked in the system picker to the library root.
+///
+/// The picker's natural target is the parent (the app creates `QuaXLibrary`
+/// inside it), but a reader pointing at their existing library folder must not
+/// end up with a second, empty `QuaXLibrary` inside it.
+String libraryRootForPickedFolder(String pickedPath) {
+  final picked = p.normalize(pickedPath);
+  return p.basename(picked) == libraryFolderName ? picked : p.join(picked, libraryFolderName);
+}
+
 const _spaceMarginBytes = 16 * 1024 * 1024;
 
 // Patched in MainActivity.kt: checks/opens Android's all-files-access screen,
@@ -75,6 +85,22 @@ class LibraryEntry {
         modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   final String name;
+}
+
+/// A media folder already on disk that the reader can adopt as the library
+/// without moving or copying anything.
+class ExistingLibrary {
+  const ExistingLibrary({
+    required this.path,
+    required this.mediaCount,
+    required this.bytes,
+    required this.isHidden,
+  });
+
+  final String path;
+  final int mediaCount;
+  final int bytes;
+  final bool isHidden;
 }
 
 /// Outcome of a gallery show/hide pass: [affected] media files entered (or
@@ -166,6 +192,11 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   @visibleForTesting
   static Future<List<Directory>?> Function()? debugExternalDirectories;
 
+  /// Test seam: the storage MethodChannel is not available in the unit-test
+  /// binary, so tests can grant/refuse all-files access without an activity.
+  @visibleForTesting
+  static Future<bool> Function()? debugStorageAccess;
+
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
 
   bool get isConfigured => libraryPath.isNotEmpty;
@@ -219,6 +250,172 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   Future<bool> get storageAvailable async {
     final path = libraryPath;
     return path.isNotEmpty && await Directory(path).exists();
+  }
+
+  /// Looks for media folders that can become the library without moving
+  /// anything. The old Hentoid layout (`<volume>/X/QuaXLibrary`) and the
+  /// conventional parents are checked first; one level below each volume root
+  /// is walked so a renamed parent still shows up.
+  Future<List<ExistingLibrary>> findExistingLibraries() async {
+    final current = libraryPath;
+    final candidates = <String>{};
+    for (final volume in await availableVolumes()) {
+      final root = volume.volumeRoot;
+      candidates.addAll([
+        p.join(root, libraryFolderName),
+        p.join(root, 'Download', libraryFolderName),
+        p.join(root, 'Documents', libraryFolderName),
+        p.join(root, 'Pictures', libraryFolderName),
+        p.join(root, 'Movies', libraryFolderName),
+        p.join(root, 'DCIM', libraryFolderName),
+        p.join(root, 'X', libraryFolderName),
+        volume.hiddenRoot,
+      ]);
+
+      try {
+        await for (final entity in Directory(root).list(followLinks: false)) {
+          if (entity is! Directory) continue;
+          final name = p.basename(entity.path);
+          // Android/data is the hidden root itself; walking it would only
+          // find app-private caches.
+          if (name == 'Android') continue;
+          candidates.add(
+              name == libraryFolderName ? entity.path : p.join(entity.path, libraryFolderName));
+        }
+      } on Exception {
+        // An unmounted card still has the fixed candidates above; the folder
+        // picker remains the fallback.
+      }
+    }
+
+    final found = <ExistingLibrary>[];
+    for (final path in candidates) {
+      if (path == current) continue;
+      final info = await inspectLibrary(path);
+      if (info != null) found.add(info);
+    }
+
+    found.sort((a, b) {
+      // A visible folder can use the gallery switch immediately; prefer it
+      // over an app-private folder when both hold media.
+      if (a.isHidden != b.isHidden) return a.isHidden ? 1 : -1;
+      final byCount = b.mediaCount.compareTo(a.mediaCount);
+      return byCount != 0 ? byCount : a.path.compareTo(b.path);
+    });
+    return found;
+  }
+
+  /// Counts the media in [path] so the UI can say "30 videos · 9.7 GB" before
+  /// the reader adopts a folder. Returns null for a missing or empty folder.
+  Future<ExistingLibrary?> inspectLibrary(String path) async {
+    try {
+      final dir = Directory(path);
+      if (!await dir.exists()) return null;
+
+      var count = 0;
+      var bytes = 0;
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is! File || !_isMedia(entity.path)) continue;
+        count++;
+        try {
+          bytes += await entity.length();
+        } catch (_) {
+          // The count still tells the reader the folder is worth adopting.
+        }
+      }
+      if (count == 0) return null;
+      return ExistingLibrary(
+        path: p.normalize(path),
+        mediaCount: count,
+        bytes: bytes,
+        isHidden: _isHiddenPath(path),
+      );
+    } on Exception {
+      return null;
+    }
+  }
+
+  /// Points the app at an existing folder and keeps every file where it is.
+  /// This never moves, copies or deletes media; it only switches the root and
+  /// refreshes the gallery.
+  Future<bool> adoptExistingLibrary(String path, {ValueNotifier<String?>? error}) async {
+    final rootPath = p.normalize(path);
+    final dir = Directory(rootPath);
+    if (!await dir.exists()) {
+      error?.value = 'source_missing';
+      return false;
+    }
+
+    final hidden = _isHiddenPath(rootPath);
+    if (!hidden && !await ensureStorageAccess()) {
+      error?.value = 'storage_permission_needed';
+      return false;
+    }
+
+    try {
+      final visible = prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
+      final nomedia = File(p.join(rootPath, _nomedia));
+      if (hidden) {
+        await _ensureNomedia(dir);
+        await prefs.set<bool>(optionLibraryVisibleInGallery, false);
+      } else if (visible) {
+        if (await nomedia.exists()) await nomedia.delete();
+      } else if (!await nomedia.exists()) {
+        await nomedia.create();
+      }
+
+      final oldPath = libraryPath;
+      await prefs.set<String>(optionLibraryPath, rootPath);
+      await prefs.set<String>(
+        optionLibraryStorageMode,
+        hidden ? libraryStorageHidden : libraryStorageVisible,
+      );
+
+      // A hidden root already lives on a volume whose vault folder is
+      // `<volume>/QuaX-Re`; a visible folder uses its parent, like the old
+      // sibling-QuaXAccount layout.
+      if ((prefs.get<String>(optionVaultRoot) ?? '').isEmpty) {
+        if (hidden) {
+          for (final volume in await availableVolumes()) {
+            if (p.equals(volume.hiddenRoot, rootPath)) {
+              await prefs.set<String>(optionVaultRoot, volume.vaultRoot);
+              break;
+            }
+          }
+        } else {
+          await prefs.set<String>(optionVaultRoot, p.dirname(rootPath));
+        }
+      }
+
+      _invalidateNameIndexAt(oldPath);
+      _invalidateNameIndexAt(rootPath);
+      update([]);
+
+      if (!hidden && visible) {
+        try {
+          // The folder can already hold media; index it right away so the
+          // switch means what it says on the first run.
+          await _storageChannel.invokeMethod('setGalleryVisibility', {
+            'path': rootPath,
+            'visible': true,
+          });
+        } on Exception {
+          // The folder still works; the switch can retry the scan.
+        }
+      }
+
+      await refresh();
+      return true;
+    } on Exception catch (e) {
+      error?.value = e.toString();
+      return false;
+    }
+  }
+
+  bool _isHiddenPath(String path) {
+    final parts = p.split(path);
+    final android = parts.indexOf('Android');
+    return android > 0 && parts.length > android + 1 && parts[android + 1] == 'data';
   }
 
   /// Whether the library is listed by gallery apps: true means the `.nomedia`
@@ -491,11 +688,12 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     return result;
   }
 
-  /// Moves the current media into `<pickedParent>/QuaXLibrary` and switches to
-  /// the visible mode. The vault root deliberately stays where it is: account
-  /// backups must not follow a media folder into app-private storage.
-  Future<LibraryMoveResult> moveToVisibleAt(String pickedParent) {
-    return _moveRoot(Directory(p.join(pickedParent, libraryFolderName)),
+  /// Moves the current media into the picked folder (or its `QuaXLibrary`
+  /// child) and switches to the visible mode. The vault root deliberately stays
+  /// where it is: account backups must not follow a media folder into
+  /// app-private storage.
+  Future<LibraryMoveResult> moveToVisibleAt(String pickedFolder) {
+    return _moveRoot(Directory(libraryRootForPickedFolder(pickedFolder)),
         mode: LibraryStorageMode.visible);
   }
 
@@ -726,6 +924,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// Asks for the all-files grant the visible mode and exports need. Hidden
   /// storage itself never asks: the app owns its `Android/data` tree.
   Future<bool> ensureStorageAccess() async {
+    final debug = debugStorageAccess;
+    if (debug != null) return debug();
     try {
       var granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
       if (granted != true) {
@@ -826,7 +1026,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
         return false;
       }
 
-      final root = Directory(p.join(pickedPath, libraryFolderName));
+      final root = Directory(libraryRootForPickedFolder(pickedPath));
       await root.create(recursive: true);
 
       // Hidden by default: the gallery-killer marker itself, Hentoid-style.
@@ -842,10 +1042,11 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
       await prefs.set<String>(optionLibraryPath, root.path);
       await prefs.set<String>(optionLibraryStorageMode, libraryStorageVisible);
-      // Backup folder: the parent the reader picked, exactly where the old
-      // sibling-QuaXAccount layout already put it.
+      // Backup folder: the library's parent, exactly where the old
+      // sibling-QuaXAccount layout already put it. A pick that already was the
+      // QuaXLibrary folder must not put the vault inside the media tree.
       if ((prefs.get<String>(optionVaultRoot) ?? '').isEmpty) {
-        await prefs.set<String>(optionVaultRoot, pickedPath);
+        await prefs.set<String>(optionVaultRoot, p.dirname(root.path));
       }
       _invalidateNameIndexAt(root.path);
       update([]);
@@ -865,16 +1066,21 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
-  /// Counts media files that sit directly in [sourcePath] — old downloads from
-  /// before the library existed, or files another app left in a shared folder.
+  /// Counts media files under [sourcePath] - old downloads from before the
+  /// library existed, or files another app left in a shared folder. Recursive
+  /// because the old layout nests them under `X/QuaXLibrary`.
   Future<int> countImportableIn(String sourcePath) async {
     try {
       final sourceDir = Directory(sourcePath);
       if (!await sourceDir.exists()) return 0;
 
       var count = 0;
-      await for (final entity in sourceDir.list()) {
-        if (entity is File && _isMedia(entity.path)) count++;
+      await for (final entity in sourceDir.list(recursive: true, followLinks: false)) {
+        if (entity is! File || !_isMedia(entity.path)) continue;
+        // The library may sit inside the folder the reader picked; counting
+        // its files would make the import offer its own media back.
+        if (p.equals(entity.path, libraryPath) || p.isWithin(libraryPath, entity.path)) continue;
+        count++;
       }
       return count;
     } on Exception {
@@ -882,8 +1088,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
-  /// Moves the media files sitting directly in [sourcePath] into the library
-  /// — copies each file, then removes the source (Hentoid's import flow).
+  /// Moves the media files under [sourcePath] into the library - copies each
+  /// file, then removes the source (Hentoid's import flow). The file's relative
+  /// folder is kept so nested downloads do not collide in the library root.
   Future<bool> importFromDirectory(String sourcePath) async {
     if (libraryPath.isEmpty) return false;
 
@@ -896,21 +1103,51 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       return false;
     }
 
+    final files = <File>[];
+    var totalBytes = 0;
+    try {
+      await for (final entity in sourceDir.list(recursive: true, followLinks: false)) {
+        if (entity is! File || !_isMedia(entity.path)) continue;
+        // A parent pick such as `X` contains the library itself; importing it
+        // would copy every library file into a nested QuaXLibrary folder.
+        if (p.equals(entity.path, libraryPath) || p.isWithin(libraryPath, entity.path)) continue;
+        files.add(entity);
+        try {
+          totalBytes += await entity.length();
+        } catch (_) {
+          // The copy will report the unreadable file.
+        }
+      }
+    } on Exception {
+      return false;
+    }
+
+    final free = await _availableSpace(libraryPath);
+    if (free != null && totalBytes + _spaceMarginBytes > free) return false;
+
     var allMoved = true;
     try {
-      await for (final entity in sourceDir.list()) {
-        if (entity is! File || !_isMedia(entity.path)) continue;
-
+      for (final entity in files) {
         try {
-          var target = p.join(libraryPath, p.basename(entity.path));
+          final relative = p.relative(entity.path, from: sourcePath);
+          var target = p.join(libraryPath, relative);
           // Keep copies of the same basename alive: prefix with the timestamp.
           if (await File(target).exists()) {
             target = p.join(
-                libraryPath,
+                p.dirname(target),
                 '${p.basenameWithoutExtension(entity.path)}-${DateTime.now().millisecondsSinceEpoch}'
                 '${p.extension(entity.path)}');
           }
+          await Directory(p.dirname(target)).create(recursive: true);
+          final modified = (await entity.stat()).modified;
           await entity.copy(target);
+          try {
+            // File.copy does not carry the source mtime; without this every
+            // imported file sorts as if it arrived just now.
+            await File(target).setLastModified(modified);
+          } catch (_) {
+            // The copy is still valid; only the sort order degrades.
+          }
           await entity.delete();
         } catch (_) {
           // One unreadable file must not abandon the rest of the batch.

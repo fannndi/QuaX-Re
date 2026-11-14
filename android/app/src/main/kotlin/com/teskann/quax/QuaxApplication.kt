@@ -119,9 +119,10 @@ class QuaxApplication : android.app.Application() {
      * guessing.
      *
      * Showing removes the `.nomedia` marker and scans every media file, so the
-     * gallery finds them again. Hiding writes the marker and scans it, which
-     * makes MediaProvider re-read the folder rule and drop the indexed entries;
-     * the rows that survive (a gallery app with its own index, an OEM provider)
+     * gallery finds them again. Hiding writes the marker and scans the folder
+     * itself, which makes MediaProvider apply the folder rule and drop the
+     * indexed entries; scanning only the marker left the old rows in place.
+     * The rows that survive (a gallery app with its own index, an OEM provider)
      * are only counted, never deleted, because deleting a MediaStore row
      * deletes the file it points at.
      *
@@ -169,7 +170,9 @@ class QuaxApplication : android.app.Application() {
             return
         }
 
-        scanMedia(arrayOf(nomedia.absolutePath), result) {
+        // Scan the folder, not just the marker: MediaProvider only applies
+        // the .nomedia rule to the files when it walks the directory.
+        scanMedia(arrayOf(dir.absolutePath), result, replyOnFirst = true) {
             mapOf("affected" to media.size, "remaining" to countMediaStoreRows(media))
         }
     }
@@ -179,7 +182,12 @@ class QuaxApplication : android.app.Application() {
      * the scanner reported every path — or when [SCAN_TIMEOUT_MS] passes, so a
      * scanner that stays silent cannot leave the switch spinning forever.
      */
-    private fun scanMedia(paths: Array<String>, result: MethodChannel.Result, answer: () -> Map<String, Any>) {
+    private fun scanMedia(
+        paths: Array<String>,
+        result: MethodChannel.Result,
+        replyOnFirst: Boolean = false,
+        answer: () -> Map<String, Any>
+    ) {
         var replied = false
         val scanned = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
@@ -192,7 +200,7 @@ class QuaxApplication : android.app.Application() {
         mainHandler.postDelayed({ reply() }, SCAN_TIMEOUT_MS)
         MediaScannerConnection.scanFile(this, paths, null) { path, _ ->
             if (path != null) scanned.add(path)
-            if (scanned.size >= paths.size) mainHandler.post { reply() }
+            if (replyOnFirst || scanned.size >= paths.size) mainHandler.post { reply() }
         }
     }
 
