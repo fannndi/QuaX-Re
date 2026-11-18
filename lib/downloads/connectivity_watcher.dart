@@ -37,9 +37,12 @@ class ConnectivityWatcher {
 
   /// Called whenever an entry leaves the running state: keeps the probe alive
   /// while candidates remain, and stops it when there are none.
+  ///
+  /// The probe waits for the first tick. It used to run immediately on every
+  /// failure, which undid the worker's own backoff and turned one 503 into a
+  /// dozen identical requests inside a minute.
   void scheduleCheck() {
     _timer ??= Timer.periodic(_probeInterval, (_) => _probe());
-    unawaited(_probe());
   }
 
   bool _isCandidate(DownloadQueueItem item) =>

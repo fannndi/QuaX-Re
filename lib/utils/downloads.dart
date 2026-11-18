@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
@@ -40,6 +41,7 @@ void _kickWorker() {
   // later enqueue to trigger the cleanup.
   final queue = DownloadsModel();
   _workerContexts.removeWhere((fileName, _) => !queue.contains(fileName));
+  _retryAfter.removeWhere((fileName, _) => !queue.contains(fileName));
   if (_worker != null || _workerPrefs == null) return;
   _worker = _drainQueue().whenComplete(() {
     _worker = null;
@@ -67,8 +69,54 @@ Future<void> _drainQueue() async {
 /// stopped), instead of hanging on a dead socket forever.
 const _idleTimeout = Duration(seconds: 30);
 
+/// iOS and Android both drop a connection attempt well before this; a socket
+/// that never answers would otherwise pin the single queue worker forever,
+/// because [http.Client.send] has no timeout of its own.
+const _responseTimeout = Duration(seconds: 20);
+
 /// Attempts per transfer: the first one plus transient-failure retries.
 const _maxAttempts = 3;
+
+/// The longest pause the app will take on its own. A server asking for more
+/// than this is telling the reader to come back later, not to retry sooner.
+const _maxRetryDelay = Duration(minutes: 2);
+
+final _random = Random();
+
+/// What the last failed response asked us to wait, per file name. A 503 with
+/// `Retry-After` must not be retried at the app's own pace.
+final Map<String, Duration> _retryAfter = {};
+
+/// Delay before the next attempt: exponential, jittered, and never shorter
+/// than what the server asked for. The jitter matters because several entries
+/// that failed together would otherwise come back in lockstep.
+@visibleForTesting
+Duration retryDelayFor(int attempt, {Duration? requested}) {
+  final exponential = Duration(seconds: 2 << attempt);
+  final jitter = Duration(milliseconds: _random.nextInt(1000));
+  final delay = exponential + jitter;
+  final withRequest = requested != null && requested > delay ? requested : delay;
+  return withRequest > _maxRetryDelay ? _maxRetryDelay : withRequest;
+}
+
+/// `Retry-After` as seconds. The HTTP-date form is rare from a CDN and would
+/// cost a parser; an unparseable header simply falls back to the backoff.
+@visibleForTesting
+Duration? parseRetryAfter(String? value) {
+  if (value == null) return null;
+  final seconds = int.tryParse(value.trim());
+  if (seconds == null) return null;
+  return Duration(seconds: seconds.clamp(1, 300));
+}
+
+/// Whether the failed attempt should throw its partial file away.
+///
+/// A server that answers 503 to a Range request has told us the request shape
+/// is the problem, not the bytes: retrying with the same Range converges on
+/// the same answer. The second server error therefore restarts from zero.
+@visibleForTesting
+bool shouldRestartFromZero(int attempt, String? error) =>
+    attempt >= 1 && (error?.startsWith('HTTP 5') ?? false);
 
 /// Never start a transfer that cannot fit in the destination (+ headroom).
 const _spaceMarginBytes = 64 * 1024 * 1024;
@@ -193,17 +241,33 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
         // ignore: use_build_context_synchronously
         tempPath = await _downloadToTemp(context, uri, fileName,
             resume: resume || attempt > 0, targetDir: targetDir);
-        if (tempPath != null) break;
+        if (tempPath != null) {
+          _retryAfter.remove(fileName);
+          break;
+        }
 
         final item = queue.itemFor(fileName);
+        final error = item?.error;
         if (item == null ||
             queue.isCancelled(fileName) ||
             queue.isPaused(fileName) ||
-            !_isRetryable(item.error)) {
+            !_isRetryable(error)) {
+          _retryAfter.remove(fileName);
           return;
         }
 
-        await Future.delayed(Duration(seconds: 3 * (attempt + 1)));
+        // A Range the server keeps refusing is worthless: a resume that answers
+        // 503 will answer 503 again. The second server error starts the next
+        // attempt from byte zero, which is the shape a fresh download uses and
+        // the one an edge is most likely to serve.
+        if (shouldRestartFromZero(attempt, error)) {
+          await deletePartial(fileName);
+        }
+
+        final requested = _retryAfter.remove(fileName);
+        if (attempt == _maxAttempts - 1) return;
+
+        await Future.delayed(retryDelayFor(attempt, requested: requested));
         if (!queue.contains(fileName) || queue.isCancelled(fileName) || queue.isPaused(fileName)) return;
       }
     }
@@ -438,6 +502,12 @@ http.Request _rangeRequest(Uri uri, int offset) {
   return request;
 }
 
+/// `send()` waits for the connection, TLS and the first response byte with no
+/// timeout of its own. A dead socket therefore used to pin the only queue
+/// worker until the OS gave up.
+Future<http.StreamedResponse> _send(http.Client client, Uri uri, int offset) =>
+    client.send(_rangeRequest(uri, offset)).timeout(_responseTimeout);
+
 /// The first byte position of a 206 body, or null when the header is missing
 /// or malformed.
 int? _contentRangeStart(http.StreamedResponse response) {
@@ -514,12 +584,12 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
       fileLength: partialLength,
     );
 
-    var response = await httpClient.send(_rangeRequest(uri, offset));
+    var response = await _send(httpClient, uri, offset);
     if (response.statusCode == 416 && offset > 0) {
       // The partial bytes no longer match the remote file: start over clean.
       await _deleteTemp(tempPath);
       offset = 0;
-      response = await httpClient.send(_rangeRequest(uri, 0));
+      response = await _send(httpClient, uri, 0);
     }
 
     // A 206 that does not start where we asked would be appended at the wrong
@@ -527,11 +597,13 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     if (offset > 0 && response.statusCode == 206 && _contentRangeStart(response) != offset) {
       await _deleteTemp(tempPath);
       offset = 0;
-      response = await httpClient.send(_rangeRequest(uri, 0));
+      response = await _send(httpClient, uri, 0);
     }
 
     final isPartial = response.statusCode == 206;
     if (response.statusCode != 200 && !isPartial) {
+      final requested = parseRetryAfter(response.headers['retry-after']);
+      if (requested != null) _retryAfter[fileName] = requested;
       if (queueManaged) queue.fail(fileName, error: 'HTTP ${response.statusCode}');
       // _showStatusError checks the context itself, and the failure is recorded
       // whether or not it can be shown.
