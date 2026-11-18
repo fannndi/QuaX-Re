@@ -211,6 +211,15 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
   the queue is persisted (`downloads.json`), one transfer at a time, with pause/resume, Range
   resume, retries, space and integrity checks. No in-app player: gallery media opens in the system
   viewer through a FileProvider.
+- A process death leaves a trace in `filesDir/crashes.log` (rotated at 256 KB, one backup, query
+  strings stripped because X URLs carry the userId and search terms). Dart writes it from
+  `runZonedGuarded`/`FlutterError.onError`, Kotlin from `Thread.setDefaultUncaughtExceptionHandler`;
+  Settings > App info shows, copies and deletes it. Read that file before guessing why a download
+  or a fetch ended the app.
+- The download foreground service must be started *before* the socket opens and must survive the
+  worker's 2–4 s retry pause: Android 12+ refuses a foreground start from the background, so a gap
+  there leaves the retry in a cached process that the system may freeze or kill. `_drainQueue` owns
+  that lifetime, not the per-status notification updates.
 - The encrypted account/likes vault root is stored in `optionVaultRoot`, not derived from the
   library: a hidden library lives under `Android/data` and is erased on uninstall, while the vault
   must survive it. Migration pins the old `dirname(libraryPath)` once; a hidden setup on a new
