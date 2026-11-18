@@ -451,6 +451,7 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
             : item
     ];
     update(updated, force: true);
+    _pumpStart(updated[index]);
     _save(force: true);
     return true;
   }
@@ -573,6 +574,8 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   }
 
   static void _pumpNotification(DownloadQueueItem item) => DownloadNotifications.update(item);
+
+  static void _pumpStart(DownloadQueueItem item) => DownloadNotifications.start(item);
 
   static void _pumpFinalize(DownloadQueueItem item) => DownloadNotifications.finalize(item);
 

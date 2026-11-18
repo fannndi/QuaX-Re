@@ -39,8 +39,11 @@ class DownloadForegroundService : Service() {
                     context.startService(intent)
                 }
             } catch (e: Exception) {
-                // Android 12+ refuses foreground starts from the background;
-                // the download keeps running in the live process regardless.
+                // Android 12+ refuses a foreground start from the background.
+                // Logging it matters: the transfer keeps running in a cached
+                // process, which the system may freeze or kill, and this line
+                // is the only trace that the protection was never there.
+                android.util.Log.w("DownloadService", "foreground start refused", e)
             }
         }
 
@@ -76,12 +79,35 @@ class DownloadForegroundService : Service() {
 
         createChannel()
         val notification = buildNotification(title, body, percent, fileName, pauseLabel, cancelLabel)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            START_NOT_STICKY
+        } catch (e: Exception) {
+            // A startForeground() that throws on the main thread used to take
+            // the whole process down with it, mid-transfer.
+            android.util.Log.w("DownloadService", "startForeground failed", e)
+            stopSelf(startId)
+            START_NOT_STICKY
         }
-        return START_NOT_STICKY
+    }
+
+    /**
+     * Android 15 caps a dataSync service at six hours a day. Without this
+     * override the system kills the app with
+     * ForegroundServiceDidNotStopInTimeException instead of letting the queue
+     * end cleanly.
+     */
+    override fun onTimeout(startId: Int) {
+        android.util.Log.w("DownloadService", "dataSync budget exhausted; stopping")
+        stopSelf()
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        onTimeout(startId)
     }
 
     private fun createChannel() {
@@ -104,12 +130,16 @@ class DownloadForegroundService : Service() {
         cancelLabel: String
     ): Notification {
         val openIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            openIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        // getLaunchIntentForPackage is nullable: a null intent made
+        // PendingIntent.getActivity throw on the service's main thread.
+        val contentIntent = openIntent?.let {
+            PendingIntent.getActivity(
+                this,
+                0,
+                it,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
 
         fun actionIntent(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(
             this,
@@ -120,16 +150,16 @@ class DownloadForegroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(title)
             .setContentText(body)
-            .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setProgress(100, percent.coerceIn(0, 100), percent <= 0)
             .addAction(0, pauseLabel, actionIntent(ACTION_PAUSE, 1))
             .addAction(0, cancelLabel, actionIntent(ACTION_CANCEL, 2))
-            .build()
+        if (contentIntent != null) builder.setContentIntent(contentIntent)
+        return builder.build()
     }
 }

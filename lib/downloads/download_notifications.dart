@@ -42,20 +42,37 @@ class DownloadNotifications {
   }
 
   /// Mirrors a running download; throttled so the bar updates ~1×/s. Any other
-  /// status is a hint the transfer ended: stop the service when nothing runs
-  /// and let the connectivity watcher look after failed entries.
+  /// status is a hint the transfer ended: stop the service once nothing is
+  /// left to run, and let the connectivity watcher look after failed entries.
   static Future<void> update(DownloadQueueItem item) async {
     if (!_ready) return;
 
     if (item.status != DownloadStatus.running) {
-      await _stopIfIdle();
-      ConnectivityWatcher().scheduleCheck();
+      // A failed attempt is followed by a retry seconds later. Dropping the
+      // service here left the backoff window unprotected, and Android 12+
+      // refuses to start it again from the background — so the retry ran in a
+      // cached process that the system is free to freeze or kill.
+      final busy = DownloadsModel().state.any((entry) =>
+          entry.status == DownloadStatus.running || entry.status == DownloadStatus.queued);
+      if (!busy) {
+        await clear();
+        ConnectivityWatcher().scheduleCheck();
+      }
       return;
     }
 
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastNotifyAt < 900) return;
     _lastNotifyAt = now;
+    await _push(item);
+  }
+
+  /// Called the moment an entry becomes the running one, before the socket is
+  /// opened. The foreground service has to cover DNS, TLS and the first byte,
+  /// not only the part of the transfer that has a progress bar.
+  static Future<void> start(DownloadQueueItem item) async {
+    if (!_ready) return;
+    _lastNotifyAt = DateTime.now().millisecondsSinceEpoch;
     await _push(item);
   }
 
@@ -80,11 +97,6 @@ class DownloadNotifications {
     } catch (_) {
       // The service was already stopped (or no binding in tests).
     }
-  }
-
-  static Future<void> _stopIfIdle() async {
-    final remaining = DownloadsModel().state.where((e) => e.status == DownloadStatus.running).length;
-    if (remaining == 0) await clear();
   }
 
   static Future<void> _push(DownloadQueueItem item) async {
