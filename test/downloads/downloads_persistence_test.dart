@@ -60,6 +60,31 @@ void main() {
         reason: 'A crash mid-write must degrade to an empty queue, not throw on startup');
   });
 
+  test('Should read a ledger written before the validator fields existed', () async {
+    await File('${support.path}/downloads.json').writeAsString(jsonEncode([
+      {
+        'fileName': 'old.mp4',
+        'url': 'https://example.com/old.mp4',
+        'isVideo': true,
+        'receivedBytes': 2048,
+        'totalBytes': 4096,
+        'status': 'paused',
+        'error': null,
+        'savedPath': null,
+      }
+    ]));
+
+    model.resetForTests();
+    await model.load();
+
+    expect(model.state, hasLength(1),
+        reason: 'An upgrade must keep the queue the previous build wrote');
+    expect(model.state.single.receivedBytes, 2048,
+        reason: 'The partial bytes are what lets the transfer resume instead of restarting');
+    expect(model.state.single.validator, isNull,
+        reason: 'A row without an ETag simply skips If-Range until the next headers arrive');
+  });
+
   test('Should serialize concurrent saves into one valid ledger', () async {
     model.register('a.mp4', 'https://example.com/a.mp4', true);
 

@@ -30,6 +30,11 @@ class DownloadQueueItem {
   // Where the file actually landed. Duplicate names get a timestamp suffix,
   // so the queue row cannot assume libraryPath/fileName still points at it.
   final String? savedPath;
+  // The object the partial bytes belong to. A resume sends the first of these
+  // as If-Range, so a 206 can only continue the same file: without it a
+  // re-encoded video at the same URL is spliced into the old one silently.
+  final String? etag;
+  final String? lastModified;
 
   const DownloadQueueItem({
     required this.fileName,
@@ -41,10 +46,15 @@ class DownloadQueueItem {
     this.status = DownloadStatus.running,
     this.error,
     this.savedPath,
+    this.etag,
+    this.lastModified,
   });
 
   double get receivedMb => receivedBytes / 1048576;
   double? get totalMb => totalBytes == null ? null : totalBytes! / 1048576;
+
+  /// What `If-Range` accepts: an entity tag first, the date only as a fallback.
+  String? get validator => etag ?? lastModified;
 
   DownloadQueueItem copyWith({
     int? receivedBytes,
@@ -53,6 +63,8 @@ class DownloadQueueItem {
     DownloadStatus? status,
     String? error,
     String? savedPath,
+    String? etag,
+    String? lastModified,
     bool clearError = false,
   }) =>
       DownloadQueueItem(
@@ -65,6 +77,8 @@ class DownloadQueueItem {
         status: status ?? this.status,
         error: clearError ? null : (error ?? this.error),
         savedPath: savedPath ?? this.savedPath,
+        etag: etag ?? this.etag,
+        lastModified: lastModified ?? this.lastModified,
       );
 
   Map<String, dynamic> toJson() => {
@@ -76,6 +90,8 @@ class DownloadQueueItem {
         'status': status.name,
         'error': error,
         'savedPath': savedPath,
+        'etag': etag,
+        'lastModified': lastModified,
       };
 
   factory DownloadQueueItem.fromJson(Map<String, dynamic> json) => DownloadQueueItem(
@@ -88,6 +104,8 @@ class DownloadQueueItem {
             orElse: () => DownloadStatus.error),
         error: json['error'] as String?,
         savedPath: json['savedPath'] as String?,
+        etag: json['etag'] as String?,
+        lastModified: json['lastModified'] as String?,
       );
 }
 
@@ -338,9 +356,27 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _save(force: true);
   }
 
+  /// Remembers what the remote object is, so a resume can send `If-Range`.
+  /// Written from the response headers of a full transfer.
+  void setValidator(String fileName, {String? etag, String? lastModified}) {
+    if ((etag == null || etag.isEmpty) && (lastModified == null || lastModified.isEmpty)) return;
+    if (_indexOf(fileName) < 0) return;
+
+    final updated = [
+      for (final item in state)
+        item.fileName == fileName
+            ? item.copyWith(
+                etag: etag == null || etag.isEmpty ? null : etag,
+                lastModified: lastModified == null || lastModified.isEmpty ? null : lastModified,
+              )
+            : item
+    ];
+    update(updated);
+    _save();
+  }
+
   /// Seed for a resumed download: the bytes already on disk in the temp file.
-  int resumeOffsetFor(String fileName) {
-    for (final item in state) {
+  int resumeOffsetFor(String fileName) {    for (final item in state) {
       if (item.fileName == fileName && item.status == DownloadStatus.running) {
         return item.receivedBytes;
       }

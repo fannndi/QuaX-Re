@@ -277,7 +277,11 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
     if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
 
     var promoted = false;
-    var keepTemp = false;
+    // Set before the save, cleared once the save reports the temp is spent. A
+    // save that threw (revoked permission, card removed) used to reach the
+    // finally with this false, deleting a complete download that the retry
+    // then fetched again from byte zero — up to three times.
+    var keepTemp = true;
     try {
       // _saveToDestination returns a cancelled flag only when the reader
       // actually dismissed the system dialog. A missing destination (the SD
@@ -287,6 +291,7 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
       final saved = await _saveToDestination(context,
           file: tempPath, fileName: fileName, prefs: prefs);
       if (saved.path != null) {
+        keepTemp = false;
         // Only now the file exists where the library scans: mark it done first,
         // so the done listeners see the finished entry, then celebrate.
         queue.markDone(fileName, savedPath: saved.path);
@@ -299,11 +304,11 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
         }
       } else if (saved.cancelled) {
         // The user cancelled the save dialog after a complete download.
+        keepTemp = false;
         queue.remove(fileName);
       } else {
         queue.fail(fileName, error: 'save_unavailable');
         // The bytes are complete; a retry only has to save them again.
-        keepTemp = true;
       }
     } finally {
       // A cached file only leaves the cache once it landed in the library;
@@ -323,18 +328,32 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
 /// full disk and stale interrupted markers are left to the manual Retry.
 bool isRetryableDownloadError(String? error) => _isRetryable(error);
 
-/// The byte offset a resume may ask for: only when the partial file still
-/// matches what the queue recorded. A mismatch (a crash between the ledger and
-/// the socket write, a file truncated by the OS) restarts from zero instead of
-/// appending at the wrong place.
+/// The most bytes a partial file may run ahead of the ledger and still be
+/// trusted. The ledger is flushed at most every 1.5 s, so a fast link can
+/// write a few MB between the last sample and the process dying; anything
+/// larger means the two files are not the pair we think they are.
+const _maxLedgerLagBytes = 8 * 1024 * 1024;
+
+/// The byte offset a resume may ask for.
+///
+/// A partial file that matches the ledger exactly is the clean case. A file
+/// that is *ahead* of it is the after-a-crash case: the process died between a
+/// socket write and the ledger flush, so the bytes on disk are still a prefix
+/// of the remote object and the recorded byte is a valid resume point once the
+/// extra ones are dropped. Treating that as a mismatch used to restart every
+/// killed transfer from zero, which is the one case resume exists for.
 int resumeOffset({
   required bool resume,
   required int recordedBytes,
   required bool fileExists,
   required int fileLength,
 }) {
-  if (!resume || recordedBytes <= 0 || !fileExists || fileLength != recordedBytes) return 0;
-  return recordedBytes;
+  if (!resume || recordedBytes <= 0 || !fileExists) return 0;
+  if (fileLength == recordedBytes) return recordedBytes;
+  if (fileLength > recordedBytes && fileLength - recordedBytes <= _maxLedgerLagBytes) {
+    return recordedBytes;
+  }
+  return 0;
 }
 
 /// Re-queues a failed entry without any UI: the connectivity watcher uses it
@@ -494,10 +513,13 @@ Future<void> retryDownload(BuildContext context, DownloadQueueItem item,
   _kickWorker();
 }
 
-http.Request _rangeRequest(Uri uri, int offset) {
+http.Request _rangeRequest(Uri uri, int offset, {String? validator}) {
   final request = http.Request('GET', uri);
   if (offset > 0) {
     request.headers['range'] = 'bytes=$offset-';
+    // If-Range turns a changed object into a 200 (start over) instead of a 206
+    // that would be appended to bytes from a different encode.
+    if (validator != null) request.headers['if-range'] = validator;
   }
   return request;
 }
@@ -505,8 +527,8 @@ http.Request _rangeRequest(Uri uri, int offset) {
 /// `send()` waits for the connection, TLS and the first response byte with no
 /// timeout of its own. A dead socket therefore used to pin the only queue
 /// worker until the OS gave up.
-Future<http.StreamedResponse> _send(http.Client client, Uri uri, int offset) =>
-    client.send(_rangeRequest(uri, offset)).timeout(_responseTimeout);
+Future<http.StreamedResponse> _send(http.Client client, Uri uri, int offset, {String? validator}) =>
+    client.send(_rangeRequest(uri, offset, validator: validator)).timeout(_responseTimeout);
 
 /// The first byte position of a 206 body, or null when the header is missing
 /// or malformed.
@@ -583,8 +605,19 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
       fileExists: partialExists,
       fileLength: partialLength,
     );
+    // A killed transfer leaves the file ahead of the ledger. Drop the extra
+    // bytes so the append starts exactly where the ledger says it does.
+    if (offset > 0 && partialLength > offset) {
+      final raf = await partial.open(mode: FileMode.append);
+      try {
+        await raf.truncate(offset);
+      } finally {
+        await raf.close();
+      }
+    }
 
-    var response = await _send(httpClient, uri, offset);
+    final validator = item?.validator;
+    var response = await _send(httpClient, uri, offset, validator: validator);
     if (response.statusCode == 416 && offset > 0) {
       // The partial bytes no longer match the remote file: start over clean.
       await _deleteTemp(tempPath);
@@ -613,6 +646,10 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     }
 
     final append = offset > 0 && isPartial;
+    if (queueManaged) {
+      queue.setValidator(fileName,
+          etag: response.headers['etag'], lastModified: response.headers['last-modified']);
+    }
     final contentLength = response.contentLength;
     final totalBytes = contentLength == null
         ? null

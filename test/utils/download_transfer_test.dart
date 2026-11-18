@@ -110,4 +110,46 @@ void main() {
         reason: 'A resume compares the file length with the ledger; recording only the 250 ms '
             'sample made the partial file look too long and restarted the download from zero');
   });
+
+  test('Should truncate the bytes a killed transfer wrote after the last sample', () async {
+    registerRunning();
+    queue.progress('clip.mp4', 5, 11, 0);
+    // The process died mid-write: five extra bytes are on disk but not in the
+    // ledger.
+    File(await partialPathFor('clip.mp4')).writeAsStringSync('HELLOEXTRA');
+
+    late http.Request seen;
+    final client = MockClient((request) async {
+      seen = request;
+      return http.Response(' WORLD', 206, headers: {'content-range': 'bytes 5-10/11'});
+    });
+
+    final path = await debugDownloadToTemp(Uri.parse('https://x/clip.mp4'), 'clip.mp4',
+        targetDir: temp.path, resume: true, client: client);
+
+    expect(seen.headers['range'], 'bytes=5-',
+        reason: 'the recorded byte is the only offset the ledger can vouch for');
+    expect(File(path!).readAsStringSync(), 'HELLO WORLD',
+        reason: 'the unrecorded tail must be dropped, or the file gains five bytes of garbage');
+  });
+
+  test('Should send If-Range so a changed object restarts instead of splicing', () async {
+    registerRunning();
+    queue.progress('clip.mp4', 5, 11, 0);
+    queue.setValidator('clip.mp4', etag: '"abc123"');
+    File(await partialPathFor('clip.mp4')).writeAsStringSync('HELLO');
+
+    late http.Request seen;
+    final client = MockClient((request) async {
+      seen = request;
+      return http.Response(' WORLD', 206, headers: {'content-range': 'bytes 5-10/11'});
+    });
+
+    await debugDownloadToTemp(Uri.parse('https://x/clip.mp4'), 'clip.mp4',
+        targetDir: temp.path, resume: true, client: client);
+
+    expect(seen.headers['if-range'], '"abc123"',
+        reason: 'without a validator a re-encoded video at the same URL is appended to the old '
+            'bytes and the result still looks finished');
+  });
 }

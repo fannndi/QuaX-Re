@@ -23,6 +23,24 @@ void main() {
       expect(resumeOffset(resume: false, recordedBytes: 4096, fileExists: true, fileLength: 4096), 0,
           reason: 'Only a retry or an explicit resume may send a Range header');
     });
+
+    test('Should resume a file that a kill left ahead of the ledger', () {
+      expect(
+        resumeOffset(resume: true, recordedBytes: 4096, fileExists: true, fileLength: 4800),
+        4096,
+        reason: 'The ledger is flushed at most every 1.5 s, so a killed transfer always leaves more '
+            'bytes on disk than it recorded; treating that as a mismatch restarted every killed '
+            'download from zero',
+      );
+    });
+
+    test('Should not trust a file that is far ahead of the ledger', () {
+      expect(
+        resumeOffset(resume: true, recordedBytes: 4096, fileExists: true, fileLength: 64 * 1024 * 1024),
+        0,
+        reason: 'A gap that large means the file and the row are not the pair we think they are',
+      );
+    });
   });
 
   group('isRetryableDownloadError()', () {
