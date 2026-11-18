@@ -12,6 +12,7 @@ import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/library/library_storage_sheet.dart';
+import 'package:quax/utils/crash_log.dart';
 import 'package:quax/utils/storage_report.dart';
 import 'package:quax/utils/timeline_cache.dart';
 
@@ -282,6 +283,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.bug_report_outlined),
+                title: Text(L10n.of(context).crash_log),
+                subtitle: Text(L10n.of(context).crash_log_description),
+                onTap: () => _showCrashLog(context),
+              ),
+              ListTile(
                 leading: const Icon(Icons.copyright_outlined),
                 title: Text(L10n.of(context).licenses),
                 onTap: () => showLicensePage(
@@ -302,6 +309,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     )),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The log a process death leaves behind. Read on demand only: the file can
+  /// hold hundreds of kilobytes and the section is seldom opened.
+  Future<void> _showCrashLog(BuildContext context) async {
+    final l10n = L10n.of(context);
+    final text = (await CrashLog.read()).trim();
+    if (!context.mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.crash_log),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: text.isEmpty
+              ? Text(l10n.crash_log_empty)
+              : SingleChildScrollView(child: SelectableText(text)),
+        ),
+        actions: [
+          if (text.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: text));
+                if (!dialogContext.mounted) return;
+                ScaffoldMessenger.of(dialogContext)
+                    .showSnackBar(SnackBar(content: Text(l10n.crash_log_copied)));
+              },
+              child: Text(l10n.copy_details),
+            ),
+          if (text.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                await CrashLog.clear();
+                if (!dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(l10n.crash_log_deleted)));
+              },
+              child: Text(l10n.delete),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.close),
           ),
         ],
       ),

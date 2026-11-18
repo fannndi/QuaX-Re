@@ -52,6 +52,10 @@ class QuaxApplication : android.app.Application() {
         // arrives after the dialog, in Activity.onRequestPermissionsResult.
         private const val STORAGE_REQUEST_CODE = 4712
         private var pendingStoragePermission: MethodChannel.Result? = null
+
+        // Kept in step with CrashLog.maxBytes: the same file, written from
+        // both sides, rotated before it can grow without bound.
+        private const val CRASH_LOG_MAX_BYTES = 256 * 1024L
     }
 
     lateinit var engine: FlutterEngine
@@ -69,10 +73,51 @@ class QuaxApplication : android.app.Application() {
     override fun onCreate() {
         super.onCreate()
 
+        installCrashHandler()
+
         engine = FlutterEngine(this)
         engine.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
         channel = MethodChannel(engine.dartExecutor.binaryMessenger, "browser_resolver")
             .also { it.setMethodCallHandler(::onMethodCall) }
+    }
+
+    /**
+     * Native deaths — an OOM in the thumbnail decoder, an exception escaping a
+     * channel handler — never reach Dart, so they used to leave nothing behind
+     * but a logcat line. They are appended to the same crashes.log that
+     * Settings shows, then the platform handler still runs.
+     */
+    private fun installCrashHandler() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            try {
+                appendCrashLog(thread, error)
+            } catch (_: Throwable) {
+                // Recording a crash must never become a second crash.
+            }
+            previous?.uncaughtException(thread, error)
+        }
+    }
+
+    private fun appendCrashLog(thread: Thread, error: Throwable) {
+        val file = File(filesDir, "crashes.log")
+        if (file.exists() && file.length() > CRASH_LOG_MAX_BYTES) {
+            val backup = File(filesDir, "crashes.log.1")
+            backup.delete()
+            file.renameTo(backup)
+        }
+        val entry = buildString {
+            append("--- ")
+            append(java.util.Date().toString())
+            append(" [native:")
+            append(thread.name)
+            append("]\n")
+            append(error.toString())
+            append('\n')
+            append(android.util.Log.getStackTraceString(error))
+            append('\n')
+        }
+        file.appendText(entry)
     }
 
     private fun hasAllFilesAccess(): Boolean {

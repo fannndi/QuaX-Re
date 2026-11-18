@@ -19,13 +19,14 @@ import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/home/_feed.dart';
 import 'package:quax/likes/liked_tweet_model.dart';
 import 'package:quax/tweet/_video.dart';
+import 'package:quax/utils/crash_log.dart';
 import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
-Future<void> main() async {
+void main() {
   // The logging package defaults to INFO and every record is forwarded to
   // logcat below, which any app holding READ_LOGS (present on many OEM builds)
   // or a connected adb can read. Request URLs carry the reader's userId and
@@ -37,6 +38,29 @@ Future<void> main() async {
     log(event.message, error: event.error, stackTrace: event.stackTrace);
   });
 
+  // Errors that escape a widget build or an async callback used to reach
+  // logcat only, which is gone once the process dies. They also land in the
+  // on-device crash log the reader can open from Settings now.
+  runZonedGuarded(_boot, (error, stackTrace) {
+    log('Uncaught error', error: error, stackTrace: stackTrace);
+    CrashLog.record(error, stackTrace, kind: 'zone');
+  });
+}
+
+Future<void> _boot() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    CrashLog.record(details.exception, details.stack, kind: 'flutter');
+  };
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stackTrace) {
+    log('Uncaught platform error', error: error, stackTrace: stackTrace);
+    CrashLog.record(error, stackTrace, kind: 'platform');
+    return true;
+  };
+  await CrashLog.init();
+
   // Everything below can fail — preferences, migrations, the first queries —
   // and a failure that escapes without a runApp() leaves no frame at all: a
   // blank surface with nothing to retry. The last screen is the catch's job.
@@ -44,6 +68,7 @@ Future<void> main() async {
     await _startApp();
   } catch (e, stackTrace) {
     log('Unable to start QuaX', error: e, stackTrace: stackTrace);
+    CrashLog.record(e, stackTrace, kind: 'startup');
     runApp(_StartupFailedApp(error: e, stackTrace: stackTrace));
   }
 }
@@ -86,8 +111,6 @@ final Map<String, dynamic> _prefDefaults = {
 };
 
 Future<void> _startApp() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   Intl.defaultLocale = 'en';
 
   final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: _prefDefaults);
