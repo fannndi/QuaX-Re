@@ -573,6 +573,14 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
     _save(force: true);
   }
 
+  /// The worker has drained the queue: with nothing running or waiting the
+  /// foreground service has no reason to stay up. Called from the worker's own
+  /// finally, so the service survives every retry pause.
+  void notifyWorkerIdle() {
+    if (state.any((item) => item.status == DownloadStatus.running)) return;
+    DownloadNotifications.clear();
+  }
+
   static void _pumpNotification(DownloadQueueItem item) => DownloadNotifications.update(item);
 
   static void _pumpStart(DownloadQueueItem item) => DownloadNotifications.start(item);
@@ -580,8 +588,8 @@ class DownloadsModel extends Store<List<DownloadQueueItem>> {
   static void _pumpFinalize(DownloadQueueItem item) => DownloadNotifications.finalize(item);
 
   static void _clearIfIdle(List<DownloadQueueItem> items) {
-    if (!items.any((item) => item.status == DownloadStatus.running)) {
-      DownloadNotifications.clear();
-    }
+    final busy = items.any(
+        (item) => item.status == DownloadStatus.running || item.status == DownloadStatus.queued);
+    if (!busy) DownloadNotifications.clear();
   }
 }

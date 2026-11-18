@@ -54,13 +54,17 @@ Future<void> _drainQueue() async {
   if (prefs == null) return;
 
   final queue = DownloadsModel();
-  while (true) {
-    final next = queue.nextQueued;
-    if (next == null) return;
+  try {
+    while (true) {
+      final next = queue.nextQueued;
+      if (next == null) return;
 
-    final context = _workerContexts.remove(next.fileName);
-    await _runDownload(context, Uri.parse(next.url), next.fileName, prefs: prefs, resume: true);
-    queue.clearTransient(next.fileName);
+      final context = _workerContexts.remove(next.fileName);
+      await _runDownload(context, Uri.parse(next.url), next.fileName, prefs: prefs, resume: true);
+      queue.clearTransient(next.fileName);
+    }
+  } finally {
+    queue.notifyWorkerIdle();
   }
 }
 
@@ -69,9 +73,8 @@ Future<void> _drainQueue() async {
 /// stopped), instead of hanging on a dead socket forever.
 const _idleTimeout = Duration(seconds: 30);
 
-/// iOS and Android both drop a connection attempt well before this; a socket
-/// that never answers would otherwise pin the single queue worker forever,
-/// because [http.Client.send] has no timeout of its own.
+/// A CDN edge that never answers would otherwise pin the single queue worker
+/// until the OS gives up, because [http.Client.send] has no timeout of its own.
 const _responseTimeout = Duration(seconds: 20);
 
 /// Attempts per transfer: the first one plus transient-failure retries.
@@ -648,7 +651,7 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     final isPartial = response.statusCode == 206;
     if (response.statusCode != 200 && !isPartial) {
       final requested = parseRetryAfter(response.headers['retry-after']);
-      if (requested != null) _retryAfter[fileName] = requested;
+      if (queueManaged && requested != null) _retryAfter[fileName] = requested;
       if (queueManaged) queue.fail(fileName, error: 'HTTP ${response.statusCode}');
       // _showStatusError checks the context itself, and the failure is recorded
       // whether or not it can be shown.

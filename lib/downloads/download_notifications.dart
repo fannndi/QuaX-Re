@@ -42,22 +42,18 @@ class DownloadNotifications {
   }
 
   /// Mirrors a running download; throttled so the bar updates ~1×/s. Any other
-  /// status is a hint the transfer ended: stop the service once nothing is
-  /// left to run, and let the connectivity watcher look after failed entries.
+  /// status is a hint the transfer ended, but the service is *not* stopped
+  /// here: the worker retries a transient failure seconds later and Android
+  /// 12+ refuses to start the service again from the background. It is stopped
+  /// by [clear]/[finalize] once the queue is genuinely idle.
   static Future<void> update(DownloadQueueItem item) async {
     if (!_ready) return;
 
     if (item.status != DownloadStatus.running) {
-      // A failed attempt is followed by a retry seconds later. Dropping the
-      // service here left the backoff window unprotected, and Android 12+
-      // refuses to start it again from the background — so the retry ran in a
-      // cached process that the system is free to freeze or kill.
-      final busy = DownloadsModel().state.any((entry) =>
-          entry.status == DownloadStatus.running || entry.status == DownloadStatus.queued);
-      if (!busy) {
-        await clear();
-        ConnectivityWatcher().scheduleCheck();
-      }
+      // A failed attempt is followed by a retry inside the same worker, so the
+      // backoff has to stay protected; the watcher may also bring the entry
+      // back later.
+      ConnectivityWatcher().scheduleCheck();
       return;
     }
 
@@ -81,8 +77,12 @@ class DownloadNotifications {
     if (!_ready) return;
     _lastNotifyAt = 0;
 
-    final remaining = DownloadsModel().state.where((e) => e.status == DownloadStatus.running).length;
-    if (remaining == 0) {
+    // A queued entry is about to become the running one; clearing the service
+    // here would leave that transfer unprotected for its whole connection
+    // setup, which is exactly the window Android refuses to re-open.
+    final busy = DownloadsModel().state.any((e) =>
+        e.status == DownloadStatus.running || e.status == DownloadStatus.queued);
+    if (!busy) {
       await clear();
       return;
     }
