@@ -56,6 +56,10 @@ class QuaxApplication : android.app.Application() {
         // Kept in step with CrashLog.maxBytes: the same file, written from
         // both sides, rotated before it can grow without bound.
         private const val CRASH_LOG_MAX_BYTES = 256 * 1024L
+
+        // The library grid decodes its own copy at tile width (max 1080 px), so
+        // a larger frame is never displayed.
+        private const val THUMBNAIL_MAX_SIDE = 1080
     }
 
     lateinit var engine: FlutterEngine
@@ -118,6 +122,36 @@ class QuaxApplication : android.app.Application() {
             append('\n')
         }
         file.appendText(entry)
+    }
+
+    /**
+     * One frame, downscaled so its long side is at most [THUMBNAIL_MAX_SIDE].
+     *
+     * `getFrameAtTime` decodes at the source resolution: a 4K frame is ~33 MB
+     * of ARGB, and the gallery asks for one per video tile. The thumbnail is
+     * written as a 70% JPEG at tile width, so those extra pixels were decoded
+     * only to be thrown away — and the peak was what pushed a 4 GB phone into
+     * the low-memory killer.
+     */
+    private fun decodeThumbnailFrame(retriever: MediaMetadataRetriever): Bitmap? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) {
+            return retriever.getFrameAtTime(1_000_000L)
+        }
+        val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+            ?.toIntOrNull() ?: 0
+        val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+            ?.toIntOrNull() ?: 0
+        val longest = maxOf(width, height)
+        if (longest <= THUMBNAIL_MAX_SIDE) {
+            return retriever.getFrameAtTime(1_000_000L)
+        }
+        val scale = THUMBNAIL_MAX_SIDE.toFloat() / longest
+        return retriever.getScaledFrameAtTime(
+            1_000_000L,
+            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+            (width * scale).toInt().coerceAtLeast(1),
+            (height * scale).toInt().coerceAtLeast(1)
+        )
     }
 
     private fun hasAllFilesAccess(): Boolean {
@@ -185,6 +219,23 @@ class QuaxApplication : android.app.Application() {
     }
 
     private fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            handleMethodCall(call, result)
+        } catch (e: Exception) {
+            // Flutter's messenger does not catch a handler exception: it lands
+            // on the platform thread and kills the process. A revoked storage
+            // grant (SecurityException) or a missing fallback activity used to
+            // take the app down instead of failing one call.
+            android.util.Log.w("QuaxChannel", "method ${call.method} failed", e)
+            try {
+                result.error("NATIVE_ERROR", e.message ?: e.javaClass.simpleName, null)
+            } catch (_: Exception) {
+                // The result may already have been answered.
+            }
+        }
+    }
+
+    private fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (call.method == "downloadNotification") {
             val intent = Intent(this, DownloadForegroundService::class.java).apply {
                 putExtra(DownloadForegroundService.EXTRA_TITLE, call.argument<String>("title"))
@@ -364,11 +415,12 @@ class QuaxApplication : android.app.Application() {
                 val retriever = MediaMetadataRetriever()
                 try {
                     retriever.setDataSource(videoPath)
-                    frame = retriever.getFrameAtTime(1_000_000L) // one second in
-                    if (frame != null) {
+                    val bitmap = decodeThumbnailFrame(retriever)
+                    if (bitmap != null) {
+                        frame = bitmap
                         File(outPath).parentFile?.mkdirs()
                         FileOutputStream(outPath).use { stream ->
-                            frame!!.compress(Bitmap.CompressFormat.JPEG, 70, stream)
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)
                         }
                         success = outPath
                     }
@@ -376,12 +428,20 @@ class QuaxApplication : android.app.Application() {
                     failure = Pair("THUMBNAIL_FAILED", e.message)
                 } catch (e: RuntimeException) {
                     failure = Pair("THUMBNAIL_FAILED", e.message)
+                } catch (e: OutOfMemoryError) {
+                    // An Error, not an Exception: it used to escape this worker
+                    // and kill the process while the gallery was scrolling.
+                    failure = Pair("THUMBNAIL_FAILED", "out of memory")
                 } finally {
                     // release() used to sit after getFrameAtTime, so a throw
                     // there never ran it: each failed attempt leaked a native
                     // MediaMetadataRetriever, and the gallery retries.
                     frame?.recycle()
-                    retriever.release()
+                    try {
+                        retriever.release()
+                    } catch (_: Exception) {
+                        // A retriever that throws on release is still released.
+                    }
                 }
                 mainHandler.post {
                     when {

@@ -62,10 +62,16 @@ class DownloadForegroundService : Service() {
         when (intent?.action) {
             ACTION_PAUSE, ACTION_CANCEL -> {
                 val action = if (intent.action == ACTION_PAUSE) "pause" else "cancel"
-                QuaxApplication.channel?.invokeMethod(
-                    "onDownloadAction",
-                    mapOf("action" to action, "fileName" to intent.getStringExtra(EXTRA_FILE))
-                )
+                try {
+                    QuaxApplication.channel?.invokeMethod(
+                        "onDownloadAction",
+                        mapOf("action" to action, "fileName" to intent.getStringExtra(EXTRA_FILE))
+                    )
+                } catch (e: Exception) {
+                    // The engine can be detached; an exception here runs on the
+                    // service's main thread and would take the process with it.
+                    android.util.Log.w("DownloadService", "download action not delivered", e)
+                }
                 return START_NOT_STICKY
             }
         }
