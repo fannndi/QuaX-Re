@@ -133,8 +133,29 @@ void main() {
         reason: 'the unrecorded tail must be dropped, or the file gains five bytes of garbage');
   });
 
-  test('Should send If-Range so a changed object restarts instead of splicing', () async {
+  test('Should replace the partial when the server ignores the Range header', () async {
     registerRunning();
+    queue.progress('clip.mp4', 5, 11, 0);
+    File(await partialPathFor('clip.mp4')).writeAsStringSync('HELLO');
+
+    late http.Request seen;
+    final client = MockClient((request) async {
+      seen = request;
+      // A proxy or an edge that does not do partial content.
+      return http.Response('HELLO WORLD', 200);
+    });
+
+    final path = await debugDownloadToTemp(Uri.parse('https://x/clip.mp4'), 'clip.mp4',
+        targetDir: temp.path, resume: true, client: client);
+
+    expect(seen.headers['range'], 'bytes=5-',
+        reason: 'the request still asks for the remainder, so a server that supports Range resumes');
+    expect(File(path!).readAsStringSync(), 'HELLO WORLD',
+        reason: 'a 200 carries the whole object; appending it after the partial would leave eleven '
+            'bytes of garbage at the join and a file that never plays');
+  });
+
+  test('Should send If-Range so a changed object restarts instead of splicing', () async {    registerRunning();
     queue.progress('clip.mp4', 5, 11, 0);
     queue.setValidator('clip.mp4', etag: '"abc123"');
     File(await partialPathFor('clip.mp4')).writeAsStringSync('HELLO');
