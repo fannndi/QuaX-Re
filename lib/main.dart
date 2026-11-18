@@ -20,6 +20,7 @@ import 'package:quax/home/_feed.dart';
 import 'package:quax/likes/liked_tweet_model.dart';
 import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/crash_log.dart';
+import 'package:quax/utils/image_decode.dart';
 import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:intl/intl.dart';
@@ -111,6 +112,10 @@ final Map<String, dynamic> _prefDefaults = {
 };
 
 Future<void> _startApp() async {
+  // Flutter's 100 MiB default leaves nothing for the video decoders that share
+  // this heap; see applyImageCacheLimits.
+  applyImageCacheLimits(PaintingBinding.instance.imageCache);
+
   Intl.defaultLocale = 'en';
 
   final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: _prefDefaults);

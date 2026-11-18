@@ -1,7 +1,9 @@
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quax/utils/image_decode.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('physicalDecodeWidth()', () {
     test('Should multiply the logical width by the device pixel ratio', () {
       expect(physicalDecodeWidth(360, 2.75), 990,
@@ -24,6 +26,23 @@ void main() {
       expect(physicalDecodeWidth(0, 2.75), 1,
           reason: 'A collapsed box still renders a one-pixel decode; passing 0 to cacheWidth trips '
               'the ResizeImage assertion');
+    });
+  });
+
+  group('applyImageCacheLimits()', () {
+    test('Should shrink the decoded bitmap budget', () {
+      final cache = PaintingBinding.instance.imageCache;
+      cache.maximumSizeBytes = 100 * 1024 * 1024;
+      cache.maximumSize = 1000;
+
+      applyImageCacheLimits(cache);
+
+      expect(cache.maximumSizeBytes, imageCacheMaxBytes,
+          reason: 'The 100 MiB default leaves no room for video decoders in the same heap');
+      expect(cache.maximumSize, imageCacheMaxEntries,
+          reason: 'The entry count is the other half of the same budget');
+      expect(imageCacheMaxBytes, lessThan(64 * 1024 * 1024),
+          reason: 'At ~4.6 MB per 1080px photo, 64 MiB is still only fourteen images');
     });
   });
 }

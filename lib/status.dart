@@ -193,7 +193,6 @@ class _StatusScreenState extends State<_StatusScreen> {
         fetchNextPage: fetchNextPage,
         scrollController: _scrollController,
         addAutomaticKeepAlives: false,
-        shrinkWrap: true,
         builderDelegate: PagedChildBuilderDelegate(
           invisibleItemsThreshold: 8,
           firstPageProgressIndicatorBuilder: (context) => const TweetListSkeleton(),
