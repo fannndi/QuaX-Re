@@ -125,8 +125,20 @@ const _spaceMarginBytes = 64 * 1024 * 1024;
 /// so a prefetch never delays a download the user actually asked for.
 Future<void> _cacheChain = Future.value();
 
+/// Cache jobs allowed to wait behind the manual queue. A fling through a
+/// video-heavy feed used to append one closure per video it passed, with no
+/// way to drop the ones already off screen; the queue then worked through
+/// clips nobody was looking at before the reader's own download started.
+const _maxQueuedCacheJobs = 3;
+int _queuedCacheJobs = 0;
+
 void _enqueueCache(Future<void> Function() task) {
-  _cacheChain = _cacheChain.then((_) => task()).catchError((_) {});
+  if (_queuedCacheJobs >= _maxQueuedCacheJobs) return;
+  _queuedCacheJobs++;
+  _cacheChain = _cacheChain
+      .then((_) => task())
+      .catchError((_) {})
+      .whenComplete(() => _queuedCacheJobs--);
 }
 
 /// Keeps a short video for later: fetches it into [VideoCache] in the

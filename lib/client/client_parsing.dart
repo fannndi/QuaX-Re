@@ -539,6 +539,11 @@ TweetStatus createUnconversationedChains(
 /// only top-level references travel to another isolate.
 enum ParseJob { tweetDetail, profile, follows, search, searchUsers, bookmarks }
 
+/// A parse that never comes back used to leave the feed on its skeleton with
+/// no error and no retry: `Isolate.run` has no cancellation, but the caller can
+/// at least give up and surface the failure.
+const _parseTimeout = Duration(seconds: 30);
+
 /// Decodes [body] and runs the matching parser on a worker isolate, so pages
 /// of a few hundred KB do not block the frame they arrive in. The locale is
 /// loaded there too: tombstones and other localized bits are resolved while
@@ -555,7 +560,7 @@ Future<T> parseOffThread<T>(String body, ParseJob job, {String? extra}) async {
       ParseJob.searchUsers => parseSearchUsers(json),
       ParseJob.bookmarks => parseBookmarkTimeline(json),
     };
-  });
+  }).timeout(_parseTimeout);
 
   return result as T;
 }
@@ -634,7 +639,7 @@ Future<TweetStatus> parseChainsOnIsolate(
           // Tombstones carry a localized message while parsing.
           await L10n.load(const Locale('en'));
           return parse();
-        });
+        }).timeout(_parseTimeout);
 
   if (status.chains.length >= 5) {
     // A healthy page resets the count. Without this the counter only ever grew:

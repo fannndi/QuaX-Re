@@ -43,6 +43,16 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
   String _query = '';
   _LibrarySort _sort = _LibrarySort.newest;
   _LibraryFilter _filter = _LibraryFilter.all;
+
+  // The filtered, sorted list is rebuilt from the whole library on every
+  // build — and _pruneSelection asks for it a second time on every keystroke
+  // and every selection tap. The cache is keyed on the exact inputs, so a
+  // store update or a changed query still recomputes.
+  List<LibraryEntry>? _visibleCache;
+  List<LibraryEntry>? _visibleCacheSource;
+  String _visibleCacheQuery = '';
+  _LibrarySort? _visibleCacheSort;
+  _LibraryFilter? _visibleCacheFilter;
   final Set<String> _selected = {};
   List<LibraryVolume> _volumes = const [];
   LibraryVolume? _volume;
@@ -495,6 +505,15 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
   /// Search by file name, the photo/video filter, and the sort menu.
   List<LibraryEntry> _visibleEntries(List<LibraryEntry> entries) {
     final query = _query.trim().toLowerCase();
+    final cached = _visibleCache;
+    if (cached != null &&
+        identical(_visibleCacheSource, entries) &&
+        _visibleCacheQuery == query &&
+        _visibleCacheSort == _sort &&
+        _visibleCacheFilter == _filter) {
+      return cached;
+    }
+
     final list = entries.where((entry) {
       if (_filter == _LibraryFilter.photos && entry.isVideo) return false;
       if (_filter == _LibraryFilter.videos && !entry.isVideo) return false;
@@ -511,6 +530,12 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
       case _LibrarySort.size:
         list.sort((a, b) => b.size.compareTo(a.size));
     }
+
+    _visibleCacheSource = entries;
+    _visibleCacheQuery = query;
+    _visibleCacheSort = _sort;
+    _visibleCacheFilter = _filter;
+    _visibleCache = list;
     return list;
   }
 
