@@ -26,8 +26,12 @@ class LikesScreen extends StatefulWidget {
   State<LikesScreen> createState() => _LikesScreenState();
 }
 
-class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 3, vsync: this);
+class _LikesScreenState extends State<LikesScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 3,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -54,10 +58,11 @@ class _LikesScreenState extends State<LikesScreen> with SingleTickerProviderStat
               animation: _tabController,
               builder: (context, _) => switch (_tabController.index) {
                 0 => IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: L10n.of(context).refresh,
-                    onPressed: () => context.read<LikedTweetModel>().refreshLikedTweets(),
-                  ),
+                  icon: const Icon(Icons.refresh),
+                  tooltip: L10n.of(context).refresh,
+                  onPressed: () =>
+                      context.read<LikedTweetModel>().refreshLikedTweets(),
+                ),
                 _ => const SizedBox.shrink(),
               },
             ),
@@ -87,7 +92,8 @@ class _LocalLikes extends StatefulWidget {
   State<_LocalLikes> createState() => _LocalLikesState();
 }
 
-class _LocalLikesState extends State<_LocalLikes> with AutomaticKeepAliveClientMixin<_LocalLikes> {
+class _LocalLikesState extends State<_LocalLikes>
+    with AutomaticKeepAliveClientMixin<_LocalLikes> {
   @override
   bool get wantKeepAlive => true;
 
@@ -122,7 +128,10 @@ class _LocalLikesState extends State<_LocalLikes> with AutomaticKeepAliveClientM
                 itemCount: likes.length + (model.hasMore ? 1 : 0),
                 itemBuilder: (context, index) => index >= likes.length
                     ? _LoadMoreLikes(model: model)
-                    : LikedTweetTile(id: likes[index].id, content: likes[index].content),
+                    : LikedTweetTile(
+                        id: likes[index].id,
+                        content: likes[index].content,
+                      ),
               ),
       ),
     );
@@ -158,7 +167,8 @@ class _LoadMoreLikesState extends State<_LoadMoreLikes> {
   }
 }
 
-class _EmptyLikes extends StatelessWidget {  final String message;
+class _EmptyLikes extends StatelessWidget {
+  final String message;
 
   const _EmptyLikes({required this.message});
 
@@ -176,6 +186,38 @@ class _EmptyLikes extends StatelessWidget {  final String message;
   }
 }
 
+/// A profile timeline whose pager belongs to exactly one account and endpoint.
+/// The key is part of the widget contract: keeping the State alive across an
+/// account switch would leak the previous login's private results into the new
+/// one, even after the visible user object changes.
+class AccountTimelineFeed extends StatelessWidget {
+  final UserWithExtra user;
+  final String endpoint;
+  final String emptyMessage;
+  final ProfilePageLoader loadPage;
+
+  const AccountTimelineFeed({
+    super.key,
+    required this.user,
+    required this.endpoint,
+    required this.emptyMessage,
+    required this.loadPage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accountIdentity = (user.idStr?.isNotEmpty ?? false)
+        ? user.idStr
+        : user.screenName;
+    return ProfileTweetFeed(
+      key: ValueKey<String>('account-timeline.$accountIdentity.$endpoint'),
+      user: user,
+      emptyMessage: emptyMessage,
+      loadPage: loadPage,
+    );
+  }
+}
+
 /// The likes of the active account, fetched from X's Likes endpoint (X only
 /// answers this for the requesting account itself).
 class _ProfileLikes extends StatelessWidget {
@@ -184,11 +226,23 @@ class _ProfileLikes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ActiveAccountFeed(
-      builder: (user) => ProfileTweetFeed(
+      builder: (user) => AccountTimelineFeed(
         user: user,
+        endpoint: 'likes',
         emptyMessage: L10n.of(context).no_liked_posts_yet,
-        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter, resetTweetsCounter) =>
-            _loadPage(user, cursor, getTweetsCounter, incrementTweetsCounter, resetTweetsCounter),
+        loadPage:
+            (
+              cursor,
+              getTweetsCounter,
+              incrementTweetsCounter,
+              resetTweetsCounter,
+            ) => _loadPage(
+              user,
+              cursor,
+              getTweetsCounter,
+              incrementTweetsCounter,
+              resetTweetsCounter,
+            ),
       ),
     );
   }
@@ -238,17 +292,23 @@ class _ProfileBookmarks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ActiveAccountFeed(
-      builder: (user) => ProfileTweetFeed(
+      builder: (user) => AccountTimelineFeed(
         user: user,
+        endpoint: 'bookmarks',
         emptyMessage: L10n.of(context).no_bookmarks_yet,
-        loadPage: (cursor, getTweetsCounter, incrementTweetsCounter, resetTweetsCounter) =>
-            Twitter.getBookmarks(
-          cursor: cursor,
-          count: 20,
-          getTweetsCounter: getTweetsCounter,
-          incrementTweetsCounter: incrementTweetsCounter,
-          resetTweetsCounter: resetTweetsCounter,
-        ),
+        loadPage:
+            (
+              cursor,
+              getTweetsCounter,
+              incrementTweetsCounter,
+              resetTweetsCounter,
+            ) => Twitter.getBookmarks(
+              cursor: cursor,
+              count: 20,
+              getTweetsCounter: getTweetsCounter,
+              incrementTweetsCounter: incrementTweetsCounter,
+              resetTweetsCounter: resetTweetsCounter,
+            ),
       ),
     );
   }
@@ -266,7 +326,8 @@ class _ActiveAccountFeed extends StatefulWidget {
   State<_ActiveAccountFeed> createState() => _ActiveAccountFeedState();
 }
 
-class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKeepAliveClientMixin<_ActiveAccountFeed> {
+class _ActiveAccountFeedState extends State<_ActiveAccountFeed>
+    with AutomaticKeepAliveClientMixin<_ActiveAccountFeed> {
   late Future<UserWithExtra?> _user;
 
   @override
@@ -302,7 +363,11 @@ class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKe
     // [ActiveAccount.userId] may still be missing on accounts added before it
     // was captured — the Likes tab resolves it then, the Bookmarks tab never
     // needs it.
-    return UserWithExtra.fromArguments(idStr: active.userId, possiblySensitive: false, screenName: handle);
+    return UserWithExtra.fromArguments(
+      idStr: active.userId,
+      possiblySensitive: false,
+      screenName: handle,
+    );
   }
 
   @override
@@ -325,7 +390,9 @@ class _ActiveAccountFeedState extends State<_ActiveAccountFeed> with AutomaticKe
 
         final user = snapshot.data;
         if (user == null) {
-          return _EmptyLikes(message: L10n.of(context).no_account_available_title);
+          return _EmptyLikes(
+            message: L10n.of(context).no_account_available_title,
+          );
         }
 
         return widget.builder(user);

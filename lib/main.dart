@@ -27,6 +27,7 @@ import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
+
 void main() {
   // The logging package defaults to INFO and every record is forwarded to
   // logcat below, which any app holding READ_LOGS (present on many OEM builds)
@@ -78,37 +79,36 @@ Future<void> _boot() async {
 /// [_startApp] so the startup path reads as a sequence of steps rather than
 /// as a page of data wedged into the middle of one.
 final Map<String, dynamic> _prefDefaults = {
-    optionDisableAnimations: false,
-    optionTextScaleFactor: 1.0,
-    optionDisableScreenshots: false,
-    optionLibraryVisibleInGallery: false,
-    optionAutoCacheVideos: false,
-    optionAutoCacheWifiOnly: true,
-    optionVideoCacheLimitMb: 1024,
-    optionHomeDefaultFeedTab: feedTabs[0].id.name,
-    optionImageQuality: 'medium',
-    optionMediaVideoQuality: 'medium',
-    optionMediaDisableAutoload: false,
-    optionMediaQualitySplitMigrated: false,
-    optionMediaGridColumns: 3,
-    optionMediaDefaultMute: true,
-    optionMediaDefaultLoop: false,
-    optionMediaDefaultAutoPlay: false,
-    optionMediaBackgroundPlayback: true,
-    optionMediaAllowBackgroundPlayOtherApps: false,
-    optionMediaVideoPrefetchSeconds: 0,
-    optionNonConfirmationBiasMode: false,
-    optionOpenLinksInEmbeddedBrowser: false,
-    alwaysShowFullTweetContents: false,
-    optionThemeMode: 'system',
-    optionThemeColor: 'accent',
-    optionThemeTrueBlack: true,
-    optionThemeTrueBlackTweetCards: true,
-    optionShowNavigationLabels: false,
-    optionTweetsHideSensitive: true,
-    optionLikedFirstToastShown: false,
-    optionUseAbsoluteTimestamp: false,
-  
+  optionDisableAnimations: false,
+  optionTextScaleFactor: 1.0,
+  optionDisableScreenshots: false,
+  optionLibraryVisibleInGallery: false,
+  optionAutoCacheVideos: false,
+  optionAutoCacheWifiOnly: true,
+  optionVideoCacheLimitMb: 1024,
+  optionHomeDefaultFeedTab: feedTabs[0].id.name,
+  optionImageQuality: 'medium',
+  optionMediaVideoQuality: 'medium',
+  optionMediaDisableAutoload: false,
+  optionMediaQualitySplitMigrated: false,
+  optionMediaGridColumns: 3,
+  optionMediaDefaultMute: true,
+  optionMediaDefaultLoop: false,
+  optionMediaDefaultAutoPlay: false,
+  optionMediaBackgroundPlayback: true,
+  optionMediaAllowBackgroundPlayOtherApps: false,
+  optionMediaVideoPrefetchSeconds: 0,
+  optionNonConfirmationBiasMode: false,
+  optionOpenLinksInEmbeddedBrowser: false,
+  alwaysShowFullTweetContents: false,
+  optionThemeMode: 'system',
+  optionThemeColor: 'accent',
+  optionThemeTrueBlack: true,
+  optionThemeTrueBlackTweetCards: true,
+  optionShowNavigationLabels: false,
+  optionTweetsHideSensitive: true,
+  optionLikedFirstToastShown: false,
+  optionUseAbsoluteTimestamp: false,
 };
 
 Future<void> _startApp() async {
@@ -118,23 +118,32 @@ Future<void> _startApp() async {
 
   Intl.defaultLocale = 'en';
 
-  final prefService = await PrefServiceShared.init(prefix: 'pref_', defaults: _prefDefaults);
+  final prefService = await PrefServiceShared.init(
+    prefix: 'pref_',
+    defaults: _prefDefaults,
+  );
 
   await migrateMediaQualityPrefs(prefService);
   await migrateLibraryStoragePrefs(prefService);
 
   await _loadModels(prefService);
 
-  runApp(PrefService(
+  runApp(
+    PrefService(
       service: prefService,
       child: MultiProvider(
         providers: [
           Provider(create: (context) => VideoControllerPool(maxSize: 2)),
           Provider(create: (context) => LikedTweetModel()),
-          ChangeNotifierProvider(create: (_) => VideoContextState(prefService.get(optionMediaDefaultMute))),
+          ChangeNotifierProvider(
+            create: (_) =>
+                VideoContextState(prefService.get(optionMediaDefaultMute)),
+          ),
         ],
         child: FritterApp(),
-      )));
+      ),
+    ),
+  );
 }
 
 /// Loads what the screens assume is already there before the first frame: the
@@ -153,10 +162,16 @@ Future<void> _loadModels(BasePrefService prefService) async {
   // persisted queue/history loaded, and the connectivity watcher primed so a
   // network coming back auto-resumes the retryable failures.
   unawaited(DownloadNotifications.ensure());
-  unawaited(DownloadsModel().load().then((_) => ConnectivityWatcher().ensure(prefService)));
+  unawaited(
+    DownloadsModel().load().then(
+      (_) => ConnectivityWatcher().ensure(prefService),
+    ),
+  );
   unawaited(NetworkStatus().check());
-  // Primes the auto-cache index so cache hits register right away.
-  unawaited(VideoCache().load());
+  // Primes the auto-cache index and applies the persisted cap before playback
+  // can serve a clip that a previous, larger limit left behind.
+  await VideoCache().load();
+  await VideoCache().enforceLimit(prefService);
   // Snapshot of previously seen tweets, for the New/Old labels.
   unawaited(TweetFreshnessIndex().load());
   // A killed likes import can leave its plaintext export in the cache.
@@ -188,7 +203,10 @@ class _StartupFailedApp extends StatelessWidget {
     return MaterialApp(
       title: 'QuaX-Re',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(brightness: Brightness.dark, colorSchemeSeed: const Color(0xFF080808)),
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        colorSchemeSeed: const Color(0xFF080808),
+      ),
       home: Scaffold(
         body: SafeArea(
           child: Padding(
@@ -197,11 +215,17 @@ class _StartupFailedApp extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('QuaX could not start',
-                    textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'QuaX could not start',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 16),
-                Text('$error',
-                    textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  '$error',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 32),
                 FilledButton(
                   onPressed: () => main(),

@@ -20,15 +20,24 @@ class DownloadsTab extends StatefulWidget {
   final BasePrefService prefs;
   final ScrollController scrollController;
 
-  const DownloadsTab({super.key, required this.prefs, required this.scrollController});
+  const DownloadsTab({
+    super.key,
+    required this.prefs,
+    required this.scrollController,
+  });
 
   @override
   State<DownloadsTab> createState() => _DownloadsTabState();
 }
 
 class _DownloadsTabState extends State<DownloadsTab>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin<DownloadsTab> {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+    with
+        SingleTickerProviderStateMixin,
+        AutomaticKeepAliveClientMixin<DownloadsTab> {
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
   late final DownloadsModel _queue = DownloadsModel();
   final Set<String> _selected = {};
 
@@ -69,7 +78,8 @@ class _DownloadsTabState extends State<DownloadsTab>
       final item = _queue.itemFor(name);
       // pause() has no status guard; calling it on a finished row turned
       // "Saved the media" back into "Paused".
-      if (item?.status == DownloadStatus.queued || item?.status == DownloadStatus.running) {
+      if (item?.status == DownloadStatus.queued ||
+          item?.status == DownloadStatus.running) {
         _queue.pause(name);
       }
     }
@@ -78,9 +88,12 @@ class _DownloadsTabState extends State<DownloadsTab>
 
   void _resumeSelected() {
     final resumable = _queue.state
-        .where((item) =>
-            _selected.contains(item.fileName) &&
-            (item.status == DownloadStatus.paused || item.status == DownloadStatus.error))
+        .where(
+          (item) =>
+              _selected.contains(item.fileName) &&
+              (item.status == DownloadStatus.paused ||
+                  item.status == DownloadStatus.error),
+        )
         .toList();
     for (final item in resumable) {
       retryDownload(context, item, prefs: widget.prefs);
@@ -89,7 +102,9 @@ class _DownloadsTabState extends State<DownloadsTab>
   }
 
   void _deleteSelected() {
-    final victims = _queue.state.where((item) => _selected.contains(item.fileName)).toList();
+    final victims = _queue.state
+        .where((item) => _selected.contains(item.fileName))
+        .toList();
     for (final item in victims) {
       if (item.status == DownloadStatus.running) {
         _queue.cancel(item.fileName);
@@ -102,7 +117,10 @@ class _DownloadsTabState extends State<DownloadsTab>
 
   /// The queue app bar: queue-wide actions normally, selection actions while
   /// entries are selected.
-  List<Widget> _buildActions(BuildContext context, List<DownloadQueueItem> queue) {
+  List<Widget> _buildActions(
+    BuildContext context,
+    List<DownloadQueueItem> queue,
+  ) {
     if (_selectionActive) {
       return [
         IconButton(
@@ -128,10 +146,16 @@ class _DownloadsTabState extends State<DownloadsTab>
       ];
     }
 
-    final hasActive = queue.any((item) =>
-        item.status == DownloadStatus.running || item.status == DownloadStatus.queued);
-    final hasResumable = queue.any((item) =>
-        item.status == DownloadStatus.paused || item.status == DownloadStatus.error);
+    final hasActive = queue.any(
+      (item) =>
+          item.status == DownloadStatus.running ||
+          item.status == DownloadStatus.queued,
+    );
+    final hasResumable = queue.any(
+      (item) =>
+          item.status == DownloadStatus.paused ||
+          item.status == DownloadStatus.error,
+    );
     final hasFinished = queue.any((item) => item.status == DownloadStatus.done);
 
     return [
@@ -147,8 +171,11 @@ class _DownloadsTabState extends State<DownloadsTab>
           tooltip: L10n.of(context).resume_all,
           onPressed: () {
             final resumable = queue
-                .where((item) =>
-                    item.status == DownloadStatus.paused || item.status == DownloadStatus.error)
+                .where(
+                  (item) =>
+                      item.status == DownloadStatus.paused ||
+                      item.status == DownloadStatus.error,
+                )
                 .toList();
             for (final item in resumable) {
               retryDownload(context, item, prefs: widget.prefs);
@@ -240,15 +267,30 @@ class _GalleryTabState extends State<_GalleryTab> {
   void initState() {
     super.initState();
     widget.prefs.addKeyListener(optionLibraryPath, _onLibraryLocationChanged);
-    widget.prefs.addKeyListener(optionLibraryStorageMode, _onLibraryLocationChanged);
-    widget.prefs.addKeyListener(optionLibraryVisibleInGallery, _onGalleryVisibilityChanged);
+    widget.prefs.addKeyListener(
+      optionLibraryStorageMode,
+      _onLibraryLocationChanged,
+    );
+    widget.prefs.addKeyListener(
+      optionLibraryVisibleInGallery,
+      _onGalleryVisibilityChanged,
+    );
   }
 
   @override
   void dispose() {
-    widget.prefs.removeKeyListener(optionLibraryPath, _onLibraryLocationChanged);
-    widget.prefs.removeKeyListener(optionLibraryStorageMode, _onLibraryLocationChanged);
-    widget.prefs.removeKeyListener(optionLibraryVisibleInGallery, _onGalleryVisibilityChanged);
+    widget.prefs.removeKeyListener(
+      optionLibraryPath,
+      _onLibraryLocationChanged,
+    );
+    widget.prefs.removeKeyListener(
+      optionLibraryStorageMode,
+      _onLibraryLocationChanged,
+    );
+    widget.prefs.removeKeyListener(
+      optionLibraryVisibleInGallery,
+      _onGalleryVisibilityChanged,
+    );
     super.dispose();
   }
 
@@ -330,7 +372,10 @@ class _GalleryTabState extends State<_GalleryTab> {
                         value: visible,
                         onChanged: configured && !_busy ? _toggle : null,
                         secondary: Icon(
-                            visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                          visible
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
                         title: Text(l10n.show_in_gallery),
                         subtitle: Text(
                           configured ? path : l10n.not_set,
@@ -347,7 +392,12 @@ class _GalleryTabState extends State<_GalleryTab> {
                   ],
                 ),
         ),
-        Expanded(child: LibraryScreen(key: ValueKey(_storageRevision), prefs: widget.prefs)),
+        Expanded(
+          child: LibraryScreen(
+            key: ValueKey(_storageRevision),
+            prefs: widget.prefs,
+          ),
+        ),
       ],
     );
   }
@@ -379,7 +429,10 @@ class _QueueList extends StatelessWidget {
           children: [
             const Icon(Icons.download_for_offline_outlined, size: 48),
             const SizedBox(height: 12),
-            Text(L10n.of(context).downloads_empty, style: theme.textTheme.bodyMedium),
+            Text(
+              L10n.of(context).downloads_empty,
+              style: theme.textTheme.bodyMedium,
+            ),
           ],
         ),
       );
@@ -389,7 +442,8 @@ class _QueueList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       buildDefaultDragHandles: false,
       itemCount: queue.length,
-      onReorderItem: (oldIndex, newIndex) => DownloadsModel().moveItem(oldIndex, newIndex),
+      onReorderItem: (oldIndex, newIndex) =>
+          DownloadsModel().moveItem(oldIndex, newIndex),
       itemBuilder: (context, index) {
         final item = queue[index];
         final scheme = Theme.of(context).colorScheme;
@@ -421,9 +475,15 @@ class _QueueList extends StatelessWidget {
             child: Stack(
               children: [
                 switch (item.status) {
-                  DownloadStatus.queued => _QueuedCard(item: item, dragIndex: index),
+                  DownloadStatus.queued => _QueuedCard(
+                    item: item,
+                    dragIndex: index,
+                  ),
                   DownloadStatus.running => _RunningCard(item: item),
-                  DownloadStatus.paused => _PausedCard(item: item, prefs: prefs),
+                  DownloadStatus.paused => _PausedCard(
+                    item: item,
+                    prefs: prefs,
+                  ),
                   DownloadStatus.error => _ErrorCard(item: item, prefs: prefs),
                   DownloadStatus.done => _DoneCard(item: item, prefs: prefs),
                 },
@@ -443,7 +503,11 @@ class _QueueList extends StatelessWidget {
                   Positioned(
                     top: 14,
                     right: 18,
-                    child: Icon(Icons.check_circle, color: scheme.primary, size: 20),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: scheme.primary,
+                      size: 20,
+                    ),
                   ),
               ],
             ),
@@ -498,7 +562,11 @@ class _QueuedCard extends StatelessWidget {
             if (dragIndex != null)
               ReorderableDelayedDragStartListener(
                 index: dragIndex!,
-                child: Icon(Icons.drag_indicator, size: 20, color: theme.colorScheme.outline),
+                child: Icon(
+                  Icons.drag_indicator,
+                  size: 20,
+                  color: theme.colorScheme.outline,
+                ),
               ),
             _TypeAvatar(item: item, color: theme.colorScheme.tertiary),
             const SizedBox(width: 14),
@@ -506,9 +574,17 @@ class _QueuedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 4),
-                  Text(L10n.of(context).queue, style: theme.textTheme.labelSmall),
+                  Text(
+                    L10n.of(context).queue,
+                    style: theme.textTheme.labelSmall,
+                  ),
                 ],
               ),
             ),
@@ -532,11 +608,15 @@ class _RunningCard extends StatelessWidget {
   String get _details {
     final parts = <String>[];
     if (item.totalBytes != null && item.totalBytes! > 0) {
-      parts.add('${(item.receivedBytes / item.totalBytes! * 100).clamp(0, 100).toStringAsFixed(0)}%');
+      parts.add(
+        '${(item.receivedBytes / item.totalBytes! * 100).clamp(0, 100).toStringAsFixed(0)}%',
+      );
     }
-    parts.add(item.totalMb == null
-        ? '${item.receivedMb.toStringAsFixed(1)} MB'
-        : '${item.receivedMb.toStringAsFixed(1)} / ${item.totalMb!.toStringAsFixed(1)} MB');
+    parts.add(
+      item.totalMb == null
+          ? '${item.receivedMb.toStringAsFixed(1)} MB'
+          : '${item.receivedMb.toStringAsFixed(1)} / ${item.totalMb!.toStringAsFixed(1)} MB',
+    );
     if (item.speedMbPerSec > 0.05) {
       parts.add('${item.speedMbPerSec.toStringAsFixed(1)} MB/s');
     }
@@ -546,8 +626,9 @@ class _RunningCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fraction =
-        item.totalBytes == null || item.totalBytes == 0 ? null : (item.receivedBytes / item.totalBytes!).clamp(0.0, 1.0);
+    final fraction = item.totalBytes == null || item.totalBytes == 0
+        ? null
+        : (item.receivedBytes / item.totalBytes!).clamp(0.0, 1.0);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
@@ -561,11 +642,19 @@ class _RunningCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(value: fraction, minHeight: 6),
+                    child: LinearProgressIndicator(
+                      value: fraction,
+                      minHeight: 6,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(_details, style: theme.textTheme.labelSmall),
@@ -612,7 +701,12 @@ class _PausedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     item.totalMb == null
@@ -677,12 +771,21 @@ class _ErrorCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                  Text(
+                    item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 4),
-                  Text(message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.error)),
+                  Text(
+                    message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -710,6 +813,40 @@ class _DoneCard extends StatelessWidget {
   const _DoneCard({required this.item, required this.prefs});
 
   Future<void> _open(BuildContext context) async {
+    final libraryModel = LibraryModel(prefs);
+    final legacyPath = item.savedPath;
+    if (legacyPath?.startsWith('content://') == true) {
+      final ok = await libraryModel.openSavedMedia(uri: legacyPath);
+      if (!ok && context.mounted) {
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: L10n.of(context).oops_something_went_wrong,
+        );
+      }
+      return;
+    }
+    if (legacyPath?.startsWith('/document/') == true) {
+      if (context.mounted) {
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: L10n.of(context).download_save_unavailable,
+        );
+      }
+      return;
+    }
+    if (item.savedUri != null && item.savedUri!.isNotEmpty) {
+      final ok = await libraryModel.openSavedMedia(uri: item.savedUri);
+      if (!ok && context.mounted) {
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: L10n.of(context).oops_something_went_wrong,
+        );
+      }
+      return;
+    }
     final libraryPath = prefs.get<String>(optionLibraryPath);
     if (libraryPath == null || libraryPath.isEmpty) return;
 
@@ -721,9 +858,13 @@ class _DoneCard extends StatelessWidget {
     if (path == null || !await File(path).exists()) {
       path = p.join(libraryPath, item.fileName);
     }
-    final ok = await LibraryModel(prefs).openExternally(path);
+    final ok = await libraryModel.openExternally(path);
     if (!ok && context.mounted) {
-      showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: L10n.of(context).oops_something_went_wrong,
+      );
     }
   }
 
@@ -739,15 +880,27 @@ class _DoneCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
           child: Row(
             children: [
-              Icon(Icons.check_circle_outline, color: Colors.green.shade400, size: 32),
+              Icon(
+                Icons.check_circle_outline,
+                color: Colors.green.shade400,
+                size: 32,
+              ),
               const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall),
+                    Text(
+                      item.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
                     const SizedBox(height: 4),
-                    Text(L10n.of(context).successfully_saved_the_media, style: theme.textTheme.labelSmall),
+                    Text(
+                      L10n.of(context).successfully_saved_the_media,
+                      style: theme.textTheme.labelSmall,
+                    ),
                   ],
                 ),
               ),

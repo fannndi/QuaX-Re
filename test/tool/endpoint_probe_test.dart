@@ -1,166 +1,311 @@
-// Probes every endpoint the app reads against live X and reports which ones
-// answer. Not part of `flutter test`'s normal run — it needs the network, and
-// X's answers are the thing under test, so it is opt-in:
+// Probes every registered endpoint against live X. Offline by default:
 //
 //   QUAX_LIVE=1 flutter test test/tool/endpoint_probe_test.dart
+//   QUAX_LIVE=1 QUAX_AUTHENTICATED=1 flutter test test/tool/endpoint_probe_test.dart
 //
-// It has to live under test/ rather than tool/ because the client imports
-// Flutter (`dart:ui`), and `dart run` cannot load that outside a binding.
-//
-// What it answers that check_indices cannot:
-//
-//   • which queryIds have rotated. A GraphQL path is version-pinned
-//     (`/i/api/graphql/<queryId>/<Operation>`); when X rotates one the app gets
-//     a 404 for that one operation while every other keeps working. The fork
-//     notes say to update the constant, and this says which constant.
-//   • whether a response is still the shape the fixtures pin. An endpoint that
-//     answers 200 with a moved key (`data.user.result` gone) breaks the parser
-//     just as silently as a 404 does.
-//
-// Guest requests only: no account, no cookies, nothing sent. Everything the app
-// asks for is a read.
+// Guest mode keeps real guest errors for operations X serves anonymously.
+// Authenticated mode uses the accounts already stored in the app database and
+// covers the private/scoped reads. Every request is read-only.
 
 import 'dart:io' show Platform;
 import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quax/catcher/exceptions.dart';
 import 'package:quax/client/client.dart';
+import 'package:quax/client/accounts.dart';
+import 'package:quax/constants.dart';
 import 'package:quax/database/repository.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+const _userId = '971742411851317248';
+const _tweetId = '2095912922601975848';
+
+class _ProbeResult {
+  const _ProbeResult(this.summary, this.itemCount);
+
+  final String summary;
+  final int itemCount;
+}
+
+class _ProbeCase {
+  const _ProbeCase(
+    this.run, {
+    this.guestCapable = false,
+    this.requireNonEmpty = true,
+  });
+
+  final Future<_ProbeResult> Function() run;
+  final bool guestCapable;
+  final bool requireNonEmpty;
+}
+
+final _probeCases = <String, _ProbeCase>{
+  'SearchTimeline': _ProbeCase(() async {
+    final result = await Twitter.searchTweets(
+      'quax',
+      product: 'Latest',
+      limit: 5,
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+  'HomeTimeline': _ProbeCase(() async {
+    final result = await Twitter.getTimelineTweets(
+      'ForYou',
+      'profile',
+      count: 5,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+  'HomeLatestTimeline': _ProbeCase(() async {
+    final result = await Twitter.getHomeLatestTimeline(
+      count: 5,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+  'UserByRestId': _ProbeCase(() async {
+    final profile = await Twitter.getProfileById(_userId);
+    return _ProbeResult('@${profile.user.screenName}', 1);
+  }),
+  'UserByScreenName': _ProbeCase(() async {
+    final profile = await Twitter.getProfileByScreenName('quax_tests');
+    return _ProbeResult('@${profile.user.screenName}', 1);
+  }, guestCapable: true),
+  'Following': _ProbeCase(() async {
+    final result = await Twitter.friendsList(_userId, 5);
+    return _ProbeResult(
+      '${result.users?.length ?? 0} user(s)',
+      result.users?.length ?? 0,
+    );
+  }),
+  'Followers': _ProbeCase(() async {
+    final result = await Twitter.followersList(_userId, 5);
+    return _ProbeResult(
+      '${result.users?.length ?? 0} user(s)',
+      result.users?.length ?? 0,
+    );
+  }),
+  'TweetDetail': _ProbeCase(() async {
+    final result = await Twitter.getTweet(_tweetId);
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+  'Likes': _ProbeCase(() async {
+    final result = await Twitter.getLikes(
+      _userId,
+      count: 5,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }, requireNonEmpty: false),
+  'Bookmarks': _ProbeCase(() async {
+    final result = await Twitter.getBookmarks(
+      count: 5,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }, requireNonEmpty: false),
+  'UserVideoTimeline': _ProbeCase(() async {
+    final result = await Twitter.getTweets(
+      _userId,
+      'media',
+      const [],
+      count: 5,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+  'UserMedia': _ProbeCase(() async {
+    final result = await Twitter.getTweets(
+      _userId,
+      'photos',
+      const [],
+      count: 5,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+  'UserRepliesTimeline': _ProbeCase(() async {
+    final result = await Twitter.getTweets(
+      _userId,
+      'profile',
+      const [],
+      count: 5,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+  'UserOriginalsTimeline': _ProbeCase(() async {
+    final result = await Twitter.getTweets(
+      _userId,
+      'profile',
+      const [],
+      count: 5,
+      includeReplies: false,
+      getTweetsCounter: () => 0,
+      incrementTweetsCounter: () {},
+    );
+    return _ProbeResult(
+      '${result.chains.length} chain(s)',
+      result.chains.length,
+    );
+  }),
+};
+
 void main() {
-  // The client asks the repository for accounts before every request, so the
-  // database has to exist even though this test reads nothing from it.
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+
+  final live = Platform.environment['QUAX_LIVE'] == '1';
+  final authenticated = Platform.environment['QUAX_AUTHENTICATED'] == '1';
 
   setUpAll(() async {
     await Repository().migrate();
     await L10n.load(const Locale('en'));
+    if (live && authenticated && (await getAccounts()).isEmpty) {
+      fail('QUAX_AUTHENTICATED=1 requires an account in the app database');
+    }
   });
 
-  // Each operation with the argument it needs, so the report names the endpoint
-  // that failed rather than a stack trace. An endpoint missing from here is an
-  // endpoint nobody notices breaking.
-  final cases = <String, Future<Object?> Function()>{
-    'SearchTimeline': () async {
-      final r = await Twitter.searchTweets('quax', product: 'Latest', limit: 5);
-      return '${r.chains.length} chain(s)';
-    },
-    'HomeTimeline': () async {
-      final r = await Twitter.getTimelineTweets('1', 'profile',
-          count: 5, getTweetsCounter: () => 0, incrementTweetsCounter: () {});
-      return '${r.chains.length} chain(s)';
-    },
-    'HomeLatestTimeline': () async {
-      final r = await Twitter.getHomeLatestTimeline(
-          count: 5, getTweetsCounter: () => 0, incrementTweetsCounter: () {});
-      return '${r.chains.length} chain(s)';
-    },
-    'UserByScreenName': () async {
-      final p = await Twitter.getProfileByScreenName('quax_tests');
-      return '@${p.user.screenName}';
-    },
-    'UserTweets': () async {
-      final r = await Twitter.getTweets('2095909295913103360', 'profile', const [],
-          count: 5, getTweetsCounter: () => 0, incrementTweetsCounter: () {});
-      return '${r.chains.length} chain(s)';
-    },
-    'TweetDetail': () async {
-      final r = await Twitter.getTweet('2095912922601975848');
-      return '${r.chains.length} chain(s)';
-    },
-    'Likes': () async {
-      final r = await Twitter.getLikes('2095909295913103360',
-          count: 5, getTweetsCounter: () => 0, incrementTweetsCounter: () {});
-      return '${r.chains.length} chain(s)';
-    },
-    'Bookmarks': () async {
-      final r = await Twitter.getBookmarks(
-          count: 5, getTweetsCounter: () => 0, incrementTweetsCounter: () {});
-      return '${r.chains.length} chain(s)';
-    },
-  };
+  test('Should keep live probe cases in parity with the endpoint registry', () {
+    expect(
+      _probeCases.keys,
+      unorderedEquals(graphQlEndpoints.keys),
+      reason:
+          'Every registered operation must be probed; a missing case lets a rotated queryId '
+          'ship unnoticed',
+    );
+  });
 
-  // Which operations X answers without a session. Everything else needs one:
-  // "No account available" is the client's answer for both "this endpoint needs
-  // a login" and "the guest request also failed", so a probe that treats that
-  // as a failure reports seven broken endpoints when nothing is broken. These
-  // are covered by tool/record/, which has a real session.
-  const guestCapable = <String>{
-    'UserByScreenName',
-  };
+  test(
+    'Should report a guest HTTP status without calling it a parse failure',
+    () {
+      final message = _message(
+        'UserByScreenName',
+        NoAccountAvailableException(statusCode: 401),
+      );
 
-  for (final entry in cases.entries) {
+      expect(message, contains('HTTP 401'));
+      expect(
+        message,
+        isNot(contains('HTTP 200 with a parse failure')),
+        reason: 'A rejected guest request is an HTTP failure, not a moved response shape',
+      );
+    },
+  );
+
+  for (final entry in _probeCases.entries) {
     test('endpoint ${entry.key}', () async {
-      // Offline by default. `flutter test` must never touch the network, so the
-      // probe skips unless it is asked for explicitly:
-      //
-      //   QUAX_LIVE=1 flutter test test/tool/endpoint_probe_test.dart
-      //
-      // A tag would be the usual mechanism, but the test runner has no
-      // "exclude by default" switch, so a plain `flutter test` would run it.
-      final live = Platform.environment['QUAX_LIVE'] == '1';
       if (!live) {
         // ignore: avoid_print
         print('SKIP ${entry.key} — set QUAX_LIVE=1 to probe live X');
         return;
       }
+      if (!authenticated && !entry.value.guestCapable) {
+        // ignore: avoid_print
+        print('SKIP ${entry.key} — needs a session; set QUAX_AUTHENTICATED=1');
+        return;
+      }
 
       final sw = Stopwatch()..start();
-      Object? summary;
       try {
-        summary = await entry.value();
-      } catch (e) {
+        final result = await entry.value.run();
         sw.stop();
-        if (!guestCapable.contains(entry.key)) {
-          // ignore: avoid_print
-          print('SKIP ${entry.key} — needs a session; cover it with tool/record/');
-          return;
+        if (entry.value.requireNonEmpty) {
+          expect(
+            result.itemCount,
+            greaterThan(0),
+            reason:
+                '${entry.key} returned its expected root but no usable items; the response '
+                'shape may have moved while still answering HTTP 200',
+          );
         }
-        fail(_message(entry.key, e));
+        // ignore: avoid_print
+        print(
+          'OK   ${entry.key.padRight(24)} ${result.summary} in ${sw.elapsedMilliseconds} ms',
+        );
+      } catch (error) {
+        sw.stop();
+        fail(_message(entry.key, error));
       }
-      sw.stop();
-      // Not an assertion about behaviour — a report. The value is only useful
-      // in the output, so print it rather than assert on a shape that X may
-      // legitimately change.
-      // ignore: avoid_print
-      print('OK   ${entry.key.padRight(20)} $summary in ${sw.elapsedMilliseconds} ms');
-      expect(summary, isNotNull,
-          reason: 'Every operation should return something. A null means the '
-              'client method has no result type wired up');
     }, timeout: const Timeout(Duration(seconds: 45)));
   }
 }
 
 String _message(String operation, Object error) {
   final text = error.toString();
-  final status = RegExp(r'(?:code|statusCode)[=:]\s*(\d+)').firstMatch(text)?.group(1);
+  final exceptionStatus = error is NoAccountAvailableException
+      ? error.statusCode
+      : null;
+  final status =
+      exceptionStatus?.toString() ??
+      RegExp(r'(?:code|statusCode)[=:]\s*(\d+)').firstMatch(text)?.group(1);
+  final endpoint = graphQlEndpoints[operation]!;
 
-  final buffer = StringBuffer('$operation failed');
+  final buffer = StringBuffer(
+    '$operation failed (${endpoint.method} ${endpoint.path})',
+  );
   if (status != null) buffer.write(' with HTTP $status');
-  buffer.writeln();
-  buffer.writeln();
-
-  // The raw error first: "HTTP 404" is a guess about the cause, but
-  // `type 'bool' is not a subtype of type 'String'` is the actual parse failure
-  // and says far more about what moved.
+  buffer.writeln('\n');
   buffer.writeln(text.split('\n').take(3).join('\n'));
-  buffer.writeln();
 
-  if (status == '404' || text.contains('NoWorkingAccount')) {
-    buffer.writeln("X rotated this operation's queryId. Capture the new one from the network tab of "
-        'a x.com visit and update the constant in client.dart, or re-record with tool/record/.');
+  if (exceptionStatus != null) {
+    buffer.write(
+      '\nNo usable account was available and the guest request failed with HTTP $exceptionStatus. '
+      'Re-run with QUAX_AUTHENTICATED=1 to probe this operation with a stored session.',
+    );
+  } else if (status == '404' || text.contains('NoWorkingAccount')) {
+    buffer.write(
+      "\nX rotated this operation's queryId. Update the endpoint registry from a fresh "
+      'capture, or re-record with tool/record/.',
+    );
   } else if (status == '429' || text.contains('RateLimited')) {
-    buffer.writeln('Rate-limited as a guest. Re-run later, or record with tool/record/, which uses '
-        'a real session.');
+    buffer.write(
+      '\nRate-limited. Re-run later, or record with tool/record/ and a real session.',
+    );
   } else if (text.contains('Timeout') || text.contains('SocketException')) {
-    buffer.writeln('No answer from X. Check the connection, then re-run.');
+    buffer.write('\nNo answer from X. Check the connection, then re-run.');
   } else {
-    buffer.writeln('If the status was 200 but the parse threw, the response shape moved and the '
-        'fixtures in test/fixtures/ need re-recording.');
+    buffer.write(
+      '\nHTTP 200 with a parse failure means the response shape moved. Compare the '
+      'fixtures in test/fixtures/ and re-record if needed.',
+    );
   }
-
   return buffer.toString();
 }

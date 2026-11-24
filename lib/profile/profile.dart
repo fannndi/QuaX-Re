@@ -14,6 +14,7 @@ import 'package:quax/search/search.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/image_decode.dart';
+import 'package:quax/utils/iterables.dart';
 import 'package:quax/utils/urls.dart';
 import 'package:quax/utils/rich_text.dart';
 import 'package:intl/intl.dart';
@@ -22,6 +23,21 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 typedef TabTitleBuilder = String Function(BuildContext context);
+
+/// The inner list owns the timeline position; the outer controller only
+/// collapses/expands the profile header. Move the inner list first so tapping
+/// back-to-top does not merely hide the header while leaving the reader deep in
+/// the same tweets.
+void scrollProfileToTop(ScrollController inner, ScrollController outer) {
+  final innerPosition = inner.hasClients ? inner.positions.firstOrNull : null;
+  if (innerPosition != null && innerPosition.pixels != 0) {
+    inner.jumpTo(0);
+  }
+  final outerPosition = outer.hasClients ? outer.positions.firstOrNull : null;
+  if (outerPosition != null && outerPosition.pixels != 0) {
+    outer.jumpTo(0);
+  }
+}
 
 class NavigationTab {
   final ProfileTabs id;
@@ -32,7 +48,10 @@ class NavigationTab {
 
 final List<NavigationTab> profileTabs = [
   NavigationTab(ProfileTabs.posts, (c) => L10n.of(c).tweets),
-  NavigationTab(ProfileTabs.postsAndReplies, (c) => L10n.of(c).tweets_and_replies),
+  NavigationTab(
+    ProfileTabs.postsAndReplies,
+    (c) => L10n.of(c).tweets_and_replies,
+  ),
   NavigationTab(ProfileTabs.media, (c) => L10n.of(c).media),
 ];
 
@@ -43,7 +62,10 @@ class ProfileScreenArguments {
 
   ProfileScreenArguments(this.id, this.screenName, this.tabIndex);
 
-  factory ProfileScreenArguments.fromScreenName(String screenName, int? tabIndex) {
+  factory ProfileScreenArguments.fromScreenName(
+    String screenName,
+    int? tabIndex,
+  ) {
     return ProfileScreenArguments(null, screenName, tabIndex);
   }
 }
@@ -53,23 +75,29 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as ProfileScreenArguments;
+    final args =
+        ModalRoute.of(context)!.settings.arguments as ProfileScreenArguments;
 
     return Provider(
-        create: (context) {
-          final model = ProfileModel();
-          // An id survives a renamed handle; a stale screen name 404s before
-          // the id fallback is ever tried.
-          final id = args.id;
-          final screenName = args.screenName;
-          if (id != null && id.isNotEmpty) {
-            model.loadProfileById(id);
-          } else if (screenName != null && screenName.isNotEmpty) {
-            model.loadProfileByScreenName(screenName);
-          }
-          return model;
-        },
-        child: _ProfileScreen(id: args.id, screenName: args.screenName, tabIndex: args.tabIndex));
+      create: (context) {
+        final model = ProfileModel();
+        // An id survives a renamed handle; a stale screen name 404s before
+        // the id fallback is ever tried.
+        final id = args.id;
+        final screenName = args.screenName;
+        if (id != null && id.isNotEmpty) {
+          model.loadProfileById(id);
+        } else if (screenName != null && screenName.isNotEmpty) {
+          model.loadProfileByScreenName(screenName);
+        }
+        return model;
+      },
+      child: _ProfileScreen(
+        id: args.id,
+        screenName: args.screenName,
+        tabIndex: args.tabIndex,
+      ),
+    );
   }
 }
 
@@ -78,7 +106,11 @@ class _ProfileScreen extends StatelessWidget {
   final String? screenName;
   final int? tabIndex;
 
-  const _ProfileScreen({required this.id, required this.screenName, required this.tabIndex});
+  const _ProfileScreen({
+    required this.id,
+    required this.screenName,
+    required this.tabIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -93,12 +125,15 @@ class _ProfileScreen extends StatelessWidget {
             if (id != null) {
               return context.read<ProfileModel>().loadProfileById(id!);
             } else {
-              return context.read<ProfileModel>().loadProfileByScreenName(screenName!);
+              return context.read<ProfileModel>().loadProfileByScreenName(
+                screenName!,
+              );
             }
           },
         ),
         onLoading: (_) => const Center(child: CircularProgressIndicator()),
-        onState: (_, state) => ProfileScreenBody(profile: state, defaultTabIndex: tabIndex),
+        onState: (_, state) =>
+            ProfileScreenBody(profile: state, defaultTabIndex: tabIndex),
       ),
     );
   }
@@ -108,13 +143,18 @@ class ProfileScreenBody extends StatefulWidget {
   final Profile profile;
   final int? defaultTabIndex;
 
-  const ProfileScreenBody({super.key, required this.profile, required this.defaultTabIndex});
+  const ProfileScreenBody({
+    super.key,
+    required this.profile,
+    required this.defaultTabIndex,
+  });
 
   @override
   State<StatefulWidget> createState() => _ProfileScreenBodyState();
 }
 
-class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProviderStateMixin {
+class _ProfileScreenBodyState extends State<ProfileScreenBody>
+    with TickerProviderStateMixin {
   static const defaultHeight = 256.12345;
 
   final GlobalKey<NestedScrollViewState> nestedScrollViewKey = GlobalKey();
@@ -123,8 +163,11 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
   // didChangeDependencies replaced the controller (and leaked its ticker)
   // whenever any dependency — theme, keyboard, a pref write — changed, which
   // also snapped the profile back to the first tab.
-  late final TabController _tabController =
-      TabController(length: 3, vsync: this, initialIndex: widget.defaultTabIndex ?? 0);
+  late final TabController _tabController = TabController(
+    length: 3,
+    vsync: this,
+    initialIndex: widget.defaultTabIndex ?? 0,
+  );
 
   bool _showBackToTopButton = false;
 
@@ -153,7 +196,6 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
       nestedScrollViewState.innerController.addListener(_listen);
     });
 
-
     var description = widget.profile.user.description;
     if (description == null || description.isEmpty) {
       descriptionHeight = 0;
@@ -180,7 +222,9 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
     }
 
     // Show the "scroll to top" button if we scroll down a bit, and hide it if we go back above
-    if (nestedScrollViewState.innerController.positions.any((element) => element.pixels >= 400)) {
+    if (nestedScrollViewState.innerController.positions.any(
+      (element) => element.pixels >= 400,
+    )) {
       if (!_showBackToTopButton) {
         setState(() {
           _showBackToTopButton = true;
@@ -200,20 +244,23 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.play_circle_outline),
-            title: Text(L10n.of(sheetContext).videos),
-            selected: _mediaKind == 'media',
-            onTap: () => Navigator.pop(sheetContext, 'media'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_outlined),
-            title: Text(L10n.of(sheetContext).photos),
-            selected: _mediaKind == 'photos',
-            onTap: () => Navigator.pop(sheetContext, 'photos'),
-          ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_circle_outline),
+              title: Text(L10n.of(sheetContext).videos),
+              selected: _mediaKind == 'media',
+              onTap: () => Navigator.pop(sheetContext, 'media'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_outlined),
+              title: Text(L10n.of(sheetContext).photos),
+              selected: _mediaKind == 'photos',
+              onTap: () => Navigator.pop(sheetContext, 'photos'),
+            ),
+          ],
+        ),
       ),
     );
     if (chosen != null && chosen != _mediaKind && mounted) {
@@ -222,9 +269,11 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
   }
 
   void _scrollToTop() {
-    // We scroll the outer controller (the whole nested scroll view and children) to the top
-    // TODO: No animation due to Flutter crashing on huge lists (https://github.com/flutter/flutter/issues/52207) (#607)
-    nestedScrollViewKey.currentState?.outerController.jumpTo(0);
+    final state = nestedScrollViewKey.currentState;
+    if (state == null) return;
+    // No animation due to Flutter crashing on huge lists
+    // (https://github.com/flutter/flutter/issues/52207).
+    scrollProfileToTop(state.innerController, state.outerController);
   }
 
   @override
@@ -242,7 +291,8 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
     var bannerHeight = deviceSize.width * (500 / 1500);
     var avatarHeight = 80;
 
-    var profileImageTop = bannerHeight + 16 - 36 - MediaQuery.paddingOf(context).top;
+    var profileImageTop =
+        bannerHeight + 16 - 36 - MediaQuery.paddingOf(context).top;
     var profileStuffTop = bannerHeight + 36;
 
     var theme = Theme.of(context);
@@ -251,170 +301,260 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
     var bannerImage = banner == null
         ? Container(height: bannerHeight, color: Colors.white)
         : GestureDetector(
-      child: ExtendedImage.network(banner,
-          fit: BoxFit.fitWidth, height: bannerHeight, cacheWidth: decodeWidthFor(context, deviceSize.width)),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                TweetMediaView(
+            child: ExtendedImage.network(
+              banner,
+              fit: BoxFit.fitWidth,
+              height: bannerHeight,
+              cacheWidth: decodeWidthFor(context, deviceSize.width),
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TweetMediaView(
                     initialIndex: 0,
                     media: [createMediaFromUrl(user.profileBannerUrl)],
                     username: user.screenName ?? "Unknown",
-                    tweetMedia: false),
-          ),
-        );
-      },
-    );
+                    tweetMedia: false,
+                  ),
+                ),
+              );
+            },
+          );
 
     // The height of the app bar should be all the inner components, plus any margins
-    var appBarHeight = profileStuffTop + avatarHeight + metadataHeight + 8 + descriptionHeight;
+    var appBarHeight =
+        profileStuffTop + avatarHeight + metadataHeight + 8 + descriptionHeight;
 
     var metadataTextStyle = const TextStyle(fontSize: 12.5);
 
     List<RichTextPart> descParts = [];
     if (user.description != null && user.description!.isNotEmpty) {
-      descParts = buildRichText(context, user.description!, user.entities!.description!);
+      descParts = buildRichText(
+        context,
+        user.description!,
+        user.entities?.description,
+      );
     }
 
     return Scaffold(
-      body: Stack(children: [
-        ExtendedNestedScrollView(
-          key: nestedScrollViewKey,
-          onlyOneScrollInBody: true,
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              SliverAppBar(
+      body: Stack(
+        children: [
+          ExtendedNestedScrollView(
+            key: nestedScrollViewKey,
+            onlyOneScrollInBody: true,
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverAppBar(
                   expandedHeight: appBarHeight,
                   floating: true,
                   pinned: true,
                   snap: false,
                   forceElevated: innerBoxIsScrolled,
                   bottom: AppBar(
-                      automaticallyImplyLeading: false,
-                      backgroundColor: theme.colorScheme.surface,
-                      flexibleSpace: TabBar(
-                        controller: _tabController,
-                        onTap: (index) {
-                          // Tapping the already-open Media tab switches between
-                          // the video timeline and the photo grid, like the
-                          // arrow on the web's tab.
-                          if (profileTabs[index].id == ProfileTabs.media && _tabController.index == index) {
-                            _pickMediaKind();
-                          }
-                        },
-                        tabs: profileTabs.map((t) => t.id == ProfileTabs.media
-                            ? Tab(
-                                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Text(t.titleBuilder(context), textAlign: TextAlign.center),
-                                const Icon(Icons.keyboard_arrow_down, size: 18),
-                              ]))
-                            : Tab(
-                                child: Text(t.titleBuilder(context),
-                                  textAlign: TextAlign.center,
-                                ))).toList(),
-                        dividerColor: Theme
-                            .of(context)
-                            .colorScheme
-                            .surfaceBright
-                            .withAlpha(150),
-                      )),
+                    automaticallyImplyLeading: false,
+                    backgroundColor: theme.colorScheme.surface,
+                    flexibleSpace: TabBar(
+                      controller: _tabController,
+                      onTap: (index) {
+                        // Tapping the already-open Media tab switches between
+                        // the video timeline and the photo grid, like the
+                        // arrow on the web's tab.
+                        if (profileTabs[index].id == ProfileTabs.media &&
+                            _tabController.index == index) {
+                          _pickMediaKind();
+                        }
+                      },
+                      tabs: profileTabs
+                          .map(
+                            (t) => t.id == ProfileTabs.media
+                                ? Tab(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          t.titleBuilder(context),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 18,
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Tab(
+                                    child: Text(
+                                      t.titleBuilder(context),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                          )
+                          .toList(),
+                      dividerColor: Theme.of(context).colorScheme.surfaceBright
+                          .withAlpha(150),
+                    ),
+                  ),
                   flexibleSpace: FlexibleSpaceBar(
                     centerTitle: true,
                     background: SafeArea(
                       top: false,
-                      child: Stack(children: <Widget>[
-                        Container(alignment: Alignment.topCenter, child: bannerImage),
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: <Color>[
-                                theme.colorScheme.surface,
-                                Color.fromARGB(
+                      child: Stack(
+                        children: <Widget>[
+                          Container(
+                            alignment: Alignment.topCenter,
+                            child: bannerImage,
+                          ),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: <Color>[
+                                  theme.colorScheme.surface,
+                                  Color.fromARGB(
                                     100,
-                                    (theme.colorScheme.surface.r * 255.0).round(),
-                                    (theme.colorScheme.surface.g * 255.0).round(),
-                                    (theme.colorScheme.surface.b * 255.0).round())
-                              ],
+                                    (theme.colorScheme.surface.r * 255.0)
+                                        .round(),
+                                    (theme.colorScheme.surface.g * 255.0)
+                                        .round(),
+                                    (theme.colorScheme.surface.b * 255.0)
+                                        .round(),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Flexible(
-                                child: Container(
-                                  margin: EdgeInsets.fromLTRB(16, profileStuffTop, 16, 0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(user.name!,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 0,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Flexible(
+                                  child: Container(
+                                    margin: EdgeInsets.fromLTRB(
+                                      16,
+                                      profileStuffTop,
+                                      16,
+                                      0,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                user.name!,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                                          ),
-                                          if (user.verified ?? false) const SizedBox(width: 6),
-                                          if (user.verified ?? false)
-                                            Icon(Icons.verified, size: 24, color: theme.colorScheme.primary),
-                                          if (user.protected ?? false) const SizedBox(width: 6),
-                                          if (user.protected ?? false)
-                                            Icon(Icons.lock, size: 24, color: theme.colorScheme.primary),
-                                          if (user.followedByViewer ?? false) ...[
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(6),
+                                                style: const TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
                                               ),
-                                              child: Text(L10n.of(context).following,
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: theme.colorScheme.primary)),
                                             ),
-                                          ]
-                                        ],
-                                      ),
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 8),
-                                        child: Text('@${(user.screenName!)}',
-                                            style: TextStyle(
-                                                fontSize: 14,
-                                                // A role, not a light/dark flip: the hand-rolled
-                                                // white/black pair ignores dynamic colour, the
-                                                // seeded palettes and true-black.
-                                                color: theme.colorScheme.onSurfaceVariant)),
-                                      ),
-                                      if (user.description != null && user.description!.isNotEmpty)
-                                        MeasureSize(
-                                          onChange: (size) {
-                                            setState(() {
-                                              descriptionHeight = size.height;
-                                              descriptionResized = true;
-                                            });
-                                          },
-                                          child: Container(
-                                              margin: const EdgeInsets.only(bottom: 8),
-                                              child: SelectableText.rich(
-                                                  minLines: 1,
-                                                  maxLines: 5,
-                                                  TextSpan(
-                                                      style: TextStyle(
-                                                          height: 1.4,
-                                                          color: theme.colorScheme.onSurface),
-                                                      children: displayRichText(descParts)
-                                                  ))),
+                                            if (user.verified ?? false)
+                                              const SizedBox(width: 6),
+                                            if (user.verified ?? false)
+                                              Icon(
+                                                Icons.verified,
+                                                size: 24,
+                                                color:
+                                                    theme.colorScheme.primary,
+                                              ),
+                                            if (user.protected ?? false)
+                                              const SizedBox(width: 6),
+                                            if (user.protected ?? false)
+                                              Icon(
+                                                Icons.lock,
+                                                size: 24,
+                                                color:
+                                                    theme.colorScheme.primary,
+                                              ),
+                                            if (user.followedByViewer ??
+                                                false) ...[
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .primary
+                                                      .withValues(alpha: 0.15),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  L10n.of(context).following,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: theme
+                                                        .colorScheme
+                                                        .primary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
-                                      MeasureSize(
+                                        Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: Text(
+                                            '@${(user.screenName!)}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              // A role, not a light/dark flip: the hand-rolled
+                                              // white/black pair ignores dynamic colour, the
+                                              // seeded palettes and true-black.
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                        if (user.description != null &&
+                                            user.description!.isNotEmpty)
+                                          MeasureSize(
+                                            onChange: (size) {
+                                              setState(() {
+                                                descriptionHeight = size.height;
+                                                descriptionResized = true;
+                                              });
+                                            },
+                                            child: Container(
+                                              margin: const EdgeInsets.only(
+                                                bottom: 8,
+                                              ),
+                                              child: SelectableText.rich(
+                                                minLines: 1,
+                                                maxLines: 5,
+                                                TextSpan(
+                                                  style: TextStyle(
+                                                    height: 1.4,
+                                                    color: theme
+                                                        .colorScheme
+                                                        .onSurface,
+                                                  ),
+                                                  children: displayRichText(
+                                                    descParts,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        MeasureSize(
                                           onChange: (size) {
                                             setState(() {
                                               metadataHeight = size.height;
@@ -422,262 +562,476 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody> with TickerProvid
                                             });
                                           },
                                           child: Padding(
-                                            padding: const EdgeInsets.only(bottom: 8.0),
+                                            padding: const EdgeInsets.only(
+                                              bottom: 8.0,
+                                            ),
                                             child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.end,
-                                                children: [
-                                                  Scrollbar(
-                                                      child: SingleChildScrollView(
-                                                          scrollDirection: Axis.horizontal,
-                                                          child: Row(children: [
-                                                            if (user.location != null && user.location!.isNotEmpty)
-                                                              Padding(
-                                                                padding: const EdgeInsets.symmetric(
-                                                                    vertical: 2, horizontal: 0),
-                                                                child: Row(
-                                                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                                                  children: [
-                                                                    Icon(Icons.location_on,
-                                                                        size: 12,
-                                                                        color: theme.colorScheme.onSurface),
-                                                                    const SizedBox(width: 4),
-                                                                    Text(user.location!, style: metadataTextStyle),
-                                                                    const SizedBox(
-                                                                      width: 8,
-                                                                    ),
-                                                                  ],
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
+                                              children: [
+                                                Scrollbar(
+                                                  child: SingleChildScrollView(
+                                                    scrollDirection:
+                                                        Axis.horizontal,
+                                                    child: Row(
+                                                      children: [
+                                                        if (user.location !=
+                                                                null &&
+                                                            user
+                                                                .location!
+                                                                .isNotEmpty)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  vertical: 2,
+                                                                  horizontal: 0,
                                                                 ),
-                                                              ),
-                                                            if (user.url != null && user.url!.isNotEmpty)
-                                                              Padding(
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                      vertical: 2, horizontal: 0),
-                                                                  child: Row(
-                                                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                                                    children: [
-                                                                      Icon(Icons.link,
-                                                                          size: 12,
-                                                                          color: theme.colorScheme.onSurface),
-                                                                      const SizedBox(width: 4),
-                                                                      Builder(builder: (context) {
-                                                                        var url = user.entities?.url?.urls?.firstWhere(
-                                                                            (element) => element.url == user.url);
-
-                                                                        if (url == null) {
-                                                                          return Container();
-                                                                        }
-
-                                                                        var displayUrl = url.displayUrl ?? url.url;
-                                                                        var expandedUrl = url.expandedUrl ?? url.url;
-
-                                                                        var textStyle = metadataTextStyle;
-                                                                        if (displayUrl == null || expandedUrl == null) {
-                                                                          return Text(L10n.current.unsupported_url,
-                                                                              style: textStyle.copyWith(
-                                                                                  color: theme.hintColor));
-                                                                        }
-
-                                                                        return InkWell(
-                                                                          child: Text(displayUrl,
-                                                                              style: textStyle.copyWith(
-                                                                                  color: Theme.of(context)
-                                                                                      .colorScheme
-                                                                                      .primary)),
-                                                                          onTap: () => openUri(context, expandedUrl),
+                                                            child: Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .location_on,
+                                                                  size: 12,
+                                                                  color: theme
+                                                                      .colorScheme
+                                                                      .onSurface,
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 4,
+                                                                ),
+                                                                Text(
+                                                                  user.location!,
+                                                                  style:
+                                                                      metadataTextStyle,
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 8,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        if (user.url != null &&
+                                                            user
+                                                                .url!
+                                                                .isNotEmpty)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  vertical: 2,
+                                                                  horizontal: 0,
+                                                                ),
+                                                            child: Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons.link,
+                                                                  size: 12,
+                                                                  color: theme
+                                                                      .colorScheme
+                                                                      .onSurface,
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 4,
+                                                                ),
+                                                                Builder(
+                                                                  builder: (context) {
+                                                                    var url = user
+                                                                        .entities
+                                                                        ?.url
+                                                                        ?.urls
+                                                                        ?.firstWhereOrNull(
+                                                                          (
+                                                                            element,
+                                                                          ) =>
+                                                                              element.url ==
+                                                                              user.url,
                                                                         );
-                                                                      }),
-                                                                      const SizedBox(
-                                                                        width: 8,
+
+                                                                    if (url ==
+                                                                        null) {
+                                                                      return Container();
+                                                                    }
+
+                                                                    var displayUrl =
+                                                                        url.displayUrl ??
+                                                                        url.url;
+                                                                    var expandedUrl =
+                                                                        url.expandedUrl ??
+                                                                        url.url;
+
+                                                                    var textStyle =
+                                                                        metadataTextStyle;
+                                                                    if (displayUrl ==
+                                                                            null ||
+                                                                        expandedUrl ==
+                                                                            null) {
+                                                                      return Text(
+                                                                        L10n
+                                                                            .current
+                                                                            .unsupported_url,
+                                                                        style: textStyle.copyWith(
+                                                                          color:
+                                                                              theme.hintColor,
+                                                                        ),
+                                                                      );
+                                                                    }
+
+                                                                    return InkWell(
+                                                                      child: Text(
+                                                                        displayUrl,
+                                                                        style: textStyle.copyWith(
+                                                                          color: Theme.of(
+                                                                            context,
+                                                                          ).colorScheme.primary,
+                                                                        ),
                                                                       ),
-                                                                    ],
-                                                                  )),
-                                                            if (user.createdAt != null)
-                                                              Padding(
-                                                                padding: const EdgeInsets.symmetric(
-                                                                    vertical: 2, horizontal: 0),
-                                                                child: Row(
-                                                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                                                  children: [
-                                                                    Icon(Icons.calendar_today,
-                                                                        size: 12,
-                                                                        color: theme.colorScheme.onSurface),
-                                                                    const SizedBox(width: 4),
-                                                                    Text(
-                                                                        L10n.of(context).joined(DateFormat('MMMM yyyy')
-                                                                            .format(user.createdAt!)),
-                                                                        style: metadataTextStyle),
-                                                                  ],
+                                                                      onTap: () => openUri(
+                                                                        context,
+                                                                        expandedUrl,
+                                                                      ),
+                                                                    );
+                                                                  },
                                                                 ),
-                                                              ),
-                                                          ]))),
-                                                  Scrollbar(
-                                                      child: SingleChildScrollView(
-                                                          scrollDirection: Axis.horizontal,
-                                                          child: Row(
-                                                            children: [
-                                                              if (user.friendsCount != null)
-                                                                InkWell(
-                                                                    onTap: () => Navigator.of(context).push(
-                                                                        MaterialPageRoute(
-                                                                            builder: ((context) => ProfileFollows(
-                                                                                user: user, type: 'following')))),
-                                                                    child: Padding(
-                                                                      padding: const EdgeInsets.symmetric(
-                                                                          vertical: 2, horizontal: 0),
-                                                                      child: Row(
-                                                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                                                        children: [
-                                                                          Icon(Icons.person,
-                                                                              size: 12,
-                                                                              color: theme.colorScheme.onSurface),
-                                                                          const SizedBox(width: 4),
-                                                                          Text.rich(TextSpan(children: [
-                                                                            TextSpan(
-                                                                                text: numberFormat.format(
-                                                                                    widget.profile.user.friendsCount),
-                                                                                style: metadataTextStyle.copyWith(
-                                                                                    fontWeight: FontWeight.w500)),
-                                                                            TextSpan(
-                                                                                text:
-                                                                                    ' ${L10n.current.following.toLowerCase()}',
-                                                                                style: metadataTextStyle)
-                                                                          ])),
-                                                                          const SizedBox(
-                                                                            width: 8,
+                                                                const SizedBox(
+                                                                  width: 8,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        if (user.createdAt !=
+                                                            null)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  vertical: 2,
+                                                                  horizontal: 0,
+                                                                ),
+                                                            child: Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .calendar_today,
+                                                                  size: 12,
+                                                                  color: theme
+                                                                      .colorScheme
+                                                                      .onSurface,
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 4,
+                                                                ),
+                                                                Text(
+                                                                  L10n.of(
+                                                                    context,
+                                                                  ).joined(
+                                                                    DateFormat(
+                                                                      'MMMM yyyy',
+                                                                    ).format(
+                                                                      user.createdAt!,
+                                                                    ),
+                                                                  ),
+                                                                  style:
+                                                                      metadataTextStyle,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                                Scrollbar(
+                                                  child: SingleChildScrollView(
+                                                    scrollDirection:
+                                                        Axis.horizontal,
+                                                    child: Row(
+                                                      children: [
+                                                        if (user.friendsCount !=
+                                                            null)
+                                                          InkWell(
+                                                            onTap: () =>
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute(
+                                                                    builder:
+                                                                        ((
+                                                                          context,
+                                                                        ) => ProfileFollows(
+                                                                          user:
+                                                                              user,
+                                                                          type: 'following',
+                                                                        )),
+                                                                  ),
+                                                                ),
+                                                            child: Padding(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    vertical: 2,
+                                                                    horizontal:
+                                                                        0,
+                                                                  ),
+                                                              child: Row(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .center,
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons
+                                                                        .person,
+                                                                    size: 12,
+                                                                    color: theme
+                                                                        .colorScheme
+                                                                        .onSurface,
+                                                                  ),
+                                                                  const SizedBox(
+                                                                    width: 4,
+                                                                  ),
+                                                                  Text.rich(
+                                                                    TextSpan(
+                                                                      children: [
+                                                                        TextSpan(
+                                                                          text: numberFormat.format(
+                                                                            widget.profile.user.friendsCount,
                                                                           ),
-                                                                        ],
-                                                                      ),
-                                                                    )),
-                                                              if (user.followersCount != null)
-                                                                InkWell(
-                                                                    onTap: () => Navigator.of(context).push(
-                                                                        MaterialPageRoute(
-                                                                            builder: ((context) => ProfileFollows(
-                                                                                user: user, type: 'followers')))),
-                                                                    child: Padding(
-                                                                      padding: const EdgeInsets.symmetric(
-                                                                          vertical: 2, horizontal: 0),
-                                                                      child: Row(
-                                                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                                                        children: [
-                                                                          Icon(Icons.person,
-                                                                              size: 12,
-                                                                              color: theme.colorScheme.onSurface),
-                                                                          const SizedBox(width: 4),
-                                                                          Text.rich(TextSpan(children: [
-                                                                            TextSpan(
-                                                                                text: numberFormat.format(
-                                                                                    widget.profile.user.followersCount),
-                                                                                style: metadataTextStyle.copyWith(
-                                                                                    fontWeight: FontWeight.w500)),
-                                                                            TextSpan(
-                                                                                text:
-                                                                                    ' ${L10n.current.followers.toLowerCase()}',
-                                                                                style: metadataTextStyle)
-                                                                          ])),
-                                                                        ],
-                                                                      ),
-                                                                    )),
-                                                            ],
-                                                          )))
-                                                ]),
-                                          )),
-                                    ],
+                                                                          style: metadataTextStyle.copyWith(
+                                                                            fontWeight:
+                                                                                FontWeight.w500,
+                                                                          ),
+                                                                        ),
+                                                                        TextSpan(
+                                                                          text:
+                                                                              ' ${L10n.current.following.toLowerCase()}',
+                                                                          style:
+                                                                              metadataTextStyle,
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(
+                                                                    width: 8,
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        if (user.followersCount !=
+                                                            null)
+                                                          InkWell(
+                                                            onTap: () =>
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute(
+                                                                    builder:
+                                                                        ((
+                                                                          context,
+                                                                        ) => ProfileFollows(
+                                                                          user:
+                                                                              user,
+                                                                          type: 'followers',
+                                                                        )),
+                                                                  ),
+                                                                ),
+                                                            child: Padding(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    vertical: 2,
+                                                                    horizontal:
+                                                                        0,
+                                                                  ),
+                                                              child: Row(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .center,
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons
+                                                                        .person,
+                                                                    size: 12,
+                                                                    color: theme
+                                                                        .colorScheme
+                                                                        .onSurface,
+                                                                  ),
+                                                                  const SizedBox(
+                                                                    width: 4,
+                                                                  ),
+                                                                  Text.rich(
+                                                                    TextSpan(
+                                                                      children: [
+                                                                        TextSpan(
+                                                                          text: numberFormat.format(
+                                                                            widget.profile.user.followersCount,
+                                                                          ),
+                                                                          style: metadataTextStyle.copyWith(
+                                                                            fontWeight:
+                                                                                FontWeight.w500,
+                                                                          ),
+                                                                        ),
+                                                                        TextSpan(
+                                                                          text:
+                                                                              ' ${L10n.current.followers.toLowerCase()}',
+                                                                          style:
+                                                                              metadataTextStyle,
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        Container(
-                          alignment: Alignment.topRight,
-                          margin: EdgeInsets.fromLTRB(128, profileImageTop + 64, 16, 16),
-                          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                            IconButton(
-                              icon: const Icon(Icons.search),
-                              color: theme.colorScheme.primary,
-                              onPressed: () => Navigator.pushNamed(context, routeSearch,
-                                  arguments: SearchArguments(1,
-                                      query: 'from:@${(user.screenName!)} ')),
+                          Container(
+                            alignment: Alignment.topRight,
+                            margin: EdgeInsets.fromLTRB(
+                              128,
+                              profileImageTop + 64,
+                              16,
+                              16,
                             ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.share,
-                                color: theme.colorScheme.primary,
-                              ),
-                              onPressed: () =>
-                                  SharePlus.instance.share(ShareParams(text: "$shareLinkBase/${user.screenName}")),
-                            ),
-                          ]),
-                        ),
-                        Container(
-                          alignment: Alignment.topLeft,
-                          margin: EdgeInsets.fromLTRB(16, profileImageTop, 16, 16),
-                          child: CircleAvatar(
-                            radius: 50,
-                            // A role, not Colors.white: a hardcoded white disc
-                            // draws itself on top of a true-black screen.
-                            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                            child: GestureDetector(
-                              child: UserAvatar(uri: user.profileImageUrlHttps, size: 96),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        TweetMediaView(
-                                            initialIndex: 0,
-                                            media: [createMediaFromUrl(user.profileImageUrlHttps?.replaceAll("_normal", "_400x400"))],
-                                            username: user.screenName ?? "Unknown",
-                                            tweetMedia: false),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.search),
+                                  color: theme.colorScheme.primary,
+                                  onPressed: () => Navigator.pushNamed(
+                                    context,
+                                    routeSearch,
+                                    arguments: SearchArguments(
+                                      1,
+                                      query: 'from:@${(user.screenName!)} ',
+                                    ),
                                   ),
-                                );
-                              },
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.share,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  onPressed: () => SharePlus.instance.share(
+                                    ShareParams(
+                                      text: "$shareLinkBase/${user.screenName}",
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        )
-                      ]),
+                          Container(
+                            alignment: Alignment.topLeft,
+                            margin: EdgeInsets.fromLTRB(
+                              16,
+                              profileImageTop,
+                              16,
+                              16,
+                            ),
+                            child: CircleAvatar(
+                              radius: 50,
+                              // A role, not Colors.white: a hardcoded white disc
+                              // draws itself on top of a true-black screen.
+                              backgroundColor:
+                                  theme.colorScheme.surfaceContainerHighest,
+                              child: GestureDetector(
+                                child: UserAvatar(
+                                  uri: user.profileImageUrlHttps,
+                                  size: 96,
+                                ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => TweetMediaView(
+                                        initialIndex: 0,
+                                        media: [
+                                          createMediaFromUrl(
+                                            user.profileImageUrlHttps
+                                                ?.replaceAll(
+                                                  "_normal",
+                                                  "_400x400",
+                                                ),
+                                          ),
+                                        ],
+                                        username: user.screenName ?? "Unknown",
+                                        tweetMedia: false,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ))
-            ];
-          },
-          body: TweetContextScope(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                ProfileTweets(
+                  ),
+                ),
+              ];
+            },
+            body: TweetContextScope(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  ProfileTweets(
                     user: user,
                     type: 'profile',
                     includeReplies: false,
-                    pinnedTweets: widget.profile.pinnedTweets),
-                ProfileTweets(
+                    pinnedTweets: widget.profile.pinnedTweets,
+                  ),
+                  ProfileTweets(
                     user: user,
                     type: 'profile',
                     includeReplies: true,
-                    pinnedTweets: widget.profile.pinnedTweets),
-                ProfileMediaGrid(
+                    pinnedTweets: widget.profile.pinnedTweets,
+                  ),
+                  ProfileMediaGrid(
                     key: ValueKey('profile.media.$_mediaKind'),
                     user: user,
-                    mediaKind: _mediaKind),
-              ],
+                    mediaKind: _mediaKind,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
 
-        // If we haven't resized the description widget yet, display an overlay container so we don't see the resize
-        // TODO: This flickers
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 150),
-          child: descriptionResized == true && metadataResized == true
-              ? Container(key: const Key('loaded'))
-              : Container(
-                  key: const Key('waiting'),
-                  height: double.infinity,
-                  color: theme.colorScheme.surface,
-                ),
-        )
-      ]),
+          // If we haven't resized the description widget yet, display an overlay container so we don't see the resize
+          // TODO: This flickers
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: descriptionResized == true && metadataResized == true
+                ? Container(key: const Key('loaded'))
+                : Container(
+                    key: const Key('waiting'),
+                    height: double.infinity,
+                    color: theme.colorScheme.surface,
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: _showBackToTopButton == false
           ? null
           : FloatingActionButton(
@@ -698,4 +1052,3 @@ class TweetContextState extends ChangeNotifier {
     notifyListeners();
   }
 }
-

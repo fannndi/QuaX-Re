@@ -25,7 +25,8 @@ const String tableSavedTweetFolder = 'saved_tweet_folder';
 const String tableLikedTweet = 'liked_tweet';
 const String tableAccountLike = 'account_like';
 const String tableSearchSubscription = 'search_subscription';
-const String tableSearchSubscriptionGroupMember = 'search_subscription_group_member';
+const String tableSearchSubscriptionGroupMember =
+    'search_subscription_group_member';
 const String tableSubscription = 'subscription';
 const String tableSubscriptionGroup = 'subscription_group';
 const String tableSubscriptionGroupMember = 'subscription_group_member';
@@ -49,10 +50,14 @@ const String columnProfileFetchedAt = 'profile_fetched_at';
 /// Creates each index only when its table exists: a restored or partially
 /// upgraded database may be missing a table an earlier step should have made.
 Future<void> _createIndexesIfTableExists(
-    DatabaseExecutor db, List<(String, String, String)> specs) async {
+  DatabaseExecutor db,
+  List<(String, String, String)> specs,
+) async {
   for (final (index, table, columns) in specs) {
-    final exists =
-        await db.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
+    final exists = await db.rawQuery(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [table],
+    );
     if (exists.isEmpty) continue;
     await db.execute('CREATE INDEX IF NOT EXISTS $index ON $table ($columns)');
   }
@@ -80,7 +85,12 @@ Future<void> backfillSavedTweetUserIds(DatabaseExecutor db) async {
       if (user is! Map) continue;
       final userId = user['id_str'] as String?;
       if (userId != null) {
-        batch.update(tableSavedTweet, {'user_id': userId}, where: 'id = ?', whereArgs: [tweet['id']]);
+        batch.update(
+          tableSavedTweet,
+          {'user_id': userId},
+          where: 'id = ?',
+          whereArgs: [tweet['id']],
+        );
       }
     } catch (_) {
       continue;
@@ -91,7 +101,10 @@ Future<void> backfillSavedTweetUserIds(DatabaseExecutor db) async {
 }
 
 Future<bool> _tableExists(DatabaseExecutor db, String table) async {
-  final rows = await db.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
+  final rows = await db.rawQuery(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+    [table],
+  );
   return rows.isNotEmpty;
 }
 
@@ -102,14 +115,21 @@ Future<bool> _tableExists(DatabaseExecutor db, String table) async {
 Future<void> backfillAccountLocalIds(DatabaseExecutor db) async {
   if (!await _tableExists(db, tableAccounts)) return;
 
-  final accounts = await db.query(tableAccounts, columns: ['id', columnLocalId]);
+  final accounts = await db.query(
+    tableAccounts,
+    columns: ['id', columnLocalId],
+  );
   final uuid = const Uuid();
   final batch = db.batch();
 
   for (final account in accounts) {
     if (account[columnLocalId] != null) continue;
-    batch.update(tableAccounts, {columnLocalId: uuid.v4()},
-        where: 'id = ?', whereArgs: [account['id']]);
+    batch.update(
+      tableAccounts,
+      {columnLocalId: uuid.v4()},
+      where: 'id = ?',
+      whereArgs: [account['id']],
+    );
   }
 
   await batch.commit();
@@ -124,20 +144,32 @@ Future<void> backfillAccountLikes(DatabaseExecutor db) async {
   if (!await _tableExists(db, tableLikedTweet)) return;
   if (!await _tableExists(db, tableAccountLike)) return;
 
-  var owner = await db.query(tableAccounts,
-      columns: [columnLocalId], where: 'is_active = 1', limit: 1);
+  var owner = await db.query(
+    tableAccounts,
+    columns: [columnLocalId],
+    where: 'is_active = 1',
+    limit: 1,
+  );
   if (owner.isEmpty || owner.first[columnLocalId] == null) {
-    owner = await db.query(tableAccounts, columns: [columnLocalId], orderBy: 'rowid', limit: 1);
+    owner = await db.query(
+      tableAccounts,
+      columns: [columnLocalId],
+      orderBy: 'rowid',
+      limit: 1,
+    );
   }
   final localId = owner.isEmpty ? null : owner.first[columnLocalId] as String?;
   if (localId == null) return;
 
-  await db.rawInsert('''
+  await db.rawInsert(
+    '''
     INSERT OR IGNORE INTO $tableAccountLike
       ($columnAccountLocalId, $columnTweetId, $columnLikedAt)
     SELECT ?, id, COALESCE($columnLikedAt, CURRENT_TIMESTAMP)
     FROM $tableLikedTweet
-  ''', [localId]);
+  ''',
+    [localId],
+  );
 }
 
 class Repository {
@@ -152,7 +184,11 @@ class Repository {
   /// life of the process. The connection is closed in a `finally`, so a query
   /// that throws does not leak one either.
   static Future<T> read<T>(Future<T> Function(Database db) query) async {
-    final db = await openDatabase(databaseName, readOnly: true, singleInstance: false);
+    final db = await openDatabase(
+      databaseName,
+      readOnly: true,
+      singleInstance: false,
+    );
     try {
       return await query(db);
     } finally {
@@ -175,86 +211,130 @@ class Repository {
     MigrationPlan myMigrationPlan = MigrationPlan({
       2: [
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS following (id INTEGER PRIMARY KEY, screen_name VARCHAR, name VARCHAR, profile_image_url_https VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
+          'CREATE TABLE IF NOT EXISTS following (id INTEGER PRIMARY KEY, screen_name VARCHAR, name VARCHAR, profile_image_url_https VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+        ),
       ],
       3: [
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS following_group (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, icon VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
-        SqlMigration('CREATE TABLE IF NOT EXISTS following_group_profile (group_id INTEGER, profile_id INTEGER)')
+          'CREATE TABLE IF NOT EXISTS following_group (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, icon VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+        ),
+        SqlMigration(
+          'CREATE TABLE IF NOT EXISTS following_group_profile (group_id INTEGER, profile_id INTEGER)',
+        ),
       ],
       4: [
         // Change the following table's "id" field to be a VARCHAR
         SqlMigration('ALTER TABLE following RENAME TO following_old'),
         SqlMigration(
-            'CREATE TABLE following (id VARCHAR PRIMARY KEY, screen_name VARCHAR, name VARCHAR, profile_image_url_https VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
+          'CREATE TABLE following (id VARCHAR PRIMARY KEY, screen_name VARCHAR, name VARCHAR, profile_image_url_https VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+        ),
         SqlMigration(
-            'INSERT INTO following (id, screen_name, name, profile_image_url_https, created_at) SELECT id, screen_name, name, profile_image_url_https, created_at FROM following_old'),
-        SqlMigration('DROP TABLE following_old')
+          'INSERT INTO following (id, screen_name, name, profile_image_url_https, created_at) SELECT id, screen_name, name, profile_image_url_https, created_at FROM following_old',
+        ),
+        SqlMigration('DROP TABLE following_old'),
       ],
       5: [
         // Change the following_group_profile table's "profile_id" field to be a VARCHAR to match the referenced table
-        SqlMigration('ALTER TABLE following_group_profile RENAME TO following_group_profile_old'),
-        SqlMigration('CREATE TABLE following_group_profile (group_id INTEGER, profile_id VARCHAR)'),
         SqlMigration(
-            'INSERT INTO following_group_profile (group_id, profile_id) SELECT group_id, profile_id FROM following_group_profile_old'),
-        SqlMigration('DROP TABLE following_group_profile_old')
+          'ALTER TABLE following_group_profile RENAME TO following_group_profile_old',
+        ),
+        SqlMigration(
+          'CREATE TABLE following_group_profile (group_id INTEGER, profile_id VARCHAR)',
+        ),
+        SqlMigration(
+          'INSERT INTO following_group_profile (group_id, profile_id) SELECT group_id, profile_id FROM following_group_profile_old',
+        ),
+        SqlMigration('DROP TABLE following_group_profile_old'),
       ],
       6: [
         // Rename the old following tables to match the names in the UI
         SqlMigration('ALTER TABLE following RENAME TO $tableSubscription'),
-        SqlMigration('ALTER TABLE following_group RENAME TO $tableSubscriptionGroup'),
-        SqlMigration('ALTER TABLE following_group_profile RENAME TO $tableSubscriptionGroupMember'),
+        SqlMigration(
+          'ALTER TABLE following_group RENAME TO $tableSubscriptionGroup',
+        ),
+        SqlMigration(
+          'ALTER TABLE following_group_profile RENAME TO $tableSubscriptionGroupMember',
+        ),
       ],
       7: [
         // Add the table for saved tweets
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableSavedTweet (id VARCHAR PRIMARY KEY, content TEXT NOT NULL, saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-            reverseSql: 'DROP TABLE $tableSavedTweet')
+          'CREATE TABLE IF NOT EXISTS $tableSavedTweet (id VARCHAR PRIMARY KEY, content TEXT NOT NULL, saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+          reverseSql: 'DROP TABLE $tableSavedTweet',
+        ),
       ],
       8: [
         // Add a primary key to the $TABLE_SUBSCRIPTION_GROUP_MEMBER table to prevent duplicates
-        SqlMigration('ALTER TABLE $tableSubscriptionGroupMember RENAME TO ${tableSubscriptionGroupMember}_old'),
         SqlMigration(
-            'CREATE TABLE $tableSubscriptionGroupMember (group_id INTEGER, profile_id VARCHAR, CONSTRAINT pk_$tableSubscriptionGroupMember PRIMARY KEY (group_id, profile_id))'),
+          'ALTER TABLE $tableSubscriptionGroupMember RENAME TO ${tableSubscriptionGroupMember}_old',
+        ),
         SqlMigration(
-            'INSERT INTO $tableSubscriptionGroupMember (group_id, profile_id) SELECT group_id, profile_id FROM ${tableSubscriptionGroupMember}_old'),
-        SqlMigration('DROP TABLE ${tableSubscriptionGroupMember}_old')
+          'CREATE TABLE $tableSubscriptionGroupMember (group_id INTEGER, profile_id VARCHAR, CONSTRAINT pk_$tableSubscriptionGroupMember PRIMARY KEY (group_id, profile_id))',
+        ),
+        SqlMigration(
+          'INSERT OR IGNORE INTO $tableSubscriptionGroupMember (group_id, profile_id) SELECT DISTINCT group_id, profile_id FROM ${tableSubscriptionGroupMember}_old',
+        ),
+        SqlMigration('DROP TABLE ${tableSubscriptionGroupMember}_old'),
       ],
       9: [
         // Add a new ID field for subscription groups for a UUID to determine uniqueness across devices
-        SqlMigration('ALTER TABLE $tableSubscriptionGroup ADD COLUMN uuid VARCHAR NULL'),
-        SqlMigration('ALTER TABLE $tableSubscriptionGroupMember ADD COLUMN group_uuid VARCHAR NULL'),
+        SqlMigration(
+          'ALTER TABLE $tableSubscriptionGroup ADD COLUMN uuid VARCHAR NULL',
+        ),
+        SqlMigration(
+          'ALTER TABLE $tableSubscriptionGroupMember ADD COLUMN group_uuid VARCHAR NULL',
+        ),
 
         // Generate a UUID for each existing subscription group
-        Migration(Operation((db) async {
-          var uuid = const Uuid();
+        Migration(
+          Operation((db) async {
+            var uuid = const Uuid();
 
-          // Update the existing subscription group and all of its members with the new ID
-          var groups = await db.query(tableSubscriptionGroup);
-          for (var group in groups) {
-            var oldId = group['id'];
-            var newId = uuid.v4();
+            // Update the existing subscription group and all of its members with the new ID
+            var groups = await db.query(tableSubscriptionGroup);
+            for (var group in groups) {
+              var oldId = group['id'];
+              var newId = uuid.v4();
 
-            // Awaited: the next step inserts `SELECT uuid, ...`, so an update
-            // still in flight would materialise NULL ids for these groups.
-            await db.update(tableSubscriptionGroup, {'uuid': newId}, where: 'id = ?', whereArgs: [oldId]);
+              // Awaited: the next step inserts `SELECT uuid, ...`, so an update
+              // still in flight would materialise NULL ids for these groups.
+              await db.update(
+                tableSubscriptionGroup,
+                {'uuid': newId},
+                where: 'id = ?',
+                whereArgs: [oldId],
+              );
 
-            await db.update(tableSubscriptionGroupMember, {'group_uuid': newId}, where: 'group_id = ?', whereArgs: [oldId]);
-          }
-        })),
+              await db.update(
+                tableSubscriptionGroupMember,
+                {'group_uuid': newId},
+                where: 'group_id = ?',
+                whereArgs: [oldId],
+              );
+            }
+          }),
+        ),
 
         // Replace the old ID fields with the new ones
-        SqlMigration('ALTER TABLE $tableSubscriptionGroup RENAME TO ${tableSubscriptionGroup}_old'),
         SqlMigration(
-            'CREATE TABLE $tableSubscriptionGroup (id VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, icon VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
+          'ALTER TABLE $tableSubscriptionGroup RENAME TO ${tableSubscriptionGroup}_old',
+        ),
         SqlMigration(
-            'INSERT INTO $tableSubscriptionGroup (id, name, icon, created_at) SELECT uuid, name, icon, created_at FROM ${tableSubscriptionGroup}_old'),
+          'CREATE TABLE $tableSubscriptionGroup (id VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, icon VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+        ),
+        SqlMigration(
+          'INSERT INTO $tableSubscriptionGroup (id, name, icon, created_at) SELECT uuid, name, icon, created_at FROM ${tableSubscriptionGroup}_old',
+        ),
 
-        SqlMigration('ALTER TABLE $tableSubscriptionGroupMember RENAME TO ${tableSubscriptionGroupMember}_old'),
         SqlMigration(
-            'CREATE TABLE $tableSubscriptionGroupMember (group_id VARCHAR, profile_id VARCHAR, CONSTRAINT pk_$tableSubscriptionGroupMember PRIMARY KEY (group_id, profile_id))'),
+          'ALTER TABLE $tableSubscriptionGroupMember RENAME TO ${tableSubscriptionGroupMember}_old',
+        ),
         SqlMigration(
-            'INSERT INTO $tableSubscriptionGroupMember (group_id, profile_id) SELECT group_uuid, profile_id FROM ${tableSubscriptionGroupMember}_old'),
+          'CREATE TABLE $tableSubscriptionGroupMember (group_id VARCHAR, profile_id VARCHAR, CONSTRAINT pk_$tableSubscriptionGroupMember PRIMARY KEY (group_id, profile_id))',
+        ),
+        SqlMigration(
+          'INSERT INTO $tableSubscriptionGroupMember (group_id, profile_id) SELECT group_uuid, profile_id FROM ${tableSubscriptionGroupMember}_old',
+        ),
       ],
       10: [
         // Drop the old subscription group tables now that we've replaced the IDs
@@ -263,221 +343,361 @@ class Repository {
       ],
       11: [
         // Add columns for the subscription group settings
-        SqlMigration('ALTER TABLE $tableSubscriptionGroup ADD COLUMN include_replies BOOLEAN DEFAULT true'),
-        SqlMigration('ALTER TABLE $tableSubscriptionGroup ADD COLUMN include_retweets BOOLEAN DEFAULT true')
+        SqlMigration(
+          'ALTER TABLE $tableSubscriptionGroup ADD COLUMN include_replies BOOLEAN DEFAULT true',
+        ),
+        SqlMigration(
+          'ALTER TABLE $tableSubscriptionGroup ADD COLUMN include_retweets BOOLEAN DEFAULT true',
+        ),
       ],
       12: [
         // Insert a dummy record for the "All" subscription group
-        Migration(Operation((db) async {
-          await db.insert(tableSubscriptionGroup, {'id': '-1', 'name': 'All', 'icon': 'rss_feed'},
-              conflictAlgorithm: ConflictAlgorithm.replace);
-        }), reverse: Operation((db) async {
-          await db.delete(tableSubscriptionGroup, where: 'id = ?', whereArgs: ['-1']);
-        })),
+        Migration(
+          Operation((db) async {
+            await db.insert(tableSubscriptionGroup, {
+              'id': '-1',
+              'name': 'All',
+              'icon': 'rss_feed',
+            }, conflictAlgorithm: ConflictAlgorithm.replace);
+          }),
+          reverse: Operation((db) async {
+            await db.delete(
+              tableSubscriptionGroup,
+              where: 'id = ?',
+              whereArgs: ['-1'],
+            );
+          }),
+        ),
       ],
       13: [
         // Duplicate migration 12, as some people had deleted the "All" group when it displayed twice in the groups list
-        Migration(Operation((db) async {
-          await db.insert(tableSubscriptionGroup, {'id': '-1', 'name': 'All', 'icon': 'rss_feed'},
-              conflictAlgorithm: ConflictAlgorithm.replace);
-        }), reverse: Operation((db) async {
-          await db.delete(tableSubscriptionGroup, where: 'id = ?', whereArgs: ['-1']);
-        })),
+        Migration(
+          Operation((db) async {
+            await db.insert(tableSubscriptionGroup, {
+              'id': '-1',
+              'name': 'All',
+              'icon': 'rss_feed',
+            }, conflictAlgorithm: ConflictAlgorithm.replace);
+          }),
+          reverse: Operation((db) async {
+            await db.delete(
+              tableSubscriptionGroup,
+              where: 'id = ?',
+              whereArgs: ['-1'],
+            );
+          }),
+        ),
       ],
       14: [
         // Add a "verified" column to the subscriptions table
-        SqlMigration('ALTER TABLE $tableSubscription ADD COLUMN verified BOOLEAN DEFAULT 0',
-            reverseSql: 'ALTER TABLE $tableSubscription DROP COLUMN verified')
+        SqlMigration(
+          'ALTER TABLE $tableSubscription ADD COLUMN verified BOOLEAN DEFAULT 0',
+          reverseSql: 'ALTER TABLE $tableSubscription DROP COLUMN verified',
+        ),
       ],
       15: [
         // Re-apply migration 14 in a different way, as it looks like it didn't apply for some people
-        SqlMigration('ALTER TABLE $tableSubscription RENAME TO ${tableSubscription}_old'),
         SqlMigration(
-            'CREATE TABLE $tableSubscription (id VARCHAR PRIMARY KEY, screen_name VARCHAR, name VARCHAR, profile_image_url_https VARCHAR, verified BOOLEAN DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
+          'ALTER TABLE $tableSubscription RENAME TO ${tableSubscription}_old',
+        ),
         SqlMigration(
-            'INSERT INTO $tableSubscription (id, screen_name, name, profile_image_url_https, created_at) SELECT id, screen_name, name, profile_image_url_https, created_at FROM ${tableSubscription}_old'),
+          'CREATE TABLE $tableSubscription (id VARCHAR PRIMARY KEY, screen_name VARCHAR, name VARCHAR, profile_image_url_https VARCHAR, verified BOOLEAN DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+        ),
+        SqlMigration(
+          'INSERT INTO $tableSubscription (id, screen_name, name, profile_image_url_https, created_at) SELECT id, screen_name, name, profile_image_url_https, created_at FROM ${tableSubscription}_old',
+        ),
         SqlMigration('DROP TABLE ${tableSubscription}_old'),
       ],
       16: [
         // Add a "color" column to the subscription groups table, and set a default icon for existing groups
-        SqlMigration('ALTER TABLE $tableSubscriptionGroup ADD COLUMN color INT DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableSubscriptionGroup DROP COLUMN color'),
+        SqlMigration(
+          'ALTER TABLE $tableSubscriptionGroup ADD COLUMN color INT DEFAULT NULL',
+          reverseSql: 'ALTER TABLE $tableSubscriptionGroup DROP COLUMN color',
+        ),
 
-        Migration(Operation((db) async {
-          await db.update(tableSubscriptionGroup, {'icon': defaultGroupIcon},
-              where: "icon IS NULL OR icon = '' OR icon = ?", whereArgs: ['rss_feed']);
-        }))
+        Migration(
+          Operation((db) async {
+            await db.update(
+              tableSubscriptionGroup,
+              {'icon': defaultGroupIcon},
+              where: "icon IS NULL OR icon = '' OR icon = ?",
+              whereArgs: ['rss_feed'],
+            );
+          }),
+        ),
       ],
       17: [
         // Add some tables to temporarily store feed chunks, used for caching and pagination
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableFeedGroupCursor (id INTEGER PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-            reverseSql: 'DROP TABLE $tableFeedGroupCursor'),
+          'CREATE TABLE IF NOT EXISTS $tableFeedGroupCursor (id INTEGER PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+          reverseSql: 'DROP TABLE $tableFeedGroupCursor',
+        ),
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableFeedGroupChunk (cursor_id INTEGER NOT NULL, hash VARCHAR NOT NULL, cursor_top VARCHAR, cursor_bottom VARCHAR, response VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-            reverseSql: 'DROP TABLE $tableFeedGroupChunk'),
+          'CREATE TABLE IF NOT EXISTS $tableFeedGroupChunk (cursor_id INTEGER NOT NULL, hash VARCHAR NOT NULL, cursor_top VARCHAR, cursor_bottom VARCHAR, response VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+          reverseSql: 'DROP TABLE $tableFeedGroupChunk',
+        ),
       ],
       18: [
         // Add support for saving searches
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableSearchSubscription (id VARCHAR PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-            reverseSql: 'DROP TABLE $tableSearchSubscription'),
+          'CREATE TABLE IF NOT EXISTS $tableSearchSubscription (id VARCHAR PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+          reverseSql: 'DROP TABLE $tableSearchSubscription',
+        ),
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableSearchSubscriptionGroupMember (group_id VARCHAR, search_id VARCHAR, CONSTRAINT pk_$tableSearchSubscription PRIMARY KEY (group_id, search_id))',
-            reverseSql: 'DROP TABLE $tableSearchSubscriptionGroupMember'),
+          'CREATE TABLE IF NOT EXISTS $tableSearchSubscriptionGroupMember (group_id VARCHAR, search_id VARCHAR, CONSTRAINT pk_$tableSearchSubscription PRIMARY KEY (group_id, search_id))',
+          reverseSql: 'DROP TABLE $tableSearchSubscriptionGroupMember',
+        ),
       ],
       19: [
         // Add a new column for saved tweet user IDs, and extract them from all existing records
-        SqlMigration('ALTER TABLE $tableSavedTweet ADD COLUMN user_id VARCHAR DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableSavedTweet DROP COLUMN user_id'),
+        SqlMigration(
+          'ALTER TABLE $tableSavedTweet ADD COLUMN user_id VARCHAR DEFAULT NULL',
+          reverseSql: 'ALTER TABLE $tableSavedTweet DROP COLUMN user_id',
+        ),
         Migration(Operation(backfillSavedTweetUserIds)),
       ],
       20: [
-        Migration(Operation((db) async {
-          await db.update(tableSubscriptionGroup, {'icon': defaultGroupIcon},
-              where: "icon IS NULL OR icon = '' OR icon = ?", whereArgs: ['rss']);
-        }))
+        Migration(
+          Operation((db) async {
+            await db.update(
+              tableSubscriptionGroup,
+              {'icon': defaultGroupIcon},
+              where: "icon IS NULL OR icon = '' OR icon = ?",
+              whereArgs: ['rss'],
+            );
+          }),
+        ),
       ],
       21: [
         // create table for storing twitter accounts
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableAccounts (id TEXT PRIMARY KEY, password TEXT, email TEXT, auth_header VARCHAR)'),
+          'CREATE TABLE IF NOT EXISTS $tableAccounts (id TEXT PRIMARY KEY, password TEXT, email TEXT, auth_header VARCHAR)',
+        ),
       ],
       22: [
         // Add screen_name column and remove password/email columns from accounts table
-        SqlMigration('ALTER TABLE $tableAccounts RENAME TO ${tableAccounts}_old'),
         SqlMigration(
-            'CREATE TABLE $tableAccounts (id TEXT PRIMARY KEY, auth_header VARCHAR, screen_name VARCHAR DEFAULT NULL)'),
-        SqlMigration('INSERT INTO $tableAccounts (id, auth_header) SELECT id, auth_header FROM ${tableAccounts}_old'),
+          'ALTER TABLE $tableAccounts RENAME TO ${tableAccounts}_old',
+        ),
+        SqlMigration(
+          'CREATE TABLE $tableAccounts (id TEXT PRIMARY KEY, auth_header VARCHAR, screen_name VARCHAR DEFAULT NULL)',
+        ),
+        SqlMigration(
+          'INSERT INTO $tableAccounts (id, auth_header) SELECT id, auth_header FROM ${tableAccounts}_old',
+        ),
         SqlMigration('DROP TABLE ${tableAccounts}_old'),
       ],
       23: [
-        SqlMigration('ALTER TABLE $tableSubscription ADD COLUMN in_feed BOOLEAN DEFAULT 1'),
+        SqlMigration(
+          'ALTER TABLE $tableSubscription ADD COLUMN in_feed BOOLEAN DEFAULT 1',
+        ),
       ],
       24: [
         // Account not-found health columns for the selection strategy (timestamp as ISO-8601 TEXT).
         // Rate-limit (429) state is tracked in memory per endpoint, not persisted.
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN last_not_found_at TEXT DEFAULT NULL'),
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN consecutive_not_found INTEGER DEFAULT 0'),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN last_not_found_at TEXT DEFAULT NULL',
+        ),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN consecutive_not_found INTEGER DEFAULT 0',
+        ),
       ],
       25: [
         // Folders for saved posts: a folder table plus a nullable folder_id on saved tweets.
         // A saved post belongs to at most one folder (NULL means "unfiled").
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableSavedTweetFolder (id VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, position INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-            reverseSql: 'DROP TABLE $tableSavedTweetFolder'),
-        SqlMigration('ALTER TABLE $tableSavedTweet ADD COLUMN folder_id VARCHAR DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableSavedTweet DROP COLUMN folder_id'),
+          'CREATE TABLE IF NOT EXISTS $tableSavedTweetFolder (id VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, position INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+          reverseSql: 'DROP TABLE $tableSavedTweetFolder',
+        ),
+        SqlMigration(
+          'ALTER TABLE $tableSavedTweet ADD COLUMN folder_id VARCHAR DEFAULT NULL',
+          reverseSql: 'ALTER TABLE $tableSavedTweet DROP COLUMN folder_id',
+        ),
       ],
       26: [
         // Liked posts: a local-only table mirroring saved_tweet. A "like" never leaves the device.
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableLikedTweet (id VARCHAR PRIMARY KEY, content TEXT NOT NULL, user_id VARCHAR DEFAULT NULL, liked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-            reverseSql: 'DROP TABLE $tableLikedTweet'),
+          'CREATE TABLE IF NOT EXISTS $tableLikedTweet (id VARCHAR PRIMARY KEY, content TEXT NOT NULL, user_id VARCHAR DEFAULT NULL, liked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+          reverseSql: 'DROP TABLE $tableLikedTweet',
+        ),
       ],
       27: [
         // Which account the app should prefer for every request (null = the
         // health-aware selector decides alone). One active account at a time.
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN is_active INTEGER DEFAULT 0',
-            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN is_active'),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN is_active INTEGER DEFAULT 0',
+          reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN is_active',
+        ),
       ],
       28: [
         // Local search matched saved and liked posts in Dart, because Android's
         // SQLite ships without FTS5 and an index table would sit unused on the
         // phone. This step only removes the table an earlier build of the
         // feature created.
-        Migration(Operation((db) async {
-          await db.execute('DROP TABLE IF EXISTS tweet_search');
-        })),
+        Migration(
+          Operation((db) async {
+            await db.execute('DROP TABLE IF EXISTS tweet_search');
+          }),
+        ),
       ],
       29: [
         // The chunk cache belonged to the subscription-group feeds, which the
         // navbar no longer reaches: nothing writes or reads either table now.
         // migrate() used to full-scan both of them on every launch to prune
         // rows nothing would ever look at again.
-        SqlMigration('DROP TABLE IF EXISTS $tableFeedGroupChunk',
-            reverseSql:
-                'CREATE TABLE IF NOT EXISTS $tableFeedGroupChunk (cursor_id INTEGER NOT NULL, hash VARCHAR NOT NULL, '
-                'cursor_top VARCHAR, cursor_bottom VARCHAR, response VARCHAR, '
-                'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
-        SqlMigration('DROP TABLE IF EXISTS $tableFeedGroupCursor',
-            reverseSql:
-                'CREATE TABLE IF NOT EXISTS $tableFeedGroupCursor (id INTEGER PRIMARY KEY, '
-                'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'),
+        SqlMigration(
+          'DROP TABLE IF EXISTS $tableFeedGroupChunk',
+          reverseSql:
+              'CREATE TABLE IF NOT EXISTS $tableFeedGroupChunk (cursor_id INTEGER NOT NULL, hash VARCHAR NOT NULL, '
+              'cursor_top VARCHAR, cursor_bottom VARCHAR, response VARCHAR, '
+              'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+        ),
+        SqlMigration(
+          'DROP TABLE IF EXISTS $tableFeedGroupCursor',
+          reverseSql:
+              'CREATE TABLE IF NOT EXISTS $tableFeedGroupCursor (id INTEGER PRIMARY KEY, '
+              'created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+        ),
         // The two lists that sort their whole table on every open: saved posts
         // and likes are the ones that grow without bound.
-        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
-              ('idx_${tableSavedTweet}_$columnSavedAt', tableSavedTweet, '$columnSavedAt DESC'),
-              ('idx_${tableLikedTweet}_$columnLikedAt', tableLikedTweet, '$columnLikedAt DESC'),
-            ]))),
+        Migration(
+          Operation(
+            (db) => _createIndexesIfTableExists(db, const [
+              (
+                'idx_${tableSavedTweet}_$columnSavedAt',
+                tableSavedTweet,
+                '$columnSavedAt DESC',
+              ),
+              (
+                'idx_${tableLikedTweet}_$columnLikedAt',
+                tableLikedTweet,
+                '$columnLikedAt DESC',
+              ),
+            ]),
+          ),
+        ),
       ],
       30: [
         // The numeric X user id, filled in at login from the home page (or once
         // from the profile endpoint for accounts added earlier). The Likes
         // endpoint only answers for a numeric userId, never for the ct0 token
         // the row is keyed on.
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN user_id VARCHAR DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN user_id'),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN user_id VARCHAR DEFAULT NULL',
+          reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN user_id',
+        ),
       ],
       31: [
         // Indexes kept on the retained tables so a fresh install matches an
         // upgraded one. accounts.is_active is still read on every account
         // switch (`WHERE is_active = 1`).
-        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
-              ('idx_${tableSubscriptionGroupMember}_profile_id', tableSubscriptionGroupMember, 'profile_id'),
+        Migration(
+          Operation(
+            (db) => _createIndexesIfTableExists(db, const [
+              (
+                'idx_${tableSubscriptionGroupMember}_profile_id',
+                tableSubscriptionGroupMember,
+                'profile_id',
+              ),
               ('idx_${tableAccounts}_is_active', tableAccounts, 'is_active'),
-              ('idx_${tableSubscription}_screen_name', tableSubscription, 'screen_name'),
-            ]))),
+              (
+                'idx_${tableSubscription}_screen_name',
+                tableSubscription,
+                'screen_name',
+              ),
+            ]),
+          ),
+        ),
       ],
       32: [
         // A stable per-install account identity, separate from the ct0 token
         // the row is keyed on. Local likes (and future per-account data) are
         // attached to this id, so logging in again does not orphan them.
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnLocalId VARCHAR DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnLocalId'),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN $columnLocalId VARCHAR DEFAULT NULL',
+          reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnLocalId',
+        ),
         // A 401 is a session problem, not the same signal as a 404. Keeping it
         // in its own column lets the account sheet offer a re-login instead of
         // silently treating the account as a wrong query id.
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnLastAuthErrorAt TEXT DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnLastAuthErrorAt'),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN $columnLastAuthErrorAt TEXT DEFAULT NULL',
+          reverseSql:
+              'ALTER TABLE $tableAccounts DROP COLUMN $columnLastAuthErrorAt',
+        ),
         // Cached profile fields for the account switcher. Filled once after a
         // login (or lazily from the sheet) so the list works offline after that.
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnAvatarUrl TEXT DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnAvatarUrl'),
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnDisplayName TEXT DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnDisplayName'),
-        SqlMigration('ALTER TABLE $tableAccounts ADD COLUMN $columnProfileFetchedAt TEXT DEFAULT NULL',
-            reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnProfileFetchedAt'),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN $columnAvatarUrl TEXT DEFAULT NULL',
+          reverseSql: 'ALTER TABLE $tableAccounts DROP COLUMN $columnAvatarUrl',
+        ),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN $columnDisplayName TEXT DEFAULT NULL',
+          reverseSql:
+              'ALTER TABLE $tableAccounts DROP COLUMN $columnDisplayName',
+        ),
+        SqlMigration(
+          'ALTER TABLE $tableAccounts ADD COLUMN $columnProfileFetchedAt TEXT DEFAULT NULL',
+          reverseSql:
+              'ALTER TABLE $tableAccounts DROP COLUMN $columnProfileFetchedAt',
+        ),
         // One row per (account, tweet). The tweet body stays in liked_tweet so
         // two accounts liking the same post share one copy of it.
         SqlMigration(
-            'CREATE TABLE IF NOT EXISTS $tableAccountLike ('
-            '$columnAccountLocalId VARCHAR NOT NULL, '
-            '$columnTweetId VARCHAR NOT NULL, '
-            '$columnLikedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, '
-            'PRIMARY KEY ($columnAccountLocalId, $columnTweetId))',
-            reverseSql: 'DROP TABLE $tableAccountLike'),
-        Migration(Operation((db) async {
-          await backfillAccountLocalIds(db);
-          await backfillAccountLikes(db);
-        })),
-        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
-              ('idx_${tableAccounts}_$columnLocalId', tableAccounts, columnLocalId),
-              ('idx_${tableAccountLike}_account_liked_at', tableAccountLike,
-                  '$columnAccountLocalId, $columnLikedAt DESC'),
-            ]))),
+          'CREATE TABLE IF NOT EXISTS $tableAccountLike ('
+          '$columnAccountLocalId VARCHAR NOT NULL, '
+          '$columnTweetId VARCHAR NOT NULL, '
+          '$columnLikedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, '
+          'PRIMARY KEY ($columnAccountLocalId, $columnTweetId))',
+          reverseSql: 'DROP TABLE $tableAccountLike',
+        ),
+        Migration(
+          Operation((db) async {
+            await backfillAccountLocalIds(db);
+            await backfillAccountLikes(db);
+          }),
+        ),
+        Migration(
+          Operation(
+            (db) => _createIndexesIfTableExists(db, const [
+              (
+                'idx_${tableAccounts}_$columnLocalId',
+                tableAccounts,
+                columnLocalId,
+              ),
+              (
+                'idx_${tableAccountLike}_account_liked_at',
+                tableAccountLike,
+                '$columnAccountLocalId, $columnLikedAt DESC',
+              ),
+            ]),
+          ),
+        ),
       ],
       33: [
         // `unlikeTweet` finds a like by tweet id alone, which the composite
         // primary key cannot serve: every unlike scanned the table. The
         // covering tail on the account index also lets the likes id-set query
         // read tweet_id without touching the row.
-        SqlMigration('DROP INDEX IF EXISTS idx_${tableAccountLike}_account_liked_at'),
-        Migration(Operation((db) => _createIndexesIfTableExists(db, const [
-              ('idx_${tableAccountLike}_account_liked_at', tableAccountLike,
-                  '$columnAccountLocalId, $columnLikedAt DESC, $columnTweetId DESC'),
-              ('idx_${tableAccountLike}_tweet_id', tableAccountLike, columnTweetId),
-            ]))),
+        SqlMigration(
+          'DROP INDEX IF EXISTS idx_${tableAccountLike}_account_liked_at',
+        ),
+        Migration(
+          Operation(
+            (db) => _createIndexesIfTableExists(db, const [
+              (
+                'idx_${tableAccountLike}_account_liked_at',
+                tableAccountLike,
+                '$columnAccountLocalId, $columnLikedAt DESC, $columnTweetId DESC',
+              ),
+              (
+                'idx_${tableAccountLike}_tweet_id',
+                tableAccountLike,
+                columnTweetId,
+              ),
+            ]),
+          ),
+        ),
       ],
     });
     await openDatabase(
@@ -491,7 +711,9 @@ class Repository {
       // work, the next upgrade re-runs the backfills and reattributes likes.
       // Refuse before touching anything.
       onDowngrade: (db, from, to) async {
-        throw StateError('Database downgrade from $from to $to is not supported');
+        throw StateError(
+          'Database downgrade from $from to $to is not supported',
+        );
       },
     );
 

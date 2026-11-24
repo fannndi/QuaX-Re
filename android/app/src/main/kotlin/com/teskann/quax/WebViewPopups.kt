@@ -83,7 +83,7 @@ object WebViewPopups {
                         "ssl.gstatic.com", "www.gstatic.com",
                     )
                     if (request.url.scheme == "https" && host in allowed) return false
-                    Log.w(TAG, "Blocked popup navigation to ${request.url}")
+                    Log.w(TAG, "Blocked popup navigation to ${request.url.scheme}://${host}")
                     return true
                 }
             }

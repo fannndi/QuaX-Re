@@ -8,17 +8,32 @@ class LikedTweet with ToMappable {
   final String id;
   final String? user;
   final String? content;
+  final String? likedAt;
 
-  LikedTweet({required this.id, required this.user, required this.content});
+  LikedTweet({
+    required this.id,
+    required this.user,
+    required this.content,
+    this.likedAt,
+  });
 
   factory LikedTweet.fromMap(Map<String, Object?> map) {
     return LikedTweet(
-        id: map['id'] as String, user: map['user_id'] as String?, content: map['content'] as String?);
+      id: map['id'] as String,
+      user: map['user_id'] as String?,
+      content: map['content'] as String?,
+      likedAt: map['liked_at'] as String?,
+    );
   }
 
   @override
   Map<String, dynamic> toMap() {
-    return {'id': id, 'content': content, 'user_id': user};
+    return {
+      'id': id,
+      'content': content,
+      'user_id': user,
+      if (likedAt != null) columnLikedAt: likedAt,
+    };
   }
 }
 
@@ -45,49 +60,57 @@ class Account with ToMappable {
   final String? displayName;
   final DateTime? profileFetchedAt;
 
-  const Account(
-      {required this.id,
-      required this.authHeader,
-      required this.screenName,
-      this.userId,
-      String? localId,
-      this.lastNotFoundAt,
-      this.consecutiveNotFound = 0,
-      this.isActive = false,
-      this.lastAuthErrorAt,
-      this.avatarUrl,
-      this.displayName,
-      this.profileFetchedAt})
-      : localId = localId ?? id;
+  const Account({
+    required this.id,
+    required this.authHeader,
+    required this.screenName,
+    this.userId,
+    String? localId,
+    this.lastNotFoundAt,
+    this.consecutiveNotFound = 0,
+    this.isActive = false,
+    this.lastAuthErrorAt,
+    this.avatarUrl,
+    this.displayName,
+    this.profileFetchedAt,
+  }) : localId = localId ?? id;
 
   // A restored or hand-edited database can carry a timestamp that is not ISO
   // text. Throwing here would make every getAccounts() — and therefore every
   // request — fail over one bad row; a null mark is the safe reading.
-  static DateTime? _date(Object? value) => value is String ? DateTime.tryParse(value) : null;
+  static DateTime? _date(Object? value) =>
+      value is String ? DateTime.tryParse(value) : null;
 
   /// No flag set, so a successful response needs no database write (hot-path guard).
   bool get isClean =>
-      consecutiveNotFound == 0 && lastNotFoundAt == null && lastAuthErrorAt == null;
+      consecutiveNotFound == 0 &&
+      lastNotFoundAt == null &&
+      lastAuthErrorAt == null;
 
   bool get isSessionExpired => lastAuthErrorAt != null;
 
   factory Account.fromMap(Map<String, Object?> map) {
     return Account(
-        id: map['id'] as String,
-        authHeader: map['auth_header'],
-        screenName: map['screen_name'] as String?,
-        userId: map['user_id'] as String?,
-        localId: map[columnLocalId] as String?,
-        lastNotFoundAt: _date(map['last_not_found_at']),
-        consecutiveNotFound: (map['consecutive_not_found'] as int?) ?? 0,
-        isActive: (map['is_active'] as int?) == 1,
-        lastAuthErrorAt: _date(map[columnLastAuthErrorAt]),
-        avatarUrl: map[columnAvatarUrl] as String?,
-        displayName: map[columnDisplayName] as String?,
-        profileFetchedAt: _date(map[columnProfileFetchedAt]));
+      id: map['id'] as String,
+      authHeader: map['auth_header'],
+      screenName: map['screen_name'] as String?,
+      userId: map['user_id'] as String?,
+      localId: map[columnLocalId] as String?,
+      lastNotFoundAt: _date(map['last_not_found_at']),
+      consecutiveNotFound: (map['consecutive_not_found'] as int?) ?? 0,
+      isActive: (map['is_active'] as int?) == 1,
+      lastAuthErrorAt: _date(map[columnLastAuthErrorAt]),
+      avatarUrl: map[columnAvatarUrl] as String?,
+      displayName: map[columnDisplayName] as String?,
+      profileFetchedAt: _date(map[columnProfileFetchedAt]),
+    );
   }
 
-  Account copyWithProfile({String? displayName, String? avatarUrl, DateTime? profileFetchedAt}) {
+  Account copyWithProfile({
+    String? displayName,
+    String? avatarUrl,
+    DateTime? profileFetchedAt,
+  }) {
     return Account(
       id: id,
       authHeader: authHeader,
@@ -106,7 +129,8 @@ class Account with ToMappable {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is Account && runtimeType == other.runtimeType && id == other.id;
+      identical(this, other) ||
+      other is Account && runtimeType == other.runtimeType && id == other.id;
 
   @override
   int get hashCode => id.hashCode;

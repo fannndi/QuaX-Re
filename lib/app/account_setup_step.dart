@@ -4,6 +4,7 @@ import 'package:pref/pref.dart';
 import 'package:quax/client/account_vault.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/login_webview.dart';
+import 'package:quax/client/likes_vault.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/entities.dart';
 import 'package:quax/generated/l10n.dart';
@@ -34,6 +35,7 @@ class AccountSetupStep extends StatefulWidget {
 
 class _AccountSetupStepState extends State<AccountSetupStep> {
   final AccountVault _vault = AccountVault();
+  final LikesVault _likesVault = LikesVault();
   late final BasePrefService _prefs;
 
   bool _initialized = false;
@@ -59,7 +61,8 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
 
   Future<void> _reload() async {
     final accounts = await (widget.loadAccounts ?? getAccounts)();
-    final hasVault = widget.vaultRoot.isNotEmpty &&
+    final hasVault =
+        widget.vaultRoot.isNotEmpty &&
         await (widget.vaultExists != null
             ? widget.vaultExists!(widget.vaultRoot)
             : _vault.exists(widget.vaultRoot));
@@ -85,7 +88,10 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
   }
 
   Future<void> _login() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TwitterLoginWebview()),
+    );
     if (mounted) await _reload();
   }
 
@@ -95,7 +101,10 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
 
     AccountVaultReadResult result;
     try {
-      result = await _vault.read(vaultRoot: widget.vaultRoot, passphrase: passphrase);
+      result = await _vault.read(
+        vaultRoot: widget.vaultRoot,
+        passphrase: passphrase,
+      );
     } catch (error) {
       if (mounted) _showError(error);
       return;
@@ -105,13 +114,20 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
     await _run(() async {
       // The onboarding restore is the recovery path: the vault's session must
       // replace an expired local one, not be silently kept behind it.
-      final imported = await importAccounts(result.accounts, replaceExisting: true);
+      final imported = await importAccounts(
+        result.accounts,
+        replaceExisting: true,
+      );
       if (imported.restored > 0) {
+        await _vault.write(vaultRoot: widget.vaultRoot, passphrase: passphrase);
         await _prefs.set<bool>(optionAccountVaultDirty, false);
       }
       if (mounted) {
-        showSnackBar(context,
-            icon: '✅', message: accountRestoredMessage(L10n.of(context), result, imported));
+        showSnackBar(
+          context,
+          icon: '✅',
+          message: accountRestoredMessage(L10n.of(context), result, imported),
+        );
       }
     });
   }
@@ -123,7 +139,11 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
     final path = files.isEmpty ? null : files.single.path;
     if (path == null) {
       if (files.isNotEmpty) {
-        showSnackBar(context, icon: '🙊', message: l10n.account_backup_invalid_file);
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: l10n.account_backup_invalid_file,
+        );
       }
       return;
     }
@@ -143,16 +163,24 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
     await _run(() async {
       // An imported file is a restore too: replace the local session with the
       // one the reader chose, instead of keeping an expired login.
-      final imported = await importAccounts(result.accounts, replaceExisting: true);
+      final imported = await importAccounts(
+        result.accounts,
+        replaceExisting: true,
+      );
       if (widget.vaultRoot.isNotEmpty) {
-        await _vault.adoptFile(sourcePath: path, vaultRoot: widget.vaultRoot);
+        await _vault.adoptFile(
+          sourcePath: path,
+          vaultRoot: widget.vaultRoot,
+          passphrase: passphrase,
+        );
       }
-      if (imported.restored > 0) {
-        await _prefs.set<bool>(optionAccountVaultDirty, false);
-      }
+      await _prefs.set<bool>(optionAccountVaultDirty, false);
       if (mounted) {
-        showSnackBar(context,
-            icon: '✅', message: accountRestoredMessage(L10n.of(context), result, imported));
+        showSnackBar(
+          context,
+          icon: '✅',
+          message: accountRestoredMessage(L10n.of(context), result, imported),
+        );
       }
     });
   }
@@ -160,14 +188,32 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
   Future<void> _createBackup() async {
     final l10n = L10n.of(context);
     if (_accounts.isEmpty) {
-      showSnackBar(context, icon: '🙊', message: l10n.account_backup_login_first);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: l10n.account_backup_login_first,
+      );
       return;
     }
 
-    final passphrase = await showVaultPassphraseDialog(context,
-        confirm: true,
-        title: _hasVault ? l10n.account_backup_update : l10n.account_backup_create);
+    final passphrase = await showVaultPassphraseDialog(
+      context,
+      confirm: true,
+      title: _hasVault
+          ? l10n.account_backup_update
+          : l10n.account_backup_create,
+    );
     if (passphrase == null || !mounted) return;
+
+    if (await _likesVault.exists(widget.vaultRoot)) {
+      try {
+        await _vault.read(vaultRoot: widget.vaultRoot, passphrase: passphrase);
+      } catch (error) {
+        if (mounted) _showError(error);
+        return;
+      }
+    }
+    if (!mounted) return;
 
     await _run(() async {
       await _vault.write(vaultRoot: widget.vaultRoot, passphrase: passphrase);
@@ -179,7 +225,11 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
   }
 
   void _showError(Object error) {
-    showSnackBar(context, icon: '🙊', message: vaultErrorMessage(L10n.of(context), error));
+    showSnackBar(
+      context,
+      icon: '🙊',
+      message: vaultErrorMessage(L10n.of(context), error),
+    );
   }
 
   @override
@@ -202,19 +252,25 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
             child: Column(
               children: [
                 ListTile(
-                  leading: Icon(_accounts.isEmpty
-                      ? Icons.person_off_outlined
-                      : Icons.people_outline),
-                  title: Text(_accounts.isEmpty
-                      ? l10n.account_backup_none
-                      : l10n.setup_accounts_have(_accounts.length)),
+                  leading: Icon(
+                    _accounts.isEmpty
+                        ? Icons.person_off_outlined
+                        : Icons.people_outline,
+                  ),
+                  title: Text(
+                    _accounts.isEmpty
+                        ? l10n.account_backup_none
+                        : l10n.setup_accounts_have(_accounts.length),
+                  ),
                 ),
                 for (final account in _accounts)
                   ListTile(
                     dense: true,
-                    leading: Icon(account.isActive
-                        ? Icons.radio_button_checked
-                        : Icons.account_circle_outlined),
+                    leading: Icon(
+                      account.isActive
+                          ? Icons.radio_button_checked
+                          : Icons.account_circle_outlined,
+                    ),
                     title: Text('@${account.screenName ?? '?'}'),
                   ),
               ],
@@ -265,13 +321,19 @@ class _AccountSetupStepState extends State<AccountSetupStep> {
                   onPressed: _busy ? null : _createBackup,
                   icon: const Icon(Icons.lock_outline),
                   label: Text(
-                      _hasVault ? l10n.account_backup_update : l10n.account_backup_create),
+                    _hasVault
+                        ? l10n.account_backup_update
+                        : l10n.account_backup_create,
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(l10n.setup_accounts_skip,
-              textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            l10n.setup_accounts_skip,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ],
       ),
     );

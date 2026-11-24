@@ -2,6 +2,7 @@ package com.teskann.quax
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -57,11 +58,19 @@ class MainActivity : FlutterActivity() {
         (application as QuaxApplication).onStoragePermissionResult(requestCode, grantResults)
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == QuaxApplication.SAVE_MEDIA_REQUEST) {
+            QuaxApplication.completeSaveMedia(resultCode, data)
+        }
+    }
+
     override fun onDestroy() {
         if (QuaxApplication.currentActivity?.get() === this) {
             QuaxApplication.currentActivity = null
         }
         (application as QuaxApplication).cancelPendingStoragePermission()
+        QuaxApplication.cancelPendingSave()
         super.onDestroy()
     }
 }

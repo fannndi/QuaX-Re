@@ -8,6 +8,7 @@ class PhotoGridItem extends MediaGridItem {
     required super.aspectRatio,
     required super.mediaIndex,
     required super.media,
+    super.possiblySensitive,
   });
 
   @override

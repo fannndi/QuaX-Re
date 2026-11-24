@@ -14,6 +14,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
+import android.system.Os
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.core.content.FileProvider
@@ -26,6 +27,8 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
+import java.util.UUID
+import java.util.concurrent.RejectedExecutionException
 
 /**
  * Hosts the app-wide FlutterEngine instead of the Activity: swiping the app
@@ -40,6 +43,10 @@ class QuaxApplication : android.app.Application() {
     companion object {
         // The foreground service reaches Dart through this when a notification
         // action is tapped.
+        @JvmStatic
+        lateinit var instance: QuaxApplication
+            private set
+
         @JvmStatic
         var channel: MethodChannel? = null
 
@@ -60,6 +67,123 @@ class QuaxApplication : android.app.Application() {
         // The library grid decodes its own copy at tile width (max 1080 px), so
         // a larger frame is never displayed.
         private const val THUMBNAIL_MAX_SIDE = 1080
+
+        private var downloadServiceReady = false
+        private var pendingDownloadStart: MethodChannel.Result? = null
+
+        private class PendingSave(val result: MethodChannel.Result, val source: File)
+        private var pendingSave: PendingSave? = null
+        private val saveExecutor = Executors.newSingleThreadExecutor()
+        const val SAVE_MEDIA_REQUEST = 4720
+
+        fun onDownloadServiceReady() {
+            downloadServiceReady = true
+            pendingDownloadStart?.success(true)
+            pendingDownloadStart = null
+            notifyDart("onDownloadServiceReady")
+        }
+
+        fun onDownloadServiceFailed() {
+            downloadServiceReady = false
+            pendingDownloadStart?.error("SERVICE_START_FAILED", "Foreground service did not start", null)
+            pendingDownloadStart = null
+            notifyDart("onDownloadServiceFailed")
+        }
+
+        fun onDownloadServiceDestroyed() {
+            if (downloadServiceReady) {
+                downloadServiceReady = false
+                notifyDart("onDownloadServiceFailed")
+            }
+        }
+
+        fun beginSaveMedia(sourcePath: String, fileName: String, result: MethodChannel.Result) {
+            val activity = currentActivity?.get()
+            if (activity == null) {
+                result.error("NO_ACTIVITY", "No activity is available to choose a destination", null)
+                return
+            }
+            val source = File(sourcePath)
+            if (!source.isFile) {
+                result.error("INVALID_ARGUMENT", "Source media does not exist", null)
+                return
+            }
+            pendingSave?.result?.error("SAVE_SUPERSEDED", "A newer save replaced this one", null)
+            pendingSave = PendingSave(result, source)
+            val extension = fileName.substringAfterLast('.', "").lowercase()
+            val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = mime
+                putExtra(Intent.EXTRA_TITLE, fileName)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            try {
+                activity.startActivityForResult(intent, SAVE_MEDIA_REQUEST)
+            } catch (e: Exception) {
+                pendingSave = null
+                result.error("SAVE_FAILED", e.javaClass.simpleName, null)
+            }
+        }
+
+        fun completeSaveMedia(resultCode: Int, data: Intent?) {
+            val pending = pendingSave ?: return
+            pendingSave = null
+            val uri = data?.data
+            if (resultCode != android.app.Activity.RESULT_OK || uri == null) {
+                pending.result.success(null)
+                return
+            }
+            val flags = data.flags and (
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            if (flags != 0) {
+                try {
+                    instance.contentResolver.takePersistableUriPermission(uri, flags)
+                } catch (_: SecurityException) {
+                    // Some providers do not offer persistable grants; the current
+                    // process can still use the returned URI.
+                }
+            }
+            saveExecutor.execute {
+                val failure = try {
+                    val context = QuaxApplication.instance
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                        val copied = pending.source.inputStream().use { input -> input.copyTo(output) }
+                        if (copied != pending.source.length()) {
+                            throw IOException("Saved length verification failed")
+                        }
+                        output.flush()
+                    } ?: throw IOException("Content provider returned no output stream")
+                    null
+                } catch (e: Exception) {
+                    try {
+                        instance.contentResolver.openOutputStream(uri, "wt")?.use { }
+                    } catch (_: Exception) {
+                        // Best-effort removal of a partial provider write.
+                    }
+                    e.javaClass.simpleName
+                }
+                instance.mainHandler.post {
+                    if (failure == null) pending.result.success(uri.toString())
+                    else pending.result.error("SAVE_FAILED", failure, null)
+                }
+            }
+        }
+
+        fun cancelPendingSave() {
+            val pending = pendingSave ?: return
+            pendingSave = null
+            pending.result.error("SAVE_CANCELLED", "Activity was destroyed", null)
+        }
+
+        private fun notifyDart(method: String) {
+            try {
+                channel?.invokeMethod(method, null)
+            } catch (_: Exception) {
+                // The engine can be detached; Dart's readiness timeout is the fallback.
+            }
+        }
     }
 
     lateinit var engine: FlutterEngine
@@ -76,6 +200,7 @@ class QuaxApplication : android.app.Application() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
 
         installCrashHandler()
 
@@ -236,18 +361,31 @@ class QuaxApplication : android.app.Application() {
     }
 
     private fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        if (call.method == "downloadNotification") {
+        if (call.method == "downloadNotification" || call.method == "startDownloadNotification") {
             val intent = Intent(this, DownloadForegroundService::class.java).apply {
                 putExtra(DownloadForegroundService.EXTRA_TITLE, call.argument<String>("title"))
                 putExtra(DownloadForegroundService.EXTRA_BODY, call.argument<String>("body"))
                 putExtra(DownloadForegroundService.EXTRA_PERCENT, call.argument<Int>("percent") ?: 0)
                 putExtra(DownloadForegroundService.EXTRA_FILE, call.argument<String>("fileName"))
+                putExtra(DownloadForegroundService.EXTRA_ATTEMPT, call.argument<String>("attemptId"))
                 putExtra(DownloadForegroundService.EXTRA_PAUSE_LABEL, call.argument<String>("pauseLabel"))
                 putExtra(DownloadForegroundService.EXTRA_CANCEL_LABEL, call.argument<String>("cancelLabel"))
             }
-            DownloadForegroundService.start(this, intent)
-            result.success(true)
+            if (call.method == "downloadNotification") {
+                DownloadForegroundService.start(this, intent)
+                result.success(true)
+            } else if (downloadServiceReady) {
+                if (DownloadForegroundService.start(this, intent)) result.success(true)
+                else result.error("SERVICE_START_FAILED", "Foreground service update failed", null)
+            } else {
+                pendingDownloadStart?.error("START_SUPERSEDED", "A newer start replaced this one", null)
+                pendingDownloadStart = result
+                DownloadForegroundService.start(this, intent)
+            }
         } else if (call.method == "stopDownloadNotification") {
+            downloadServiceReady = false
+            pendingDownloadStart?.error("SERVICE_STOPPED", "Download service stopped", null)
+            pendingDownloadStart = null
             DownloadForegroundService.stop(this)
             result.success(true)
         } else if (call.method == "requestNotificationsPermission") {
@@ -353,6 +491,25 @@ class QuaxApplication : android.app.Application() {
             } catch (e: Exception) {
                 result.success(false)
             }
+        } else if (call.method == "isSameStorageVolume") {
+            val first = call.argument<String>("path1")
+            val second = call.argument<String>("path2")
+            if (first == null || second == null) {
+                result.error("INVALID_ARGUMENT", "path1 or path2 is null", null)
+            } else {
+                try {
+                    fun existingProbe(path: String): File {
+                        var probe = File(path)
+                        while (!probe.exists() && probe.parentFile != null) probe = probe.parentFile!!
+                        return probe
+                    }
+                    val same = Os.stat(existingProbe(first).path).st_dev ==
+                        Os.stat(existingProbe(second).path).st_dev
+                    result.success(same)
+                } catch (e: Exception) {
+                    result.error("STAT_FAILED", e.javaClass.simpleName, null)
+                }
+            }
         } else if (call.method == "getAvailableSpace") {
             val path = call.argument<String>("path")
             if (path == null) {
@@ -369,29 +526,95 @@ class QuaxApplication : android.app.Application() {
                     result.error("STAT_FAILED", e.message, null)
                 }
             }
-        } else if (call.method == "openMediaFile") {
-            val path = call.argument<String>("path")
-            val mime = call.argument<String>("mime") ?: "*/*"
-            if (path == null) {
-                result.error("INVALID_ARGUMENT", "path is null", null)
+        } else if (call.method == "encryptSession" || call.method == "decryptSession") {
+            val value = call.argument<String>("text")
+            if (value == null) {
+                result.error("INVALID_ARGUMENT", "session string is null", null)
             } else {
-                val file = File(path)
-                if (!file.exists()) {
-                    result.error("NOT_FOUND", "File does not exist", null)
-                } else {
-                    try {
-                        val uri = FileProvider.getUriForFile(this, "$packageName.library", file)
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(uri, mime)
-                            addFlags(
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-                            )
+                try {
+                    result.success(
+                        if (call.method == "encryptSession") SessionCipher.encrypt(value)
+                        else SessionCipher.decrypt(value)
+                    )
+                } catch (e: Exception) {
+                    // Never include the session or envelope in an error detail.
+                    result.error("KEYSTORE_FAILED", e.javaClass.simpleName, null)
+                }
+            }
+        } else if (call.method == "scanMediaFile") {
+            val path = call.argument<String>("path")
+            if (path == null || !File(path).isFile) {
+                result.error("INVALID_ARGUMENT", "Media file does not exist", null)
+            } else {
+                MediaScannerConnection.scanFile(this, arrayOf(path), null, null)
+                result.success(true)
+            }
+        } else if (call.method == "saveMediaFile") {
+            val sourcePath = call.argument<String>("sourcePath")
+            val fileName = call.argument<String>("fileName")
+            if (sourcePath == null || fileName == null) {
+                result.error("INVALID_ARGUMENT", "sourcePath or fileName is null", null)
+            } else {
+                beginSaveMedia(sourcePath, fileName, result)
+            }
+        } else if (call.method == "copyMediaUriToCache") {
+            val uri = call.argument<String>("uri")
+            val outPath = call.argument<String>("outPath")
+            if (uri == null || outPath == null) {
+                result.error("INVALID_ARGUMENT", "uri or outPath is null", null)
+            } else {
+                try {
+                    saveExecutor.execute {
+                        val output = File(outPath)
+                        val failure = try {
+                            output.parentFile?.mkdirs()
+                            contentResolver.openInputStream(Uri.parse(uri))?.use { input ->
+                                FileOutputStream(output).use { sink -> input.copyTo(sink) }
+                            } ?: throw IOException("Content provider returned no stream")
+                            if (output.length() <= 0) throw IOException("Empty media copy")
+                            null
+                        } catch (e: Exception) {
+                            output.delete()
+                            e.javaClass.simpleName
                         }
-                        startActivity(Intent.createChooser(intent, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("OPEN_FAILED", e.message, null)
+                        mainHandler.post {
+                            if (failure == null) result.success(output.absolutePath)
+                            else result.error("URI_COPY_FAILED", failure, null)
+                        }
                     }
+                } catch (e: RejectedExecutionException) {
+                    File(outPath).delete()
+                    result.error("URI_COPY_BUSY", "Save worker is busy", null)
+                }
+            }
+        } else if (call.method == "openMediaFile" || call.method == "openMediaLocation") {
+            val path = call.argument<String>("path")
+            val uri = call.argument<String>("uri")
+            val mime = call.argument<String>("mime") ?: "*/*"
+            if (path == null && uri == null) {
+                result.error("INVALID_ARGUMENT", "path or uri is null", null)
+            } else {
+                try {
+                    val mediaUri = if (uri != null) {
+                        Uri.parse(uri)
+                    } else {
+                        val sourceFile = java.io.File(path!!)
+                        if (!sourceFile.exists()) throw IOException("File does not exist")
+                        FileProvider.getUriForFile(this@QuaxApplication, "$packageName.library", sourceFile)
+                    }
+                    val resolvedMime = if (mime == "*/*" && uri != null) {
+                        contentResolver.getType(mediaUri) ?: mime
+                    } else mime
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(mediaUri, resolvedMime)
+                        addFlags(
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+                        )
+                    }
+                    startActivity(Intent.createChooser(intent, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("OPEN_FAILED", e.javaClass.simpleName, null)
                 }
             }
         } else if (call.method == "videoThumbnail") {
@@ -407,49 +630,64 @@ class QuaxApplication : android.app.Application() {
             // a dozen tiles meant a dozen main-thread decodes, which drops
             // frames and can ANR. MethodChannel results must be delivered on
             // the main thread, hence the post back.
-            val app = this
-            thumbnailExecutor.execute {
-                var success: String? = null
-                var failure: Pair<String, String?>? = null
-                var frame: Bitmap? = null
-                val retriever = MediaMetadataRetriever()
-                try {
-                    retriever.setDataSource(videoPath)
-                    val bitmap = decodeThumbnailFrame(retriever)
-                    if (bitmap != null) {
-                        frame = bitmap
-                        File(outPath).parentFile?.mkdirs()
-                        FileOutputStream(outPath).use { stream ->
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)
-                        }
-                        success = outPath
-                    }
-                } catch (e: IOException) {
-                    failure = Pair("THUMBNAIL_FAILED", e.message)
-                } catch (e: RuntimeException) {
-                    failure = Pair("THUMBNAIL_FAILED", e.message)
-                } catch (e: OutOfMemoryError) {
-                    // An Error, not an Exception: it used to escape this worker
-                    // and kill the process while the gallery was scrolling.
-                    failure = Pair("THUMBNAIL_FAILED", "out of memory")
-                } finally {
-                    // release() used to sit after getFrameAtTime, so a throw
-                    // there never ran it: each failed attempt leaked a native
-                    // MediaMetadataRetriever, and the gallery retries.
-                    frame?.recycle()
+            try {
+                thumbnailExecutor.execute {
+                    var success: String? = null
+                    var failure: Pair<String, String?>? = null
+                    var frame: Bitmap? = null
+                    val destination = File(outPath)
+                    val temp = File(
+                        destination.parentFile,
+                        "${destination.name}.${UUID.randomUUID()}.tmp"
+                    )
+                    val retriever = MediaMetadataRetriever()
                     try {
-                        retriever.release()
-                    } catch (_: Exception) {
-                        // A retriever that throws on release is still released.
+                        retriever.setDataSource(videoPath)
+                        val bitmap = decodeThumbnailFrame(retriever)
+                        if (bitmap != null) {
+                            frame = bitmap
+                            destination.parentFile?.mkdirs()
+                            FileOutputStream(temp.path).use { stream ->
+                                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)) {
+                                    throw IOException("JPEG compression failed")
+                                }
+                            }
+                            if (temp.length() <= 0) throw IOException("Empty thumbnail")
+                            if (!temp.renameTo(destination)) {
+                                throw IOException("Thumbnail promotion failed")
+                            }
+                            success = destination.path
+                        }
+                    } catch (e: IOException) {
+                        failure = Pair("THUMBNAIL_FAILED", e.javaClass.simpleName)
+                    } catch (e: RuntimeException) {
+                        failure = Pair("THUMBNAIL_FAILED", e.javaClass.simpleName)
+                    } catch (e: OutOfMemoryError) {
+                        // An Error, not an Exception: it used to escape this worker
+                        // and kill the process while the gallery was scrolling.
+                        failure = Pair("THUMBNAIL_FAILED", "out of memory")
+                    } finally {
+                        // release() used to sit after getFrameAtTime, so a throw
+                        // there never ran it: each failed attempt leaked a native
+                        // MediaMetadataRetriever, and the gallery retries.
+                        frame?.recycle()
+                        try {
+                            retriever.release()
+                        } catch (_: Exception) {
+                            // A retriever that throws on release is still released.
+                        }
+                        if (success == null) temp.delete()
+                    }
+                    mainHandler.post {
+                        when {
+                            success != null -> result.success(success)
+                            failure != null -> result.error(failure.first, failure.second, null)
+                            else -> result.success(null)
+                        }
                     }
                 }
-                mainHandler.post {
-                    when {
-                        success != null -> result.success(success)
-                        failure != null -> result.error(failure.first, failure.second, null)
-                        else -> result.success(null)
-                    }
-                }
+            } catch (e: RejectedExecutionException) {
+                result.error("THUMBNAIL_BUSY", "Thumbnail worker is busy", null)
             }
         } else {
             result.notImplemented()

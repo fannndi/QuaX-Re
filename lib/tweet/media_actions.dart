@@ -1,4 +1,3 @@
-
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/generated/l10n.dart';
@@ -8,15 +7,17 @@ import 'package:path/path.dart' as path;
 import 'package:pref/pref.dart';
 
 void showMediaActionsSheet(BuildContext context, Media item, String? username) {
-  final isVideoLike = item.type == 'video' || item.type == 'animated_gif';
-  final variantUrl = largestVideoVariantUrl(item);
-  if (isVideoLike && variantUrl == null) {
+  final mediaUrl = downloadableMediaUri(item, tweetMedia: true);
+  if (mediaUrl == null) {
     // HLS-only clips have no progressive MP4; the old force-unwrap crashed the
     // long-press handler and the share sheet never opened.
-    showSnackBar(context, icon: '🙊', message: L10n.of(context).download_media_no_url);
+    showSnackBar(
+      context,
+      icon: '🙊',
+      message: L10n.of(context).download_media_no_url,
+    );
     return;
   }
-  final mediaUrl = Uri.parse(isVideoLike ? variantUrl! : '${item.mediaUrlHttps}:orig');
   final fileName = '$username-${path.basename(mediaUrl.path)}';
 
   showModalBottomSheet(
@@ -30,7 +31,12 @@ void showMediaActionsSheet(BuildContext context, Media item, String? username) {
             title: Text(L10n.of(sheetContext).download),
             onTap: () {
               Navigator.pop(sheetContext);
-              downloadUriToPickedFile(context, mediaUrl, fileName, prefs: PrefService.of(context));
+              downloadUriToPickedFile(
+                context,
+                mediaUrl,
+                fileName,
+                prefs: PrefService.of(context),
+              );
             },
           ),
           ListTile(
@@ -38,7 +44,7 @@ void showMediaActionsSheet(BuildContext context, Media item, String? username) {
             title: Text(L10n.of(sheetContext).share),
             onTap: () {
               Navigator.pop(sheetContext);
-              downloadAndShare(context, mediaUrl, fileName, prefs: PrefService.of(context));
+              downloadAndShare(context, mediaUrl, fileName);
             },
           ),
         ],
@@ -47,11 +53,22 @@ void showMediaActionsSheet(BuildContext context, Media item, String? username) {
   );
 }
 
+/// The file URL worth saving: the best progressive MP4 for a video/GIF, or
+/// the original photo for tweet media. Profile banners and avatars are already
+/// direct URLs and must not receive the photo-only `:orig` suffix.
+Uri? downloadableMediaUri(Media item, {required bool tweetMedia}) {
+  final isVideoLike = item.type == 'video' || item.type == 'animated_gif';
+  final url = isVideoLike ? largestVideoVariantUrl(item) : item.mediaUrlHttps;
+  if (url == null || url.isEmpty) return null;
+  return Uri.parse(isVideoLike || !tweetMedia ? url : '$url:orig');
+}
+
 /// The highest-bitrate MP4 variant of a tweet video or GIF — the one worth
 /// keeping on disk (a GIF's variant is a silent MP4, which WhatsApp accepts).
 String? largestVideoVariantUrl(Media item) {
-  final variants =
-      (item.videoInfo?.variants ?? const []).where((v) => v.contentType?.contains('mp4') ?? false).toList();
+  final variants = (item.videoInfo?.variants ?? const [])
+      .where((v) => v.contentType?.contains('mp4') ?? false)
+      .toList();
   variants.sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
   return variants.firstOrNull?.url;
 }

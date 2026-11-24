@@ -46,13 +46,28 @@ bool isAllowedLoginHost(String url) {
   return _allowedLoginHosts.contains(parsed.host.toLowerCase());
 }
 
+/// Whether the login flow has reached X's normalized home landing page.
+@visibleForTesting
+bool isLoginCompleteUrl(String url) {
+  final parsed = Uri.tryParse(url);
+  if (parsed == null ||
+      parsed.scheme != 'https' ||
+      parsed.host.toLowerCase() != 'x.com') {
+    return false;
+  }
+  return parsed.path.replaceFirst(RegExp(r'/+$'), '') == '/home';
+}
+
+String get loginWebViewUserAgent => userAgentHeader['user-agent']!;
+
 class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
   static const _channel = quaxMethodChannel;
 
   /// The logged-in handle, then the slice of the page around it that carries
   /// the numeric id. A window instead of the whole document: the home HTML runs
   /// to megabytes, and the id sits right next to the handle.
-  static const _bootstrapScript = "(() => { const h = document.documentElement.outerHTML;"
+  static const _bootstrapScript =
+      "(() => { const h = document.documentElement.outerHTML;"
       " const m = h.match(/\"screen_name\":\"([^\"]+)\"/); if (!m) return '';"
       " const i = h.indexOf('\"screen_name\":\"' + m[1] + '\"');"
       " return m[1] + '|||' + h.slice(Math.max(0, i), i + 3000); })()";
@@ -72,41 +87,42 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
     _cookieManager = WebviewCookieManager();
     _controller = WebViewController();
     _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-    _controller.setNavigationDelegate(NavigationDelegate(
-      // "Sign in with Google" opens a popup; the native side hosts it so the
-      // opener survives and the flow can hand its token back. Once, not per
-      // page: the native install() walks the whole decor view each call, and
-      // its own WeakHashMap guard already makes repeat calls pointless.
-      onPageStarted: (_) {
-        if (!_popupsEnabled) {
-          _popupsEnabled = true;
-          _channel.invokeMethod<void>('enableWebViewPopups');
-        }
-      },
-      onUrlChange: _onUrlChange,
-      // This WebView runs unrestricted JavaScript *and* holds the live X
-      // session cookies, so where it navigates is a security decision, not a
-      // convenience. Without this the flow will happily follow a redirect (or
-      // a link inside the page) to any host — a lookalike domain can then
-      // render a "session expired, re-enter your password" form, or read the
-      // non-HttpOnly cookies. Only X's own hosts and Google's SSO are allowed.
-      onNavigationRequest: (request) {
-        if (isAllowedLoginHost(request.url)) {
-          return NavigationDecision.navigate;
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(L10n.of(context).login_blocked_navigation)),
-          );
-        }
-        return NavigationDecision.prevent;
-      },
-    ));
+    _controller.setNavigationDelegate(
+      NavigationDelegate(
+        // "Sign in with Google" opens a popup; the native side hosts it so the
+        // opener survives and the flow can hand its token back. Once, not per
+        // page: the native install() walks the whole decor view each call, and
+        // its own WeakHashMap guard already makes repeat calls pointless.
+        onPageStarted: (_) {
+          if (!_popupsEnabled) {
+            _popupsEnabled = true;
+            _channel.invokeMethod<void>('enableWebViewPopups');
+          }
+        },
+        onUrlChange: _onUrlChange,
+        // This WebView runs unrestricted JavaScript *and* holds the live X
+        // session cookies, so where it navigates is a security decision, not a
+        // convenience. Without this the flow will happily follow a redirect (or
+        // a link inside the page) to any host — a lookalike domain can then
+        // render a "session expired, re-enter your password" form, or read the
+        // non-HttpOnly cookies. Only X's own hosts and Google's SSO are allowed.
+        onNavigationRequest: (request) {
+          if (isAllowedLoginHost(request.url)) {
+            return NavigationDecision.navigate;
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(L10n.of(context).login_blocked_navigation),
+              ),
+            );
+          }
+          return NavigationDecision.prevent;
+        },
+      ),
+    );
+    _controller.setUserAgent(loginWebViewUserAgent);
     _controller.loadRequest(Uri.https('x.com', 'i/flow/login'));
-    // Match upstream's order and value exactly: the first load runs with the
-    // WebView's own user agent, which is the one X's login flow tolerates on
-    // MIUI; the constant only applies to later full navigations.
-    _controller.setUserAgent(userAgentHeader.toString());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -127,11 +143,13 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
   }
 
   Future<void> _onUrlChange(UrlChange change) async {
-    if (_completing || change.url != 'https://x.com/home') return;
+    if (_completing || !isLoginCompleteUrl(change.url ?? '')) return;
     _completing = true;
 
     try {
-      final cookies = await _cookieManager.getCookies('https://x.com/i/flow/login');
+      final cookies = await _cookieManager.getCookies(
+        'https://x.com/i/flow/login',
+      );
 
       // The home page embeds the logged-in handle and its numeric id in its
       // bootstrap state; it can arrive a beat after the URL changes, so give it
@@ -140,8 +158,12 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       var screenName = '';
       String? userId;
       for (var attempt = 0; attempt < 20 && screenName.isEmpty; attempt++) {
-        if (attempt > 0) await Future<void>.delayed(const Duration(milliseconds: 500));
-        final raw = await _controller.runJavaScriptReturningResult(_bootstrapScript);
+        if (attempt > 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+        final raw = await _controller.runJavaScriptReturningResult(
+          _bootstrapScript,
+        );
         final parsed = parseLoginBootstrap(_decodeJavaScriptString(raw));
         screenName = parsed.screenName;
         userId = parsed.userId;
@@ -173,12 +195,14 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
 
       final Map<String, String> authHeader = {
         "Cookie": cookies
-            .where((cookie) =>
-                cookie.name == "guest_id" ||
-                cookie.name == "gt" ||
-                cookie.name == "att" ||
-                cookie.name == "auth_token" ||
-                cookie.name == "ct0")
+            .where(
+              (cookie) =>
+                  cookie.name == "guest_id" ||
+                  cookie.name == "gt" ||
+                  cookie.name == "att" ||
+                  cookie.name == "auth_token" ||
+                  cookie.name == "ct0",
+            )
             .map((cookie) => '${cookie.name}=${cookie.value}')
             .join(";"),
         "authorization": bearerToken,
@@ -203,8 +227,10 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
       if (mounted) {
         // A new ct0 means any existing vault is now behind; the backup screen
         // shows "out of date" until the reader writes it again.
-        await PrefService.of(context, listen: false)
-            .set<bool>(optionAccountVaultDirty, true);
+        await PrefService.of(
+          context,
+          listen: false,
+        ).set<bool>(optionAccountVaultDirty, true);
       }
 
       // The session now lives in the database; the WebView's copy has no

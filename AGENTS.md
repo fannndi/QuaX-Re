@@ -95,11 +95,15 @@ The API is **reverse-engineered**: endpoints, queryIds, tokens and headers chang
 Parse JSON defensively (`result["data"]?["text"] as String?`, never `result["data"]["text"]`).
 
 **Verifying the header still works:** X reshapes their frontend without notice — the 2026 `x-web`
-migration removed the `ondemand.s` chunk the generator read and broke every port of this algorithm
-at once. When Search and follows start answering 404, run `dart run tool/check_indices.dart`: it
-walks the live page and says whether the generator can still find its inputs, or whether
-`ClientTransaction._findIndicesFileUrl` needs following them somewhere new again. It takes ~2s and
-is not part of `flutter test` because it needs the network.
+migration removed the named `ondemand.s`/`sign.o` chunk and broke every port of this algorithm
+at once. Run `dart run tool/check_indices.dart`: it walks the live page, follows bounded static
+imports, and recognizes hashed signing modules loaded through `import(path).then(m => m.default())`
+by their indices content. It needs the network and is not part of `flutter test`.
+
+GraphQL operation names, methods, query IDs and expected response roots live in `graphQlEndpoints`
+(`lib/constants.dart`). The client and `test/tool/endpoint_probe_test.dart` share that registry, and
+a parity test fails when an operation is missing from the probe. Update IDs, HTTP method, variables
+and feature flags together from a fresh capture; changing only the query ID is not enough.
 
 Two things that check cannot tell you:
 
@@ -140,6 +144,11 @@ Current schema version is in `Repository.migrate()` (`version: 33`); the test
 Column names that appear in more than one file (the migration, the entity, the query) are
 constants in `repository.dart` — `in_feed` had three spellings across three files and the
 wrong one worked, because SQLite compares identifiers case-insensitively.
+
+Account session headers are encrypted at rest with an Android Keystore-backed AES-GCM key
+(`lib/client/session_crypto.dart`). Legacy plaintext rows remain readable and are re-encrypted
+with a compare-and-swap update when Keystore is available; this does not change the SQLite
+schema. The portable account/likes vaults remain separately passphrase-protected.
 
 A migration step that creates an index checks `sqlite_master` first: the migration tests
 build synthetic databases at an earlier version containing only the tables that step needs,

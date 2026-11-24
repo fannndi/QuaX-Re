@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/tweet/video_metadata.dart';
 import 'package:quax/tweet/video_quality.dart';
 import 'package:quax/tweet/_video_more.dart';
 
@@ -18,7 +19,9 @@ const _kSeekSeconds = 10;
 VideoPlayerValue videoValueOf(BetterPlayerController controller) =>
     controller.videoPlayerController?.value ?? _uninitializedValue;
 
-final VideoPlayerValue _uninitializedValue = VideoPlayerValue(duration: Duration.zero);
+final VideoPlayerValue _uninitializedValue = VideoPlayerValue(
+  duration: Duration.zero,
+);
 
 class QuaxControls extends StatefulWidget {
   final BetterPlayerController controller;
@@ -113,7 +116,9 @@ class _QuaxControlsState extends State<QuaxControls> {
                   // IgnorePointer so the opaque scrim never swallows taps,
                   // which would make the controls impossible to dismiss.
                   const Positioned.fill(
-                    child: IgnorePointer(child: ColoredBox(color: Colors.black45)),
+                    child: IgnorePointer(
+                      child: ColoredBox(color: Colors.black45),
+                    ),
                   ),
                   Positioned.fill(
                     child: IgnorePointer(
@@ -133,13 +138,17 @@ class _QuaxControlsState extends State<QuaxControls> {
         ),
         // Buffering spinner, shown even while the controls are hidden.
         Positioned.fill(
-          child: IgnorePointer(child: _BufferingIndicator(controller: _controller)),
+          child: IgnorePointer(
+            child: _BufferingIndicator(controller: _controller),
+          ),
         ),
         if (_seekFeedback != 0)
           Positioned.fill(
             child: IgnorePointer(
               child: Align(
-                alignment: _seekFeedback < 0 ? Alignment.centerLeft : Alignment.centerRight,
+                alignment: _seekFeedback < 0
+                    ? Alignment.centerLeft
+                    : Alignment.centerRight,
                 child: _seekFeedbackBadge(),
               ),
             ),
@@ -175,13 +184,22 @@ class _QuaxControlsState extends State<QuaxControls> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+      decoration: const BoxDecoration(
+        color: Colors.black54,
+        shape: BoxShape.circle,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(back ? Icons.fast_rewind : Icons.fast_forward, color: Colors.white),
+          Icon(
+            back ? Icons.fast_rewind : Icons.fast_forward,
+            color: Colors.white,
+          ),
           const SizedBox(height: 4),
-          Text('$_kSeekSeconds s', style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(
+            formatVideoDuration(_kSeekSeconds * 1000),
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
         ],
       ),
     );
@@ -201,7 +219,11 @@ class _PlayerListenable extends StatefulWidget {
   /// every progress tick is pure waste.
   final bool watchProgress;
 
-  const _PlayerListenable({required this.controller, required this.builder, this.watchProgress = false});
+  const _PlayerListenable({
+    required this.controller,
+    required this.builder,
+    this.watchProgress = false,
+  });
 
   @override
   State<_PlayerListenable> createState() => _PlayerListenableState();
@@ -218,7 +240,10 @@ class _PlayerListenableState extends State<_PlayerListenable> {
       // that only cares about play/pause, buffering or volume has no reason to
       // rebuild three times a second for it — the mute and fullscreen buttons
       // used to, because they shared this listener with the position indicator.
-      if (!widget.watchProgress && event.betterPlayerEventType == BetterPlayerEventType.progress) return;
+      if (!widget.watchProgress &&
+          event.betterPlayerEventType == BetterPlayerEventType.progress) {
+        return;
+      }
       if (mounted) setState(() {});
     };
     widget.controller.addEventsListener(_listener);
@@ -231,7 +256,8 @@ class _PlayerListenableState extends State<_PlayerListenable> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.builder(context, videoValueOf(widget.controller));
+  Widget build(BuildContext context) =>
+      widget.builder(context, videoValueOf(widget.controller));
 }
 
 class _BufferingIndicator extends StatelessWidget {
@@ -293,7 +319,11 @@ class _BottomBar extends StatelessWidget {
           offset: const Offset(0, -8),
           child: Padding(
             padding: const EdgeInsets.only(left: 14, right: 16, bottom: 6),
-            child: _SeekBar(controller: controller, accentColor: accentColor, visible: visible),
+            child: _SeekBar(
+              controller: controller,
+              accentColor: accentColor,
+              visible: visible,
+            ),
           ),
         ),
       ],
@@ -381,11 +411,18 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
       child: Container(
         width: 64,
         height: 64,
-        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+        decoration: const BoxDecoration(
+          color: Colors.black54,
+          shape: BoxShape.circle,
+        ),
         child: Center(
           child: _completed
               ? const Icon(Icons.replay, color: Colors.white, size: 32)
-              : AnimatedPlayPause(playing: _playing, color: Colors.white, size: 32),
+              : AnimatedPlayPause(
+                  playing: _playing,
+                  color: Colors.white,
+                  size: 32,
+                ),
         ),
       ),
     );
@@ -397,7 +434,12 @@ class AnimatedPlayPause extends StatefulWidget {
   final double? size;
   final Color? color;
 
-  const AnimatedPlayPause({super.key, required this.playing, this.size, this.color});
+  const AnimatedPlayPause({
+    super.key,
+    required this.playing,
+    this.size,
+    this.color,
+  });
 
   @override
   State<AnimatedPlayPause> createState() => _AnimatedPlayPauseState();
@@ -463,7 +505,11 @@ class _PositionIndicator extends StatelessWidget {
         return RichText(
           text: TextSpan(
             text: '${_fmt(value.position)} ',
-            style: const TextStyle(fontSize: 14.0, color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 14.0,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
             children: [
               TextSpan(
                 text: '/ ${_fmt(duration)}',
@@ -487,13 +533,18 @@ class _SeekBar extends StatefulWidget {
   final Color accentColor;
   final bool visible;
 
-  const _SeekBar({required this.controller, required this.accentColor, required this.visible});
+  const _SeekBar({
+    required this.controller,
+    required this.accentColor,
+    required this.visible,
+  });
 
   @override
   State<_SeekBar> createState() => _SeekBarState();
 }
 
-class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin {
+class _SeekBarState extends State<_SeekBar>
+    with SingleTickerProviderStateMixin {
   late final void Function(BetterPlayerEvent) _listener;
   late final _ticker = createTicker(_onTick);
 
@@ -545,7 +596,9 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
   void _sync() {
     final value = videoValueOf(widget.controller);
     _duration = value.duration ?? Duration.zero;
-    _buffer = value.buffered.isNotEmpty ? value.buffered.last.end : Duration.zero;
+    _buffer = value.buffered.isNotEmpty
+        ? value.buffered.last.end
+        : Duration.zero;
     _rate = value.speed <= 0 ? 1.0 : value.speed;
     _playing = value.isPlaying;
     _buffering = value.isBuffering;
@@ -601,7 +654,8 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
     const trackHeight = 10.0;
     const thumbSize = 12.0;
     final trackColor = Theme.of(context).disabledColor.withValues(alpha: 0.5);
-    final bufferColor = Theme.of(context).colorScheme.surface.withValues(alpha: 0.5);
+    final bufferColor = Theme.of(context).colorScheme.surface
+        .withValues(alpha: 0.5);
     final radius = BorderRadius.circular(trackHeight / 2);
 
     return LayoutBuilder(
@@ -617,13 +671,13 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
         // Explicit width + left anchor so the fill grows from the left edge; an
         // unpositioned child in this centered Stack would grow from the middle.
         Widget bar(double w, Color color) => Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                width: w,
-                height: trackHeight,
-                decoration: BoxDecoration(color: color, borderRadius: radius),
-              ),
-            );
+          alignment: Alignment.centerLeft,
+          child: Container(
+            width: w,
+            height: trackHeight,
+            decoration: BoxDecoration(color: color, borderRadius: radius),
+          ),
+        );
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -651,7 +705,10 @@ class _SeekBarState extends State<_SeekBar> with SingleTickerProviderStateMixin 
                     child: Container(
                       width: thumbSize,
                       height: thumbSize,
-                      decoration: BoxDecoration(color: widget.accentColor, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: widget.accentColor,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 ),
@@ -705,12 +762,12 @@ class _FullscreenButton extends StatelessWidget {
           iconSize: 24.0,
           color: Colors.white,
           icon: Icon(fullscreen ? Icons.fullscreen_exit : Icons.fullscreen),
-          tooltip: fullscreen ? L10n.of(context).exit_fullscreen : L10n.of(context).enter_fullscreen,
+          tooltip: fullscreen
+              ? L10n.of(context).exit_fullscreen
+              : L10n.of(context).enter_fullscreen,
           onPressed: controller.toggleFullScreen,
         );
       },
     );
   }
 }
-
-

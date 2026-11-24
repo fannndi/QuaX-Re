@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,9 +10,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/atomic_copy.dart';
+import 'package:quax/downloads/downloads_model.dart';
+import 'package:quax/utils/atomic_file.dart';
 import 'package:quax/utils/lru_cache.dart';
 
 const _nomedia = '.nomedia';
+const _mediaLedger = '.quax-media.json';
 const libraryFolderName = 'QuaXLibrary';
 
 /// A dot keeps the hidden root out of file managers that still reach
@@ -26,7 +31,9 @@ const hiddenLibraryFolderName = '.QuaXLibrary';
 /// end up with a second, empty `QuaXLibrary` inside it.
 String libraryRootForPickedFolder(String pickedPath) {
   final picked = p.normalize(pickedPath);
-  return p.basename(picked) == libraryFolderName ? picked : p.join(picked, libraryFolderName);
+  return p.basename(picked) == libraryFolderName
+      ? picked
+      : p.join(picked, libraryFolderName);
 }
 
 const _spaceMarginBytes = 16 * 1024 * 1024;
@@ -37,15 +44,39 @@ const _spaceMarginBytes = 16 * 1024 * 1024;
 const _storageChannel = quaxMethodChannel;
 
 const _videoExtensions = [
-  '.mp4', '.mov', '.webm', '.mkv', '.m4v', '.avi', '.ts', '.3gp', '.mpeg', '.mpg', '.wmv', '.flv',
-  '.m2ts', '.ogv'
+  '.mp4',
+  '.mov',
+  '.webm',
+  '.mkv',
+  '.m4v',
+  '.avi',
+  '.ts',
+  '.3gp',
+  '.mpeg',
+  '.mpg',
+  '.wmv',
+  '.flv',
+  '.m2ts',
+  '.ogv',
 ];
-const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif', '.avif', '.tiff'];
+const _imageExtensions = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.bmp',
+  '.heic',
+  '.heif',
+  '.avif',
+  '.tiff',
+];
 
 /// Thumbnail file name for a library-relative path. Hashing the path keeps two
 /// nested clips with the same basename from sharing (and overwriting) one frame.
 @visibleForTesting
-String thumbnailNameFor(String relativePath) => '${md5.convert(utf8.encode(relativePath))}.jpg';
+String thumbnailNameFor(String relativePath) =>
+    '${md5.convert(utf8.encode(relativePath))}.jpg';
 
 const _mimeTypes = {
   '.mp4': 'video/mp4',
@@ -81,8 +112,8 @@ class LibraryEntry {
   final DateTime modified;
 
   LibraryEntry(this.file, this.isVideo, {this.size = 0, DateTime? modified})
-      : name = p.basename(file.path),
-        modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
+    : name = p.basename(file.path),
+      modified = modified ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   final String name;
 }
@@ -133,28 +164,52 @@ class LibraryVolume {
   String get vaultRoot => p.join(volumeRoot, 'QuaX-Re');
 
   @override
-  bool operator ==(Object other) => other is LibraryVolume && other.appFilesRoot == appFilesRoot;
+  bool operator ==(Object other) =>
+      other is LibraryVolume && other.appFilesRoot == appFilesRoot;
 
   @override
   int get hashCode => appFilesRoot.hashCode;
 }
 
 class LibraryMoveResult {
-  const LibraryMoveResult({required this.moved, required this.failed, this.error});
+  const LibraryMoveResult({
+    required this.moved,
+    required this.failed,
+    this.oldRoot,
+    this.failedFiles = const [],
+    this.relocatedPaths = const {},
+    this.error,
+  });
 
-  const LibraryMoveResult.failed(this.error) : moved = 0, failed = 0;
+  const LibraryMoveResult.failed(this.error)
+    : moved = 0,
+      failed = 0,
+      oldRoot = null,
+      failedFiles = const [],
+      relocatedPaths = const {};
 
   final int moved;
   final int failed;
+  final String? oldRoot;
+  final List<String> failedFiles;
+  final Map<String, String> relocatedPaths;
   final String? error;
 
   bool get ok => error == null && failed == 0;
 }
 
 class LibraryExportResult {
-  const LibraryExportResult({required this.copied, required this.failed, this.path, this.error});
+  const LibraryExportResult({
+    required this.copied,
+    required this.failed,
+    this.path,
+    this.error,
+  });
 
-  const LibraryExportResult.failed(this.error) : copied = 0, failed = 0, path = null;
+  const LibraryExportResult.failed(this.error)
+    : copied = 0,
+      failed = 0,
+      path = null;
 
   final int copied;
   final int failed;
@@ -184,9 +239,13 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   @visibleForTesting
   static Future<bool> Function()? debugStorageAccess;
 
+  @visibleForTesting
+  static Directory? debugThumbnailDirectoryOverride;
+
   /// Test seam for the `.nomedia` pass, which also needs the MethodChannel.
   @visibleForTesting
-  static Future<bool> Function(String path, bool visible)? debugGalleryVisibility;
+  static Future<bool> Function(String path, bool visible)?
+  debugGalleryVisibility;
 
   String get libraryPath => prefs.get<String>(optionLibraryPath) ?? '';
 
@@ -201,7 +260,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     // have come from hidden setup, so infer it instead of showing the visible
     // folder controls over it.
     final path = libraryPath;
-    if (path.contains('${p.separator}Android${p.separator}data${p.separator}')) {
+    if (path.contains(
+      '${p.separator}Android${p.separator}data${p.separator}',
+    )) {
       return LibraryStorageMode.hidden;
     }
     return LibraryStorageMode.visible;
@@ -221,7 +282,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// primary volume comes first so the UI has a sane default; a removable card
   /// is what makes the "set it on the SD card" flow possible.
   Future<List<LibraryVolume>> availableVolumes() async {
-    final dirs = await (debugExternalDirectories?.call() ?? getExternalStorageDirectories());
+    final dirs =
+        await (debugExternalDirectories?.call() ??
+            getExternalStorageDirectories());
     if (dirs == null) return const [];
 
     final volumes = <LibraryVolume>[];
@@ -230,7 +293,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       if (!volumes.contains(volume)) volumes.add(volume);
     }
     volumes.sort((a, b) {
-      if (a.isPrimary == b.isPrimary) return a.appFilesRoot.compareTo(b.appFilesRoot);
+      if (a.isPrimary == b.isPrimary) {
+        return a.appFilesRoot.compareTo(b.appFilesRoot);
+      }
       return a.isPrimary ? -1 : 1;
     });
     return volumes;
@@ -271,7 +336,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
           // find app-private caches.
           if (name == 'Android') continue;
           candidates.add(
-              name == libraryFolderName ? entity.path : p.join(entity.path, libraryFolderName));
+            name == libraryFolderName
+                ? entity.path
+                : p.join(entity.path, libraryFolderName),
+          );
         }
       } on Exception {
         // An unmounted card still has the fixed candidates above; the folder
@@ -305,7 +373,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
       var count = 0;
       var bytes = 0;
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File || !_isMedia(entity.path)) continue;
         count++;
         try {
@@ -329,7 +400,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// Points the app at an existing folder and keeps every file where it is.
   /// This never moves, copies or deletes media; it only switches the root and
   /// refreshes the gallery.
-  Future<bool> adoptExistingLibrary(String path, {ValueNotifier<String?>? error}) async {
+  Future<bool> adoptExistingLibrary(
+    String path, {
+    ValueNotifier<String?>? error,
+  }) async {
     final rootPath = p.normalize(path);
     final dir = Directory(rootPath);
     if (!await dir.exists()) {
@@ -406,12 +480,15 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   bool _isHiddenPath(String path) {
     final parts = p.split(path);
     final android = parts.indexOf('Android');
-    return android > 0 && parts.length > android + 1 && parts[android + 1] == 'data';
+    return android > 0 &&
+        parts.length > android + 1 &&
+        parts[android + 1] == 'data';
   }
 
   /// Whether the library is listed by gallery apps: true means the `.nomedia`
   /// marker is gone.
-  bool get galleryVisible => prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
+  bool get galleryVisible =>
+      prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
 
   /// Live toggle for the gallery apps: drops/creates the `.nomedia` marker and
   /// asks Android to rescan the folder, so the videos appear or disappear from
@@ -423,11 +500,12 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     if (isHidden) return false;
 
     try {
-      final ok = await (debugGalleryVisibility?.call(path, visible) ??
-          _storageChannel.invokeMethod<bool>('setGalleryVisibility', {
-            'path': path,
-            'visible': visible,
-          }));
+      final ok =
+          await (debugGalleryVisibility?.call(path, visible) ??
+              _storageChannel.invokeMethod<bool>('setGalleryVisibility', {
+                'path': path,
+                'visible': visible,
+              }));
       if (ok != true) return false;
 
       prefs.set<bool>(optionLibraryVisibleInGallery, visible);
@@ -477,20 +555,42 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   Future<String?> _generateThumbnail(LibraryEntry entry) async {
     try {
-      final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      final cacheDir =
+          debugThumbnailDirectoryOverride ??
+          Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
       await cacheDir.create(recursive: true);
       // Hash the path relative to the library, not the basename: two nested
       // clips named clip.mp4 used to share one thumbnail and show the wrong
       // frame (and a deleted clip's frame reappeared for a new one).
-      final relative =
-          libraryPath.isEmpty ? entry.file.path : p.relative(entry.file.path, from: libraryPath);
+      final relative = libraryPath.isEmpty
+          ? entry.file.path
+          : p.relative(entry.file.path, from: libraryPath);
       final cached = File(p.join(cacheDir.path, thumbnailNameFor(relative)));
       if (await cached.exists()) {
         return cached.path;
       }
 
-      return await _storageChannel.invokeMethod<String>('videoThumbnail',
-          {'path': entry.file.path, 'outPath': cached.path});
+      final temp = File(atomicTempPathFor(cached));
+      try {
+        final result = await _storageChannel.invokeMethod<String>(
+          'videoThumbnail',
+          {'path': entry.file.path, 'outPath': temp.path},
+        );
+        if (result == null ||
+            !await temp.exists() ||
+            await temp.length() == 0) {
+          throw const FileSystemException('Thumbnail compression failed');
+        }
+        await moveFileAtomically(temp, cached, preserveModified: false);
+        return cached.path;
+      } catch (_) {
+        try {
+          if (await temp.exists()) await temp.delete();
+        } catch (_) {
+          // A failed frame must not leave a partial thumbnail behind.
+        }
+        return null;
+      }
     } on Exception {
       return null;
     }
@@ -503,8 +603,12 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     final key = entry.file.path;
     _thumbnailRequests.remove(key);
     try {
-      final cacheDir = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
-      final relative = libraryPath.isEmpty ? key : p.relative(key, from: libraryPath);
+      final cacheDir =
+          debugThumbnailDirectoryOverride ??
+          Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      final relative = libraryPath.isEmpty
+          ? key
+          : p.relative(key, from: libraryPath);
       final thumb = File(p.join(cacheDir.path, thumbnailNameFor(relative)));
       if (await thumb.exists()) await thumb.delete();
     } catch (_) {
@@ -512,6 +616,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
     try {
       await entry.file.delete();
+      await _forgetLocalMedia(entry.file.path);
     } catch (_) {
       // Already gone: the refresh settles the list either way.
     }
@@ -520,11 +625,17 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// Opens a library file through the system player/viewer. No in-app player:
   /// the file URI is granted to the chosen app directly, so the folder stays
   /// hidden from the gallery while clips play like any other media file.
-  Future<bool> openExternally(String path) async {
-    final mime = _mimeTypes[p.extension(path).toLowerCase()] ?? '*/*';
+  Future<bool> openExternally(String path) => openSavedMedia(path: path);
+
+  Future<bool> openSavedMedia({String? path, String? uri}) async {
+    final reference = path ?? uri ?? '';
+    final mime =
+        _mimeTypes[p.extension(reference.split('?').first).toLowerCase()] ??
+        '*/*';
     try {
-      final ok = await _storageChannel.invokeMethod<bool>('openMediaFile', {
+      final ok = await _storageChannel.invokeMethod<bool>('openMediaLocation', {
         'path': path,
+        'uri': uri,
         'mime': mime,
       });
       return ok == true;
@@ -533,39 +644,213 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
   }
 
-  /// The library file matching a media URL, or null when it was never
-  /// downloaded. Downloads keep the URL basename; a duplicate gets a
-  /// `-timestamp` suffix, so the stem is compared too.
+  /// The library file matching an exact media URL. Old installs are migrated
+  /// from filename matching once; ambiguous stem matches are never guessed.
   Future<String?> localPathFor(String url) async {
-    if (libraryPath.isEmpty) return null;
+    if (libraryPath.isEmpty || url.isEmpty) return null;
+    final mapping = await _loadMediaMapping(libraryPath);
+    if (mapping.containsKey(url)) {
+      final path = mapping[url]!;
+      return await File(path).exists() ? path : null;
+    }
 
     final name = p.basename(url.split('?').first);
     if (name.isEmpty) return null;
-
     final direct = File(p.join(libraryPath, name));
-    if (await direct.exists()) return direct.path;
+    if (await direct.exists()) {
+      await registerLocalMedia(url, direct.path);
+      return direct.path;
+    }
 
     await _buildNameIndexIfStale();
     final index = _nameIndexes[libraryPath] ?? const <String, List<String>>{};
     final exact = index[name];
-    if (exact != null && exact.isNotEmpty) return exact.first;
-
+    final directCandidate = p.join(libraryPath, name);
+    if (exact != null && exact.contains(directCandidate)) {
+      await registerLocalMedia(url, directCandidate);
+      return directCandidate;
+    }
+    final candidates = <String>{};
+    if (exact != null) candidates.addAll(exact);
     final stem = p.basenameWithoutExtension(name).toLowerCase();
     final extension = p.extension(name).toLowerCase();
     for (final entry in index.entries) {
       if (p.extension(entry.key).toLowerCase() != extension) continue;
       final keyStem = p.basenameWithoutExtension(entry.key).toLowerCase();
-      // Downloads are saved as `<username>-<name>` (and duplicates as
-      // `<username>-<name>-<timestamp>`), so the bare URL basename never
-      // matches a file that is already on disk.
       if (keyStem == stem ||
           keyStem.endsWith('-$stem') ||
           keyStem.contains('-$stem-') ||
           keyStem.startsWith('$stem-')) {
-        if (entry.value.isNotEmpty) return entry.value.first;
+        candidates.addAll(entry.value);
       }
     }
-    return null;
+    final existing = candidates
+        .where((path) => File(path).existsSync())
+        .toList();
+    if (existing.length != 1) return null;
+    await registerLocalMedia(url, existing.single);
+    return existing.single;
+  }
+
+  static final Map<String, Map<String, String>> _mediaMappings = {};
+  static final Map<String, Future<void>> _mediaMappingLoads = {};
+  static final Map<String, Future<void>> _mediaMappingWrites = {};
+
+  Future<Map<String, String>> _loadMediaMapping(String root) async {
+    final cached = _mediaMappings[root];
+    if (cached != null) return cached;
+    final loading = _mediaMappingLoads[root];
+    if (loading != null) {
+      await loading;
+      return _mediaMappings[root] ?? {};
+    }
+
+    final future = _readMediaMapping(root);
+    _mediaMappingLoads[root] = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_mediaMappingLoads[root], future)) {
+        _mediaMappingLoads.remove(root);
+      }
+    }
+    return _mediaMappings[root] ?? {};
+  }
+
+  Future<void> _readMediaMapping(String root) async {
+    final mapping = <String, String>{};
+    try {
+      final file = File(p.join(root, _mediaLedger));
+      if (await file.exists()) {
+        final decoded = jsonDecode(await file.readAsString());
+        final entries = decoded is Map<String, dynamic>
+            ? decoded['entries']
+            : null;
+        if (entries is List) {
+          for (final raw in entries) {
+            try {
+              if (raw is! Map<String, dynamic>) continue;
+              final url = raw['url'] as String?;
+              final path = raw['path'] as String?;
+              if (url != null &&
+                  url.isNotEmpty &&
+                  path != null &&
+                  p.isAbsolute(path) &&
+                  !path.contains('://') &&
+                  !path.startsWith('/document/')) {
+                mapping[url] = path;
+              }
+            } catch (_) {
+              // Keep the valid mappings around a damaged row.
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // A missing or broken ledger falls back to legacy discovery.
+    }
+    _mediaMappings[root] = mapping;
+  }
+
+  /// Persists the exact URL that produced a downloaded library file.
+  Future<bool> registerLocalMedia(String url, String path) async {
+    final root = libraryPath;
+    if (root.isEmpty || url.isEmpty || !p.isWithin(root, p.normalize(path))) {
+      return false;
+    }
+    if (!await File(path).exists()) return false;
+    final mapping = await _loadMediaMapping(root);
+    final previous = _mediaMappingWrites[root];
+    final completer = Completer<void>();
+    _mediaMappingWrites[root] = completer.future;
+    if (previous != null) await previous;
+    final old = mapping[url];
+    mapping[url] = p.normalize(path);
+    try {
+      await writeAtomically(
+        File(p.join(root, _mediaLedger)),
+        jsonEncode({
+          'version': 1,
+          'entries': [
+            for (final entry in mapping.entries)
+              {'url': entry.key, 'path': entry.value},
+          ],
+        }),
+      );
+      return true;
+    } catch (_) {
+      if (old == null) {
+        mapping.remove(url);
+      } else {
+        mapping[url] = old;
+      }
+      return false;
+    } finally {
+      if (identical(_mediaMappingWrites[root], completer.future)) {
+        _mediaMappingWrites.remove(root);
+      }
+      completer.complete();
+    }
+  }
+
+  Future<void> _mergeMediaMapping(
+    String oldRoot,
+    String newRoot,
+    Map<String, String> inherited,
+    Map<String, String> relocatedPaths,
+  ) async {
+    final ledger = File(p.join(newRoot, _mediaLedger));
+    final mapping = await _loadMediaMapping(newRoot);
+    if (inherited.isEmpty && !await ledger.exists()) {
+      _mediaMappings.remove(oldRoot);
+      return;
+    }
+    for (final entry in inherited.entries) {
+      final oldPath = p.normalize(entry.value);
+      final moved = relocatedPaths[oldPath];
+      if (moved != null) {
+        mapping[entry.key] = moved;
+      } else if (p.isWithin(oldRoot, oldPath)) {
+        // A failed move stays on the old volume. Do not let a pre-existing
+        // target file masquerade as the moved bytes.
+        mapping[entry.key] = oldPath;
+      }
+    }
+    await writeAtomically(
+      File(p.join(newRoot, _mediaLedger)),
+      jsonEncode({
+        'version': 1,
+        'entries': [
+          for (final entry in mapping.entries)
+            {'url': entry.key, 'path': entry.value},
+        ],
+      }),
+    );
+    _mediaMappings.remove(oldRoot);
+  }
+
+  Future<void> _forgetLocalMedia(String path) async {
+    final root = libraryPath;
+    if (root.isEmpty) return;
+    final mapping = await _loadMediaMapping(root);
+    final matches = mapping.entries
+        .where((entry) => p.equals(entry.value, path))
+        .toList();
+    for (final entry in matches) {
+      mapping.remove(entry.key);
+    }
+    if (matches.isNotEmpty) {
+      await writeAtomically(
+        File(p.join(root, _mediaLedger)),
+        jsonEncode({
+          'version': 1,
+          'entries': [
+            for (final entry in mapping.entries)
+              {'url': entry.key, 'path': entry.value},
+          ],
+        }),
+      );
+    }
   }
 
   // The name index is shared by every LibraryModel for the same folder: the
@@ -574,52 +859,70 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   static final Map<String, Map<String, List<String>>> _nameIndexes = {};
   static final Map<String, DateTime> _nameIndexBuiltAt = {};
   static final Map<String, Future<void>> _nameIndexBuilding = {};
+  static final Map<String, int> _nameIndexGenerations = {};
+
+  @visibleForTesting
+  static Future<void> Function(String path)? debugNameIndexScanHook;
 
   Future<void> _buildNameIndexIfStale() async {
     final path = libraryPath;
     if (path.isEmpty) return;
 
-    final builtAt = _nameIndexBuiltAt[path];
-    if (builtAt != null && DateTime.now().difference(builtAt).inMinutes < 5) return;
+    while (true) {
+      final builtAt = _nameIndexBuiltAt[path];
+      if (builtAt != null && DateTime.now().difference(builtAt).inMinutes < 5) {
+        return;
+      }
 
-    final building = _nameIndexBuilding[path];
-    if (building != null) {
-      // There is already an index in memory and a scan running: serve the old
-      // one now instead of blocking the player on the directory walk.
-      if (builtAt != null) return;
-      await building;
-      return;
-    }
+      final building = _nameIndexBuilding[path];
+      if (building != null) {
+        if (builtAt != null) return;
+        await building;
+        continue;
+      }
 
-    final index = _nameIndexes[path] ??= {};
-    final future = _scanNames(path, index);
-    _nameIndexBuilding[path] = future;
+      final generation = _nameIndexGenerations[path] ?? 0;
+      final index = _nameIndexes[path] ??= {};
+      final future = _scanNames(path, index, generation);
+      _nameIndexBuilding[path] = future;
 
-    if (builtAt == null) {
-      // First use: the caller has nothing to fall back to, so it has to wait.
-      try {
-        await future;
-      } finally {
-        _nameIndexBuilding.remove(path);
+      if (builtAt == null) {
+        try {
+          await future;
+        } finally {
+          if (identical(_nameIndexBuilding[path], future)) {
+            _nameIndexBuilding.remove(path);
+          }
+        }
+        if ((_nameIndexGenerations[path] ?? 0) != generation) continue;
+      } else {
+        future.whenComplete(() {
+          if (identical(_nameIndexBuilding[path], future)) {
+            _nameIndexBuilding.remove(path);
+          }
+        });
       }
       return;
     }
-
-    // A stale index is still usable. Refresh it behind the current frame; the
-    // next lookup sees the new names, and this one never blocks playback.
-    future.whenComplete(() => _nameIndexBuilding.remove(path));
   }
 
   @visibleForTesting
   static int debugNameIndexBuilds = 0;
 
-  Future<void> _scanNames(String path, Map<String, List<String>> index) async {
+  Future<void> _scanNames(
+    String path,
+    Map<String, List<String>> index,
+    int generation,
+  ) async {
     debugNameIndexBuilds++;
     final scanned = <String, List<String>>{};
     try {
       final dir = Directory(path);
       if (await dir.exists()) {
-        await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        await for (final entity in dir.list(
+          recursive: true,
+          followLinks: false,
+        )) {
           if (entity is! File) continue;
           final name = p.basename(entity.path);
           (scanned[name] ??= []).add(entity.path);
@@ -629,6 +932,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       // An unreadable folder simply yields no local matches.
     }
 
+    await debugNameIndexScanHook?.call(path);
+    if ((_nameIndexGenerations[path] ?? 0) != generation) return;
     index
       ..clear()
       ..addAll(scanned);
@@ -640,6 +945,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   void _invalidateNameIndexAt(String path) {
     if (path.isEmpty) return;
+    _nameIndexGenerations[path] = (_nameIndexGenerations[path] ?? 0) + 1;
     _nameIndexes.remove(path);
     _nameIndexBuiltAt.remove(path);
   }
@@ -647,7 +953,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// Configures the library into the app-private directory of [volume]. No
   /// storage permission is involved: the app owns this tree, and Android keeps
   /// it away from other apps on 11+.
-  Future<bool> setupHiddenLibrary(LibraryVolume volume, {ValueNotifier<String?>? error}) async {
+  Future<bool> setupHiddenLibrary(
+    LibraryVolume volume, {
+    ValueNotifier<String?>? error,
+  }) async {
     try {
       final root = Directory(volume.hiddenRoot);
       await root.create(recursive: true);
@@ -669,7 +978,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// library there. Callers pause the download queue first; a transfer that
   /// lands mid-move would save into the folder that is being emptied.
   Future<LibraryMoveResult> moveToHidden(LibraryVolume volume) async {
-    final result = await _moveRoot(Directory(volume.hiddenRoot), mode: LibraryStorageMode.hidden);
+    final result = await _moveRoot(
+      Directory(volume.hiddenRoot),
+      mode: LibraryStorageMode.hidden,
+    );
     if (result.error == null) await _pinVaultRoot(volume);
     return result;
   }
@@ -679,8 +991,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// where it is: account backups must not follow a media folder into
   /// app-private storage.
   Future<LibraryMoveResult> moveToVisibleAt(String pickedFolder) {
-    return _moveRoot(Directory(libraryRootForPickedFolder(pickedFolder)),
-        mode: LibraryStorageMode.visible);
+    return _moveRoot(
+      Directory(libraryRootForPickedFolder(pickedFolder)),
+      mode: LibraryStorageMode.visible,
+    );
   }
 
   Future<void> _pinVaultRoot(LibraryVolume volume) async {
@@ -689,7 +1003,11 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     await prefs.set<String>(optionVaultRoot, volume.vaultRoot);
   }
 
-  Future<LibraryMoveResult> _moveRoot(Directory target, {required LibraryStorageMode mode}) async {
+  Future<LibraryMoveResult> _moveRoot(
+    Directory target, {
+    required LibraryStorageMode mode,
+  }) async {
+    await DownloadsModel().pauseAll();
     final sourcePath = libraryPath;
     final sourceWasVisible = !isHidden;
     if (sourcePath.isEmpty) {
@@ -713,30 +1031,49 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
     // Moving a library into itself (or over its own parent) would copy the
     // target into the source while walking it. Refuse before touching a file.
-    if (p.isWithin(sourcePath, target.path) || p.isWithin(target.path, sourcePath)) {
+    if (p.isWithin(sourcePath, target.path) ||
+        p.isWithin(target.path, sourcePath)) {
       return const LibraryMoveResult.failed('inside_library');
     }
 
-    // Sizes come from the scan, and the free-space check is useless without
-    // them. This also means a library that was never opened still moves
-    // correctly.
-    await refresh();
-    final totalBytes = state.fold<int>(0, (sum, entry) => sum + entry.size);
-    // A same-volume move is a rename and needs no free space; checking it
-    // would refuse to tidy a nearly full disk that has nothing to copy.
+    final source = Directory(sourcePath);
+    if (!await source.exists()) {
+      // A missing source is an ejected SD card, not "nothing to move".
+      return const LibraryMoveResult.failed('source_missing');
+    }
+
+    final sourceMapping = await _loadMediaMapping(sourcePath);
+    // Collect first: moving entries out of a directory while its lazy listing
+    // is still walking it can skip files. Sum every file that will actually
+    // move, not only media rows from a possibly stale gallery scan.
+    final files = <({File file, int size})>[];
+    try {
+      await for (final entity in source.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File ||
+            p.basename(entity.path) == _nomedia ||
+            p.relative(entity.path, from: sourcePath) == _mediaLedger) {
+          continue;
+        }
+        var size = 0;
+        try {
+          size = await entity.length();
+        } catch (_) {
+          // The move will report this file as failed.
+        }
+        files.add((file: entity, size: size));
+      }
+    } catch (e) {
+      return LibraryMoveResult.failed(e.toString());
+    }
+    final totalBytes = files.fold<int>(0, (sum, entry) => sum + entry.size);
     if (!_sameStorage(sourcePath, target.path)) {
       final free = await _availableSpace(target.path);
       if (free != null && totalBytes + _spaceMarginBytes > free) {
         return const LibraryMoveResult.failed('no_space');
       }
-    }
-
-    final source = Directory(sourcePath);
-    if (!await source.exists()) {
-      // A missing source is an ejected SD card, not "nothing to move": the
-      // files are still on that volume. Switching the root here made the
-      // gallery empty until the folder was picked again.
-      return const LibraryMoveResult.failed('source_missing');
     }
 
     try {
@@ -746,56 +1083,63 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
 
     var moved = 0;
-    var failed = 0;
-    try {
-      // Collect first: moving entries out of a directory while its lazy
-      // listing is still walking it can skip files on some filesystems.
-      final files = <File>[];
-      await for (final entity in source.list(recursive: true, followLinks: false)) {
-        if (entity is File) files.add(entity);
-      }
-
-      for (final entity in files) {
-        final relative = p.relative(entity.path, from: sourcePath);
-        if (p.basename(relative) == _nomedia) continue;
-
-        try {
-          var destination = p.join(target.path, relative);
-          await Directory(p.dirname(destination)).create(recursive: true);
-          if (await File(destination).exists()) destination = _uniqueDestination(destination);
-
-          try {
-            // Same volume: rename is atomic and copies nothing. Across the SD
-            // card boundary Android refuses the rename, so fall back to a
-            // copy that only deletes the source after it succeeded.
-            await entity.rename(destination);
-          } on FileSystemException {
-            // File.copy does not carry the source mtime; without this every
-            // file in a cross-volume move gets the move time and the
-            // newest/oldest sort becomes the copy order.
-            final modified = (await entity.stat()).modified;
-            await entity.copy(destination);
-            try {
-              await File(destination).setLastModified(modified);
-            } catch (_) {
-              // The copy is still valid; only the sort order degrades.
-            }
-            await entity.delete();
-          }
-          moved++;
-        } catch (_) {
-          // One unreadable file must not abandon the rest of the library.
-          failed++;
+    final failedFiles = <String>[];
+    final movedPaths = <String>[];
+    final relocatedPaths = <String, String>{};
+    for (final entry in files) {
+      try {
+        final relative = p.relative(entry.file.path, from: sourcePath);
+        var destination = p.join(target.path, relative);
+        await Directory(p.dirname(destination)).create(recursive: true);
+        if (await File(destination).exists()) {
+          destination = _uniqueDestination(destination);
         }
+        await moveFileAtomically(
+          entry.file,
+          File(destination),
+          expectedLength: entry.size,
+        );
+        movedPaths.add(destination);
+        relocatedPaths[p.normalize(entry.file.path)] = p.normalize(destination);
+        moved++;
+      } catch (_) {
+        failedFiles.add(entry.file.path);
       }
-    } catch (e) {
-      return LibraryMoveResult(moved: moved, failed: failed, error: e.toString());
     }
 
     try {
-      await _configureTarget(target, mode);
+      await _configureTarget(
+        target,
+        mode,
+        inheritedMapping: sourceMapping,
+        relocatedPaths: relocatedPaths,
+      );
     } catch (e) {
-      return LibraryMoveResult(moved: moved, failed: failed, error: e.toString());
+      return LibraryMoveResult(
+        moved: moved,
+        failed: failedFiles.length,
+        oldRoot: sourcePath,
+        failedFiles: failedFiles,
+        relocatedPaths: relocatedPaths,
+        error: e.toString(),
+      );
+    }
+
+    if (mode == LibraryStorageMode.visible && galleryVisible) {
+      for (final path in movedPaths) {
+        try {
+          await _storageChannel.invokeMethod('scanMediaFile', {'path': path});
+        } catch (_) {
+          // A moved file remains usable even when MediaStore is unavailable.
+        }
+      }
+    }
+
+    try {
+      final sourceLedger = File(p.join(sourcePath, _mediaLedger));
+      if (await sourceLedger.exists()) await sourceLedger.delete();
+    } catch (_) {
+      // The merged ledger is authoritative; a locked old copy is harmless.
     }
 
     // Leave the old folder alone when a failed file is still in it; deleting
@@ -822,10 +1166,21 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     }
 
     await refresh();
-    return LibraryMoveResult(moved: moved, failed: failed);
+    return LibraryMoveResult(
+      moved: moved,
+      failed: failedFiles.length,
+      oldRoot: failedFiles.isEmpty ? null : sourcePath,
+      failedFiles: failedFiles,
+      relocatedPaths: relocatedPaths,
+    );
   }
 
-  Future<void> _configureTarget(Directory target, LibraryStorageMode mode) async {
+  Future<void> _configureTarget(
+    Directory target,
+    LibraryStorageMode mode, {
+    Map<String, String>? inheritedMapping,
+    Map<String, String> relocatedPaths = const {},
+  }) async {
     await target.create(recursive: true);
     final marker = File(p.join(target.path, _nomedia));
     final visible = prefs.get<bool>(optionLibraryVisibleInGallery) ?? false;
@@ -843,10 +1198,20 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     await prefs.set<String>(optionLibraryPath, target.path);
     await prefs.set<String>(
       optionLibraryStorageMode,
-      mode == LibraryStorageMode.hidden ? libraryStorageHidden : libraryStorageVisible,
+      mode == LibraryStorageMode.hidden
+          ? libraryStorageHidden
+          : libraryStorageVisible,
     );
     _invalidateNameIndexAt(oldPath);
     _invalidateNameIndexAt(target.path);
+    if (!p.equals(oldPath, target.path) && inheritedMapping != null) {
+      await _mergeMediaMapping(
+        oldPath,
+        target.path,
+        inheritedMapping,
+        relocatedPaths,
+      );
+    }
     update([]);
 
     if (mode == LibraryStorageMode.visible && visible) {
@@ -895,13 +1260,16 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   String _uniqueDestination(String path) {
     final stem = p.basenameWithoutExtension(path);
     final extension = p.extension(path);
-    final suffix = '${DateTime.now().millisecondsSinceEpoch}-${_collisionSequence++}';
+    final suffix =
+        '${DateTime.now().millisecondsSinceEpoch}-${_collisionSequence++}';
     return p.join(p.dirname(path), '$stem-$suffix$extension');
   }
 
   Future<int?> _availableSpace(String path) async {
     try {
-      return await _storageChannel.invokeMethod<int>('getAvailableSpace', {'path': path});
+      return await _storageChannel.invokeMethod<int>('getAvailableSpace', {
+        'path': path,
+      });
     } on Exception {
       return null;
     }
@@ -913,9 +1281,13 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     final debug = debugStorageAccess;
     if (debug != null) return debug();
     try {
-      var granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      var granted = await _storageChannel.invokeMethod<bool>(
+        'hasAllFilesAccess',
+      );
       if (granted != true) {
-        granted = await _storageChannel.invokeMethod<bool>('requestAllFilesAccess');
+        granted = await _storageChannel.invokeMethod<bool>(
+          'requestAllFilesAccess',
+        );
       }
       if (granted != true) {
         granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
@@ -930,14 +1302,19 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// `<destinationParent>/QuaX-Re Export` folder. Hidden media cannot be
   /// reached from a file manager or survive an uninstall, so this is the way
   /// out for the reader.
-  Future<LibraryExportResult> exportTo(String destinationParent,
-      {List<LibraryEntry>? entries}) async {
+  Future<LibraryExportResult> exportTo(
+    String destinationParent, {
+    List<LibraryEntry>? entries,
+  }) async {
     final sourcePath = libraryPath;
-    if (sourcePath.isEmpty) return const LibraryExportResult.failed('not_configured');
+    if (sourcePath.isEmpty) {
+      return const LibraryExportResult.failed('not_configured');
+    }
 
     final selected = entries ?? state;
     if (selected.isEmpty) return const LibraryExportResult.failed('empty');
-    if (p.equals(destinationParent, sourcePath) || p.isWithin(sourcePath, destinationParent)) {
+    if (p.equals(destinationParent, sourcePath) ||
+        p.isWithin(sourcePath, destinationParent)) {
       // Putting the export inside the library would make the gallery list every
       // exported copy as a new download.
       return const LibraryExportResult.failed('inside_library');
@@ -969,15 +1346,32 @@ class LibraryModel extends Store<List<LibraryEntry>> {
             : entry.name;
         var destination = p.join(target.path, relative);
         await Directory(p.dirname(destination)).create(recursive: true);
-        if (await File(destination).exists()) destination = _uniqueDestination(destination);
-        await entry.file.copy(destination);
+        if (await File(destination).exists()) {
+          destination = _uniqueDestination(destination);
+        }
+        await copyFileAtomically(
+          entry.file,
+          File(destination),
+          expectedLength: entry.size,
+        );
+        try {
+          await _storageChannel.invokeMethod('scanMediaFile', {
+            'path': destination,
+          });
+        } catch (_) {
+          // The exported copy remains valid without a MediaStore row.
+        }
         copied++;
       } catch (_) {
         failed++;
       }
     }
 
-    return LibraryExportResult(copied: copied, failed: failed, path: target.path);
+    return LibraryExportResult(
+      copied: copied,
+      failed: failed,
+      path: target.path,
+    );
   }
 
   /// Configures [pickedPath] into the visible library root, without running the
@@ -987,7 +1381,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
   /// plain file API cannot write to — most often the SD card without Android's
   /// all-files-access grant (Hentoid solves it with SAF; this fork opens the
   /// all-files-access screen instead of carrying a whole SAF tree).
-  Future<bool> setupLibraryAt(String pickedPath, {ValueNotifier<String?>? error}) {
+  Future<bool> setupLibraryAt(
+    String pickedPath, {
+    ValueNotifier<String?>? error,
+  }) {
     return _configureAt(pickedPath, error: error);
   }
 
@@ -1001,7 +1398,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     return _configureAt(picked, error: error);
   }
 
-  Future<bool> _configureAt(String pickedPath, {ValueNotifier<String?>? error}) async {
+  Future<bool> _configureAt(
+    String pickedPath, {
+    ValueNotifier<String?>? error,
+  }) async {
     try {
       // Android 10 and below answer the request only after the user has chosen
       // in the runtime dialog; Android 11+ opens the all-files screen, and the
@@ -1061,11 +1461,17 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       if (!await sourceDir.exists()) return 0;
 
       var count = 0;
-      await for (final entity in sourceDir.list(recursive: true, followLinks: false)) {
+      await for (final entity in sourceDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File || !_isMedia(entity.path)) continue;
         // The library may sit inside the folder the reader picked; counting
         // its files would make the import offer its own media back.
-        if (p.equals(entity.path, libraryPath) || p.isWithin(libraryPath, entity.path)) continue;
+        if (p.equals(entity.path, libraryPath) ||
+            p.isWithin(libraryPath, entity.path)) {
+          continue;
+        }
         count++;
       }
       return count;
@@ -1085,18 +1491,25 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
     // Importing the library into itself used to rename every file with a
     // timestamp, because every target "already existed".
-    if (p.equals(sourcePath, libraryPath) || p.isWithin(libraryPath, sourcePath)) {
+    if (p.equals(sourcePath, libraryPath) ||
+        p.isWithin(libraryPath, sourcePath)) {
       return false;
     }
 
     final files = <File>[];
     var totalBytes = 0;
     try {
-      await for (final entity in sourceDir.list(recursive: true, followLinks: false)) {
+      await for (final entity in sourceDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File || !_isMedia(entity.path)) continue;
         // A parent pick such as `X` contains the library itself; importing it
         // would copy every library file into a nested QuaXLibrary folder.
-        if (p.equals(entity.path, libraryPath) || p.isWithin(libraryPath, entity.path)) continue;
+        if (p.equals(entity.path, libraryPath) ||
+            p.isWithin(libraryPath, entity.path)) {
+          continue;
+        }
         files.add(entity);
         try {
           totalBytes += await entity.length();
@@ -1120,21 +1533,27 @@ class LibraryModel extends Store<List<LibraryEntry>> {
           // Keep copies of the same basename alive: prefix with the timestamp.
           if (await File(target).exists()) {
             target = p.join(
-                p.dirname(target),
-                '${p.basenameWithoutExtension(entity.path)}-${DateTime.now().millisecondsSinceEpoch}'
-                '${p.extension(entity.path)}');
+              p.dirname(target),
+              '${p.basenameWithoutExtension(entity.path)}-${DateTime.now().millisecondsSinceEpoch}'
+              '${p.extension(entity.path)}',
+            );
           }
           await Directory(p.dirname(target)).create(recursive: true);
-          final modified = (await entity.stat()).modified;
-          await entity.copy(target);
-          try {
-            // File.copy does not carry the source mtime; without this every
-            // imported file sorts as if it arrived just now.
-            await File(target).setLastModified(modified);
-          } catch (_) {
-            // The copy is still valid; only the sort order degrades.
+          final length = await entity.length();
+          await moveFileAtomically(
+            entity,
+            File(target),
+            expectedLength: length,
+          );
+          if (galleryVisible) {
+            try {
+              await _storageChannel.invokeMethod('scanMediaFile', {
+                'path': target,
+              });
+            } catch (_) {
+              // The imported file remains in the library without a gallery row.
+            }
           }
-          await entity.delete();
         } catch (_) {
           // One unreadable file must not abandon the rest of the batch.
           allMoved = false;
@@ -1167,7 +1586,8 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
   bool _isMedia(String path) {
     final extension = p.extension(path).toLowerCase();
-    return _imageExtensions.contains(extension) || _videoExtensions.contains(extension);
+    return _imageExtensions.contains(extension) ||
+        _videoExtensions.contains(extension);
   }
 
   Future<void> refresh() async {
@@ -1185,7 +1605,10 @@ class LibraryModel extends Store<List<LibraryEntry>> {
 
       final entries = <LibraryEntry>[];
       // Recursive: imported libraries (or files the user nested) still show up.
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File) continue;
         final extension = p.extension(entity.path).toLowerCase();
         final isVideo = _videoExtensions.contains(extension);
@@ -1202,7 +1625,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
         } catch (_) {
           // Unreadable file: keep it listed with empty metadata.
         }
-        entries.add(LibraryEntry(entity, isVideo, size: size, modified: modified));
+        entries.add(
+          LibraryEntry(entity, isVideo, size: size, modified: modified),
+        );
       }
 
       entries.sort((a, b) => b.modified.compareTo(a.modified));

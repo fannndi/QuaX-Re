@@ -17,8 +17,11 @@ part 'photo_grid_item.dart';
 /// them whole for a third-of-a-screen tile costs several times the memory the
 /// tile can show.
 int gridThumbnailCacheWidth(BuildContext context) {
-  final columns = PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ?? 3;
-  final tileWidth = MediaQuery.sizeOf(context).width / (columns < 1 ? 1 : columns);
+  final columns =
+      PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ??
+      3;
+  final tileWidth =
+      MediaQuery.sizeOf(context).width / (columns < 1 ? 1 : columns);
   return decodeWidthFor(context, tileWidth, maxWidth: 1080);
 }
 
@@ -29,6 +32,7 @@ sealed class MediaGridItem {
   final double aspectRatio;
   final int mediaIndex;
   final Media media;
+  final bool possiblySensitive;
 
   const MediaGridItem({
     required this.tweetId,
@@ -37,7 +41,11 @@ sealed class MediaGridItem {
     required this.aspectRatio,
     required this.mediaIndex,
     required this.media,
+    this.possiblySensitive = false,
   });
+
+  ({String tweetId, Object mediaId}) get identity =>
+      (tweetId: tweetId, mediaId: media.idStr ?? mediaIndex);
 
   Widget toWidget(BuildContext context);
 }
@@ -59,7 +67,13 @@ double _aspectRatioFor(Media m) {
   }
 }
 
-MediaGridItem? _itemFor(Media m, String tweetId, String username, int mediaIndex) {
+MediaGridItem? _itemFor(
+  Media m,
+  String tweetId,
+  String username,
+  int mediaIndex, {
+  required bool possiblySensitive,
+}) {
   final url = m.mediaUrlHttps;
   if (url == null) return null;
   final ar = _aspectRatioFor(m);
@@ -72,6 +86,7 @@ MediaGridItem? _itemFor(Media m, String tweetId, String username, int mediaIndex
         aspectRatio: ar,
         mediaIndex: mediaIndex,
         media: m,
+        possiblySensitive: possiblySensitive,
       );
     case 'animated_gif':
       return GifGridItem(
@@ -81,6 +96,7 @@ MediaGridItem? _itemFor(Media m, String tweetId, String username, int mediaIndex
         aspectRatio: ar,
         mediaIndex: mediaIndex,
         media: m,
+        possiblySensitive: possiblySensitive,
       );
     case 'video':
       return VideoGridItem(
@@ -90,14 +106,21 @@ MediaGridItem? _itemFor(Media m, String tweetId, String username, int mediaIndex
         aspectRatio: ar,
         mediaIndex: mediaIndex,
         media: m,
+        possiblySensitive: possiblySensitive,
       );
     default:
       return null;
   }
 }
 
-CursorPage<String, MediaGridItem> mediaPageFromStatus(TweetStatus status, String? cursor) {
-  return (items: mediaItemsFromChains(status.chains), nextCursor: status.cursorBottom);
+CursorPage<String, MediaGridItem> mediaPageFromStatus(
+  TweetStatus status,
+  String? cursor,
+) {
+  return (
+    items: mediaItemsFromChains(status.chains),
+    nextCursor: status.cursorBottom,
+  );
 }
 
 List<MediaGridItem> mediaItemsFromChains(List<TweetChain> chains) {
@@ -110,11 +133,16 @@ List<MediaGridItem> mediaItemsFromChains(List<TweetChain> chains) {
       final username = tweet.user?.screenName;
       if (tweetId == null || username == null) continue;
       for (var i = 0; i < medias.length; i++) {
-        final item = _itemFor(medias[i], tweetId, username, i);
+        final item = _itemFor(
+          medias[i],
+          tweetId,
+          username,
+          i,
+          possiblySensitive: tweet.possiblySensitive ?? false,
+        );
         if (item != null) out.add(item);
       }
     }
   }
   return out;
 }
-

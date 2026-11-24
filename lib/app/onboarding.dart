@@ -23,7 +23,8 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBindingObserver {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with WidgetsBindingObserver {
   static const _storageChannel = quaxMethodChannel;
   static const _steps = 5;
 
@@ -79,7 +80,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
   Future<void> _refreshAccess() async {
     try {
-      final granted = await _storageChannel.invokeMethod<bool>('hasAllFilesAccess');
+      final granted = await _storageChannel.invokeMethod<bool>(
+        'hasAllFilesAccess',
+      );
       if (mounted) setState(() => _hasAccess = granted == true);
       // The first scan runs before the grant, when the card is unreadable.
       // Retry it as soon as Android says the app can see the folder.
@@ -116,22 +119,42 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     });
   }
 
+  Future<(bool, String?)> _withLibraryError(
+    Future<bool> Function(ValueNotifier<String?>) setup,
+  ) async {
+    final error = ValueNotifier<String?>(null);
+    try {
+      final ok = await setup(error);
+      return (ok, error.value);
+    } finally {
+      error.dispose();
+    }
+  }
+
   Future<void> _useExisting(ExistingLibrary candidate) async {
     setState(() => _busy = true);
-    final error = ValueNotifier<String?>(null);
-    final ok = await _library.adoptExistingLibrary(candidate.path, error: error);
+    final (ok, errorMessage) = await _withLibraryError(
+      (error) => _library.adoptExistingLibrary(candidate.path, error: error),
+    );
     if (!mounted) return;
     setState(() => _busy = false);
 
     if (!ok) {
-      if (error.value == 'storage_permission_needed') {
+      if (errorMessage == 'storage_permission_needed') {
         await _refreshAccess();
         if (mounted) {
-          showSnackBar(context,
-              icon: '??', message: L10n.of(context).library_storage_permission_needed);
+          showSnackBar(
+            context,
+            icon: '??',
+            message: L10n.of(context).library_storage_permission_needed,
+          );
         }
       } else {
-        showSnackBar(context, icon: '??', message: L10n.of(context).library_existing_failed);
+        showSnackBar(
+          context,
+          icon: '??',
+          message: L10n.of(context).library_existing_failed,
+        );
       }
       return;
     }
@@ -170,8 +193,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
   Future<void> _pickFolder() async {
     setState(() => _busy = true);
-    final error = ValueNotifier<String?>(null);
-    final ok = await _library.setupLibrary(error: error);
+    final (ok, errorMessage) = await _withLibraryError(
+      (error) => _library.setupLibrary(error: error),
+    );
     if (!mounted) return;
     setState(() => _busy = false);
 
@@ -190,16 +214,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       return;
     }
 
-    if (error.value == 'storage_permission_needed') {
+    if (errorMessage == 'storage_permission_needed') {
       await _refreshAccess();
       if (mounted) {
-        showSnackBar(context, icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+        showSnackBar(
+          context,
+          icon: '🔒',
+          message: L10n.of(context).library_storage_permission_needed,
+        );
       }
       return;
     }
 
-    if (error.value != null) {
-      showSnackBar(context, icon: '🙊', message: error.value!);
+    if (errorMessage != null) {
+      showSnackBar(context, icon: '🙊', message: errorMessage);
     }
   }
 
@@ -241,17 +269,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   }
 
   bool get _canAdvance => switch (_step) {
-        0 => true,
-        // Hidden storage needs no permission, so this step must not block the
-        // wizard: the visible-folder button asks for the grant when picked.
-        1 => true,
-        2 => _configured,
-        _ => true,
-      };
+    0 => true,
+    // Hidden storage needs no permission, so this step must not block the
+    // wizard: the visible-folder button asks for the grant when picked.
+    1 => true,
+    2 => _configured,
+    _ => true,
+  };
 
-  void _next() => _controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  void _next() => _controller.nextPage(
+    duration: const Duration(milliseconds: 250),
+    curve: Curves.easeOut,
+  );
 
-  void _back() => _controller.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  void _back() => _controller.previousPage(
+    duration: const Duration(milliseconds: 250),
+    curve: Curves.easeOut,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +311,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                     icon: Icons.people_outline,
                     title: l10n.setup_accounts_title,
                     body: l10n.setup_accounts_body,
-                    extra: AccountSetupStep(vaultRoot: vaultRootPathFor(_prefs)),
+                    extra: AccountSetupStep(
+                      vaultRoot: vaultRootPathFor(_prefs),
+                    ),
                   ),
                   _buildDoneStep(context),
                 ],
@@ -312,10 +348,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               label: Text(l10n.setup_permission_grant),
             ),
           const SizedBox(height: 8),
-          TextButton(
-            onPressed: _refreshAccess,
-            child: Text(l10n.retry),
-          ),
+          TextButton(onPressed: _refreshAccess, child: Text(l10n.retry)),
           if (!_hasAccess)
             TextButton(
               onPressed: _openSettings,
@@ -331,8 +364,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     if (volume == null) return;
 
     setState(() => _busy = true);
-    final error = ValueNotifier<String?>(null);
-    final ok = await _library.setupHiddenLibrary(volume, error: error);
+    final (ok, errorMessage) = await _withLibraryError(
+      (error) => _library.setupHiddenLibrary(volume, error: error),
+    );
     if (!mounted) return;
     setState(() => _busy = false);
 
@@ -350,16 +384,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       return;
     }
 
-    if (error.value == 'storage_permission_needed') {
+    if (errorMessage == 'storage_permission_needed') {
       await _refreshAccess();
       if (mounted) {
-        showSnackBar(context,
-            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+        showSnackBar(
+          context,
+          icon: '🔒',
+          message: L10n.of(context).library_storage_permission_needed,
+        );
       }
       return;
     }
-    if (error.value != null && mounted) {
-      showSnackBar(context, icon: '🙊', message: error.value!);
+    if (errorMessage != null && mounted) {
+      showSnackBar(context, icon: '🙊', message: errorMessage);
     }
   }
 
@@ -386,10 +423,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
           children: [
             Row(
               children: [
-                Icon(Icons.folder_special_outlined, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.folder_special_outlined,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(l10n.library_existing_found, style: theme.textTheme.titleMedium),
+                  child: Text(
+                    l10n.library_existing_found,
+                    style: theme.textTheme.titleMedium,
+                  ),
                 ),
               ],
             ),
@@ -399,10 +442,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
-                    candidate.isHidden ? Icons.shield_outlined : Icons.folder_outlined),
+                  candidate.isHidden
+                      ? Icons.shield_outlined
+                      : Icons.folder_outlined,
+                ),
                 title: Text(
-                    l10n.library_stats(candidate.mediaCount, formatBytes(candidate.bytes))),
-                subtitle: Text(candidate.path, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  l10n.library_stats(
+                    candidate.mediaCount,
+                    formatBytes(candidate.bytes),
+                  ),
+                ),
+                subtitle: Text(
+                  candidate.path,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 onTap: _busy ? null : () => _useExisting(candidate),
                 trailing: const Icon(Icons.chevron_right),
               ),
@@ -433,22 +487,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_existing.isNotEmpty) _buildExistingLibraries(context),
-          if (_searchingExisting) const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: LinearProgressIndicator(minHeight: 2),
-          ),
-          if (_busy) const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: LinearProgressIndicator(),
-          ),
+          if (_searchingExisting)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
+          if (_busy)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: LinearProgressIndicator(),
+            ),
           if (_configured)
             Card(
               child: ListTile(
-                leading: Icon(_library.isHidden ? Icons.shield_outlined : Icons.folder_outlined),
-                title: Text(_library.isHidden
-                    ? l10n.library_storage_hidden
-                    : l10n.library_storage_visible),
-                subtitle: Text(_library.libraryPath, maxLines: 2, overflow: TextOverflow.ellipsis),
+                leading: Icon(
+                  _library.isHidden
+                      ? Icons.shield_outlined
+                      : Icons.folder_outlined,
+                ),
+                title: Text(
+                  _library.isHidden
+                      ? l10n.library_storage_hidden
+                      : l10n.library_storage_visible,
+                ),
+                subtitle: Text(
+                  _library.libraryPath,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: TextButton(
                   onPressed: _busy ? null : _manageStorage,
                   child: Text(l10n.library_storage_change),
@@ -469,8 +535,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                       subtitle: Text(l10n.library_storage_hidden_description),
                     ),
                     if (_volumes.isEmpty)
-                      Text(l10n.library_storage_unavailable_body,
-                          style: TextStyle(color: theme.colorScheme.error))
+                      Text(
+                        l10n.library_storage_unavailable_body,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      )
                     else
                       Wrap(
                         spacing: 8,
@@ -478,12 +546,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                         children: [
                           for (final volume in _volumes)
                             ChoiceChip(
-                              avatar: Icon(volume.isPrimary
-                                  ? Icons.phone_android
-                                  : Icons.sd_card_outlined),
+                              avatar: Icon(
+                                volume.isPrimary
+                                    ? Icons.phone_android
+                                    : Icons.sd_card_outlined,
+                              ),
                               label: Text(libraryVolumeLabel(l10n, volume)),
                               selected: _volume == volume,
-                              onSelected: _busy ? null : (_) => setState(() => _volume = volume),
+                              onSelected: _busy
+                                  ? null
+                                  : (_) => setState(() => _volume = volume),
                             ),
                         ],
                       ),
@@ -511,7 +583,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                       subtitle: Text(l10n.library_storage_visible_description),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _busy ? null : (_hasAccess ? _pickFolder : _requestAccess),
+                      onPressed: _busy
+                          ? null
+                          : (_hasAccess ? _pickFolder : _requestAccess),
                       icon: const Icon(Icons.folder_open),
                       label: Text(l10n.library_setup_pick),
                     ),
@@ -544,7 +618,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                 value: _visibleInGallery,
                 onChanged: _configured ? _toggleGalleryVisible : null,
                 secondary: Icon(
-                    _visibleInGallery ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  _visibleInGallery
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
                 title: Text(l10n.show_in_gallery),
               ),
       ),
@@ -583,14 +660,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Row(
         children: [
-          if (_step > 0)
-            TextButton(
-              onPressed: _back,
-              child: Text(l10n.back),
-            ),
+          if (_step > 0) TextButton(onPressed: _back, child: Text(l10n.back)),
           const Spacer(),
           FilledButton(
-            onPressed: _canAdvance ? (isLast ? widget.onFinished : _next) : null,
+            onPressed: _canAdvance
+                ? (isLast ? widget.onFinished : _next)
+                : null,
             child: Text(isLast ? l10n.setup_finish : l10n.next),
           ),
         ],
@@ -605,7 +680,12 @@ class _StepView extends StatelessWidget {
   final String body;
   final Widget? extra;
 
-  const _StepView({required this.icon, required this.title, required this.body, this.extra});
+  const _StepView({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.extra,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -617,13 +697,18 @@ class _StepView extends StatelessWidget {
         children: [
           Icon(icon, size: 64, color: theme.colorScheme.primary),
           const SizedBox(height: 24),
-          Text(title, style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
+          Text(
+            title,
+            style: theme.textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
-          Text(body, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
-          if (extra != null) ...[
-            const SizedBox(height: 24),
-            extra!,
-          ],
+          Text(
+            body,
+            style: theme.textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          if (extra != null) ...[const SizedBox(height: 24), extra!],
         ],
       ),
     );

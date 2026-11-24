@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/vault_codec.dart';
+import 'package:quax/client/vault_paths.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/database/entities.dart';
-import 'package:quax/utils/atomic_file.dart';
 import 'package:uuid/uuid.dart';
 
 const String accountFolderName = 'QuaXAccount';
@@ -68,7 +68,7 @@ Future<String?> ensureAccountFolder(String vaultRoot) async {
 /// Reads and writes the encrypted account vault. The vault holds the session
 /// material (cookies + csrf token) needed to restore an account without the
 /// login webview; it is never written as plaintext.
-class AccountVault {
+class AccountVault implements VaultPassphraseSource {
   AccountVault({VaultCodec? codec}) : _codec = codec ?? const VaultCodec();
 
   final VaultCodec _codec;
@@ -80,6 +80,11 @@ class AccountVault {
     final accounts = await getAccounts();
     if (accounts.isEmpty) {
       throw StateError('There is no account to back up');
+    }
+    if (accounts.length > _maxAccounts) {
+      throw StateError(
+        'An account vault supports at most $_maxAccounts accounts',
+      );
     }
 
     final folder = await ensureAccountFolder(vaultRoot);
@@ -100,15 +105,12 @@ class AccountVault {
     );
 
     final file = File(p.join(folder, accountVaultFileName));
-    final backup = File(p.join(folder, accountVaultBackupFileName));
-    if (await file.exists()) {
-      try {
-        await file.copy(backup.path);
-      } catch (_) {
-        // A backup that cannot be refreshed does not block the new vault.
-      }
-    }
-    await writeAtomically(file, envelope);
+    await _replaceEnvelope(
+      folder: folder,
+      passphrase: passphrase,
+      envelope: envelope,
+      removeBackups: false,
+    );
     return AccountVaultWriteResult(accounts.length, file.path);
   }
 
@@ -133,30 +135,61 @@ class AccountVault {
     return _parsePayload(payload, filePath);
   }
 
-  /// Copies an already-read vault file into the fixed QuaXAccount path, so the
-  /// next onboarding finds it automatically.
-  Future<void> adoptFile({required String sourcePath, required String vaultRoot}) async {
-    final source = File(sourcePath);
-    if (!await source.exists()) throw const AccountVaultNotFound();
-    if (await source.length() > _codec.maxEnvelopeLength) {
-      throw const VaultException(VaultFailure.tooLarge);
-    }
+  /// Re-authenticates [sourcePath] and writes the current, merged database as a
+  /// complete vault. Copying the source bytes after an import could omit local
+  /// accounts that were not present in that older file.
+  Future<void> adoptFile({
+    required String sourcePath,
+    required String vaultRoot,
+    required String passphrase,
+  }) async {
+    await readFile(filePath: sourcePath, passphrase: passphrase);
+    await write(vaultRoot: vaultRoot, passphrase: passphrase);
+  }
 
-    final envelope = await source.readAsString();
-    _checkEnvelopeShape(envelope);
+  /// Encrypts the validated current payload without replacing either file.
+  /// Callers rotating account and likes vaults together stage both results
+  /// before committing any primary.
+  @override
+  Future<String> preparePassphraseChange({
+    required String vaultRoot,
+    required String oldPassphrase,
+    required String newPassphrase,
+  }) async {
+    final folder = accountFolderPathFor(vaultRoot);
+    if (folder == null) throw const AccountVaultNotFound();
+    final (payload, _) = await _decryptFromFolder(folder, oldPassphrase);
+    return _codec.encrypt(
+      passphrase: newPassphrase,
+      kind: _vaultKind,
+      payload: payload,
+    );
+  }
 
-    final folder = await ensureAccountFolder(vaultRoot);
-    if (folder == null) throw const VaultException(VaultFailure.corrupt);
-    final target = File(p.join(folder, accountVaultFileName));
-    final backup = File(p.join(folder, accountVaultBackupFileName));
-    if (await target.exists()) {
-      try {
-        await target.copy(backup.path);
-      } catch (_) {
-        // Adopting the imported file still succeeds without a rollback copy.
-      }
-    }
-    await writeAtomically(target, envelope);
+  @override
+  Future<bool> canBackupPrimary({
+    required String vaultRoot,
+    required String passphrase,
+  }) async {
+    final folder = accountFolderPathFor(vaultRoot);
+    if (folder == null) return false;
+    return _canBackup(File(p.join(folder, accountVaultFileName)), passphrase);
+  }
+
+  @override
+  VaultReplacement replacementFor({
+    required String vaultRoot,
+    required String envelope,
+    required String passphrase,
+  }) {
+    final folder = accountFolderPathFor(vaultRoot)!;
+    final primary = File(p.join(folder, accountVaultFileName));
+    return VaultReplacement(
+      primary: primary,
+      backup: File(p.join(folder, accountVaultBackupFileName)),
+      envelope: envelope,
+      validatePrimary: () => _canBackup(primary, passphrase),
+    );
   }
 
   /// Re-encrypts the existing payload with [newPassphrase]. The old `.bak` is
@@ -166,34 +199,61 @@ class AccountVault {
     required String oldPassphrase,
     required String newPassphrase,
   }) async {
-    final folder = accountFolderPathFor(vaultRoot);
-    if (folder == null) throw const AccountVaultNotFound();
-
-    final (payload, _) = await _decryptFromFolder(folder, oldPassphrase);
-    final envelope = await _codec.encrypt(
-      passphrase: newPassphrase,
-      kind: _vaultKind,
-      payload: payload,
+    final envelope = await preparePassphraseChange(
+      vaultRoot: vaultRoot,
+      oldPassphrase: oldPassphrase,
+      newPassphrase: newPassphrase,
     );
+    final folder = accountFolderPathFor(vaultRoot)!;
+    await _replaceEnvelope(
+      folder: folder,
+      passphrase: oldPassphrase,
+      envelope: envelope,
+    );
+  }
 
-    final target = File(p.join(folder, accountVaultFileName));
-    await writeAtomically(target, envelope);
+  Future<void> _replaceEnvelope({
+    required String folder,
+    required String passphrase,
+    required String envelope,
+    bool removeBackups = true,
+  }) => replaceVaultFiles([
+    VaultReplacement(
+      primary: File(p.join(folder, accountVaultFileName)),
+      backup: File(p.join(folder, accountVaultBackupFileName)),
+      envelope: envelope,
+      validatePrimary: () =>
+          _canBackup(File(p.join(folder, accountVaultFileName)), passphrase),
+    ),
+  ], removeBackups: removeBackups);
 
-    final backup = File(p.join(folder, accountVaultBackupFileName));
-    if (await backup.exists()) await backup.delete();
+  Future<bool> _canBackup(File file, String passphrase) async {
+    try {
+      _parsePayload(await _decryptFile(file, passphrase), file.path);
+      return true;
+    } on VaultException {
+      return false;
+    }
   }
 
   Future<bool> exists(String vaultRoot) async {
-    final path = accountVaultPathFor(vaultRoot);
-    return path != null && await File(path).exists();
+    final folder = accountFolderPathFor(vaultRoot);
+    if (folder == null) return false;
+    return await File(p.join(folder, accountVaultFileName)).exists() ||
+        await File(p.join(folder, accountVaultBackupFileName)).exists();
   }
 
   Future<DateTime?> lastSaved(String vaultRoot) async {
-    final path = accountVaultPathFor(vaultRoot);
-    if (path == null) return null;
-    final file = File(path);
-    if (!await file.exists()) return null;
-    return (await file.stat()).modified;
+    final folder = accountFolderPathFor(vaultRoot);
+    if (folder == null) return null;
+    final dates = <DateTime>[];
+    for (final name in [accountVaultFileName, accountVaultBackupFileName]) {
+      final file = File(p.join(folder, name));
+      if (await file.exists()) dates.add((await file.stat()).modified);
+    }
+    if (dates.isEmpty) return null;
+    dates.sort();
+    return dates.last;
   }
 
   Future<void> delete(String vaultRoot) async {
@@ -206,7 +266,9 @@ class AccountVault {
   }
 
   Future<(Map<String, dynamic>, String)> _decryptFromFolder(
-      String folder, String passphrase) async {
+    String folder,
+    String passphrase,
+  ) async {
     final primary = File(p.join(folder, accountVaultFileName));
     final backup = File(p.join(folder, accountVaultBackupFileName));
     if (!await primary.exists() && !await backup.exists()) {
@@ -215,7 +277,9 @@ class AccountVault {
 
     if (await primary.exists()) {
       try {
-        return (await _decryptFile(primary, passphrase), primary.path);
+        final payload = await _decryptFile(primary, passphrase);
+        _parsePayload(payload, primary.path);
+        return (payload, primary.path);
       } on VaultException catch (error) {
         // The primary may have been replaced by a foreign or half-written file,
         // or one of its bytes may have rotted: a GCM tag failure is
@@ -233,12 +297,17 @@ class AccountVault {
     }
 
     if (await backup.exists()) {
-      return (await _decryptFile(backup, passphrase), backup.path);
+      final payload = await _decryptFile(backup, passphrase);
+      _parsePayload(payload, backup.path);
+      return (payload, backup.path);
     }
     throw const AccountVaultNotFound();
   }
 
-  Future<Map<String, dynamic>> _decryptFile(File file, String passphrase) async {
+  Future<Map<String, dynamic>> _decryptFile(
+    File file,
+    String passphrase,
+  ) async {
     if (await file.length() > _codec.maxEnvelopeLength) {
       throw const VaultException(VaultFailure.tooLarge);
     }
@@ -250,21 +319,18 @@ class AccountVault {
     );
   }
 
-  void _checkEnvelopeShape(String envelope) {
-    try {
-      final parsed = jsonDecode(envelope);
-      if (parsed is! Map ||
-          parsed['format'] != VaultCodec.format ||
-          parsed['kind'] != _vaultKind) {
-        throw const VaultException(VaultFailure.corrupt);
-      }
-    } on FormatException {
+  AccountVaultReadResult _parsePayload(
+    Map<String, dynamic> payload,
+    String path,
+  ) {
+    if (payload['format'] != _payloadFormat) {
       throw const VaultException(VaultFailure.corrupt);
     }
-  }
-
-  AccountVaultReadResult _parsePayload(Map<String, dynamic> payload, String path) {
-    if (payload['format'] != _payloadFormat || payload['version'] != _payloadVersion) {
+    final version = payload['version'];
+    if (version is! int || version < 1) {
+      throw const VaultException(VaultFailure.corrupt);
+    }
+    if (version > _payloadVersion) {
       throw const VaultException(VaultFailure.unsupportedVersion);
     }
     final entries = payload['accounts'];
@@ -313,7 +379,9 @@ class AccountVault {
     final ct0 = header['x-csrf-token'] as String;
 
     final rawUserId = entry['user_id'];
-    final userId = rawUserId is String && RegExp(r'^\d+$').hasMatch(rawUserId) ? rawUserId : null;
+    final userId = rawUserId is String && RegExp(r'^\d+$').hasMatch(rawUserId)
+        ? rawUserId
+        : null;
     final rawLocalId = entry['local_id'];
     final localId = rawLocalId is String && rawLocalId.isNotEmpty
         ? rawLocalId
@@ -378,10 +446,44 @@ class AccountVault {
 
   Object? _valueIgnoringCase(Map map, String key) {
     for (final entry in map.entries) {
-      if (entry.key is String && (entry.key as String).toLowerCase() == key.toLowerCase()) {
+      if (entry.key is String &&
+          (entry.key as String).toLowerCase() == key.toLowerCase()) {
         return entry.value;
       }
     }
     return null;
   }
+}
+
+/// Imports a nonempty restore, marks the backup dirty before touching the
+/// vault, then writes the complete merged database. An all-kept import still
+/// counts because it can change the preferred account. The dirty bit is
+/// cleared only after the fresh write/adoption succeeds.
+Future<AccountImportResult> restoreAccountsAndRewriteVault({
+  required AccountVault accountVault,
+  required List<Account> accounts,
+  required bool replaceExisting,
+  required String vaultRoot,
+  required String passphrase,
+  String? sourcePath,
+  required Future<void> Function(bool dirty) saveDirty,
+}) async {
+  final imported = await importAccounts(
+    accounts,
+    replaceExisting: replaceExisting,
+  );
+  if (imported.total == 0) return imported;
+
+  await saveDirty(true);
+  if (sourcePath == null) {
+    await accountVault.write(vaultRoot: vaultRoot, passphrase: passphrase);
+  } else {
+    await accountVault.adoptFile(
+      sourcePath: sourcePath,
+      vaultRoot: vaultRoot,
+      passphrase: passphrase,
+    );
+  }
+  await saveDirty(false);
+  return imported;
 }

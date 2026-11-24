@@ -37,52 +37,117 @@ void main() {
     await model.saveNow();
 
     final ledger = File('${support.path}/downloads.json');
-    expect(await ledger.exists(), isTrue,
-        reason: 'A queued transfer must survive a process restart');
+    expect(
+      await ledger.exists(),
+      isTrue,
+      reason: 'A queued transfer must survive a process restart',
+    );
 
     model.resetForTests();
     await model.load();
 
-    expect(model.state, hasLength(1),
-        reason: 'Loading a valid ledger used to be the only way to recover a killed queue');
+    expect(
+      model.state,
+      hasLength(1),
+      reason: 'Loading a valid ledger used to be the only way to recover a killed queue',
+    );
     expect(model.state.single.fileName, 'clip.mp4');
-    expect(model.state.single.status, DownloadStatus.paused,
-        reason: 'A transfer that was waiting when the app died comes back paused for Resume');
+    expect(
+      model.state.single.status,
+      DownloadStatus.paused,
+      reason: 'A transfer that was waiting when the app died comes back paused for Resume',
+    );
   });
 
-  test('Should recover from a truncated ledger instead of losing the app start', () async {
-    await File('${support.path}/downloads.json').writeAsString('{not json');
+  test(
+    'Should recover from a truncated ledger instead of losing the app start',
+    () async {
+      await File('${support.path}/downloads.json').writeAsString('{not json');
+
+      model.resetForTests();
+      await model.load();
+
+      expect(
+        model.state,
+        isEmpty,
+        reason: 'A crash mid-write must degrade to an empty queue, not throw on startup',
+      );
+    },
+  );
+
+  test(
+    'Should read a ledger written before the validator fields existed',
+    () async {
+      await File('${support.path}/downloads.json').writeAsString(
+        jsonEncode([
+          {
+            'fileName': 'old.mp4',
+            'url': 'https://example.com/old.mp4',
+            'isVideo': true,
+            'receivedBytes': 2048,
+            'totalBytes': 4096,
+            'status': 'paused',
+            'error': null,
+            'savedPath': null,
+          },
+        ]),
+      );
+
+      model.resetForTests();
+      await model.load();
+
+      expect(
+        model.state,
+        hasLength(1),
+        reason: 'An upgrade must keep the queue the previous build wrote',
+      );
+      expect(
+        model.state.single.receivedBytes,
+        2048,
+        reason: 'The partial bytes are what lets the transfer resume instead of restarting',
+      );
+      expect(
+        model.state.single.validator,
+        isNull,
+        reason: 'A row without an ETag simply skips If-Range until the next headers arrive',
+      );
+    },
+  );
+
+  test('Should keep valid rows when one ledger row is malformed', () async {
+    await File('${support.path}/downloads.json').writeAsString(
+      jsonEncode([
+        {
+          'fileName': 'good.mp4',
+          'url': 'https://example.com/good.mp4',
+          'status': 'paused',
+        },
+        {
+          'fileName': 'broken.mp4',
+          'url': 'https://example.com/broken.mp4',
+          'receivedBytes': 'nope',
+        },
+        {
+          'fileName': 'also-good.mp4',
+          'url': 'https://example.com/also-good.mp4',
+          'status': 'error',
+        },
+      ]),
+    );
 
     model.resetForTests();
     await model.load();
 
-    expect(model.state, isEmpty,
-        reason: 'A crash mid-write must degrade to an empty queue, not throw on startup');
-  });
-
-  test('Should read a ledger written before the validator fields existed', () async {
-    await File('${support.path}/downloads.json').writeAsString(jsonEncode([
-      {
-        'fileName': 'old.mp4',
-        'url': 'https://example.com/old.mp4',
-        'isVideo': true,
-        'receivedBytes': 2048,
-        'totalBytes': 4096,
-        'status': 'paused',
-        'error': null,
-        'savedPath': null,
-      }
-    ]));
-
-    model.resetForTests();
-    await model.load();
-
-    expect(model.state, hasLength(1),
-        reason: 'An upgrade must keep the queue the previous build wrote');
-    expect(model.state.single.receivedBytes, 2048,
-        reason: 'The partial bytes are what lets the transfer resume instead of restarting');
-    expect(model.state.single.validator, isNull,
-        reason: 'A row without an ETag simply skips If-Range until the next headers arrive');
+    expect(
+      model.state.map((item) => item.fileName),
+      ['good.mp4', 'also-good.mp4'],
+      reason: 'A single bad row must not throw away the rest of the recoverable queue',
+    );
+    expect(
+      model.state.every((item) => item.attemptId.isNotEmpty),
+      isTrue,
+      reason: 'Legacy rows receive their attempt identity while being upgraded',
+    );
   });
 
   test('Should serialize concurrent saves into one valid ledger', () async {
@@ -90,33 +155,84 @@ void main() {
 
     await Future.wait([model.saveNow(), model.saveNow()]);
 
-    final decoded = jsonDecode(await File('${support.path}/downloads.json').readAsString());
-    expect(decoded, isA<List>(),
-        reason: 'Two overlapping writers used to be able to interleave and corrupt downloads.json');
+    final decoded = jsonDecode(
+      await File('${support.path}/downloads.json').readAsString(),
+    );
+    expect(
+      decoded,
+      isA<List>(),
+      reason: 'Two overlapping writers used to be able to interleave and corrupt downloads.json',
+    );
   });
 
   test('Should delete the partial file when an entry is removed', () async {
-    final partial = File('${temp.path}/quax-download-clip.mp4');
-    await partial.writeAsBytes([1, 2, 3]);
     model.register('clip.mp4', 'https://example.com/clip.mp4', true);
+    final partial = File(
+      await partialPathFor(
+        'clip.mp4',
+        attemptId: model.itemFor('clip.mp4')!.attemptId,
+      ),
+    );
+    await partial.writeAsBytes([1, 2, 3]);
 
     model.remove('clip.mp4');
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    expect(await partial.exists(), isFalse,
-        reason: 'A paused/removed transfer kept its partial bytes in the cache forever');
+    expect(
+      await partial.exists(),
+      isFalse,
+      reason: 'A paused/removed transfer kept its partial bytes in the cache forever',
+    );
   });
 
   test('Should delete the partial file when an entry is cancelled', () async {
-    final partial = File('${temp.path}/quax-download-clip.mp4');
-    await partial.writeAsBytes([1, 2, 3]);
     model.register('clip.mp4', 'https://example.com/clip.mp4', true);
+    final partial = File(
+      await partialPathFor(
+        'clip.mp4',
+        attemptId: model.itemFor('clip.mp4')!.attemptId,
+      ),
+    );
+    await partial.writeAsBytes([1, 2, 3]);
 
     model.cancel('clip.mp4');
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    expect(await partial.exists(), isFalse,
-        reason: 'Cancelling from the queue is a user request to reclaim the space');
+    expect(
+      await partial.exists(),
+      isFalse,
+      reason:
+          'Cancelling from the queue is a user request to reclaim the space',
+    );
+  });
+
+  test('Should isolate partial paths and deletion by attempt', () async {
+    model.register('clip.mp4', 'https://example.com/old.mp4', true);
+    final old = model.itemFor('clip.mp4')!;
+    final oldPath = await partialPathFor('clip.mp4', attemptId: old.attemptId);
+    await File(oldPath).writeAsBytes([1, 2, 3]);
+
+    model.cancel('clip.mp4');
+    model.register('clip.mp4', 'https://example.com/new.mp4', true);
+    final replacement = model.itemFor('clip.mp4')!;
+    final replacementPath = await partialPathFor(
+      'clip.mp4',
+      attemptId: replacement.attemptId,
+    );
+    await File(replacementPath).writeAsBytes([4, 5, 6]);
+
+    await deletePartial('clip.mp4', attemptId: old.attemptId);
+
+    expect(
+      replacementPath,
+      isNot(oldPath),
+      reason: 'Two attempts with one display name must never share a resumable file',
+    );
+    expect(
+      await File(replacementPath).exists(),
+      isTrue,
+      reason: 'Deleting the cancelled attempt must leave the replacement bytes untouched',
+    );
   });
 
   test('Should ignore a corrupt video-cache ledger', () async {
@@ -126,29 +242,46 @@ void main() {
 
     await VideoCache().load();
 
-    expect(VideoCache().count, 0,
-        reason: 'A broken cache ledger means an empty cache, not a crash on the first video');
+    expect(
+      VideoCache().count,
+      0,
+      reason: 'A broken cache ledger means an empty cache, not a crash on the first video',
+    );
   });
 
-  test('Should serialize concurrent video-cache saves into one valid ledger', () async {
-    final cacheDir = Directory('${temp.path}/cache')..createSync();
-    final incoming = Directory('${temp.path}/incoming')..createSync();
-    VideoCache.debugDirectoryOverride = cacheDir;
-    final cache = VideoCache()..resetForTests();
-    final prefs = PrefServiceCache(cache: {optionVideoCacheLimitMb: 1024});
-    final first = File('${incoming.path}/one.mp4')..writeAsBytesSync([1, 2, 3]);
-    final second = File('${incoming.path}/two.mp4')..writeAsBytesSync([4, 5, 6]);
+  test(
+    'Should serialize concurrent video-cache saves into one valid ledger',
+    () async {
+      final cacheDir = Directory('${temp.path}/cache')..createSync();
+      final incoming = Directory('${temp.path}/incoming')..createSync();
+      VideoCache.debugDirectoryOverride = cacheDir;
+      final cache = VideoCache()..resetForTests();
+      final prefs = PrefServiceCache(cache: {optionVideoCacheLimitMb: 1024});
+      final first = File('${incoming.path}/one.mp4')
+        ..writeAsBytesSync([1, 2, 3]);
+      final second = File('${incoming.path}/two.mp4')
+        ..writeAsBytesSync([4, 5, 6]);
 
-    await Future.wait([
-      cache.put('https://video.twimg.com/one.mp4', first, prefs: prefs),
-      cache.put('https://video.twimg.com/two.mp4', second, prefs: prefs),
-    ]);
+      await Future.wait([
+        cache.put('https://video.twimg.com/one.mp4', first, prefs: prefs),
+        cache.put('https://video.twimg.com/two.mp4', second, prefs: prefs),
+      ]);
 
-    final decoded = jsonDecode(await File('${cacheDir.path}/video_cache.json').readAsString());
-    expect(decoded, isA<List>(),
-        reason: 'Two overlapping ledger writers used to be able to delete the file entirely');
-    expect((decoded as List), hasLength(2),
-        reason: 'Each completed put() must survive the other writer; losing one leaves the clip '
-            'on disk but outside the size limit and invisible after a restart');
-  });
+      final decoded = jsonDecode(
+        await File('${cacheDir.path}/video_cache.json').readAsString(),
+      );
+      expect(
+        decoded,
+        isA<List>(),
+        reason: 'Two overlapping ledger writers used to be able to delete the file entirely',
+      );
+      expect(
+        (decoded as List),
+        hasLength(2),
+        reason:
+            'Each completed put() must survive the other writer; losing one leaves the clip '
+            'on disk but outside the size limit and invisible after a restart',
+      );
+    },
+  );
 }

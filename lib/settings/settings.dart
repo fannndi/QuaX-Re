@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:extended_image/extended_image.dart';
@@ -27,7 +28,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  PackageInfo _packageInfo = PackageInfo(appName: '', packageName: '', version: '', buildNumber: '');
+  PackageInfo _packageInfo = PackageInfo(
+    appName: '',
+    packageName: '',
+    version: '',
+    buildNumber: '',
+  );
 
   @override
   void initState() {
@@ -42,23 +48,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// stores. The raw key ("indigo") is an implementation detail, and this is the
   /// one place that has to turn it into something a person reads.
   String _themeColorName(BuildContext context, String id) => switch (id) {
-        'accent' => L10n.of(context).theme_color_accent,
-        'red' => L10n.of(context).theme_color_red,
-        'orange' => L10n.of(context).theme_color_orange,
-        'yellow' => L10n.of(context).theme_color_yellow,
-        'green' => L10n.of(context).theme_color_green,
-        'blue' => L10n.of(context).theme_color_blue,
-        'indigo' => L10n.of(context).theme_color_indigo,
-        // A colour with no name of its own keeps its key rather than going blank.
-        _ => id,
-      };
+    'accent' => L10n.of(context).theme_color_accent,
+    'red' => L10n.of(context).theme_color_red,
+    'orange' => L10n.of(context).theme_color_orange,
+    'yellow' => L10n.of(context).theme_color_yellow,
+    'green' => L10n.of(context).theme_color_green,
+    'blue' => L10n.of(context).theme_color_blue,
+    'indigo' => L10n.of(context).theme_color_indigo,
+    // A colour with no name of its own keeps its key rather than going blank.
+    _ => id,
+  };
 
   List<DropdownMenuItem<String>> _qualityItems() => [
-        DropdownMenuItem(value: 'thumb', child: Text(L10n.current.quality_low)),
-        DropdownMenuItem(value: 'small', child: Text(L10n.current.quality_medium)),
-        DropdownMenuItem(value: 'medium', child: Text(L10n.current.quality_high)),
-        DropdownMenuItem(value: 'large', child: Text(L10n.current.quality_maximum)),
-      ];
+    DropdownMenuItem(value: 'thumb', child: Text(L10n.current.quality_low)),
+    DropdownMenuItem(value: 'small', child: Text(L10n.current.quality_medium)),
+    DropdownMenuItem(value: 'medium', child: Text(L10n.current.quality_high)),
+    DropdownMenuItem(value: 'large', child: Text(L10n.current.quality_maximum)),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +76,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(L10n.of(context).settings)),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.paddingOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          16 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           _SettingsSection(
             title: L10n.of(context).general,
@@ -81,8 +92,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 pref: optionDisableScreenshots,
               ),
               PrefSwitch(
-                title: Text(L10n.of(context).option_open_links_in_embedded_browser_label),
-                subtitle: Text(L10n.of(context).option_open_links_in_embedded_browser_description),
+                title: Text(
+                  L10n.of(context).option_open_links_in_embedded_browser_label,
+                ),
+                subtitle: Text(
+                  L10n.of(context)
+                      .option_open_links_in_embedded_browser_description,
+                ),
                 pref: optionOpenLinksInEmbeddedBrowser,
               ),
             ],
@@ -91,37 +107,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: L10n.of(context).theme,
             tiles: [
               PrefDropdown(
-                  fullWidth: false,
-                  title: Text(L10n.of(context).theme_mode),
-                  pref: optionThemeMode,
-                  items: [
-                    DropdownMenuItem(value: 'system', child: Text(L10n.of(context).system)),
-                    DropdownMenuItem(value: 'light', child: Text(L10n.of(context).light)),
-                    DropdownMenuItem(value: 'dark', child: Text(L10n.of(context).dark)),
-                  ]),
+                fullWidth: false,
+                title: Text(L10n.of(context).theme_mode),
+                pref: optionThemeMode,
+                items: [
+                  DropdownMenuItem(
+                    value: 'system',
+                    child: Text(L10n.of(context).system),
+                  ),
+                  DropdownMenuItem(
+                    value: 'light',
+                    child: Text(L10n.of(context).light),
+                  ),
+                  DropdownMenuItem(
+                    value: 'dark',
+                    child: Text(L10n.of(context).dark),
+                  ),
+                ],
+              ),
               PrefDropdown(
-                  fullWidth: false,
-                  title: Text(L10n.of(context).theme),
-                  pref: optionThemeColor,
-                  items: [
-                    DropdownMenuItem(value: 'accent', child: Text(_themeColorName(context, 'accent'))),
-                    ...themeColors.entries.map((scheme) =>
-                        DropdownMenuItem(value: scheme.key, child: Text(_themeColorName(context, scheme.key))))
-                  ]),
+                fullWidth: false,
+                title: Text(L10n.of(context).theme),
+                pref: optionThemeColor,
+                items: [
+                  DropdownMenuItem(
+                    value: 'accent',
+                    child: Text(_themeColorName(context, 'accent')),
+                  ),
+                  ...themeColors.entries.map(
+                    (scheme) => DropdownMenuItem(
+                      value: scheme.key,
+                      child: Text(_themeColorName(context, scheme.key)),
+                    ),
+                  ),
+                ],
+              ),
               PrefSwitch(
                 title: Text(L10n.of(context).true_black),
                 pref: optionThemeTrueBlack,
-                subtitle: Text(L10n.of(context).use_true_black_for_the_dark_mode_theme),
+                subtitle: Text(
+                  L10n.of(context).use_true_black_for_the_dark_mode_theme,
+                ),
               ),
-              Builder(builder: (tileContext) {
-                final tilePrefs = PrefService.of(tileContext);
-                return PrefSwitch(
-                  title: Text(L10n.of(context).true_black_tweet_cards),
-                  pref: optionThemeTrueBlackTweetCards,
-                  disabled: !(tilePrefs.get<bool>(optionThemeTrueBlack) ?? false),
-                  subtitle: Text(L10n.of(context).use_true_black_for_tweet_cards),
-                );
-              }),
+              Builder(
+                builder: (tileContext) {
+                  final tilePrefs = PrefService.of(tileContext);
+                  return PrefSwitch(
+                    title: Text(L10n.of(context).true_black_tweet_cards),
+                    pref: optionThemeTrueBlackTweetCards,
+                    disabled:
+                        !(tilePrefs.get<bool>(optionThemeTrueBlack) ?? false),
+                    subtitle: Text(
+                      L10n.of(context).use_true_black_for_tweet_cards,
+                    ),
+                  );
+                },
+              ),
               PrefSwitch(
                 title: Text(L10n.of(context).show_navigation_labels),
                 pref: optionShowNavigationLabels,
@@ -133,30 +174,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             tiles: [
               _LibraryFolderTile(prefs: prefs),
               PrefDropdown(
-                  fullWidth: false,
-                  title: Text(L10n.of(context).video_quality),
-                  subtitle: Text(L10n.of(context).video_quality_description),
-                  pref: optionMediaVideoQuality,
-                  items: _qualityItems()),
+                fullWidth: false,
+                title: Text(L10n.of(context).video_quality),
+                subtitle: Text(L10n.of(context).video_quality_description),
+                pref: optionMediaVideoQuality,
+                items: _qualityItems(),
+              ),
               PrefDropdown(
-                  fullWidth: false,
-                  title: Text(L10n.of(context).image_quality),
-                  subtitle: Text(L10n.of(context).save_bandwidth_using_smaller_images),
-                  pref: optionImageQuality,
-                  items: _qualityItems()),
+                fullWidth: false,
+                title: Text(L10n.of(context).image_quality),
+                subtitle: Text(
+                  L10n.of(context).save_bandwidth_using_smaller_images,
+                ),
+                pref: optionImageQuality,
+                items: _qualityItems(),
+              ),
               PrefDropdown(
-                  fullWidth: false,
-                  title: Text(L10n.of(context).media_grid_columns),
-                  subtitle: Text(L10n.of(context).media_grid_columns_description),
-                  pref: optionMediaGridColumns,
-                  items: [
-                    for (var count in [1, 2, 3, 4, 5])
-                      DropdownMenuItem(value: count, child: Text('$count')),
-                  ]),
+                fullWidth: false,
+                title: Text(L10n.of(context).media_grid_columns),
+                subtitle: Text(L10n.of(context).media_grid_columns_description),
+                pref: optionMediaGridColumns,
+                items: [
+                  for (var count in [1, 2, 3, 4, 5])
+                    DropdownMenuItem(value: count, child: Text('$count')),
+                ],
+              ),
               PrefSwitch(
                 pref: optionMediaDisableAutoload,
                 title: Text(L10n.of(context).load_media_manually),
-                subtitle: Text(L10n.of(context).load_media_manually_description),
+                subtitle: Text(
+                  L10n.of(context).load_media_manually_description,
+                ),
               ),
               PrefSwitch(
                 pref: optionMediaDefaultMute,
@@ -174,50 +222,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: Text(L10n.of(context).autoplay_videos_description),
               ),
               PrefDropdown(
-                  fullWidth: false,
-                  title: Text(L10n.of(context).video_prefetch),
-                  subtitle: Text(L10n.of(context).video_prefetch_description),
-                  pref: optionMediaVideoPrefetchSeconds,
-                  items: [
+                fullWidth: false,
+                title: Text(L10n.of(context).video_prefetch),
+                subtitle: Text(L10n.of(context).video_prefetch_description),
+                pref: optionMediaVideoPrefetchSeconds,
+                items: [
+                  DropdownMenuItem(
+                    value: 0,
+                    child: Text(L10n.of(context).video_prefetch_unlimited),
+                  ),
+                  for (var seconds in [1, 5, 15, 30, 60])
                     DropdownMenuItem(
-                        value: 0, child: Text(L10n.of(context).video_prefetch_unlimited)),
-                    for (var seconds in [1, 5, 15, 30, 60])
-                      DropdownMenuItem(
-                          value: seconds, child: Text(L10n.of(context).video_prefetch_seconds(seconds))),
-                  ]),
+                      value: seconds,
+                      child: Text(
+                        L10n.of(context).video_prefetch_seconds(seconds),
+                      ),
+                    ),
+                ],
+              ),
               PrefSwitch(
                 pref: optionMediaBackgroundPlayback,
                 title: Text(L10n.of(context).allow_background_play),
-                subtitle: Text(L10n.of(context).allow_background_play_description),
+                subtitle: Text(
+                  L10n.of(context).allow_background_play_description,
+                ),
               ),
               PrefSwitch(
                 pref: optionMediaAllowBackgroundPlayOtherApps,
                 title: Text(L10n.of(context).allow_background_play_other_apps),
-                subtitle: Text(L10n.of(context).allow_background_play_other_apps_description),
+                subtitle: Text(
+                  L10n.of(context).allow_background_play_other_apps_description,
+                ),
               ),
               PrefSwitch(
                 pref: optionAutoCacheVideos,
                 title: Text(L10n.of(context).auto_cache_videos),
                 subtitle: Text(L10n.of(context).auto_cache_videos_description),
               ),
-              Builder(builder: (tileContext) {
-                final tilePrefs = PrefService.of(tileContext);
-                return PrefSwitch(
-                  pref: optionAutoCacheWifiOnly,
-                  title: Text(L10n.of(context).auto_cache_wifi_only),
-                  disabled: !(tilePrefs.get<bool>(optionAutoCacheVideos) ?? false),
-                );
-              }),
+              Builder(
+                builder: (tileContext) {
+                  final tilePrefs = PrefService.of(tileContext);
+                  return PrefSwitch(
+                    pref: optionAutoCacheWifiOnly,
+                    title: Text(L10n.of(context).auto_cache_wifi_only),
+                    disabled:
+                        !(tilePrefs.get<bool>(optionAutoCacheVideos) ?? false),
+                  );
+                },
+              ),
               PrefDropdown(
-                  fullWidth: false,
-                  title: Text(L10n.of(context).cache_size_limit),
-                  pref: optionVideoCacheLimitMb,
-                  items: [
-                    DropdownMenuItem(value: 256, child: Text(L10n.of(context).size_megabytes(256))),
-                    DropdownMenuItem(value: 512, child: Text(L10n.of(context).size_megabytes(512))),
-                    DropdownMenuItem(value: 1024, child: Text(L10n.of(context).size_gigabytes(1))),
-                    DropdownMenuItem(value: 2048, child: Text(L10n.of(context).size_gigabytes(2))),
-                  ]),
+                fullWidth: false,
+                title: Text(L10n.of(context).cache_size_limit),
+                pref: optionVideoCacheLimitMb,
+                items: [
+                  DropdownMenuItem(
+                    value: 256,
+                    child: Text(L10n.of(context).size_megabytes(256)),
+                  ),
+                  DropdownMenuItem(
+                    value: 512,
+                    child: Text(L10n.of(context).size_megabytes(512)),
+                  ),
+                  DropdownMenuItem(
+                    value: 1024,
+                    child: Text(L10n.of(context).size_gigabytes(1)),
+                  ),
+                  DropdownMenuItem(
+                    value: 2048,
+                    child: Text(L10n.of(context).size_gigabytes(2)),
+                  ),
+                ],
+              ),
             ],
           ),
           _SettingsSection(
@@ -226,22 +301,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               PrefSwitch(
                 pref: optionUseAbsoluteTimestamp,
                 title: Text(L10n.of(context).use_absolute_timestamp),
-                subtitle: Text(L10n.of(context).use_absolute_timestamp_description),
+                subtitle: Text(
+                  L10n.of(context).use_absolute_timestamp_description,
+                ),
               ),
               PrefSwitch(
                 title: Text(L10n.of(context).hide_sensitive_tweets),
-                subtitle: Text(L10n.of(context).whether_to_hide_tweets_marked_as_sensitive),
+                subtitle: Text(
+                  L10n.of(context).whether_to_hide_tweets_marked_as_sensitive,
+                ),
                 pref: optionTweetsHideSensitive,
               ),
               PrefSwitch(
                 title: Text(L10n.of(context).always_show_full_tweet_contents),
-                subtitle: Text(L10n.of(context).always_show_full_tweet_contents_description),
+                subtitle: Text(
+                  L10n.of(context).always_show_full_tweet_contents_description,
+                ),
                 pref: alwaysShowFullTweetContents,
               ),
               PrefSwitch(
-                title: Text(L10n.of(context).activate_non_confirmation_bias_mode_label),
+                title: Text(
+                  L10n.of(context).activate_non_confirmation_bias_mode_label,
+                ),
                 pref: optionNonConfirmationBiasMode,
-                subtitle: Text(L10n.of(context).activate_non_confirmation_bias_mode_description),
+                subtitle: Text(
+                  L10n.of(context)
+                      .activate_non_confirmation_bias_mode_description,
+                ),
               ),
             ],
           ),
@@ -278,7 +364,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   await Clipboard.setData(ClipboardData(text: appVersion));
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(L10n.of(context).copied_version_to_clipboard)));
+                      SnackBar(
+                        content: Text(
+                          L10n.of(context).copied_version_to_clipboard,
+                        ),
+                      ),
+                    );
                   }
                 },
               ),
@@ -292,21 +383,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 leading: const Icon(Icons.copyright_outlined),
                 title: Text(L10n.of(context).licenses),
                 onTap: () => showLicensePage(
-                    context: context,
-                    applicationName: L10n.of(context).fritter,
-                    applicationVersion: appVersion,
-                    applicationLegalese: L10n.of(context).released_under_the_mit_license,
-                    applicationIcon: Container(
-                      margin: const EdgeInsets.all(12),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(48.0),
-                        child: Image.asset(
-                          'assets/icon.png',
-                          height: 48.0,
-                          width: 48.0,
-                        ),
+                  context: context,
+                  applicationName: L10n.of(context).fritter,
+                  applicationVersion: appVersion,
+                  applicationLegalese: L10n.of(context)
+                      .released_under_the_mit_license,
+                  applicationIcon: Container(
+                    margin: const EdgeInsets.all(12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(48.0),
+                      child: Image.asset(
+                        'assets/icon.png',
+                        height: 48.0,
+                        width: 48.0,
                       ),
-                    )),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -338,8 +431,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: text));
                 if (!dialogContext.mounted) return;
-                ScaffoldMessenger.of(dialogContext)
-                    .showSnackBar(SnackBar(content: Text(l10n.crash_log_copied)));
+                ScaffoldMessenger.of(
+                  dialogContext,
+                ).showSnackBar(SnackBar(content: Text(l10n.crash_log_copied)));
               },
               child: Text(l10n.copy_details),
             ),
@@ -349,8 +443,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 await CrashLog.clear();
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text(l10n.crash_log_deleted)));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(l10n.crash_log_deleted)));
               },
               child: Text(l10n.delete),
             ),
@@ -392,8 +487,8 @@ class _LibraryFolderTileState extends State<_LibraryFolderTile> {
     final subtitle = path.isEmpty
         ? l10n.not_set
         : hidden
-            ? '${l10n.library_storage_hidden} · ${model.isOnRemovableStorage ? l10n.library_volume_sd : l10n.library_volume_internal}'
-            : '${l10n.library_storage_visible} · $path';
+        ? '${l10n.library_storage_hidden} · ${model.isOnRemovableStorage ? l10n.library_volume_sd : l10n.library_volume_internal}'
+        : '${l10n.library_storage_visible} · $path';
 
     return ListTile(
       leading: Icon(hidden ? Icons.shield_outlined : Icons.folder_outlined),
@@ -423,11 +518,16 @@ class _StorageTilesState extends State<_StorageTiles> {
   void initState() {
     super.initState();
     widget.prefs.addKeyListener(optionLibraryPath, _onLibraryPathChanged);
+    widget.prefs.addKeyListener(optionVideoCacheLimitMb, _onCacheLimitChanged);
   }
 
   @override
   void dispose() {
     widget.prefs.removeKeyListener(optionLibraryPath, _onLibraryPathChanged);
+    widget.prefs.removeKeyListener(
+      optionVideoCacheLimitMb,
+      _onCacheLimitChanged,
+    );
     super.dispose();
   }
 
@@ -435,7 +535,13 @@ class _StorageTilesState extends State<_StorageTiles> {
     if (mounted) _refresh();
   }
 
-  void _refresh() => setState(() => _report = computeStorageBreakdown(widget.prefs));
+  void _onCacheLimitChanged() {
+    unawaited(VideoCache().enforceLimit(widget.prefs));
+    if (mounted) _refresh();
+  }
+
+  void _refresh() =>
+      setState(() => _report = computeStorageBreakdown(widget.prefs));
 
   Future<void> _clearCache(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -460,7 +566,9 @@ class _StorageTilesState extends State<_StorageTiles> {
     await TimelineCache.clearAll();
     await VideoCache().clear();
     try {
-      final thumbs = Directory(p.join((await getTemporaryDirectory()).path, 'thumbs'));
+      final thumbs = Directory(
+        p.join((await getTemporaryDirectory()).path, 'thumbs'),
+      );
       if (await thumbs.exists()) {
         await thumbs.delete(recursive: true);
       }
@@ -477,7 +585,8 @@ class _StorageTilesState extends State<_StorageTiles> {
 
     if (!context.mounted) return;
     _refresh();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10n.of(context).cache_cleared)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(L10n.of(context).cache_cleared)));
   }
 
   @override
@@ -494,27 +603,42 @@ class _StorageTilesState extends State<_StorageTiles> {
             ListTile(
               leading: const Icon(Icons.folder_outlined),
               title: Text(L10n.of(context).library),
-              subtitle: Text(path == null || path.isEmpty ? L10n.of(context).not_set : path,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              trailing: Text(report == null ? '…' : formatBytes(report.libraryBytes)),
+              subtitle: Text(
+                path == null || path.isEmpty ? L10n.of(context).not_set : path,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Text(
+                report == null ? '…' : formatBytes(report.libraryBytes),
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.smart_display_outlined),
               title: Text(L10n.of(context).cache_videos),
               subtitle: Text(
-                  report == null ? '…' : '${report.videoCount} · ${formatBytes(report.videoCacheBytes)} / $limitMb MB'),
+                report == null
+                    ? '…'
+                    : '${report.videoCount} · ${formatBytes(report.videoCacheBytes)} / $limitMb MB',
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: Text(L10n.of(context).cache_other),
-              trailing: Text(report == null ? '…' : formatBytes(report.otherCacheBytes)),
+              trailing: Text(
+                report == null ? '…' : formatBytes(report.otherCacheBytes),
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.cleaning_services_outlined),
               title: Text(L10n.of(context).clear_cache),
-              subtitle: Text(L10n.of(context).clear_cache_description,
-                  maxLines: 2, overflow: TextOverflow.ellipsis),
-              trailing: Text(report == null ? '…' : formatBytes(report.cacheBytes)),
+              subtitle: Text(
+                L10n.of(context).clear_cache_description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Text(
+                report == null ? '…' : formatBytes(report.cacheBytes),
+              ),
               onTap: () => _clearCache(context),
             ),
           ],
@@ -540,16 +664,14 @@ class _SettingsSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
           child: Text(
             title,
-            style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.primary,
+            ),
           ),
         ),
-        Card(
-          child: Column(children: tiles),
-        ),
+        Card(child: Column(children: tiles)),
         const SizedBox(height: 4),
       ],
     );
   }
 }
-
-

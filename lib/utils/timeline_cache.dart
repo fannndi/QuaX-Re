@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:quax/utils/atomic_file.dart';
 
 /// File-backed cache of a post's thread body (the raw GraphQL response), so a
 /// thread can paint what the reader already had the moment it opens and then
@@ -34,9 +35,12 @@ class TimelineCache {
       final file = File(p.join((await directory()).path, _fileName(key)));
       if (!await file.exists()) return null;
 
-      final decoded = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       if (maxAge != null) {
-        final savedAt = DateTime.fromMillisecondsSinceEpoch(decoded['at'] as int? ?? 0);
+        final savedAt = DateTime.fromMillisecondsSinceEpoch(
+          decoded['at'] as int? ?? 0,
+        );
         if (DateTime.now().difference(savedAt) > maxAge) return null;
       }
       return decoded['body'] as String?;
@@ -49,11 +53,15 @@ class TimelineCache {
     try {
       final dir = await directory();
       final file = File(p.join(dir.path, _fileName(key)));
-      await file.writeAsString(jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}));
+      await writeAtomically(
+        file,
+        jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'body': body}),
+      );
       // Pruning stats up to 200 files; doing that on every thread open is
       // wasted work while the reader is waiting for the screen.
       final lastPrune = _lastPruneAt;
-      if (lastPrune == null || DateTime.now().difference(lastPrune) > _pruneInterval) {
+      if (lastPrune == null ||
+          DateTime.now().difference(lastPrune) > _pruneInterval) {
         _lastPruneAt = DateTime.now();
         await prune(dir);
       }
@@ -129,4 +137,3 @@ class TimelineCache {
     }
   }
 }
-

@@ -28,22 +28,28 @@ class DownloadForegroundService : Service() {
         const val EXTRA_BODY = "body"
         const val EXTRA_PERCENT = "percent"
         const val EXTRA_FILE = "fileName"
+        const val EXTRA_ATTEMPT = "attemptId"
         const val EXTRA_PAUSE_LABEL = "pauseLabel"
         const val EXTRA_CANCEL_LABEL = "cancelLabel"
 
-        fun start(context: Context, intent: Intent) {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        fun start(context: Context, intent: Intent): Boolean {
+            return try {
+                val accepted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
                 } else {
                     context.startService(intent)
                 }
+                if (accepted == null) {
+                    QuaxApplication.onDownloadServiceFailed()
+                    false
+                } else {
+                    true
+                }
             } catch (e: Exception) {
                 // Android 12+ refuses a foreground start from the background.
-                // Logging it matters: the transfer keeps running in a cached
-                // process, which the system may freeze or kill, and this line
-                // is the only trace that the protection was never there.
                 android.util.Log.w("DownloadService", "foreground start refused", e)
+                QuaxApplication.onDownloadServiceFailed()
+                false
             }
         }
 
@@ -65,7 +71,11 @@ class DownloadForegroundService : Service() {
                 try {
                     QuaxApplication.channel?.invokeMethod(
                         "onDownloadAction",
-                        mapOf("action" to action, "fileName" to intent.getStringExtra(EXTRA_FILE))
+                        mapOf(
+                            "action" to action,
+                            "fileName" to intent.getStringExtra(EXTRA_FILE),
+                            "attemptId" to intent.getStringExtra(EXTRA_ATTEMPT)
+                        )
                     )
                 } catch (e: Exception) {
                     // The engine can be detached; an exception here runs on the
@@ -80,25 +90,33 @@ class DownloadForegroundService : Service() {
         val body = intent?.getStringExtra(EXTRA_BODY) ?: ""
         val percent = intent?.getIntExtra(EXTRA_PERCENT, 0) ?: 0
         val fileName = intent?.getStringExtra(EXTRA_FILE) ?: ""
+        val attemptId = intent?.getStringExtra(EXTRA_ATTEMPT)
         val pauseLabel = intent?.getStringExtra(EXTRA_PAUSE_LABEL) ?: "Pause"
         val cancelLabel = intent?.getStringExtra(EXTRA_CANCEL_LABEL) ?: "Cancel"
 
         createChannel()
-        val notification = buildNotification(title, body, percent, fileName, pauseLabel, cancelLabel)
+        val notification = buildNotification(title, body, percent, fileName, attemptId, pauseLabel, cancelLabel)
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
+            QuaxApplication.onDownloadServiceReady()
             START_NOT_STICKY
         } catch (e: Exception) {
             // A startForeground() that throws on the main thread used to take
             // the whole process down with it, mid-transfer.
             android.util.Log.w("DownloadService", "startForeground failed", e)
+            QuaxApplication.onDownloadServiceFailed()
             stopSelf(startId)
             START_NOT_STICKY
         }
+    }
+
+    override fun onDestroy() {
+        QuaxApplication.onDownloadServiceDestroyed()
+        super.onDestroy()
     }
 
     /**
@@ -109,6 +127,7 @@ class DownloadForegroundService : Service() {
      */
     override fun onTimeout(startId: Int) {
         android.util.Log.w("DownloadService", "dataSync budget exhausted; stopping")
+        QuaxApplication.onDownloadServiceFailed()
         stopSelf()
     }
 
@@ -132,6 +151,7 @@ class DownloadForegroundService : Service() {
         body: String,
         percent: Int,
         fileName: String,
+        attemptId: String?,
         pauseLabel: String,
         cancelLabel: String
     ): Notification {
@@ -152,7 +172,8 @@ class DownloadForegroundService : Service() {
             requestCode,
             Intent(this, DownloadForegroundService::class.java)
                 .setAction(action)
-                .putExtra(EXTRA_FILE, fileName),
+                .putExtra(EXTRA_FILE, fileName)
+                .putExtra(EXTRA_ATTEMPT, attemptId),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 

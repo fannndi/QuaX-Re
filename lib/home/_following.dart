@@ -6,11 +6,13 @@ import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
+import 'package:quax/tweet/tweet_load_counter.dart';
 import 'package:quax/utils/image_prefetch.dart';
 import 'package:quax/utils/tweet_freshness_index.dart';
 
 class FollowingTweets extends StatefulWidget {
   final TweetFeedController feed;
+
   /// The login this feed belongs to; the scroll memory is kept per account so
   /// switching back restores the right place.
   final String? accountId;
@@ -21,36 +23,27 @@ class FollowingTweets extends StatefulWidget {
   State<FollowingTweets> createState() => _FollowingTweetsState();
 }
 
-class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAliveClientMixin<FollowingTweets> {
+class _FollowingTweetsState extends State<FollowingTweets>
+    with AutomaticKeepAliveClientMixin<FollowingTweets> {
   static const int pageSize = 20;
-  int loadTweetsCounter = 0;
+  final _loadCounter = TweetLoadCounter();
   @override
   bool get wantKeepAlive => true;
-
-  void incrementLoadTweetsCounter() {
-    ++loadTweetsCounter;
-  }
-
-  void resetLoadTweetsCounter() {
-    loadTweetsCounter = 0;
-  }
-
-  int getLoadTweetsCounter() {
-    return loadTweetsCounter;
-  }
 
   Future<TweetPageResult> _loadTweets(String? cursor) async {
     final result = await Twitter.getHomeLatestTimeline(
       cursor: cursor,
       count: pageSize,
-      getTweetsCounter: getLoadTweetsCounter,
-      incrementTweetsCounter: incrementLoadTweetsCounter,
-      resetTweetsCounter: resetLoadTweetsCounter,
+      getTweetsCounter: _loadCounter.get,
+      incrementTweetsCounter: _loadCounter.increment,
+      resetTweetsCounter: _loadCounter.reset,
     );
     if (kDebugMode) {
       // An empty page here is normal for a quiet following list; the feed
       // keeps its items instead of blanking (see applyFirstPage).
-      debugPrint('QuaX following entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}');
+      debugPrint(
+        'QuaX following entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}',
+      );
     }
     TweetFreshnessIndex().note(result.chains.map((chain) => chain.id));
     if (mounted) {
@@ -72,10 +65,10 @@ class _FollowingTweetsState extends State<FollowingTweets> with AutomaticKeepAli
         onRefresh: () async {},
         scrollKey: 'home.following.${widget.accountId ?? 'none'}',
         firstPageErrorPrefix: L10n.of(context).unable_to_load_the_tweets,
-        newPageErrorPrefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
+        newPageErrorPrefix: L10n.of(context)
+            .unable_to_load_the_next_page_of_tweets,
         emptyMessage: L10n.of(context).unable_to_load_the_tweets_for_the_feed,
       ),
     );
   }
 }
-

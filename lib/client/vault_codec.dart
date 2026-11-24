@@ -5,7 +5,13 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
-enum VaultFailure { weakPassphrase, wrongPassphrase, corrupt, unsupportedVersion, tooLarge }
+enum VaultFailure {
+  weakPassphrase,
+  wrongPassphrase,
+  corrupt,
+  unsupportedVersion,
+  tooLarge,
+}
 
 class VaultException implements Exception {
   final VaultFailure failure;
@@ -42,7 +48,7 @@ class VaultCodec {
   static const currentVersion = 1;
   static const _kdfAlgorithm = 'pbkdf2-hmac-sha256';
   static const _cipherAlgorithm = 'aes-256-gcm';
-  static const _minPassphraseLength = 8;
+  static const minimumPassphraseLength = 12;
 
   Future<String> encrypt({
     required String passphrase,
@@ -88,15 +94,14 @@ class VaultCodec {
           'iterations': iterations,
           'salt': base64Encode(salt),
         },
-        'cipher': {
-          'algorithm': _cipherAlgorithm,
-          'nonce': base64Encode(nonce),
-        },
+        'cipher': {'algorithm': _cipherAlgorithm, 'nonce': base64Encode(nonce)},
         'payload': base64Encode(box.cipherText),
         'mac': base64Encode(box.mac.bytes),
       };
       final text = jsonEncode(envelope);
-      if (text.length > maxEnvelopeLength) throw const VaultException(VaultFailure.tooLarge);
+      if (text.length > maxEnvelopeLength) {
+        throw const VaultException(VaultFailure.tooLarge);
+      }
       return text;
     } finally {
       key.destroy();
@@ -108,7 +113,11 @@ class VaultCodec {
     required String kind,
     required String envelope,
   }) async {
-    final bytes = await decryptBytes(passphrase: passphrase, kind: kind, envelope: envelope);
+    final bytes = await decryptBytes(
+      passphrase: passphrase,
+      kind: kind,
+      envelope: envelope,
+    );
     try {
       final decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is! Map<String, dynamic>) {
@@ -125,16 +134,24 @@ class VaultCodec {
     required String kind,
     required String envelope,
   }) async {
-    _checkPassphrase(passphrase);
-    if (envelope.length > maxEnvelopeLength) throw const VaultException(VaultFailure.tooLarge);
+    if (passphrase.trim().isEmpty) {
+      throw const VaultException(VaultFailure.wrongPassphrase);
+    }
+    if (envelope.length > maxEnvelopeLength) {
+      throw const VaultException(VaultFailure.tooLarge);
+    }
 
     final parsed = _parseEnvelope(envelope);
     if (parsed['format'] != format || parsed['kind'] != kind) {
       throw const VaultException(VaultFailure.corrupt);
     }
     final version = parsed['version'];
-    if (version is! int || version < 1) throw const VaultException(VaultFailure.corrupt);
-    if (version > currentVersion) throw const VaultException(VaultFailure.unsupportedVersion);
+    if (version is! int || version < 1) {
+      throw const VaultException(VaultFailure.corrupt);
+    }
+    if (version > currentVersion) {
+      throw const VaultException(VaultFailure.unsupportedVersion);
+    }
 
     final (salt, nonce, iterations) = _readParameters(parsed);
     final cipherText = _decodeBytes(parsed['payload']);
@@ -161,7 +178,9 @@ class VaultCodec {
   Map<String, dynamic> _parseEnvelope(String envelope) {
     try {
       final decoded = jsonDecode(envelope);
-      if (decoded is! Map<String, dynamic>) throw const VaultException(VaultFailure.corrupt);
+      if (decoded is! Map<String, dynamic>) {
+        throw const VaultException(VaultFailure.corrupt);
+      }
       return decoded;
     } on FormatException {
       throw const VaultException(VaultFailure.corrupt);
@@ -171,8 +190,11 @@ class VaultCodec {
   (Uint8List, Uint8List, int) _readParameters(Map<String, dynamic> envelope) {
     final kdf = envelope['kdf'];
     final cipher = envelope['cipher'];
-    if (kdf is! Map || cipher is! Map) throw const VaultException(VaultFailure.corrupt);
-    if (kdf['algorithm'] != _kdfAlgorithm || cipher['algorithm'] != _cipherAlgorithm) {
+    if (kdf is! Map || cipher is! Map) {
+      throw const VaultException(VaultFailure.corrupt);
+    }
+    if (kdf['algorithm'] != _kdfAlgorithm ||
+        cipher['algorithm'] != _cipherAlgorithm) {
       throw const VaultException(VaultFailure.corrupt);
     }
 
@@ -192,7 +214,9 @@ class VaultCodec {
   }
 
   Uint8List _decodeBytes(Object? value) {
-    if (value is! String || value.isEmpty) throw const VaultException(VaultFailure.corrupt);
+    if (value is! String || value.isEmpty) {
+      throw const VaultException(VaultFailure.corrupt);
+    }
     try {
       return base64Decode(value);
     } on FormatException {
@@ -202,40 +226,66 @@ class VaultCodec {
 
   Uint8List _randomBytes(int length) {
     final source = random ?? Random.secure();
-    return Uint8List.fromList(List<int>.generate(length, (_) => source.nextInt(256)));
+    return Uint8List.fromList(
+      List<int>.generate(length, (_) => source.nextInt(256)),
+    );
   }
 
   void _checkPassphrase(String passphrase) {
-    if (passphrase.trim().length < _minPassphraseLength) {
+    if (passphrase.trim().length < minimumPassphraseLength) {
       throw const VaultException(VaultFailure.weakPassphrase);
     }
   }
 
-  Future<SecretKey> _deriveKey(String passphrase, Uint8List salt, int iterations) async {
+  Future<SecretKey> _deriveKey(
+    String passphrase,
+    Uint8List salt,
+    int iterations,
+  ) async {
     // The KDF is the expensive part (hundreds of thousands of HMAC rounds).
     // Running it off the UI isolate keeps the passphrase dialog responsive.
-    final bytes = await Isolate.run(() => _deriveKeyBytes(passphrase.trim(), salt, iterations));
+    final bytes = await Isolate.run(
+      () => _deriveKeyBytes(passphrase.trim(), salt, iterations),
+    );
     return SecretKeyData(bytes);
   }
 
   List<int> _aad(
-      int version, String kind, Uint8List salt, Uint8List nonce, int iterations) {
-    return utf8.encode([
-      format,
-      '$version',
-      kind,
-      _kdfAlgorithm,
-      '$iterations',
-      base64Encode(salt),
-      _cipherAlgorithm,
-      base64Encode(nonce),
-    ].join('\u0000'));
+    int version,
+    String kind,
+    Uint8List salt,
+    Uint8List nonce,
+    int iterations,
+  ) {
+    return utf8.encode(
+      [
+        format,
+        '$version',
+        kind,
+        _kdfAlgorithm,
+        '$iterations',
+        base64Encode(salt),
+        _cipherAlgorithm,
+        base64Encode(nonce),
+      ].join('\u0000'),
+    );
   }
 }
 
-Future<Uint8List> _deriveKeyBytes(String passphrase, Uint8List salt, int iterations) async {
-  final pbkdf2 = Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: iterations, bits: 256);
-  final key = await pbkdf2.deriveKey(secretKey: SecretKey(utf8.encode(passphrase)), nonce: salt);
+Future<Uint8List> _deriveKeyBytes(
+  String passphrase,
+  Uint8List salt,
+  int iterations,
+) async {
+  final pbkdf2 = Pbkdf2(
+    macAlgorithm: Hmac.sha256(),
+    iterations: iterations,
+    bits: 256,
+  );
+  final key = await pbkdf2.deriveKey(
+    secretKey: SecretKey(utf8.encode(passphrase)),
+    nonce: salt,
+  );
   final bytes = await key.extractBytes();
   // extractBytes returns a view over the sensitive buffer; copy before
   // destroy() zeroes it.

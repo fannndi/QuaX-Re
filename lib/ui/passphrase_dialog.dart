@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:quax/client/vault_codec.dart';
 import 'package:quax/generated/l10n.dart';
 
 /// Asks for the vault passphrase. [confirm] adds a second field for a new
@@ -41,7 +42,8 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
   void _submit() {
     final l10n = L10n.of(context);
     final first = _first.text.trim();
-    if (first.length < 8) {
+    if (first.isEmpty ||
+        (widget.confirm && first.length < VaultCodec.minimumPassphraseLength)) {
       setState(() => _error = l10n.account_backup_passphrase_hint);
       return;
     }
@@ -67,13 +69,21 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
               obscureText: !_show,
               autocorrect: false,
               enableSuggestions: false,
-              textInputAction: widget.confirm ? TextInputAction.next : TextInputAction.done,
+              textInputAction: widget.confirm
+                  ? TextInputAction.next
+                  : TextInputAction.done,
               onSubmitted: widget.confirm ? null : (_) => _submit(),
               decoration: InputDecoration(
                 labelText: l10n.account_backup_passphrase,
                 suffixIcon: IconButton(
-                  tooltip: _show ? l10n.account_backup_hide : l10n.account_backup_show,
-                  icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                  tooltip: _show
+                      ? l10n.account_backup_hide
+                      : l10n.account_backup_show,
+                  icon: Icon(
+                    _show
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
                   onPressed: () => setState(() => _show = !_show),
                 ),
               ),
@@ -87,16 +97,23 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
                 enableSuggestions: false,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
-                decoration: InputDecoration(labelText: l10n.account_backup_passphrase_confirm),
+                decoration: InputDecoration(
+                  labelText: l10n.account_backup_passphrase_confirm,
+                ),
               ),
             ],
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ] else if (widget.confirm) ...[
               const SizedBox(height: 12),
-              Text(l10n.account_backup_passphrase_hint,
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l10n.account_backup_passphrase_hint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ],
           ],
         ),
@@ -106,10 +123,7 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.cancel),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(l10n.ok),
-        ),
+        FilledButton(onPressed: _submit, child: Text(l10n.ok)),
       ],
     );
   }

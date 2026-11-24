@@ -17,6 +17,64 @@ import 'package:quax/ui/passphrase_dialog.dart';
 import 'package:quax/ui/vault_errors.dart';
 import 'package:share_plus/share_plus.dart';
 
+/// Re-encrypts both passphrase envelopes before staging or replacing either
+/// primary. The shared file helper keeps both old backups until every primary
+/// has committed, then removes the old-passphrase copies.
+Future<void> rotateAccountAndLikesPassphrases({
+  required AccountVault accountVault,
+  required LikesVault? likesVault,
+  required String vaultRoot,
+  required String oldPassphrase,
+  required String newPassphrase,
+  Future<void> Function(int index)? beforeCommit,
+}) => rotateVaultPassphrases(
+  accountVault: accountVault,
+  likesVault: likesVault,
+  vaultRoot: vaultRoot,
+  oldPassphrase: oldPassphrase,
+  newPassphrase: newPassphrase,
+  beforeCommit: beforeCommit,
+);
+
+String savedLikesSnapshotAfterImport({
+  required String liveSnapshot,
+  required String importedSnapshot,
+}) => liveSnapshot == importedSnapshot ? importedSnapshot : '';
+
+/// The two vaults share one secret. Whenever a likes vault exists, an account
+/// backup update must prove the entered phrase opens the current account vault.
+Future<void> verifyAccountBackupPassphrase({
+  required AccountVault accountVault,
+  required bool hasLikesVault,
+  required String vaultRoot,
+  required String passphrase,
+}) async {
+  if (hasLikesVault) {
+    await accountVault.read(vaultRoot: vaultRoot, passphrase: passphrase);
+  }
+}
+
+/// Rotating encryption does not make an old account list current. The caller's
+/// dirty bit is therefore restored exactly after a successful rotation.
+Future<void> changeAccountBackupPassphrase({
+  required AccountVault accountVault,
+  required LikesVault? likesVault,
+  required String vaultRoot,
+  required String oldPassphrase,
+  required String newPassphrase,
+  required bool wasDirty,
+  required Future<void> Function(bool dirty) saveDirty,
+}) async {
+  await rotateAccountAndLikesPassphrases(
+    accountVault: accountVault,
+    likesVault: likesVault,
+    vaultRoot: vaultRoot,
+    oldPassphrase: oldPassphrase,
+    newPassphrase: newPassphrase,
+  );
+  await saveDirty(wasDirty);
+}
+
 /// The account backup screen: create/update/restore the encrypted vault, share
 /// it off-device before a ROM flash, or adopt a vault the reader picked from a
 /// PC or cloud drive.
@@ -79,7 +137,8 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
       _hasLikesVault = hasLikesVault;
       _likesSaved = likesSaved;
       _localLikeCount = localLikes;
-      _likesDirty = hasLikesVault &&
+      _likesDirty =
+          hasLikesVault &&
           (savedLikesSnapshot == null || savedLikesSnapshot != likesSnapshot);
     });
   }
@@ -100,24 +159,58 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
   Future<void> _createBackup() async {
     final l10n = L10n.of(context);
     if (_vaultRoot.isEmpty) {
-      showSnackBar(context, icon: '🙊', message: l10n.account_backup_no_library);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: l10n.account_backup_no_library,
+      );
       return;
     }
     if (_accountCount == 0) {
-      showSnackBar(context, icon: '🙊', message: l10n.account_backup_login_first);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: l10n.account_backup_login_first,
+      );
       return;
     }
 
-    final passphrase = await showVaultPassphraseDialog(context,
-        confirm: true, title: _hasVault ? l10n.account_backup_update : l10n.account_backup_create);
+    final passphrase = await showVaultPassphraseDialog(
+      context,
+      confirm: true,
+      title: _hasVault
+          ? l10n.account_backup_update
+          : l10n.account_backup_create,
+    );
     if (passphrase == null || !mounted) return;
 
+    if (_hasLikesVault) {
+      try {
+        await verifyAccountBackupPassphrase(
+          accountVault: _vault,
+          hasLikesVault: true,
+          vaultRoot: _vaultRoot,
+          passphrase: passphrase,
+        );
+      } catch (error) {
+        if (mounted) _showError(error);
+        return;
+      }
+    }
+    if (!mounted) return;
+
     await _run(() async {
-      final result = await _vault.write(vaultRoot: _vaultRoot, passphrase: passphrase);
+      final result = await _vault.write(
+        vaultRoot: _vaultRoot,
+        passphrase: passphrase,
+      );
       await _prefs.set<bool>(optionAccountVaultDirty, false);
       if (mounted) {
-        showSnackBar(context,
-            icon: '🔐', message: '${l10n.account_backup_saved} (${result.accounts})');
+        showSnackBar(
+          context,
+          icon: '🔐',
+          message: '${l10n.account_backup_saved} (${result.accounts})',
+        );
       }
     });
   }
@@ -139,10 +232,16 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (replace == null || !mounted) return;
 
     await _run(() async {
-      final imported = await importAccounts(result.accounts, replaceExisting: replace);
-      if (imported.restored > 0) {
-        await _prefs.set<bool>(optionAccountVaultDirty, false);
-      }
+      final imported = await restoreAccountsAndRewriteVault(
+        accountVault: _vault,
+        accounts: result.accounts,
+        replaceExisting: replace,
+        vaultRoot: _vaultRoot,
+        passphrase: passphrase,
+        saveDirty: (dirty) async {
+          await _prefs.set<bool>(optionAccountVaultDirty, dirty);
+        },
+      );
       _showRestored(result, imported);
     });
   }
@@ -150,7 +249,11 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
   Future<void> _importFile() async {
     final l10n = L10n.of(context);
     if (_vaultRoot.isEmpty) {
-      showSnackBar(context, icon: '🙊', message: l10n.account_backup_no_library);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: l10n.account_backup_no_library,
+      );
       return;
     }
 
@@ -159,7 +262,11 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     final path = files.isEmpty ? null : files.single.path;
     if (path == null) {
       if (files.isNotEmpty) {
-        showSnackBar(context, icon: '🙊', message: l10n.account_backup_invalid_file);
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: l10n.account_backup_invalid_file,
+        );
       }
       return;
     }
@@ -180,11 +287,17 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (replace == null || !mounted) return;
 
     await _run(() async {
-      final imported = await importAccounts(result.accounts, replaceExisting: replace);
-      await _vault.adoptFile(sourcePath: path, vaultRoot: _vaultRoot);
-      if (imported.restored > 0) {
-        await _prefs.set<bool>(optionAccountVaultDirty, false);
-      }
+      final imported = await restoreAccountsAndRewriteVault(
+        accountVault: _vault,
+        accounts: result.accounts,
+        replaceExisting: replace,
+        vaultRoot: _vaultRoot,
+        passphrase: passphrase,
+        sourcePath: path,
+        saveDirty: (dirty) async {
+          await _prefs.set<bool>(optionAccountVaultDirty, dirty);
+        },
+      );
       _showRestored(result, imported);
     });
   }
@@ -203,53 +316,59 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     final l10n = L10n.of(context);
     final path = await _existingVaultPath(accountVaultPathFor(_vaultRoot));
     if (path == null) {
-      if (mounted) showSnackBar(context, icon: '🙊', message: l10n.account_backup_missing);
+      if (mounted) {
+        showSnackBar(context, icon: '🙊', message: l10n.account_backup_missing);
+      }
       return;
     }
-    if (!await _confirm(l10n.account_backup_share, l10n.account_backup_share_warning, l10n.share)) {
+    if (!await _confirm(
+      l10n.account_backup_share,
+      l10n.account_backup_share_warning,
+      l10n.share,
+    )) {
       return;
     }
     if (!mounted) return;
 
     await _run(() async {
-      await SharePlus.instance.share(ShareParams(
-        files: [XFile(path)],
-        subject: l10n.account_backup_share_title,
-      ));
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          subject: l10n.account_backup_share_title,
+        ),
+      );
     });
   }
 
   Future<void> _changePassphrase() async {
     final l10n = L10n.of(context);
-    final oldPassphrase = await showVaultPassphraseDialog(context,
-        confirm: false, title: l10n.account_backup_change_passphrase);
+    final oldPassphrase = await showVaultPassphraseDialog(
+      context,
+      confirm: false,
+      title: l10n.account_backup_change_passphrase,
+    );
     if (oldPassphrase == null || !mounted) return;
 
-    final newPassphrase = await showVaultPassphraseDialog(context,
-        confirm: true, title: l10n.account_backup_change_passphrase);
+    final newPassphrase = await showVaultPassphraseDialog(
+      context,
+      confirm: true,
+      title: l10n.account_backup_change_passphrase,
+    );
     if (newPassphrase == null || !mounted) return;
 
     await _run(() async {
-      // Verify both files with the old passphrase before writing either one.
-      // Changing the account vault first used to leave it on the new phrase
-      // while the likes vault still needed the old one, with no way to finish
-      // the change from the UI.
-      if (_hasLikesVault) {
-        await _likesVault.read(vaultRoot: _vaultRoot, passphrase: oldPassphrase);
-      }
-      await _vault.changePassphrase(
+      final wasDirty = _dirty;
+      await changeAccountBackupPassphrase(
+        accountVault: _vault,
+        likesVault: _hasLikesVault ? _likesVault : null,
         vaultRoot: _vaultRoot,
         oldPassphrase: oldPassphrase,
         newPassphrase: newPassphrase,
+        wasDirty: wasDirty,
+        saveDirty: (dirty) async {
+          await _prefs.set<bool>(optionAccountVaultDirty, dirty);
+        },
       );
-      if (_hasLikesVault) {
-        await _likesVault.changePassphrase(
-          vaultRoot: _vaultRoot,
-          oldPassphrase: oldPassphrase,
-          newPassphrase: newPassphrase,
-        );
-      }
-      await _prefs.set<bool>(optionAccountVaultDirty, false);
       if (mounted) {
         showSnackBar(context, icon: '🔐', message: l10n.account_backup_saved);
       }
@@ -259,7 +378,10 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
   Future<void> _remove() async {
     final l10n = L10n.of(context);
     if (!await _confirm(
-        l10n.account_backup_remove, l10n.account_backup_remove_confirm, l10n.account_backup_remove)) {
+      l10n.account_backup_remove,
+      l10n.account_backup_remove_confirm,
+      l10n.account_backup_remove,
+    )) {
       return;
     }
     if (!mounted) return;
@@ -294,7 +416,11 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
   Future<void> _createLikesBackup() async {
     final l10n = L10n.of(context);
     if (!_hasVault) {
-      showSnackBar(context, icon: '🙊', message: l10n.likes_backup_needs_account_vault);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: l10n.likes_backup_needs_account_vault,
+      );
       return;
     }
     if (_localLikeCount == 0) {
@@ -302,9 +428,13 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
       return;
     }
 
-    final passphrase = await showVaultPassphraseDialog(context,
-        confirm: false,
-        title: _hasLikesVault ? l10n.likes_backup_update : l10n.likes_backup_create);
+    final passphrase = await showVaultPassphraseDialog(
+      context,
+      confirm: false,
+      title: _hasLikesVault
+          ? l10n.likes_backup_update
+          : l10n.likes_backup_create,
+    );
     if (passphrase == null || !mounted) return;
 
     // Both files share one passphrase; verifying it against the account vault
@@ -319,19 +449,28 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     if (!mounted) return;
 
     await _run(() async {
-      final result = await _likesVault.write(vaultRoot: _vaultRoot, passphrase: passphrase);
-      await _prefs.set<String>(optionLikesVaultSnapshot, await _likesVault.snapshot());
+      final result = await _likesVault.write(
+        vaultRoot: _vaultRoot,
+        passphrase: passphrase,
+      );
+      await _prefs.set<String>(optionLikesVaultSnapshot, result.snapshot);
       if (mounted) {
-        showSnackBar(context,
-            icon: '🔐', message: '${l10n.likes_backup_saved} (${result.likes})');
+        showSnackBar(
+          context,
+          icon: '🔐',
+          message: '${l10n.likes_backup_saved} (${result.likes})',
+        );
       }
     });
   }
 
   Future<void> _restoreLikes() async {
     final l10n = L10n.of(context);
-    final passphrase =
-        await showVaultPassphraseDialog(context, confirm: false, title: l10n.likes_backup_restore);
+    final passphrase = await showVaultPassphraseDialog(
+      context,
+      confirm: false,
+      title: l10n.likes_backup_restore,
+    );
     if (passphrase == null || !mounted) return;
 
     await _run(() async {
@@ -341,7 +480,11 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
       if (_hasVault) {
         await _vault.read(vaultRoot: _vaultRoot, passphrase: passphrase);
       }
-      final result = await _likesVault.import(vaultRoot: _vaultRoot, passphrase: passphrase);
+      final result = await _likesVault.import(
+        vaultRoot: _vaultRoot,
+        passphrase: passphrase,
+      );
+      await _saveImportedLikesSnapshot(result);
       if (!mounted) return;
       await context.read<LikedTweetModel>().refreshLikedTweets();
       if (mounted) _showLikesRestored(result);
@@ -351,7 +494,11 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
   Future<void> _importLikesFile() async {
     final l10n = L10n.of(context);
     if (!_hasVault) {
-      showSnackBar(context, icon: '🙊', message: l10n.likes_backup_needs_account_vault);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: l10n.likes_backup_needs_account_vault,
+      );
       return;
     }
 
@@ -360,13 +507,20 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     final path = files.isEmpty ? null : files.single.path;
     if (path == null) {
       if (files.isNotEmpty) {
-        showSnackBar(context, icon: '🙊', message: l10n.account_backup_invalid_file);
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: l10n.account_backup_invalid_file,
+        );
       }
       return;
     }
 
-    final passphrase = await showVaultPassphraseDialog(context,
-        confirm: false, title: l10n.likes_backup_import);
+    final passphrase = await showVaultPassphraseDialog(
+      context,
+      confirm: false,
+      title: l10n.likes_backup_import,
+    );
     if (passphrase == null || !mounted) return;
 
     await _run(() async {
@@ -378,7 +532,7 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
         vaultRoot: _vaultRoot,
         passphrase: passphrase,
       );
-      await _prefs.set<String>(optionLikesVaultSnapshot, await _likesVault.snapshot());
+      await _saveImportedLikesSnapshot(result);
       if (!mounted) return;
       await context.read<LikedTweetModel>().refreshLikedTweets();
       if (mounted) _showLikesRestored(result);
@@ -389,26 +543,41 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     final l10n = L10n.of(context);
     final path = await _existingVaultPath(likesVaultPathFor(_vaultRoot));
     if (path == null) {
-      if (mounted) showSnackBar(context, icon: '🙊', message: l10n.likes_backup_file_missing);
+      if (mounted) {
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: l10n.likes_backup_file_missing,
+        );
+      }
       return;
     }
-    if (!await _confirm(l10n.likes_backup_share, l10n.account_backup_share_warning, l10n.share)) {
+    if (!await _confirm(
+      l10n.likes_backup_share,
+      l10n.account_backup_share_warning,
+      l10n.share,
+    )) {
       return;
     }
     if (!mounted) return;
 
     await _run(() async {
-      await SharePlus.instance.share(ShareParams(
-        files: [XFile(path)],
-        subject: l10n.likes_backup_share_title,
-      ));
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          subject: l10n.likes_backup_share_title,
+        ),
+      );
     });
   }
 
   Future<void> _removeLikes() async {
     final l10n = L10n.of(context);
     if (!await _confirm(
-        l10n.likes_backup_remove, l10n.likes_backup_remove_confirm, l10n.likes_backup_remove)) {
+      l10n.likes_backup_remove,
+      l10n.likes_backup_remove_confirm,
+      l10n.likes_backup_remove,
+    )) {
       return;
     }
     if (!mounted) return;
@@ -419,14 +588,28 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     });
   }
 
+  Future<void> _saveImportedLikesSnapshot(LikesVaultImportResult result) async {
+    final live = await _likesVault.snapshot();
+    // An older file may omit likes or owner mappings that are already local.
+    // Keep the backup marked dirty unless the merged database exactly matches
+    // the file that was adopted.
+    await _prefs.set<String>(
+      optionLikesVaultSnapshot,
+      savedLikesSnapshotAfterImport(
+        liveSnapshot: live,
+        importedSnapshot: result.snapshot,
+      ),
+    );
+  }
+
   void _showLikesRestored(LikesVaultImportResult result) {
     if (!mounted) return;
     final l10n = L10n.of(context);
     final message = result.restored == 0
         ? l10n.likes_backup_none_restored
         : result.skipped > 0
-            ? l10n.likes_backup_restored_partial(result.restored, result.skipped)
-            : l10n.likes_backup_restored(result.restored);
+        ? l10n.likes_backup_restored_partial(result.restored, result.skipped)
+        : l10n.likes_backup_restored(result.restored);
     showSnackBar(context, icon: '✅', message: message);
   }
 
@@ -445,8 +628,10 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
           children: [
             Text(l10n.account_backup_replace_help),
             const SizedBox(height: 12),
-            Text(l10n.account_backup_restore_warning,
-                style: Theme.of(dialogContext).textTheme.bodySmall),
+            Text(
+              l10n.account_backup_restore_warning,
+              style: Theme.of(dialogContext).textTheme.bodySmall,
+            ),
           ],
         ),
         actions: [
@@ -467,14 +652,24 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     );
   }
 
-  void _showRestored(AccountVaultReadResult result, AccountImportResult imported) {
+  void _showRestored(
+    AccountVaultReadResult result,
+    AccountImportResult imported,
+  ) {
     if (!mounted) return;
-    showSnackBar(context,
-        icon: '✅', message: accountRestoredMessage(L10n.of(context), result, imported));
+    showSnackBar(
+      context,
+      icon: '✅',
+      message: accountRestoredMessage(L10n.of(context), result, imported),
+    );
   }
 
   void _showError(Object error) {
-    showSnackBar(context, icon: '🙊', message: vaultErrorMessage(L10n.of(context), error));
+    showSnackBar(
+      context,
+      icon: '🙊',
+      message: vaultErrorMessage(L10n.of(context), error),
+    );
   }
 
   @override
@@ -494,15 +689,24 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
                 Text(l10n.account_backup_description),
                 if (_vaultRoot.isEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(l10n.account_backup_no_library,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Text(
+                    l10n.account_backup_no_library,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ] else ...[
                   const SizedBox(height: 16),
-                  Text(l10n.account_backup_folder, style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    l10n.account_backup_folder,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 8),
                   _action(
                     icon: Icons.lock_outline,
-                    title: _hasVault ? l10n.account_backup_update : l10n.account_backup_create,
+                    title: _hasVault
+                        ? l10n.account_backup_update
+                        : l10n.account_backup_create,
                     onTap: _createBackup,
                   ),
                   if (_hasVault)
@@ -536,19 +740,32 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
                   ],
                   const SizedBox(height: 16),
                   const Divider(),
-                  Text(l10n.likes_backup, style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    l10n.likes_backup,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 4),
-                  Text(l10n.likes_backup_description,
-                      style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    l10n.likes_backup_description,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 8),
                   if (!_hasVault && !_hasLikesVault)
-                    Text(l10n.likes_backup_needs_account_vault,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error))
+                    Text(
+                      l10n.likes_backup_needs_account_vault,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    )
                   else ...[
                     if (_hasLikesVault) _likesStatusCard(l10n),
                     if (!_hasVault)
-                      Text(l10n.likes_backup_needs_account_vault,
-                          style: TextStyle(color: Theme.of(context).colorScheme.error))
+                      Text(
+                        l10n.likes_backup_needs_account_vault,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      )
                     else ...[
                       _action(
                         icon: Icons.favorite_border,
@@ -587,8 +804,10 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Text(l10n.account_backup_share_warning,
-                          style: Theme.of(context).textTheme.bodySmall),
+                      child: Text(
+                        l10n.account_backup_share_warning,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ),
                   ),
                 ],
@@ -604,14 +823,18 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     final status = _vaultRoot.isEmpty
         ? l10n.account_backup_no_library
         : !_hasVault
-            ? l10n.account_backup_missing
-            : _dirty
-                ? l10n.account_backup_out_of_date
-                : l10n.account_backup_up_to_date;
+        ? l10n.account_backup_missing
+        : _dirty
+        ? l10n.account_backup_out_of_date
+        : l10n.account_backup_up_to_date;
     final saved = _lastSaved;
     final subtitle = saved == null
-        ? (_accountCount == 0 ? l10n.account_backup_none : l10n.account_backup_missing)
-        : l10n.account_backup_last_saved(DateFormat.yMMMd().add_Hm().format(saved.toLocal()));
+        ? (_accountCount == 0
+              ? l10n.account_backup_none
+              : l10n.account_backup_missing)
+        : l10n.account_backup_last_saved(
+            DateFormat.yMMMd().add_Hm().format(saved.toLocal()),
+          );
     final color = _hasVault && !_dirty
         ? Theme.of(context).colorScheme.primary
         : Theme.of(context).colorScheme.error;
@@ -622,8 +845,8 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
           !_hasVault
               ? Icons.lock_outline
               : _dirty
-                  ? Icons.warning_amber_outlined
-                  : Icons.verified_user_outlined,
+              ? Icons.warning_amber_outlined
+              : Icons.verified_user_outlined,
           color: color,
         ),
         title: Text(status),
@@ -636,13 +859,13 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
     final status = !_hasLikesVault
         ? l10n.likes_backup_missing
         : _likesDirty
-            ? l10n.likes_backup_out_of_date
-            : l10n.likes_backup_up_to_date;
+        ? l10n.likes_backup_out_of_date
+        : l10n.likes_backup_up_to_date;
     final saved = _likesSaved;
     final subtitle = saved == null
         ? l10n.likes_backup_count(_localLikeCount)
         : '${l10n.account_backup_last_saved(DateFormat.yMMMd().add_Hm().format(saved.toLocal()))}'
-            ' · ${l10n.likes_backup_count(_localLikeCount)}';
+              ' · ${l10n.likes_backup_count(_localLikeCount)}';
     final color = _hasLikesVault && !_likesDirty
         ? Theme.of(context).colorScheme.primary
         : Theme.of(context).colorScheme.error;
@@ -653,8 +876,8 @@ class _AccountBackupScreenState extends State<AccountBackupScreen> {
           !_hasLikesVault
               ? Icons.favorite_border
               : _likesDirty
-                  ? Icons.warning_amber_outlined
-                  : Icons.verified_user_outlined,
+              ? Icons.warning_amber_outlined
+              : Icons.verified_user_outlined,
           color: color,
         ),
         title: Text(status),

@@ -37,14 +37,16 @@ profile views have their own URLs: `/`, `/all`, `/with_replies`, `/reposts`,
 ## What gets saved
 
 Every GraphQL response, no filter: `queryId`, `features`, `variables`, status,
-allow-listed headers, body. Fixtures the run did not reproduce are deleted, so
-the directory always matches `links.json` — skipped when a page failed to load.
+allow-listed headers, body. Fixtures the run did not reproduce are kept unless
+`--prune` is passed explicitly. Pruning is also skipped when any page fails or
+any scenario captures nothing.
 
 ## Focused capture
 
 `mini_capture.dart` records **one** URL from an already-running Chrome on debug port 9222 and
 writes every GraphQL response under `test/fixtures/<Operation>/` **without pruning**. Use it when a
-full `capture.dart` run risks being rate-limited (a full run prunes fixtures it did not reproduce):
+full `capture.dart` run risks being rate-limited. Full captures also keep old fixtures unless run with
+`--prune`:
 
 ```bash
 fvm dart run tool/record/capture.dart --attach          # or start Chrome yourself on port 9222

@@ -16,6 +16,12 @@ import 'package:quax/utils/urls.dart';
 import 'package:app_links/app_links.dart';
 import 'package:logging/logging.dart';
 
+/// Deep links can carry search terms and tracking ids in their query. Logs only
+/// need the route shape, never those values.
+@visibleForTesting
+String redactedLinkForLog(Uri link) =>
+    '${link.scheme}://${link.host}${link.path}';
+
 class DefaultPage extends StatefulWidget {
   const DefaultPage({super.key});
 
@@ -83,14 +89,15 @@ class _DefaultPageState extends State<DefaultPage> {
           actions: [
             TextButton(
               child: Text(L10n.of(context).report),
-              onPressed:  () => openUri(context, 'https://github.com/fannndi/QuaX-Re/issues'),
+              onPressed: () =>
+                  openUri(context, 'https://github.com/fannndi/QuaX-Re/issues'),
             ),
             if (link != null)
               TextButton(
                 child: Text(L10n.of(context).open_in_browser),
                 onPressed: () {
                   openInDefaultBrowser(link.toString());
-                  if(context.mounted) {
+                  if (context.mounted) {
                     Navigator.of(context).pop();
                   }
                 },
@@ -111,21 +118,36 @@ class _DefaultPageState extends State<DefaultPage> {
       if (!mounted) return;
 
       switch (parsed) {
-        case ProfileUriInfo(screenName: final screenName, profileTabIndex: final tab):
-          Navigator.pushNamed(context, routeProfile,
-              arguments: ProfileScreenArguments.fromScreenName(screenName, tab));
+        case ProfileUriInfo(
+          screenName: final screenName,
+          profileTabIndex: final tab,
+        ):
+          Navigator.pushNamed(
+            context,
+            routeProfile,
+            arguments: ProfileScreenArguments.fromScreenName(screenName, tab),
+          );
           return;
-        case PostUriInfo(screenName: final screenName, id: final id, photoNumber: final photoNumber):
+        case PostUriInfo(
+          screenName: final screenName,
+          id: final id,
+          photoNumber: final photoNumber,
+        ):
           // A /photo/N link names the picture to land on; N is 1-based while the
           // media pager counts from 0. Without a number (including an FxEmbed
           // direct link, whose .jpg/.mp4 ending parseUri already stripped) the
           // tweet opens on its first piece of media.
-          Navigator.pushNamed(context, routeStatus,
-              arguments: StatusScreenArguments(
-                id: id,
-                username: screenName,
-                initialMediaIndex: photoNumber == null || photoNumber < 1 ? 0 : photoNumber - 1,
-              ));
+          Navigator.pushNamed(
+            context,
+            routeStatus,
+            arguments: StatusScreenArguments(
+              id: id,
+              username: screenName,
+              initialMediaIndex: photoNumber == null || photoNumber < 1
+                  ? 0
+                  : photoNumber - 1,
+            ),
+          );
           return;
         case UnknownResult():
           _showUnableToOpenLink(link);
@@ -135,7 +157,11 @@ class _DefaultPageState extends State<DefaultPage> {
       // parseUri resolves short links over the network, so a dead host or a
       // malformed URL throws from inside this callback — the stream's onError
       // never sees it, and the link would otherwise fail in silence.
-      log.warning('Unable to open the link $link', e, stackTrace);
+      log.warning(
+        'Unable to open the link ${redactedLinkForLog(link)}',
+        e,
+        stackTrace,
+      );
       if (!mounted) return;
       _showUnableToOpenLink(link);
     }
@@ -166,20 +192,24 @@ class _DefaultPageState extends State<DefaultPage> {
     final appLinks = AppLinks();
 
     // Attach a listener to the stream
-    _sub = appLinks.uriLinkStream.listen((link) => handleInitialLink(link), onError: (err, stackTrace) {
-      log.warning('Unable to read an incoming link', err, stackTrace);
-      if (!mounted) return;
-      _showUnableToOpenLink(null);
-    });
+    _sub = appLinks.uriLinkStream.listen(
+      (link) => handleInitialLink(link),
+      onError: (err, stackTrace) {
+        log.warning('Unable to read an incoming link', err, stackTrace);
+        if (!mounted) return;
+        _showUnableToOpenLink(null);
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_migrationError != null || _migrationStackTrace != null) {
       return ScaffoldErrorWidget(
-          error: _migrationError,
-          stackTrace: _migrationStackTrace,
-          prefix: L10n.of(context).unable_to_run_the_database_migrations);
+        error: _migrationError,
+        stackTrace: _migrationStackTrace,
+        prefix: L10n.of(context).unable_to_run_the_database_migrations,
+      );
     }
 
     return _setupDone
@@ -191,7 +221,8 @@ class _DefaultPageState extends State<DefaultPage> {
               final pending = _pendingLink;
               _pendingLink = null;
               if (pending != null) unawaited(handleInitialLink(pending));
-            });
+            },
+          );
   }
 
   @override
@@ -200,4 +231,3 @@ class _DefaultPageState extends State<DefaultPage> {
     super.dispose();
   }
 }
-

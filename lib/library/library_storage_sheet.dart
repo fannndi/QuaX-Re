@@ -14,7 +14,10 @@ import 'package:quax/utils/storage_report.dart';
 ///
 /// Resolves to true when the library was moved or reconfigured, so the caller
 /// can rebuild the gallery.
-Future<bool?> showLibraryStorageSheet(BuildContext context, BasePrefService prefs) {
+Future<bool?> showLibraryStorageSheet(
+  BuildContext context,
+  BasePrefService prefs,
+) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -29,7 +32,9 @@ String libraryVolumeLabel(L10n l10n, LibraryVolume volume) =>
 /// Asks which volume the hidden library should live on. One volume is not a
 /// choice, so it is returned without a dialog.
 Future<LibraryVolume?> pickLibraryVolume(
-    BuildContext context, List<LibraryVolume> volumes) async {
+  BuildContext context,
+  List<LibraryVolume> volumes,
+) async {
   if (volumes.isEmpty) return null;
   if (volumes.length == 1) return volumes.first;
 
@@ -44,7 +49,9 @@ Future<LibraryVolume?> pickLibraryVolume(
             onPressed: () => Navigator.pop(dialogContext, volume),
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(volume.isPrimary ? Icons.phone_android : Icons.sd_card_outlined),
+              leading: Icon(
+                volume.isPrimary ? Icons.phone_android : Icons.sd_card_outlined,
+              ),
               title: Text(libraryVolumeLabel(l10n, volume)),
               subtitle: Text(
                 volume.isPrimary
@@ -101,9 +108,11 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
     if (!mounted) return;
 
     final currentVolume = volumes
-        .where((volume) =>
-            p.isWithin(volume.volumeRoot, _model.libraryPath) ||
-            p.equals(volume.hiddenRoot, _model.libraryPath))
+        .where(
+          (volume) =>
+              p.isWithin(volume.volumeRoot, _model.libraryPath) ||
+              p.equals(volume.hiddenRoot, _model.libraryPath),
+        )
         .firstOrNull;
     setState(() {
       _volumes = volumes;
@@ -142,7 +151,9 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
 
   bool get _targetIsCurrent {
     final path = _targetPath;
-    return path != null && !_model.isHidden && p.equals(_model.libraryPath, path);
+    return path != null &&
+        !_model.isHidden &&
+        p.equals(_model.libraryPath, path);
   }
 
   bool get _canUseExisting {
@@ -157,7 +168,8 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
     if (_mode == LibraryStorageMode.hidden) {
       final volume = _selectedVolume;
       if (volume == null) return false;
-      return !(_model.isHidden && p.equals(_model.libraryPath, volume.hiddenRoot));
+      return !(_model.isHidden &&
+          p.equals(_model.libraryPath, volume.hiddenRoot));
     }
     final path = _targetPath;
     if (path == null) return false;
@@ -169,7 +181,9 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
     if (picked == null || !mounted) return;
     // A reader who navigates into the existing QuaXLibrary should keep it as
     // the root; a parent pick still gets the child created on apply.
-    setState(() => _visibleParent = p.dirname(libraryRootForPickedFolder(picked)));
+    setState(
+      () => _visibleParent = p.dirname(libraryRootForPickedFolder(picked)),
+    );
     await _inspectTarget();
   }
 
@@ -182,7 +196,9 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.library_storage_existing_confirm_title),
-        content: Text(l10n.library_storage_existing_confirm_body(target.mediaCount, path)),
+        content: Text(
+          l10n.library_storage_existing_confirm_body(target.mediaCount, path),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -226,7 +242,9 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(L10n.of(dialogContext).library_move_confirm_title),
-        content: Text(L10n.of(dialogContext).library_move_confirm_body(_count, target)),
+        content: Text(
+          L10n.of(dialogContext).library_move_confirm_body(_count, target),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -241,10 +259,14 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
     );
     if (confirmed != true || !mounted) return;
 
-    if (_mode == LibraryStorageMode.visible && !await _model.ensureStorageAccess()) {
+    if (_mode == LibraryStorageMode.visible &&
+        !await _model.ensureStorageAccess()) {
       if (mounted) {
-        showSnackBar(context,
-            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+        showSnackBar(
+          context,
+          icon: '🔒',
+          message: L10n.of(context).library_storage_permission_needed,
+        );
       }
       return;
     }
@@ -253,19 +275,26 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
     // A transfer that lands during the move would save into the folder being
     // emptied. Hold the queue, move, then bring back exactly what was active.
     final active = _queue.state
-        .where((item) =>
-            item.status == DownloadStatus.queued || item.status == DownloadStatus.running)
+        .where(
+          (item) =>
+              item.status == DownloadStatus.queued ||
+              item.status == DownloadStatus.running,
+        )
         .map((item) => item.fileName)
         .toList();
     final oldPath = _model.libraryPath;
-    _queue.pauseAll();
+    await _queue.pauseAll();
 
     final result = _mode == LibraryStorageMode.hidden
         ? await _model.moveToHidden(_selectedVolume!)
         : await _model.moveToVisibleAt(_visibleParent!);
 
     if (result.error == null) {
-      _queue.relocateSavedPaths(oldPath, _model.libraryPath);
+      await _queue.relocateSavedPaths(
+        oldPath,
+        _model.libraryPath,
+        relocatedPaths: result.relocatedPaths,
+      );
     }
 
     for (final name in active) {
@@ -290,10 +319,17 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
       return;
     }
     if (result.failed > 0) {
-      showSnackBar(context,
-          icon: '⚠️', message: l10n.library_move_partial(result.moved, result.failed));
+      showSnackBar(
+        context,
+        icon: '⚠️',
+        message: l10n.library_move_partial(result.moved, result.failed),
+      );
     } else {
-      showSnackBar(context, icon: '📁', message: l10n.library_move_done(result.moved));
+      showSnackBar(
+        context,
+        icon: '📁',
+        message: l10n.library_move_done(result.moved),
+      );
     }
     if (mounted) Navigator.pop(context, true);
   }
@@ -310,8 +346,11 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
     if (picked == null || !mounted) return;
     if (!await _model.ensureStorageAccess()) {
       if (mounted) {
-        showSnackBar(context,
-            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+        showSnackBar(
+          context,
+          icon: '🔒',
+          message: L10n.of(context).library_storage_permission_needed,
+        );
       }
       return;
     }
@@ -321,7 +360,9 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(L10n.of(dialogContext).library_export_confirm_title),
-        content: Text(L10n.of(dialogContext).library_export_confirm_body(_count)),
+        content: Text(
+          L10n.of(dialogContext).library_export_confirm_body(_count),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -348,10 +389,17 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
     } else if (result.error != null) {
       showSnackBar(context, icon: '🙊', message: l10n.library_move_failed);
     } else if (result.failed > 0) {
-      showSnackBar(context,
-          icon: '⚠️', message: l10n.library_export_partial(result.copied, result.failed));
+      showSnackBar(
+        context,
+        icon: '⚠️',
+        message: l10n.library_export_partial(result.copied, result.failed),
+      );
     } else {
-      showSnackBar(context, icon: '✅', message: l10n.library_export_done(result.copied, result.path!));
+      showSnackBar(
+        context,
+        icon: '✅',
+        message: l10n.library_export_done(result.copied, result.path!),
+      );
     }
   }
 
@@ -388,15 +436,23 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.library_storage_manage, style: theme.textTheme.titleLarge),
+            Text(
+              l10n.library_storage_manage,
+              style: theme.textTheme.titleLarge,
+            ),
             const SizedBox(height: 4),
-            Text(l10n.library_storage_manage_body, style: theme.textTheme.bodySmall),
+            Text(
+              l10n.library_storage_manage_body,
+              style: theme.textTheme.bodySmall,
+            ),
             if (_count > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   l10n.library_stats(_count, formatBytes(_bytes)),
-                  style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.hintColor,
+                  ),
                 ),
               ),
             const SizedBox(height: 12),
@@ -407,25 +463,37 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
               title: l10n.library_storage_hidden,
               body: l10n.library_storage_hidden_description,
               selected: _mode == LibraryStorageMode.hidden,
-              onTap: _busy ? null : () => setState(() => _mode = LibraryStorageMode.hidden),
+              onTap: _busy
+                  ? null
+                  : () => setState(() => _mode = LibraryStorageMode.hidden),
             ),
             if (_mode == LibraryStorageMode.hidden) ...[
               for (final volume in _volumes)
                 ListTile(
                   contentPadding: const EdgeInsets.only(left: 44, right: 8),
-                  leading: Icon(volume.isPrimary ? Icons.phone_android : Icons.sd_card_outlined),
+                  leading: Icon(
+                    volume.isPrimary
+                        ? Icons.phone_android
+                        : Icons.sd_card_outlined,
+                  ),
                   title: Text(libraryVolumeLabel(l10n, volume)),
                   selected: volume == _selectedVolume,
-                  trailing: Icon(volume == _selectedVolume
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked),
-                  onTap: _busy ? null : () => setState(() => _selectedVolume = volume),
+                  trailing: Icon(
+                    volume == _selectedVolume
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  onTap: _busy
+                      ? null
+                      : () => setState(() => _selectedVolume = volume),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(44, 0, 8, 12),
                 child: Text(
                   '${l10n.library_storage_hidden_note}\n${l10n.library_storage_android10_note}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.hintColor,
+                  ),
                 ),
               ),
             ],
@@ -435,7 +503,9 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
               title: l10n.library_storage_visible,
               body: l10n.library_storage_visible_description,
               selected: _mode == LibraryStorageMode.visible,
-              onTap: _busy ? null : () => setState(() => _mode = LibraryStorageMode.visible),
+              onTap: _busy
+                  ? null
+                  : () => setState(() => _mode = LibraryStorageMode.visible),
             ),
             if (_mode == LibraryStorageMode.visible) ...[
               Padding(
@@ -466,13 +536,20 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        l10n.library_stats(_target!.mediaCount, formatBytes(_target!.bytes)),
-                        style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor),
+                        l10n.library_stats(
+                          _target!.mediaCount,
+                          formatBytes(_target!.bytes),
+                        ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.hintColor,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         l10n.library_storage_use_existing_note,
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.hintColor,
+                        ),
                       ),
                       Align(
                         alignment: Alignment.centerRight,
@@ -489,9 +566,11 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
                   contentPadding: const EdgeInsets.only(left: 44, right: 8),
                   value: _galleryVisible,
                   onChanged: _busy ? null : _toggleGallery,
-                  secondary: Icon(_galleryVisible
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined),
+                  secondary: Icon(
+                    _galleryVisible
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
                   title: Text(l10n.show_in_gallery),
                   subtitle: Text(l10n.library_storage_show_in_gallery_note),
                 ),
@@ -509,7 +588,10 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
                   onPressed: _canApply ? _apply : null,
                   child: _busy
                       ? const SizedBox(
-                          width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : Text(l10n.library_storage_apply),
                 ),
               ],
@@ -517,7 +599,10 @@ class _LibraryStorageSheetState extends State<_LibraryStorageSheet> {
             if (!_model.isConfigured && _count == 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(l10n.library_storage_empty_note, style: theme.textTheme.bodySmall),
+                child: Text(
+                  l10n.library_storage_empty_note,
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
           ],
         ),
@@ -546,13 +631,17 @@ class _StorageChoice extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       elevation: 0,
-      color: selected ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.35) : null,
+      color: selected
+          ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.35)
+          : null,
       child: ListTile(
         onTap: onTap,
         leading: Icon(icon),
         title: Text(title),
         subtitle: Text(body),
-        trailing: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+        trailing: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        ),
       ),
     );
   }

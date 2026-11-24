@@ -10,15 +10,17 @@ import 'package:quax/profile/profile_model.dart';
 /// One recorded X response, with the scenario that produced it.
 class Fixture {
   Fixture(this.path, Map<String, dynamic> json)
-      : scenario = json['scenario'] as String? ?? path,
-        sourceUrl = json['sourceUrl'] as String? ?? '',
-        queryId = json['queryId'] as String? ?? '',
-        body = json['body'] as Map<String, dynamic>? ?? const {};
+    : scenario = json['scenario'] as String? ?? path,
+      sourceUrl = json['sourceUrl'] as String? ?? '',
+      queryId = json['queryId'] as String? ?? '',
+      variables = json['variables'] as Map<String, dynamic>? ?? const {},
+      body = json['body'] as Map<String, dynamic>? ?? const {};
 
   final String path;
   final String scenario;
   final String sourceUrl;
   final String queryId;
+  final Map<String, dynamic> variables;
   final Map<String, dynamic> body;
 
   @override
@@ -30,23 +32,33 @@ List<Fixture> fixturesOf(String operation) {
   if (!directory.existsSync()) {
     return const [];
   }
-  final files = directory.listSync().whereType<File>().where((f) => f.path.endsWith('.json')).toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
+  final files =
+      directory
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
   return files
-      .map((file) => Fixture(file.path, jsonDecode(file.readAsStringSync()) as Map<String, dynamic>))
+      .map(
+        (file) => Fixture(
+          file.path,
+          jsonDecode(file.readAsStringSync()) as Map<String, dynamic>,
+        ),
+      )
       .toList();
 }
 
 int _counter = 0;
 
 TweetStatus profileTimeline(Fixture fixture) => createUnconversationedChains(
-      fixture.body,
-      'tweet',
-      const [],
-      true,
-      () => _counter,
-      () => _counter++,
-    );
+  fixture.body,
+  'tweet',
+  const [],
+  true,
+  () => _counter,
+  () => _counter++,
+);
 
 /// Every tweet in a timeline, threads flattened.
 List<TweetWithCard> allTweets(TweetStatus status) =>
@@ -61,10 +73,14 @@ void expectEveryTweetHasAnAuthor(List<TweetWithCard> tweets, Fixture fixture) {
       .where((tweet) => tweet.user?.screenName == null)
       .map((tweet) => tweet.idStr ?? '?')
       .toList();
-  expect(orphans, isEmpty,
-      reason: 'Every tweet should carry its author. ${orphans.length} of ${tweets.length} '
-          'have none, so they would render with no name and no avatar. '
-          'Fixture: ${fixture.path}');
+  expect(
+    orphans,
+    isEmpty,
+    reason:
+        'Every tweet should carry its author. ${orphans.length} of ${tweets.length} '
+        'have none, so they would render with no name and no avatar. '
+        'Fixture: ${fixture.path}',
+  );
 }
 
 void main() {
@@ -89,27 +105,52 @@ void main() {
         if (profile == null) {
           // A profile that cannot be read must say why. Silence here shows as a
           // blank screen with no explanation.
-          expect(error?.code, anyOf(50, 63, -1),
-              reason: 'An unreadable profile should raise a known error: 50 not found, '
-                  '63 suspended, -1 otherwise unavailable');
+          expect(
+            error?.code,
+            anyOf(50, 63, -1),
+            reason:
+                'An unreadable profile should raise a known error: 50 not found, '
+                '63 suspended, -1 otherwise unavailable',
+          );
           return;
         }
 
         final user = profile.user;
-        expect(user.idStr, isNotEmpty,
-            reason: 'The profile should keep its numeric id, which every later request needs');
-        expect(user.screenName, isNotEmpty,
-            reason: 'The profile should keep its handle, which titles the screen');
-        expect(user.name, isNotNull,
-            reason: 'The profile should keep its display name');
-        expect(user.createdAt, isNotNull,
-            reason: 'The join date should parse from the X date format');
-        expect(user.profileImageUrlHttps, isNotNull,
-            reason: 'The avatar URL should be read, now that it moved out of the legacy block');
-        expect(user.followersCount, isNotNull,
-            reason: 'The follower count should be read from relationship_counts');
-        expect(user.statusesCount, isNotNull,
-            reason: 'The tweet count should be read from tweet_counts');
+        expect(
+          user.idStr,
+          isNotEmpty,
+          reason: 'The profile should keep its numeric id, which every later request needs',
+        );
+        expect(
+          user.screenName,
+          isNotEmpty,
+          reason: 'The profile should keep its handle, which titles the screen',
+        );
+        expect(
+          user.name,
+          isNotNull,
+          reason: 'The profile should keep its display name',
+        );
+        expect(
+          user.createdAt,
+          isNotNull,
+          reason: 'The join date should parse from the X date format',
+        );
+        expect(
+          user.profileImageUrlHttps,
+          isNotNull,
+          reason: 'The avatar URL should be read, now that it moved out of the legacy block',
+        );
+        expect(
+          user.followersCount,
+          isNotNull,
+          reason: 'The follower count should be read from relationship_counts',
+        );
+        expect(
+          user.statusesCount,
+          isNotNull,
+          reason: 'The tweet count should be read from tweet_counts',
+        );
       });
     }
   });
@@ -118,8 +159,11 @@ void main() {
     for (final fixture in fixturesOf('TweetDetail')) {
       test(fixture.scenario, () {
         final tweets = allTweets(parseTweetDetail(fixture.body));
-        expect(tweets, isNotEmpty,
-            reason: 'Opening a tweet should yield at least the tweet itself');
+        expect(
+          tweets,
+          isNotEmpty,
+          reason: 'Opening a tweet should yield at least the tweet itself',
+        );
         expectEveryTweetHasAnAuthor(tweets, fixture);
       });
     }
@@ -130,10 +174,16 @@ void main() {
       test(fixture.scenario, () {
         final status = profileTimeline(fixture);
         final tweets = allTweets(status);
-        expect(tweets, isNotEmpty,
-            reason: 'A profile timeline with posts should yield tweets');
-        expect(status.cursorBottom, isNotNull,
-            reason: 'A timeline should expose a bottom cursor, or the next page is unreachable');
+        expect(
+          tweets,
+          isNotEmpty,
+          reason: 'A profile timeline with posts should yield tweets',
+        );
+        expect(
+          status.cursorBottom,
+          isNotNull,
+          reason: 'A timeline should expose a bottom cursor, or the next page is unreachable',
+        );
         expectEveryTweetHasAnAuthor(tweets, fixture);
       });
     }
@@ -142,9 +192,37 @@ void main() {
   group('SearchTimeline', () {
     for (final fixture in fixturesOf('SearchTimeline')) {
       test(fixture.scenario, () {
-        // The People tab answers under another root, and the parser returns an
-        // empty status rather than throwing. That is the behaviour under test.
-        expectEveryTweetHasAnAuthor(allTweets(parseSearchTimeline(fixture.body)), fixture);
+        if (fixture.variables['product'] == 'People') {
+          final page = parseSearchUsers(fixture.body);
+          expect(
+            page.users,
+            isNotEmpty,
+            reason: 'A People fixture must be dispatched to the user parser, not the tweet parser',
+          );
+          expect(
+            page.users.map((user) => user.screenName),
+            everyElement(isNotEmpty),
+            reason: 'Every parsed search user must keep the handle shown in the result',
+          );
+          expect(
+            page.nextCursor,
+            isNotNull,
+            reason: 'A populated People page must expose the cursor needed for the next page',
+          );
+          return;
+        }
+        final tweets = allTweets(
+          parseSearchTimeline(
+            fixture.body,
+            product: '${fixture.variables['product'] ?? 'Latest'}',
+          ),
+        );
+        expect(
+          tweets,
+          isNotEmpty,
+          reason: 'A tweet-search fixture with results must yield tweets',
+        );
+        expectEveryTweetHasAnAuthor(tweets, fixture);
       });
     }
   });
@@ -164,10 +242,16 @@ void main() {
           () => counter++,
         );
         final tweets = allTweets(status);
-        expect(tweets, isNotEmpty,
-            reason: 'A home timeline with posts should yield tweets');
-        expect(status.cursorBottom, isNotNull,
-            reason: 'A timeline should expose a bottom cursor, or the next page is unreachable');
+        expect(
+          tweets,
+          isNotEmpty,
+          reason: 'A home timeline with posts should yield tweets',
+        );
+        expect(
+          status.cursorBottom,
+          isNotNull,
+          reason: 'A timeline should expose a bottom cursor, or the next page is unreachable',
+        );
         expectEveryTweetHasAnAuthor(tweets, fixture);
       });
     }
@@ -178,10 +262,16 @@ void main() {
       test(fixture.scenario, () {
         final status = parseBookmarkTimeline(fixture.body);
         final tweets = allTweets(status);
-        expect(tweets, isNotEmpty,
-            reason: 'A bookmarks page with posts should yield tweets');
-        expect(status.cursorBottom, isNotNull,
-            reason: 'A bookmarks page should expose a bottom cursor, or the next page is unreachable');
+        expect(
+          tweets,
+          isNotEmpty,
+          reason: 'A bookmarks page with posts should yield tweets',
+        );
+        expect(
+          status.cursorBottom,
+          isNotNull,
+          reason: 'A bookmarks page should expose a bottom cursor, or the next page is unreachable',
+        );
         expectEveryTweetHasAnAuthor(tweets, fixture);
       });
     }
@@ -194,10 +284,16 @@ void main() {
         // shape as a profile timeline, so the same parser reads it.
         final status = profileTimeline(fixture);
         final tweets = allTweets(status);
-        expect(tweets, isNotEmpty,
-            reason: 'A likes page with posts should yield tweets');
-        expect(status.cursorBottom, isNotNull,
-            reason: 'A likes page should expose a bottom cursor, or the next page is unreachable');
+        expect(
+          tweets,
+          isNotEmpty,
+          reason: 'A likes page with posts should yield tweets',
+        );
+        expect(
+          status.cursorBottom,
+          isNotNull,
+          reason: 'A likes page should expose a bottom cursor, or the next page is unreachable',
+        );
         expectEveryTweetHasAnAuthor(tweets, fixture);
       });
     }
@@ -208,16 +304,25 @@ void main() {
       for (final fixture in fixturesOf(operation)) {
         test(fixture.scenario, () {
           final page = parseFollows(fixture.body);
-          expect(page.users, isNotNull,
-              reason: 'A follow list should come back as a list, even an empty one');
+          expect(
+            page.users,
+            isNotNull,
+            reason:
+                'A follow list should come back as a list, even an empty one',
+          );
 
-          final anonymous = page.users!.where((user) => user.screenName == null).length;
-          expect(anonymous, 0,
-              reason: 'Each account in the list should keep its handle. '
-                  'They used to be dropped whole when the legacy block went missing.');
+          final anonymous = page.users!
+              .where((user) => user.screenName == null)
+              .length;
+          expect(
+            anonymous,
+            0,
+            reason:
+                'Each account in the list should keep its handle. '
+                'They used to be dropped whole when the legacy block went missing.',
+          );
         });
       }
     });
   }
 }
-

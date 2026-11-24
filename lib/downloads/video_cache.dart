@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
+import 'package:quax/downloads/atomic_copy.dart';
 import 'package:quax/utils/atomic_file.dart';
 
 class VideoCacheEntry {
@@ -14,11 +16,22 @@ class VideoCacheEntry {
   final int size;
   int touchedAt;
 
-  VideoCacheEntry({required this.name, required this.url, required this.size, required this.touchedAt});
+  VideoCacheEntry({
+    required this.name,
+    required this.url,
+    required this.size,
+    required this.touchedAt,
+  });
 
-  Map<String, dynamic> toJson() => {'name': name, 'url': url, 'size': size, 'at': touchedAt};
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'url': url,
+    'size': size,
+    'at': touchedAt,
+  };
 
-  factory VideoCacheEntry.fromJson(Map<String, dynamic> json) => VideoCacheEntry(
+  factory VideoCacheEntry.fromJson(Map<String, dynamic> json) =>
+      VideoCacheEntry(
         name: json['name'] as String? ?? '',
         url: json['url'] as String? ?? '',
         size: json['size'] as int? ?? 0,
@@ -47,6 +60,7 @@ class VideoCache {
   /// Only clips this short are worth fetching ahead of time.
   static const maxDurationMillis = 5 * 60 * 1000;
 
+  /// Keyed by the canonical full URL, never by a lossy basename.
   final Map<String, VideoCacheEntry> _entries = {};
   bool _loaded = false;
 
@@ -60,19 +74,25 @@ class VideoCache {
   }
 
   static bool isEligibleDuration(int? durationMillis) =>
-      durationMillis != null && durationMillis > 0 && durationMillis <= maxDurationMillis;
+      durationMillis != null &&
+      durationMillis > 0 &&
+      durationMillis <= maxDurationMillis;
 
   /// Usage stats for the settings screen.
   int get count => _entries.length;
 
   Future<Directory> directory() async {
-    final dir = debugDirectoryOverride ??
-        Directory(p.join((await getApplicationDocumentsDirectory()).path, _folder));
+    final dir =
+        debugDirectoryOverride ??
+        Directory(
+          p.join((await getApplicationDocumentsDirectory()).path, _folder),
+        );
     await dir.create(recursive: true);
     return dir;
   }
 
-  Future<File> _ledger() async => File(p.join((await directory()).path, _ledgerFile));
+  Future<File> _ledger() async =>
+      File(p.join((await directory()).path, _ledgerFile));
 
   Future<void> load() async {
     if (_loaded) return;
@@ -84,11 +104,18 @@ class VideoCache {
       final decoded = jsonDecode(await file.readAsString());
       if (decoded is! List) return;
 
+      final dir = await directory();
       for (final raw in decoded.whereType<Map<String, dynamic>>()) {
-        final entry = VideoCacheEntry.fromJson(raw);
-        if (entry.name.isEmpty) continue;
-        if (await File(p.join((await directory()).path, entry.name)).exists()) {
-          _entries[entry.name] = entry;
+        try {
+          final entry = VideoCacheEntry.fromJson(raw);
+          if (entry.name.isEmpty || entry.url.isEmpty) continue;
+          // Legacy rows keep their existing basename file. The lookup key moves
+          // to the URL hash without renaming or discarding cached bytes.
+          if (await File(p.join(dir.path, entry.name)).exists()) {
+            _entries[canonicalVideoUrl(entry.url)] = entry;
+          }
+        } catch (_) {
+          // One bad row must not hide the remaining cache entries.
         }
       }
     } catch (_) {
@@ -133,7 +160,10 @@ class VideoCache {
       _dirty = false;
       try {
         final file = await _ledger();
-        await writeAtomically(file, jsonEncode(_entries.values.map((e) => e.toJson()).toList()));
+        await writeAtomically(
+          file,
+          jsonEncode(_entries.values.map((e) => e.toJson()).toList()),
+        );
       } catch (_) {
         // Best-effort.
       }
@@ -145,13 +175,13 @@ class VideoCache {
   Future<String?> localPathFor(String url) async {
     await load();
 
-    final name = fileNameFor(url);
-    final entry = _entries[name];
-    if (entry == null) return null;
+    final key = canonicalVideoUrl(url);
+    final entry = _entries[key];
+    if (entry == null || canonicalVideoUrl(entry.url) != key) return null;
 
-    final file = File(p.join((await directory()).path, name));
+    final file = File(p.join((await directory()).path, entry.name));
     if (!await file.exists()) {
-      _entries.remove(name);
+      _entries.remove(key);
       await _save();
       return null;
     }
@@ -162,38 +192,38 @@ class VideoCache {
   }
 
   /// Registers a finished auto-cache fetch and enforces the size limit.
-  Future<void> put(String url, File file, {required BasePrefService prefs}) async {
+  Future<void> put(
+    String url,
+    File file, {
+    required BasePrefService prefs,
+  }) async {
     await load();
 
+    final key = canonicalVideoUrl(url);
+    final previous = _entries[key];
     final name = fileNameFor(url);
     final target = File(p.join((await directory()).path, name));
-    try {
-      await file.rename(target.path);
-    } on FileSystemException {
-      await file.copy(target.path);
-      await file.delete();
-    }
+    await moveFileAtomically(file, target);
 
-    _entries[name] = VideoCacheEntry(
+    _entries[key] = VideoCacheEntry(
       name: name,
       url: url,
       size: await target.length(),
       touchedAt: DateTime.now().millisecondsSinceEpoch,
     );
+    if (previous != null && previous.name != name) {
+      await _deleteFile(previous.name);
+    }
     await enforceLimit(prefs);
-    // The new entry has to reach the ledger even when nothing was evicted —
-    // enforceLimit only saves what it evicted. Without this the file sits on
-    // disk unknown to the index: invisible after a restart (so the clip streams
-    // again) and outside the size limit (so nothing ever evicts it).
+    // The new entry has to reach the ledger even when nothing was evicted.
     await _save(force: true);
   }
 
   Future<void> remove(String url) async {
     await load();
 
-    final name = fileNameFor(url);
-    _entries.remove(name);
-    await _deleteFile(name);
+    final entry = _entries.remove(canonicalVideoUrl(url));
+    if (entry != null) await _deleteFile(entry.name);
     await _save();
   }
 
@@ -203,22 +233,27 @@ class VideoCache {
 
     try {
       final dir = await directory();
-      if (await dir.exists()) {
-        await dir.delete(recursive: true);
-      }
+      if (await dir.exists()) await dir.delete(recursive: true);
     } catch (_) {
       // Nothing to clear.
     }
   }
 
   Future<void> enforceLimit(BasePrefService prefs) async {
+    await load();
     final capMb = prefs.get<int>(optionVideoCacheLimitMb) ?? 1024;
-    final evicted = planEviction(_entries.values.toList(), capMb * 1024 * 1024);
-    for (final name in evicted) {
-      _entries.remove(name);
-      await _deleteFile(name);
+    final evicted = planEviction(
+      _entries.values.toList(),
+      capMb * 1024 * 1024,
+    ).toSet();
+    final removed = _entries.values
+        .where((entry) => evicted.contains(entry.name))
+        .toList();
+    for (final entry in removed) {
+      _entries.remove(canonicalVideoUrl(entry.url));
+      await _deleteFile(entry.name);
     }
-    if (evicted.isNotEmpty) await _save();
+    if (removed.isNotEmpty) await _save(force: true);
   }
 
   Future<void> _deleteFile(String name) async {
@@ -231,8 +266,12 @@ class VideoCache {
   }
 
   /// Pure LRU planner: the oldest entries to drop so the rest fits [capBytes].
-  static List<String> planEviction(List<VideoCacheEntry> entries, int capBytes) {
-    final sorted = [...entries]..sort((a, b) => a.touchedAt.compareTo(b.touchedAt));
+  static List<String> planEviction(
+    List<VideoCacheEntry> entries,
+    int capBytes,
+  ) {
+    final sorted = [...entries]
+      ..sort((a, b) => a.touchedAt.compareTo(b.touchedAt));
     var total = sorted.fold<int>(0, (sum, entry) => sum + entry.size);
 
     final evicted = <String>[];
@@ -244,13 +283,53 @@ class VideoCache {
     return evicted;
   }
 
-  /// A safe file name derived from the URL basename; account URLs can carry
-  /// characters Android dislikes in file names.
+  /// Canonical identity for a media URL. Query parameters remain significant;
+  /// only ordering, fragments, host case and default ports are normalized.
+  @visibleForTesting
+  static String canonicalVideoUrl(String value) {
+    final uri = Uri.parse(value);
+    var host = uri.host.toLowerCase();
+    if (host.startsWith('[') && host.endsWith(']')) {
+      host = host.substring(1, host.length - 1);
+    }
+    final defaultPort =
+        (uri.scheme.toLowerCase() == 'https' && uri.port == 443) ||
+        (uri.scheme.toLowerCase() == 'http' && uri.port == 80);
+    final query =
+        uri.queryParametersAll.entries
+            .map((entry) => MapEntry(entry.key, List.of(entry.value)))
+            .toList()
+          ..sort((a, b) {
+            final key = a.key.compareTo(b.key);
+            return key != 0
+                ? key
+                : a.value.join('\u0000').compareTo(b.value.join('\u0000'));
+          });
+    final encodedQuery = query
+        .expand(
+          (entry) => entry.value.map(
+            (value) =>
+                '${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(value)}',
+          ),
+        )
+        .join('&');
+    return Uri(
+      scheme: uri.scheme.toLowerCase(),
+      userInfo: uri.userInfo.isEmpty ? null : uri.userInfo,
+      host: host,
+      port: defaultPort ? null : (uri.hasPort ? uri.port : null),
+      path: uri.path,
+      query: encodedQuery.isEmpty ? null : encodedQuery,
+    ).toString();
+  }
+
+  /// A bounded file name derived from the hash of the canonical full URL.
   static String fileNameFor(String url) {
-    final name = p.basename(url.split('?').first);
-    final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-    if (safe.isEmpty) return 'video-${url.hashCode}';
-    if (safe.length <= 120) return safe;
-    return safe.substring(safe.length - 120);
+    final uri = Uri.tryParse(url);
+    final extension = uri == null ? '' : p.extension(uri.path).toLowerCase();
+    final safeExtension = RegExp(r'^\.[a-z0-9]{1,10}$').hasMatch(extension)
+        ? extension
+        : '';
+    return '${sha256.convert(utf8.encode(canonicalVideoUrl(url))).toString()}$safeExtension';
   }
 }

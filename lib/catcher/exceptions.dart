@@ -22,8 +22,14 @@ class HttpException {
 /// Surfaced to the user with a dedicated, actionable error widget rather than
 /// reported to the crash catcher.
 class NoAccountAvailableException with SyntheticException implements Exception {
+  const NoAccountAvailableException({this.statusCode});
+
+  final int? statusCode;
+
   @override
-  String toString() => 'No account available';
+  String toString() => statusCode == null
+      ? 'No account available'
+      : 'No account available (statusCode: $statusCode)';
 }
 
 /// Thrown when every usable account is rate-limited (429) on the requested

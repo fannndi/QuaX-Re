@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:better_player_plus/better_player_plus.dart' hide VisibilityDetector, VisibilityInfo;
+import 'package:better_player_plus/better_player_plus.dart'
+    hide VisibilityDetector, VisibilityInfo;
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
@@ -9,6 +10,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/tweet/_video_controls.dart';
 import 'package:quax/tweet/_video_overlays.dart';
+import 'package:quax/tweet/video_background_playback.dart';
 import 'package:quax/tweet/video_context.dart';
 import 'package:quax/tweet/video_controller_pool.dart';
 import 'package:quax/tweet/video_metadata.dart';
@@ -31,7 +33,6 @@ const _videoCacheConfiguration = BetterPlayerCacheConfiguration(
   maxCacheSize: 256 * 1024 * 1024,
   maxCacheFileSize: 50 * 1024 * 1024,
 );
-
 
 class TweetVideo extends StatefulWidget {
   final String username;
@@ -64,17 +65,21 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   VideoControllerPool? _pool;
   PooledVideo? _pooled;
   VideoContextState? _videoContext;
+  BasePrefService? _prefs;
+  late final VideoBackgroundPlaybackPolicy _backgroundPolicy =
+      VideoBackgroundPlaybackPolicy(enabled: true);
   Future<PooledVideo>? _acquireFuture;
+  int _acquisitionGeneration = 0;
   bool _ownsControllers = false;
   bool _holdsPoolRef = false;
+  String? _poolRefKey;
+  int? _poolRefToken;
 
   bool _autoPlay = false;
   bool _userRequestedPlay = false;
   bool _playbackError = false;
-  bool _resumeAfterBackground = false;
   bool _firstFrameRendered = false;
   bool _posterGone = false;
-  bool _prefBackground = true;
   final Key _visibilityKey = UniqueKey();
   double _lastVisibleFraction = 0.0;
   Timer? _pauseTimer;
@@ -95,15 +100,70 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _poolKey = _computePoolKey();
+    final prefs = PrefService.of(context, listen: false);
+    if (!identical(prefs, _prefs)) {
+      _prefs?.removeKeyListener(
+        optionMediaBackgroundPlayback,
+        _onBackgroundPlaybackChanged,
+      );
+      _prefs = prefs;
+      prefs.addKeyListener(
+        optionMediaBackgroundPlayback,
+        _onBackgroundPlaybackChanged,
+      );
+    }
+    final nextKey = _computePoolKey();
+    if (nextKey != _poolKey &&
+        (_acquireFuture != null || _pooled != null || _holdsPoolRef)) {
+      _resetForControllerChange(nextKey);
+    } else {
+      _poolKey = nextKey;
+    }
+    _updateBackgroundPolicy();
   }
+
+  void _updateBackgroundPolicy() {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    _backgroundPolicy.setEnabled(
+      prefs.get<bool>(optionMediaBackgroundPlayback) ?? true,
+      lifecycleState:
+          WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
+      isPlaying: () => _pooled?.isPlaying ?? false,
+      pause: () => _pooled?.pause(),
+      play: () => _pooled?.controller.play(),
+    );
+  }
+
+  void _onBackgroundPlaybackChanged() => _updateBackgroundPolicy();
 
   @override
   void didUpdateWidget(TweetVideo oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.tweetId != widget.tweetId || oldWidget.mediaIndex != widget.mediaIndex) {
-      _poolKey = _computePoolKey();
+    final nextKey = _computePoolKey();
+    final identityChanged =
+        oldWidget.tweetId != widget.tweetId ||
+        oldWidget.mediaIndex != widget.mediaIndex;
+    if (identityChanged || nextKey != _poolKey) {
+      _resetForControllerChange(nextKey);
     }
+  }
+
+  void _resetForControllerChange(String? nextKey) {
+    _acquisitionGeneration++;
+    _releaseCurrentController();
+    _poolKey = nextKey;
+    _pauseTimer?.cancel();
+    _pauseTimer = null;
+    setState(() {
+      _acquireFuture = null;
+      _userRequestedPlay = false;
+      _playbackError = false;
+      _firstFrameRendered = false;
+      _posterGone = false;
+      _autoCacheRequested = false;
+      _lastVisibleFraction = 0;
+    });
   }
 
   @override
@@ -119,17 +179,14 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // With background playback off, pause when the app leaves the foreground
-    // and resume only the player that was actually playing. GIFs have no play
-    // button, so without the resume they stayed frozen after one background.
-    if (_prefBackground) return;
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-      _resumeAfterBackground = _pooled?.isPlaying ?? false;
-      if (_resumeAfterBackground) _pooled?.controller.pause();
-    } else if (state == AppLifecycleState.resumed && _resumeAfterBackground) {
-      _resumeAfterBackground = false;
-      _pooled?.controller.play();
-    }
+    // GIFs have no play button, so a clip paused by the policy must resume when
+    // the reader returns. The policy reads the live preference, not a snapshot.
+    _backgroundPolicy.onLifecycleChanged(
+      state,
+      isPlaying: () => _pooled?.isPlaying ?? false,
+      pause: () => _pooled?.pause(),
+      play: () => _pooled?.controller.play(),
+    );
   }
 
   // Default variant from [optionMediaVideoQuality]; qualities are sorted highest-first.
@@ -168,14 +225,24 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     );
   }
 
-  Future<PooledVideo> _createPooled(bool prefLoop, bool startMuted, String quality,
-      int prefetchSeconds, bool mixWithOthers) async {
-    // Read the prefs before any await: the local-library lookup below must not
-    // touch the context afterwards.
+  Future<PooledVideo> _createPooled(
+    bool prefLoop,
+    bool startMuted,
+    String quality,
+    int prefetchSeconds,
+    bool mixWithOthers,
+  ) async {
+    // Read the prefs and widget values before any await: the local-library
+    // lookup below must not touch context, and a recycled widget may represent a
+    // different tweet by the time setup finishes.
     final prefs = PrefService.of(context, listen: false);
-    final urls = await widget.metadata.streamUrlsBuilder();
-    final streamUrl = _defaultQualityUrl(urls, quality);
+    final metadata = widget.metadata;
     final username = widget.username;
+    final disableControls = widget.disableControls;
+    final loop = widget.loop;
+    final autoPlay = widget.alwaysPlay || _userRequestedPlay;
+    final urls = await metadata.streamUrlsBuilder();
+    final streamUrl = _defaultQualityUrl(urls, quality);
     final qualities = urls.qualities;
     final downloadUrl = urls.downloadUrl;
 
@@ -183,27 +250,32 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     // by the auto-cache plays from the cache: same file, no network, works
     // offline (the tweet itself carries its thumbnail).
     final library = LibraryModel(prefs);
-    final localPath = (downloadUrl == null ? null : await library.localPathFor(downloadUrl)) ??
+    final localPath =
+        (downloadUrl == null
+            ? null
+            : await library.localPathFor(downloadUrl)) ??
         await library.localPathFor(streamUrl) ??
         await VideoCache().localPathFor(downloadUrl ?? streamUrl);
 
-    final controlsConfiguration = widget.disableControls
+    final controlsConfiguration = disableControls
         ? const BetterPlayerControlsConfiguration(showControls: false)
         : BetterPlayerControlsConfiguration(
             playerTheme: BetterPlayerTheme.custom,
-            customControlsBuilder: (controller, onControlsVisibilityChanged, config) => QuaxControls(
-              controller: controller,
-              username: username,
-              qualities: qualities,
-              downloadUrl: downloadUrl,
-            ),
+            customControlsBuilder:
+                (controller, onControlsVisibilityChanged, config) =>
+                    QuaxControls(
+                      controller: controller,
+                      username: username,
+                      qualities: qualities,
+                      downloadUrl: downloadUrl,
+                    ),
           );
 
     final configuration = BetterPlayerConfiguration(
-      aspectRatio: widget.metadata.aspectRatio,
+      aspectRatio: metadata.aspectRatio,
       fit: BoxFit.contain,
-      autoPlay: widget.alwaysPlay || _userRequestedPlay,
-      looping: widget.loop || prefLoop,
+      autoPlay: autoPlay,
+      looping: loop || prefLoop,
       // The pool owns the controller's lifetime, not the widget.
       autoDispose: false,
       // The app owns lifecycle: its own visibility detector drives play/pause and
@@ -212,7 +284,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
       // enforced by pausing on app background in didChangeAppLifecycleState.
       handleLifecycle: false,
       // GIFs may let the screen sleep; a real video keeps it awake while playing.
-      allowedScreenSleep: widget.disableControls,
+      allowedScreenSleep: disableControls,
       autoDetectFullscreenDeviceOrientation: true,
       autoDetectFullscreenAspectRatio: true,
       controlsConfiguration: controlsConfiguration,
@@ -232,14 +304,14 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
             );
       await controller.setupDataSource(dataSource);
       // Silent looping GIFs must never grab audio focus and pause other apps.
-      controller.setMixWithOthers(widget.disableControls || mixWithOthers);
+      controller.setMixWithOthers(disableControls || mixWithOthers);
       await controller.setVolume(startMuted ? 0.0 : 1.0);
 
       return PooledVideo(
         controller: controller,
         downloadUrl: downloadUrl,
         qualities: qualities,
-        pausableByPolicy: !widget.disableControls,
+        pausableByPolicy: !disableControls,
       );
     } catch (_) {
       // setupDataSource throws on offline/403/decoder failures; without this
@@ -255,39 +327,95 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final prefs = PrefService.of(context, listen: false);
     final startMuted = context.read<VideoContextState>().isMuted;
     final quality = prefs.get(optionMediaVideoQuality);
-    final prefetchSeconds = prefs.get<int>(optionMediaVideoPrefetchSeconds) ?? 0;
-    final mixWithOthers = prefs.get<bool>(optionMediaAllowBackgroundPlayOtherApps) ?? false;
-    create() => _createPooled(prefLoop, startMuted, quality, prefetchSeconds, mixWithOthers);
+    final prefetchSeconds =
+        prefs.get<int>(optionMediaVideoPrefetchSeconds) ?? 0;
+    final mixWithOthers =
+        prefs.get<bool>(optionMediaAllowBackgroundPlayOtherApps) ?? false;
+    create() => _createPooled(
+      prefLoop,
+      startMuted,
+      quality,
+      prefetchSeconds,
+      mixWithOthers,
+    );
 
+    final generation = _acquisitionGeneration;
     final key = _poolKey;
     final pool = _pool;
     PooledVideo pooled;
     if (key == null || pool == null) {
       _ownsControllers = true;
-      pooled = await create();
-      if (!mounted) {
-        await pooled.dispose();
-        return pooled;
+      try {
+        pooled = await create();
+      } catch (_) {
+        if (generation == _acquisitionGeneration) _ownsControllers = false;
+        rethrow;
       }
     } else {
+      // Claim the ref before awaiting: a recycled widget can release it while
+      // the native player is still being built.
+      _holdsPoolRef = true;
+      _poolRefKey = key;
+      _poolRefToken = generation;
       try {
         pooled = await pool.acquire(key, create);
       } on Object {
-        // acquire incremented the ref before create failed; drop the failed
-        // entry so the next attempt really creates a new player.
-        pool.discard(key);
+        if (generation == _acquisitionGeneration) {
+          _releasePoolRef(key, pool, generation);
+          pool.discard(key);
+        }
         rethrow;
       }
-      if (!mounted) {
-        pool.release(key);
-        return pooled;
+    }
+
+    if (!mounted || generation != _acquisitionGeneration || key != _poolKey) {
+      if (key == null || pool == null) {
+        await pooled.dispose();
+      } else {
+        _releasePoolRef(key, pool, generation);
       }
-      _holdsPoolRef = true;
+      return pooled;
     }
 
     _pooled = pooled;
     _attachListeners(pooled);
+    _reconcileAttachedController(pooled);
     return pooled;
+  }
+
+  void _releasePoolRef(String key, VideoControllerPool pool, int token) {
+    if (!_holdsPoolRef || _poolRefKey != key || _poolRefToken != token) return;
+    pool.release(key);
+    _holdsPoolRef = false;
+    _poolRefKey = null;
+    _poolRefToken = null;
+  }
+
+  void _releaseCurrentController({bool discard = false}) {
+    _detachListeners();
+    final key = _poolKey;
+    final pool = _pool;
+    if (key != null && pool != null) {
+      _releasePoolRef(key, pool, _poolRefToken ?? _acquisitionGeneration);
+      pool.markHidden(key, this);
+      if (discard) pool.discard(key);
+    } else if (_ownsControllers) {
+      _pooled?.pause();
+      unawaited(_pooled?.dispose() ?? Future<void>.value());
+    }
+    _pooled = null;
+    _ownsControllers = false;
+  }
+
+  void _reconcileAttachedController(PooledVideo pooled) {
+    _updateBackgroundPolicy();
+    // A pooled controller may already be playing when a second tile attaches.
+    // No new play event will arrive to enforce the single-audio policy or take
+    // the wakelock, so reconcile both here.
+    if (pooled.isPlaying) {
+      _pool?.pauseOthers(pooled);
+      if (widget.keepsScreenAwake) VideoWakelock.acquire(this);
+    }
   }
 
   void _attachListeners(PooledVideo pooled) {
@@ -325,7 +453,9 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
         case BetterPlayerEventType.hideFullscreen:
           // Leaving fullscreen, the player disables the wakelock itself even
           // though playback goes on inline, so put it back once it has.
-          WidgetsBinding.instance.addPostFrameCallback((_) => VideoWakelock.reapply());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => VideoWakelock.reapply(),
+          );
           break;
         case BetterPlayerEventType.setVolume:
           final volume = event.parameters?['volume'] as double?;
@@ -365,7 +495,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   }
 
   void _onVisibilityChanged(VisibilityInfo info, PooledVideo pooled) {
-    if (!mounted) return;
+    if (!mounted || !identical(pooled, _pooled)) return;
     final key = _poolKey;
     final wasVisible = _lastVisibleFraction >= 0.5;
     final isVisible = info.visibleFraction >= 0.5;
@@ -408,25 +538,14 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final prefs = PrefService.of(context, listen: false);
     if (!(prefs.get<bool>(optionAutoCacheVideos) ?? false)) return;
 
-    unawaited(cacheVideoAhead(urls: widget.metadata.streamUrlsBuilder, prefs: prefs));
+    unawaited(
+      cacheVideoAhead(urls: widget.metadata.streamUrlsBuilder, prefs: prefs),
+    );
   }
 
   Future<void> _restartVideo() async {
-    _detachListeners();
-    final key = _poolKey;
-    if (key != null && _pool != null) {
-      if (_holdsPoolRef) {
-        _pool!.release(key);
-        _holdsPoolRef = false;
-      }
-      // A broken controller must go even when the same video is open in
-      // another tile: invalidate() keeps it while any ref is held, and the
-      // re-acquire would hand back the same error.
-      _pool!.discard(key);
-    } else {
-      _pooled?.pause();
-      await _pooled?.dispose();
-    }
+    _acquisitionGeneration++;
+    _releaseCurrentController(discard: true);
 
     setState(() {
       _pooled = null;
@@ -434,13 +553,15 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
       _playbackError = false;
       _firstFrameRendered = false;
       _posterGone = false;
+      _autoCacheRequested = false;
     });
   }
 
   /// Poster/thumbnail images are drawn at card width, and there are three of
   /// them per tile (the poster, the play-button cover and the loading cover):
   /// decoding the source resolution for each wastes memory in every feed.
-  int get _posterCacheWidth => decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
+  int get _posterCacheWidth =>
+      decodeWidthFor(context, MediaQuery.sizeOf(context).width - 32);
 
   Widget _buildVideo(PooledVideo pooled) {
     final video = BetterPlayer(controller: pooled.controller);
@@ -460,15 +581,22 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
             opacity: _firstFrameRendered ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 200),
             onEnd: () {
-              if (_firstFrameRendered && !_posterGone) setState(() => _posterGone = true);
+              if (_firstFrameRendered && !_posterGone) {
+                setState(() => _posterGone = true);
+              }
             },
             child: Stack(
               fit: StackFit.expand,
               alignment: Alignment.center,
               children: [
                 if (widget.metadata.imageUrl != null)
-                  Image.network(widget.metadata.imageUrl!, fit: BoxFit.cover, cacheWidth: _posterCacheWidth),
-                if (!widget.disableControls) const Center(child: CircularProgressIndicator()),
+                  Image.network(
+                    widget.metadata.imageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: _posterCacheWidth,
+                  ),
+                if (!widget.disableControls)
+                  const Center(child: CircularProgressIndicator()),
                 // A GIF shown static (still buffering, or no decoder available)
                 // gets a "GIF" label; it fades out with the poster once it plays.
                 if (widget.disableControls)
@@ -491,12 +619,14 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final prefs = PrefService.of(context, listen: false);
     final prefLoop = prefs.get(optionMediaDefaultLoop);
     final prefAutoPlay = prefs.get(optionMediaDefaultAutoPlay);
-    _prefBackground = prefs.get<bool>(optionMediaBackgroundPlayback) ?? true;
 
     final key = _poolKey;
     final alreadyCached = key != null && (_pool?.contains(key) ?? false);
 
-    if (!prefAutoPlay && !widget.alwaysPlay && !_userRequestedPlay && !alreadyCached) {
+    if (!prefAutoPlay &&
+        !widget.alwaysPlay &&
+        !_userRequestedPlay &&
+        !alreadyCached) {
       return GestureDetector(
         onTap: () => setState(() => _userRequestedPlay = true),
         child: AspectRatio(
@@ -506,8 +636,12 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
             children: [
               if (widget.metadata.imageUrl != null)
                 Positioned.fill(
-                    child: Image.network(widget.metadata.imageUrl!,
-                        fit: BoxFit.cover, cacheWidth: _posterCacheWidth)),
+                  child: Image.network(
+                    widget.metadata.imageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: _posterCacheWidth,
+                  ),
+                ),
               FritterCenterPlayButton(
                 backgroundColor: Colors.black54,
                 iconColor: Colors.white,
@@ -543,8 +677,12 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
               children: [
                 if (widget.metadata.imageUrl != null)
                   Positioned.fill(
-                      child: Image.network(widget.metadata.imageUrl!,
-                          fit: BoxFit.cover, cacheWidth: _posterCacheWidth)),
+                    child: Image.network(
+                      widget.metadata.imageUrl!,
+                      fit: BoxFit.cover,
+                      cacheWidth: _posterCacheWidth,
+                    ),
+                  ),
                 const CircularProgressIndicator(),
               ],
             ),
@@ -564,7 +702,11 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.white, size: 48),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.white,
+                        size: 48,
+                      ),
                       const SizedBox(height: 12),
                       Text(L10n.of(context).failed_to_load_video),
                       const SizedBox(height: 12),
@@ -585,8 +727,10 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
           child: hasVideo
               ? VisibilityDetector(
                   key: _visibilityKey,
-                  onVisibilityChanged: (info) => _onVisibilityChanged(info, pooled),
-                  child: _buildVideo(pooled))
+                  onVisibilityChanged: (info) =>
+                      _onVisibilityChanged(info, pooled),
+                  child: _buildVideo(pooled),
+                )
               : const SizedBox.shrink(),
         );
       },
@@ -596,6 +740,11 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _acquisitionGeneration++;
+    _prefs?.removeKeyListener(
+      optionMediaBackgroundPlayback,
+      _onBackgroundPlaybackChanged,
+    );
     _pauseTimer?.cancel();
     _detachListeners();
     final key = _poolKey;
@@ -620,4 +769,3 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     super.dispose();
   }
 }
-

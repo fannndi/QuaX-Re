@@ -85,8 +85,13 @@ class TweetFreshnessIndex {
       // The session baseline stays untouched (it defines New/Old for this
       // run); only the stored snapshot grows.
       final merged = <String>[..._baseline, ..._seenNow];
+      merged.sort((a, b) {
+        final left = BigInt.tryParse(a) ?? BigInt.zero;
+        final right = BigInt.tryParse(b) ?? BigInt.zero;
+        return right.compareTo(left);
+      });
       final trimmed = merged.length > _maxRemembered
-          ? merged.sublist(merged.length - _maxRemembered)
+          ? merged.sublist(0, _maxRemembered)
           : merged;
 
       final prefs = await SharedPreferences.getInstance();
@@ -94,5 +99,18 @@ class TweetFreshnessIndex {
     } catch (_) {
       // The snapshot is best-effort; losing it only mislabels a session.
     }
+  }
+
+  @visibleForTesting
+  Future<void> saveNowForTesting() => _save();
+
+  @visibleForTesting
+  void resetForTesting() {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _baseline = {};
+    _seenNow.clear();
+    _loaded = false;
+    revision.value = 0;
   }
 }

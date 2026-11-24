@@ -2,14 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:quax/client/account_vault.dart';
-import 'package:quax/client/accounts.dart';
 import 'package:quax/client/vault_codec.dart';
-import 'package:quax/database/entities.dart';
+import 'package:quax/client/vault_paths.dart';
 import 'package:quax/database/repository.dart';
-import 'package:quax/utils/atomic_file.dart';
 import 'package:sqflite/sqflite.dart';
 
 const String likesVaultFileName = 'likes.quaxvault';
@@ -48,27 +47,42 @@ class LikesVaultTooLarge implements Exception {
 class LikesVaultWriteResult {
   final int likes;
   final String path;
+  final String? maxLikedAt;
+  final String snapshot;
 
-  const LikesVaultWriteResult(this.likes, this.path);
+  const LikesVaultWriteResult(
+    this.likes,
+    this.path, {
+    required this.maxLikedAt,
+    required this.snapshot,
+  });
 }
 
 class LikesVaultReadResult {
   final int likes;
   final int accounts;
+  final String snapshot;
   final String path;
 
-  const LikesVaultReadResult(this.likes, this.accounts, this.path);
+  const LikesVaultReadResult(
+    this.likes,
+    this.accounts,
+    this.snapshot,
+    this.path,
+  );
 }
 
 class LikesVaultImportResult {
   final int restored;
   final int skipped;
   final int missingAccounts;
+  final String snapshot;
 
   const LikesVaultImportResult({
     required this.restored,
     required this.skipped,
     required this.missingAccounts,
+    required this.snapshot,
   });
 }
 
@@ -88,10 +102,10 @@ class _LikeRow {
 /// (account mapping and count), then a gzipped NDJSON stream of
 /// `account_like` rows joined with their tweet body. The metadata is inside
 /// the encryption, so the file does not reveal who liked what.
-class LikesVault {
+class LikesVault implements VaultPassphraseSource {
   LikesVault({VaultCodec? codec, Future<Directory> Function()? tempDirectory})
-      : _codec = codec ?? const VaultCodec(maxEnvelopeLength: 48 * 1024 * 1024),
-        _tempDirectory = tempDirectory ?? getTemporaryDirectory;
+    : _codec = codec ?? const VaultCodec(maxEnvelopeLength: 48 * 1024 * 1024),
+      _tempDirectory = tempDirectory ?? getTemporaryDirectory;
 
   final VaultCodec _codec;
   final Future<Directory> Function() _tempDirectory;
@@ -103,49 +117,60 @@ class LikesVault {
     final folder = await ensureAccountFolder(vaultRoot);
     if (folder == null) throw const VaultException(VaultFailure.corrupt);
 
-    final accounts = await getAccounts();
-    if (accounts.isEmpty) throw const LikesVaultNoAccounts();
-
     final tempDir = await _tempDirectory();
-    final gzFile = File(p.join(tempDir.path,
-        'quax-likes-${DateTime.now().microsecondsSinceEpoch}.gz'));
-    var count = 0;
+    final gzFile = File(
+      p.join(
+        tempDir.path,
+        'quax-likes-${DateTime.now().microsecondsSinceEpoch}.gz',
+      ),
+    );
     IOSink? sink;
     ByteConversionSink? gzipSink;
 
     try {
       sink = gzFile.openWrite();
       gzipSink = gzip.encoder.startChunkedConversion(sink);
-      count = await Repository.read((db) async {
+      final exported = await Repository.read((db) async {
+        final accounts = await db.query(
+          tableAccounts,
+          columns: [columnLocalId, 'screen_name', 'user_id'],
+          orderBy: 'screen_name COLLATE NOCASE',
+        );
+        if (accounts.isEmpty) throw const LikesVaultNoAccounts();
+
         // Keyset paging instead of ORDER BY/LIMIT/OFFSET: the old query sorted
         // the whole table again for every page and skipped a row whenever a
         // like landed while the backup was running.
         var firstPage = true;
         String? lastAt;
         String? lastId;
+        String? maxLikedAt;
         var total = 0;
         while (true) {
           final rows = await db.rawQuery('''
             SELECT al.$columnAccountLocalId AS owner,
                    al.$columnTweetId AS tweet,
-                   al.$columnLikedAt AS liked_at,
+                   COALESCE(al.$columnLikedAt, '') AS liked_at,
                    lt.user_id AS user,
                    lt.content AS content
             FROM $tableAccountLike al
             JOIN $tableLikedTweet lt ON lt.id = al.$columnTweetId
-            ${firstPage ? '' : 'WHERE (al.$columnLikedAt < ? OR (al.$columnLikedAt = ? AND al.$columnTweetId < ?))'}
-            ORDER BY al.$columnLikedAt DESC, al.$columnTweetId DESC
+            ${firstPage ? '' : 'WHERE (COALESCE(al.$columnLikedAt, \'\') < ? OR (COALESCE(al.$columnLikedAt, \'\') = ? AND al.$columnTweetId < ?))'}
+            ORDER BY COALESCE(al.$columnLikedAt, '') DESC, al.$columnTweetId DESC
             LIMIT ?
           ''', firstPage ? [_pageSize] : [lastAt, lastAt, lastId, _pageSize]);
           for (final row in rows) {
-            gzipSink!.add(utf8.encode('${jsonEncode({
-              'account': row['owner'],
-              'id': row['tweet'],
-              'user': row['user'],
-              'at': row['liked_at'],
-              'content': row['content'],
-            })}\n'));
+            gzipSink!.add(
+              utf8.encode(
+                '${jsonEncode({'account': row['owner'], 'id': row['tweet'], 'user': row['user'], 'at': row['liked_at'], 'content': row['content']})}\n',
+              ),
+            );
             total++;
+            final at = row['liked_at'] as String?;
+            if (at != null &&
+                (maxLikedAt == null || at.compareTo(maxLikedAt) > 0)) {
+              maxLikedAt = at;
+            }
           }
           if (rows.length < _pageSize) break;
           final last = rows.last;
@@ -154,20 +179,30 @@ class LikesVault {
           if (lastAt == null || lastId == null) break;
           firstPage = false;
         }
-        return total;
+        return (
+          count: total,
+          maxLikedAt: maxLikedAt,
+          snapshot: _snapshot(total, maxLikedAt, _mappingFingerprint(accounts)),
+          accounts: accounts,
+        );
       });
       gzipSink.close();
       await sink.close();
       gzipSink = null;
       sink = null;
 
-      if (count == 0) throw StateError('There are no local likes to back up');
+      if (exported.count == 0) {
+        throw StateError('There are no local likes to back up');
+      }
       final compressed = await gzFile.readAsBytes();
       if (compressed.length > maxLikesCompressedBytes) {
         throw const LikesVaultTooLarge();
       }
 
-      final container = _container(_metadata(accounts, count), compressed);
+      final container = _container(
+        _metadata(exported.accounts, exported.count, exported.maxLikedAt),
+        compressed,
+      );
       final envelope = await _codec.encryptBytes(
         passphrase: passphrase,
         kind: _vaultKind,
@@ -175,16 +210,20 @@ class LikesVault {
       );
 
       final file = File(p.join(folder, likesVaultFileName));
-      final backup = File(p.join(folder, likesVaultBackupFileName));
-      if (await file.exists()) {
-        try {
-          await file.copy(backup.path);
-        } catch (_) {
-          // A backup that cannot be refreshed does not block the new file.
-        }
-      }
-      await writeAtomically(file, envelope);
-      return LikesVaultWriteResult(count, file.path);
+      await replaceVaultFiles([
+        VaultReplacement(
+          primary: file,
+          backup: File(p.join(folder, likesVaultBackupFileName)),
+          envelope: envelope,
+          validatePrimary: () => _canBackup(file, passphrase),
+        ),
+      ], removeBackups: false);
+      return LikesVaultWriteResult(
+        exported.count,
+        file.path,
+        maxLikedAt: exported.maxLikedAt,
+        snapshot: exported.snapshot,
+      );
     } finally {
       try {
         gzipSink?.close();
@@ -204,9 +243,11 @@ class LikesVault {
     if (folder == null) throw const LikesVaultNotFound();
     final decrypted = await _decryptFromFolder(folder, passphrase);
     return LikesVaultReadResult(
-        (decrypted.meta['like_count'] as int?) ?? 0,
-        (decrypted.meta['accounts'] as List?)?.length ?? 0,
-        decrypted.path);
+      (decrypted.meta['like_count'] as int?) ?? 0,
+      (decrypted.meta['accounts'] as List?)?.length ?? 0,
+      _metadataSnapshot(decrypted.meta),
+      decrypted.path,
+    );
   }
 
   /// Imports the likes from [filePath], then copies the encrypted file into
@@ -223,10 +264,13 @@ class LikesVault {
     }
     final envelope = await file.readAsString();
     final bytes = await _codec.decryptBytes(
-        passphrase: passphrase, kind: _vaultKind, envelope: envelope);
+      passphrase: passphrase,
+      kind: _vaultKind,
+      envelope: envelope,
+    );
     final decrypted = _parseContainer(bytes, filePath);
     final result = await _importDecrypted(decrypted);
-    await _adoptEnvelope(vaultRoot, envelope);
+    await _adoptEnvelope(vaultRoot, envelope, passphrase);
     return result;
   }
 
@@ -240,7 +284,8 @@ class LikesVault {
     return _importDecrypted(decrypted);
   }
 
-  Future<void> changePassphrase({
+  @override
+  Future<String> preparePassphraseChange({
     required String vaultRoot,
     required String oldPassphrase,
     required String newPassphrase,
@@ -248,46 +293,115 @@ class LikesVault {
     final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) throw const LikesVaultNotFound();
     final decrypted = await _decryptFromFolder(folder, oldPassphrase);
-    final envelope = await _codec.encryptBytes(
+    return _codec.encryptBytes(
       passphrase: newPassphrase,
       kind: _vaultKind,
       bytes: _container(decrypted.meta, decrypted.compressed),
     );
+  }
 
+  @override
+  Future<bool> canBackupPrimary({
+    required String vaultRoot,
+    required String passphrase,
+  }) async {
+    final folder = accountFolderPathFor(vaultRoot);
+    if (folder == null) return false;
+    return _canBackup(File(p.join(folder, likesVaultFileName)), passphrase);
+  }
+
+  @override
+  VaultReplacement replacementFor({
+    required String vaultRoot,
+    required String envelope,
+    required String passphrase,
+  }) {
+    final folder = accountFolderPathFor(vaultRoot)!;
+    final primary = File(p.join(folder, likesVaultFileName));
+    return VaultReplacement(
+      primary: primary,
+      backup: File(p.join(folder, likesVaultBackupFileName)),
+      envelope: envelope,
+      validatePrimary: () => _canBackup(primary, passphrase),
+    );
+  }
+
+  Future<void> changePassphrase({
+    required String vaultRoot,
+    required String oldPassphrase,
+    required String newPassphrase,
+  }) async {
+    final envelope = await preparePassphraseChange(
+      vaultRoot: vaultRoot,
+      oldPassphrase: oldPassphrase,
+      newPassphrase: newPassphrase,
+    );
+    final folder = accountFolderPathFor(vaultRoot)!;
     final target = File(p.join(folder, likesVaultFileName));
-    await writeAtomically(target, envelope);
-    final backup = File(p.join(folder, likesVaultBackupFileName));
-    if (await backup.exists()) await backup.delete();
+    await replaceVaultFiles([
+      VaultReplacement(
+        primary: target,
+        backup: File(p.join(folder, likesVaultBackupFileName)),
+        envelope: envelope,
+        validatePrimary: () => _canBackup(target, oldPassphrase),
+      ),
+    ]);
+  }
+
+  Future<bool> _canBackup(File file, String passphrase) async {
+    try {
+      await _decryptFile(file, passphrase);
+      return true;
+    } on VaultException {
+      return false;
+    } on LikesVaultTooLarge {
+      return false;
+    }
   }
 
   Future<bool> exists(String vaultRoot) async {
     final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) return false;
-    return File(p.join(folder, likesVaultFileName)).exists();
+    return await File(p.join(folder, likesVaultFileName)).exists() ||
+        await File(p.join(folder, likesVaultBackupFileName)).exists();
   }
 
   Future<DateTime?> lastSaved(String vaultRoot) async {
     final folder = accountFolderPathFor(vaultRoot);
     if (folder == null) return null;
-    final file = File(p.join(folder, likesVaultFileName));
-    if (!await file.exists()) return null;
-    return (await file.stat()).modified;
+    final dates = <DateTime>[];
+    for (final name in [likesVaultFileName, likesVaultBackupFileName]) {
+      final file = File(p.join(folder, name));
+      if (await file.exists()) dates.add((await file.stat()).modified);
+    }
+    if (dates.isEmpty) return null;
+    dates.sort();
+    return dates.last;
   }
 
   Future<int> count() async {
     final rows = await Repository.read(
-        (db) => db.rawQuery('SELECT COUNT(*) AS c FROM $tableAccountLike'));
+      (db) => db.rawQuery('SELECT COUNT(*) AS c FROM $tableAccountLike'),
+    );
     return (rows.first['c'] as int?) ?? 0;
   }
 
   /// `count:max(liked_at)`; compared with the snapshot saved after the last
   /// backup to show "out of date" without writing a preference on every like.
   Future<String> snapshot() async {
-    final rows = await Repository.read((db) => db.rawQuery(
-        'SELECT COUNT(*) AS c, MAX($columnLikedAt) AS m FROM $tableAccountLike'));
-    final count = (rows.first['c'] as int?) ?? 0;
-    final max = rows.first['m'] as String?;
-    return '$count:${max ?? ''}';
+    return Repository.read((db) async {
+      final accounts = await db.query(
+        tableAccounts,
+        columns: [columnLocalId, 'screen_name', 'user_id'],
+        orderBy: 'screen_name COLLATE NOCASE',
+      );
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS c, MAX($columnLikedAt) AS m FROM $tableAccountLike',
+      );
+      final count = (rows.first['c'] as int?) ?? 0;
+      final max = rows.first['m'] as String?;
+      return _snapshot(count, max, _mappingFingerprint(accounts));
+    });
   }
 
   Future<void> delete(String vaultRoot) async {
@@ -299,19 +413,59 @@ class LikesVault {
     }
   }
 
-  Map<String, dynamic> _metadata(List<Account> accounts, int count) => {
-        'format': _payloadFormat,
-        'version': _payloadVersion,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-        'like_count': count,
-        'accounts': accounts
-            .map((account) => {
-                  'local_id': account.localId,
-                  'screen_name': account.screenName,
-                  'user_id': account.userId,
-                })
-            .toList(),
-      };
+  Map<String, dynamic> _metadata(
+    List<Map<String, Object?>> accounts,
+    int count,
+    String? maxLikedAt,
+  ) => {
+    'format': _payloadFormat,
+    'version': _payloadVersion,
+    'created_at': DateTime.now().toUtc().toIso8601String(),
+    'like_count': count,
+    'max_liked_at': maxLikedAt,
+    'accounts': accounts
+        .map(
+          (account) => {
+            'local_id': account[columnLocalId],
+            'screen_name': account['screen_name'],
+            'user_id': account['user_id'],
+          },
+        )
+        .toList(),
+  };
+
+  String _snapshot(int count, String? maxLikedAt, String mapping) =>
+      '$count:${maxLikedAt ?? ''}:$mapping';
+
+  String _metadataSnapshot(Map<String, dynamic> meta) {
+    final accounts =
+        (meta['accounts'] as List?)?.whereType<Map>().toList() ?? const [];
+    return _snapshot(
+      (meta['like_count'] as int?) ?? 0,
+      meta['max_liked_at'] as String?,
+      _mappingFingerprint(accounts),
+    );
+  }
+
+  String _mappingFingerprint(Iterable<Map> accounts) {
+    final normalized =
+        accounts
+            .map(
+              (account) => [
+                account['local_id']?.toString() ?? '',
+                account['user_id']?.toString() ?? '',
+                account['screen_name']?.toString().toLowerCase() ?? '',
+              ],
+            )
+            .toList()
+          ..sort((a, b) {
+            final local = a[0].compareTo(b[0]);
+            if (local != 0) return local;
+            final user = a[1].compareTo(b[1]);
+            return user != 0 ? user : a[2].compareTo(b[2]);
+          });
+    return sha256.convert(utf8.encode(jsonEncode(normalized))).toString();
+  }
 
   Uint8List _container(Map<String, dynamic> meta, Uint8List compressed) {
     final metaBytes = utf8.encode(jsonEncode(meta));
@@ -329,7 +483,7 @@ class LikesVault {
   }
 
   Future<({Map<String, dynamic> meta, Uint8List compressed, String path})>
-      _decryptFromFolder(String folder, String passphrase) async {
+  _decryptFromFolder(String folder, String passphrase) async {
     final primary = File(p.join(folder, likesVaultFileName));
     final backup = File(p.join(folder, likesVaultBackupFileName));
     if (!await primary.exists() && !await backup.exists()) {
@@ -358,20 +512,24 @@ class LikesVault {
   }
 
   Future<({Map<String, dynamic> meta, Uint8List compressed, String path})>
-      _decryptFile(File file, String passphrase) async {
+  _decryptFile(File file, String passphrase) async {
     if (await file.length() > _codec.maxEnvelopeLength) {
       throw const LikesVaultTooLarge();
     }
     final envelope = await file.readAsString();
     final bytes = await _codec.decryptBytes(
-        passphrase: passphrase, kind: _vaultKind, envelope: envelope);
+      passphrase: passphrase,
+      kind: _vaultKind,
+      envelope: envelope,
+    );
     return _parseContainer(bytes, file.path);
   }
 
-  ({Map<String, dynamic> meta, Uint8List compressed, String path}) _parseContainer(
-      Uint8List bytes, String path) {
+  ({Map<String, dynamic> meta, Uint8List compressed, String path})
+  _parseContainer(Uint8List bytes, String path) {
     if (bytes.length < 5) throw const VaultException(VaultFailure.corrupt);
-    final length = (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+    final length =
+        (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
     if (length <= 0 || length > bytes.length - 4) {
       throw const VaultException(VaultFailure.corrupt);
     }
@@ -379,23 +537,38 @@ class LikesVault {
     final Map<String, dynamic> meta;
     try {
       final decoded = jsonDecode(utf8.decode(bytes.sublist(4, 4 + length)));
-      if (decoded is! Map<String, dynamic>) throw const VaultException(VaultFailure.corrupt);
+      if (decoded is! Map<String, dynamic>) {
+        throw const VaultException(VaultFailure.corrupt);
+      }
       meta = decoded;
     } on FormatException {
       throw const VaultException(VaultFailure.corrupt);
     }
 
-    if (meta['format'] != _payloadFormat) throw const VaultException(VaultFailure.corrupt);
+    if (meta['format'] != _payloadFormat) {
+      throw const VaultException(VaultFailure.corrupt);
+    }
     final version = meta['version'];
-    if (version is! int || version < 1) throw const VaultException(VaultFailure.corrupt);
+    if (version is! int || version < 1) {
+      throw const VaultException(VaultFailure.corrupt);
+    }
     if (version > _payloadVersion) {
       throw const VaultException(VaultFailure.unsupportedVersion);
+    }
+    final count = meta['like_count'];
+    final maxLikedAt = meta['max_liked_at'];
+    if (count is! int ||
+        count < 0 ||
+        meta['accounts'] is! List ||
+        (maxLikedAt != null && maxLikedAt is! String)) {
+      throw const VaultException(VaultFailure.corrupt);
     }
     return (meta: meta, compressed: bytes.sublist(4 + length), path: path);
   }
 
   Future<LikesVaultImportResult> _importDecrypted(
-      ({Map<String, dynamic> meta, Uint8List compressed, String path}) decrypted) async {
+    ({Map<String, dynamic> meta, Uint8List compressed, String path}) decrypted,
+  ) async {
     final mapping = await _ownerMapping(decrypted.meta);
     if (mapping.isEmpty) throw const LikesVaultNoAccounts();
 
@@ -405,10 +578,11 @@ class LikesVault {
     final rows = <_LikeRow>[];
     try {
       temp = await _decompress(decrypted.compressed);
-      await for (final line in temp
-          .openRead()
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())) {
+      await for (final line
+          in temp
+              .openRead()
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
         if (line.trim().isEmpty) continue;
         final row = _parseLine(line, mapping);
         if (row == null) {
@@ -430,7 +604,10 @@ class LikesVault {
     return LikesVaultImportResult(
       restored: restored,
       skipped: skipped,
-      missingAccounts: metaAccounts > mapping.length ? metaAccounts - mapping.length : 0,
+      missingAccounts: metaAccounts > mapping.length
+          ? metaAccounts - mapping.length
+          : 0,
+      snapshot: _metadataSnapshot(decrypted.meta),
     );
   }
 
@@ -457,16 +634,24 @@ class LikesVault {
   }
 
   Future<Map<String, String>> _ownerMapping(Map<String, dynamic> meta) async {
-    final accounts = await getAccounts();
-    final byLocalId = <String, String>{for (final a in accounts) a.localId: a.localId};
-    final byUserId = <String, String>{
-      for (final a in accounts)
-        if (a.userId != null) a.userId!: a.localId
-    };
-    final byHandle = <String, String>{
-      for (final a in accounts)
-        if (a.screenName != null) a.screenName!.toLowerCase(): a.localId
-    };
+    final accounts = await Repository.read(
+      (db) => db.query(
+        tableAccounts,
+        columns: [columnLocalId, 'user_id', 'screen_name'],
+      ),
+    );
+    final byLocalId = _uniqueOwners(
+      accounts,
+      (row) => row[columnLocalId] as String?,
+    );
+    final byUserId = _uniqueOwners(
+      accounts,
+      (row) => row['user_id'] as String?,
+    );
+    final byHandle = _uniqueOwners(
+      accounts,
+      (row) => (row['screen_name'] as String?)?.toLowerCase(),
+    );
 
     final mapping = <String, String>{};
     final entries = meta['accounts'];
@@ -474,14 +659,50 @@ class LikesVault {
     for (final entry in entries) {
       if (entry is! Map) continue;
       final vaultLocalId = entry['local_id'];
-      final userId = entry['user_id'];
+      final rawUserId = entry['user_id'];
+      final userId = rawUserId is String && RegExp(r'^\d+$').hasMatch(rawUserId)
+          ? rawUserId
+          : null;
       final handle = entry['screen_name'];
-      final local = byLocalId[vaultLocalId] ??
-          (userId is String ? byUserId[userId] : null) ??
-          (handle is String ? byHandle[handle.toLowerCase()] : null);
-      if (vaultLocalId is String && local != null) mapping[vaultLocalId] = local;
+      final String? local;
+      if (userId != null) {
+        // Numeric identity is authoritative. Falling back to a reused handle or
+        // an old local id here can attach likes to a different login.
+        local = byUserId[userId];
+      } else {
+        local =
+            (vaultLocalId is String ? byLocalId[vaultLocalId] : null) ??
+            (handle is String ? byHandle[handle.toLowerCase()] : null);
+      }
+      if (vaultLocalId is String && local != null) {
+        mapping[vaultLocalId] = local;
+      }
     }
     return mapping;
+  }
+
+  Map<String, String> _uniqueOwners(
+    List<Map<String, Object?>> accounts,
+    String? Function(Map<String, Object?>) keyOf,
+  ) {
+    final owners = <String, String>{};
+    final ambiguous = <String>{};
+    for (final account in accounts) {
+      final key = keyOf(account);
+      final localId = account[columnLocalId] as String?;
+      if (key == null || key.isEmpty || localId == null || localId.isEmpty) {
+        continue;
+      }
+      if (ambiguous.contains(key)) continue;
+      final previous = owners[key];
+      if (previous != null && previous != localId) {
+        owners.remove(key);
+        ambiguous.add(key);
+      } else {
+        owners[key] = localId;
+      }
+    }
+    return owners;
   }
 
   /// Inserts one page and returns how many `account_like` rows were actually
@@ -492,31 +713,27 @@ class LikesVault {
     if (rows.isEmpty) return 0;
     final db = await Repository.writable();
     return db.transaction((txn) async {
-      final before = await txn.rawQuery('SELECT COUNT(*) AS c FROM $tableAccountLike');
+      final before = await txn.rawQuery(
+        'SELECT COUNT(*) AS c FROM $tableAccountLike',
+      );
       final batch = txn.batch();
       for (final row in rows) {
-        batch.insert(
-          tableLikedTweet,
-          {
-            'id': row.id,
-            'user_id': row.user,
-            'content': row.content,
-            columnLikedAt: row.at,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-        batch.insert(
-          tableAccountLike,
-          {
-            columnAccountLocalId: row.owner,
-            columnTweetId: row.id,
-            columnLikedAt: row.at,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
+        batch.insert(tableLikedTweet, {
+          'id': row.id,
+          'user_id': row.user,
+          'content': row.content,
+          columnLikedAt: row.at,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        batch.insert(tableAccountLike, {
+          columnAccountLocalId: row.owner,
+          columnTweetId: row.id,
+          columnLikedAt: row.at,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
       await batch.commit(noResult: true);
-      final after = await txn.rawQuery('SELECT COUNT(*) AS c FROM $tableAccountLike');
+      final after = await txn.rawQuery(
+        'SELECT COUNT(*) AS c FROM $tableAccountLike',
+      );
       final previous = (before.first['c'] as int?) ?? 0;
       final current = (after.first['c'] as int?) ?? 0;
       return current - previous;
@@ -525,12 +742,18 @@ class LikesVault {
 
   /// Removes plaintext exports a killed import left behind. The import path
   /// deletes its own temp in `finally`, but a process death cannot run it.
-  static Future<void> cleanupStaleImports() async {
+  static Future<void> cleanupStaleImports({
+    Future<Directory> Function()? tempDirectory,
+  }) async {
     try {
-      final dir = await getTemporaryDirectory();
+      final dir = await (tempDirectory ?? getTemporaryDirectory)();
       await for (final entity in dir.list()) {
         if (entity is! File) continue;
-        if (!p.basename(entity.path).startsWith('quax-likes-import-')) continue;
+        final name = p.basename(entity.path);
+        if (!name.startsWith('quax-likes-import-') &&
+            !(name.startsWith('quax-likes-') && name.endsWith('.gz'))) {
+          continue;
+        }
         try {
           await entity.delete();
         } catch (_) {
@@ -544,8 +767,12 @@ class LikesVault {
 
   Future<File> _decompress(Uint8List compressed) async {
     final dir = await _tempDirectory();
-    final file = File(p.join(dir.path,
-        'quax-likes-import-${DateTime.now().microsecondsSinceEpoch}.jsonl'));
+    final file = File(
+      p.join(
+        dir.path,
+        'quax-likes-import-${DateTime.now().microsecondsSinceEpoch}.jsonl',
+      ),
+    );
     final sink = file.openWrite();
     var failed = false;
     VaultException? failure;
@@ -576,18 +803,23 @@ class LikesVault {
     return file;
   }
 
-  Future<void> _adoptEnvelope(String vaultRoot, String envelope) async {
+  Future<void> _adoptEnvelope(
+    String vaultRoot,
+    String envelope,
+    String passphrase,
+  ) async {
     _checkEnvelopeShape(envelope);
     final folder = await ensureAccountFolder(vaultRoot);
     if (folder == null) throw const VaultException(VaultFailure.corrupt);
     final target = File(p.join(folder, likesVaultFileName));
-    final backup = File(p.join(folder, likesVaultBackupFileName));
-    if (await target.exists()) {
-      try {
-        await target.copy(backup.path);
-      } catch (_) {}
-    }
-    await writeAtomically(target, envelope);
+    await replaceVaultFiles([
+      VaultReplacement(
+        primary: target,
+        backup: File(p.join(folder, likesVaultBackupFileName)),
+        envelope: envelope,
+        validatePrimary: () => _canBackup(target, passphrase),
+      ),
+    ], removeBackups: false);
   }
 
   void _checkEnvelopeShape(String envelope) {

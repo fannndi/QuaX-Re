@@ -60,7 +60,10 @@ class TweetFeedController {
   Future<CursorPage<String, TweetChain>> _fetch(String? cursor) async {
     final result = await _loader!(cursor);
     final next = result.nextCursor;
-    return (items: _dedupe(result.chains, cursor), nextCursor: _isLastPage(result.chains, next, cursor) ? null : next);
+    return (
+      items: _dedupe(result.chains, cursor),
+      nextCursor: _isLastPage(result.chains, next, cursor) ? null : next,
+    );
   }
 
   // Ranked feeds can repeat a tweet across pages; a repeated chain would render
@@ -70,7 +73,9 @@ class TweetFeedController {
   List<TweetChain> _dedupe(List<TweetChain> chains, String? cursor) {
     if (cursor == null) return chains;
 
-    final seen = (_paging.items ?? const <TweetChain>[]).map((chain) => chain.id).toSet();
+    final seen = (_paging.items ?? const <TweetChain>[])
+        .map((chain) => chain.id)
+        .toSet();
     final fresh = <TweetChain>[];
     for (final chain in chains) {
       if (seen.add(chain.id)) fresh.add(chain);
@@ -115,7 +120,9 @@ class TweetFeedController {
         ...current!.where((chain) => !freshIds.contains(chain.id)),
       ];
       _paging.replaceFirstPage(
-        merged.length > maxMergedChains ? merged.sublist(0, maxMergedChains) : merged,
+        merged.length > maxMergedChains
+            ? merged.sublist(0, maxMergedChains)
+            : merged,
         cursor,
         // The old tail is still in the list, so continue from its cursor
         // instead of re-requesting the pages the merge just brought in.
@@ -128,7 +135,8 @@ class TweetFeedController {
     return result.chains.isNotEmpty;
   }
 
-  void setError(Object error, StackTrace stackTrace) => _paging.setError(error, stackTrace);
+  void setError(Object error, StackTrace stackTrace) =>
+      _paging.setError(error, stackTrace);
 
   /// Reloads the first page and replaces the items in place, *without* resetting
   /// to the first-page spinner the way [PagingController.refresh] does. Used by
@@ -203,9 +211,12 @@ class PaginatedTweetList extends StatefulWidget {
   State<PaginatedTweetList> createState() => _PaginatedTweetListState();
 }
 
-class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBindingObserver {
-  final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
+class _PaginatedTweetListState extends State<PaginatedTweetList>
+    with WidgetsBindingObserver {
+  final GlobalKey<RefreshIndicatorState> _refreshKey =
+      GlobalKey<RefreshIndicatorState>();
   final ScrollController _scrollController = ScrollController();
+  late final NetworkStatus _networkStatus;
   FeedRefreshController? _refreshController;
   Object? _registeredFeedId;
   Object? _registeredFeedToken;
@@ -228,9 +239,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   bool _newPostsAvailable = false;
   TweetPageResult? _pendingFirstPage;
 
-  // Scroll memory: the offset is persisted (debounced) and restored once the
-  // first page is in place.
+  // Scroll memory: the offset and loaded page count are persisted (debounced)
+  // and restored only after the same number of pages is available.
   bool _scrollRestored = false;
+  bool _restoreFetchScheduled = false;
   Timer? _scrollSaveTimer;
 
   PagingController<int, TweetChain> get _controller => widget.feed.controller;
@@ -238,6 +250,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   @override
   void initState() {
     super.initState();
+    try {
+      _networkStatus = context.read<NetworkStatus>();
+    } on ProviderNotFoundException {
+      _networkStatus = NetworkStatus();
+    }
     widget.feed.loader = widget.loadPage;
     // While we show the cached preview the PagedListView isn't mounted, so it
     // can't trigger the first page itself — we rebuild to swap it in once items
@@ -247,7 +264,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     // Offline mode: the moment the connection returns, retry the page that
     // failed (or that we deliberately did not attempt).
     _attachOnlineListener();
-    NetworkStatus().check();
+    _networkStatus.check();
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -259,7 +276,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   /// did half its job. The body owns the list, so the real scroll lives here.
   void _scrollToTop() {
     if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -275,14 +296,23 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       controller = null;
     }
     final feedId = widget.feedId ?? widget.feed;
-    if (!identical(controller, _refreshController) || _registeredFeedId != feedId) {
-      if (_refreshController != null && _registeredFeedId != null && _registeredFeedToken != null) {
-        _refreshController!.unregister(_registeredFeedId!, _registeredFeedToken!);
+    if (!identical(controller, _refreshController) ||
+        _registeredFeedId != feedId) {
+      if (_refreshController != null &&
+          _registeredFeedId != null &&
+          _registeredFeedToken != null) {
+        _refreshController!.unregister(
+          _registeredFeedId!,
+          _registeredFeedToken!,
+        );
       }
       _refreshController = controller;
       _registeredFeedId = controller == null ? null : feedId;
-      _registeredFeedToken =
-          controller?.register(feedId, refresh: _showRefresh, scrollToTop: _scrollToTop);
+      _registeredFeedToken = controller?.register(
+        feedId,
+        refresh: _showRefresh,
+        scrollToTop: _scrollToTop,
+      );
     }
   }
 
@@ -295,6 +325,17 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       _controller.addListener(_onControllerChanged);
       // A fresh feed needs its first page kicked off again.
       _firstLoadStarted = false;
+      _scrollRestored = false;
+      _pendingInitialLoad = false;
+      _pendingFirstPage = null;
+      _newPostsAvailable = false;
+      _scrollSaveTimer?.cancel();
+      _scrollSaveTimer = null;
+    }
+    if (oldWidget.scrollKey != widget.scrollKey) {
+      _scrollRestored = false;
+      _scrollSaveTimer?.cancel();
+      _scrollSaveTimer = null;
     }
   }
 
@@ -304,11 +345,13 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _scrollSaveTimer?.cancel();
-    if (_refreshController != null && _registeredFeedId != null && _registeredFeedToken != null) {
+    if (_refreshController != null &&
+        _registeredFeedId != null &&
+        _registeredFeedToken != null) {
       _refreshController!.unregister(_registeredFeedId!, _registeredFeedToken!);
     }
     if (_onlineListenerAttached) {
-      NetworkStatus().online.removeListener(_onOnlineChanged);
+      _networkStatus.online.removeListener(_onOnlineChanged);
     }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -317,7 +360,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
-    if (!NetworkStatus().online.value) return;
+    if (!_networkStatus.online.value) return;
 
     final items = _controller.value.items;
     if (items == null || items.isEmpty) return;
@@ -336,11 +379,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
   void _attachOnlineListener() {
     if (_onlineListenerAttached) return;
     _onlineListenerAttached = true;
-    NetworkStatus().online.addListener(_onOnlineChanged);
+    _networkStatus.online.addListener(_onOnlineChanged);
   }
 
   void _onOnlineChanged() {
-    if (!mounted || !NetworkStatus().online.value) return;
+    if (!mounted || !_networkStatus.online.value) return;
     // The connection is back: retry whatever offline mode held back.
     _firstLoadStarted = false;
     setState(() {});
@@ -364,7 +407,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
             Text(L10n.of(context).offline_message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
-              onPressed: () => NetworkStatus().check(force: true),
+              onPressed: () => _networkStatus.check(force: true),
               icon: const Icon(Icons.refresh),
               label: Text(L10n.of(context).retry),
             ),
@@ -387,7 +430,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     await _refreshKey.currentState?.show();
   }
 
-  Widget _buildChain(BuildContext context, TweetChain chain) => TweetConversation(
+  Widget _buildChain(BuildContext context, TweetChain chain) =>
+      TweetConversation(
         // Keyed by chain: refreshed pages shift indices, and without the key a
         // recycled element would keep rendering the tweet it held before.
         key: ValueKey(chain.id),
@@ -405,23 +449,30 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     if (!mounted) return;
 
     final before = _currentTopId();
-    final generation = widget.feed.generation;
+    final feed = widget.feed;
+    final generation = feed.generation;
     try {
-      final result = await widget.feed.fetchFirstPage();
+      final result = await feed.fetchFirstPage();
       // A refresh that raced an account switch must not replace the new feed
       // with the previous login's page, even if this state is still mounted
       // for the rest of the frame.
-      if (!mounted || generation != widget.feed.generation) return;
+      if (!mounted ||
+          !identical(widget.feed, feed) ||
+          generation != feed.generation) {
+        return;
+      }
 
       final after = result.chains.isEmpty ? null : result.chains.first.id;
-      final scrolledDown = _scrollController.hasClients && _scrollController.offset > _pillThreshold;
+      final scrolledDown =
+          _scrollController.hasClients &&
+          _scrollController.offset > _pillThreshold;
       if (before != null && after != null && before != after && scrolledDown) {
         _pendingFirstPage = result;
         setState(() => _newPostsAvailable = true);
         return;
       }
 
-      final applied = widget.feed.applyFirstPage(result);
+      final applied = feed.applyFirstPage(result);
       // A reload closes the freshness round: what just loaded becomes Old and
       // only arrivals after this point read as New. An empty page changed
       // nothing, so the round stays open.
@@ -429,8 +480,14 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
         TweetFreshnessIndex().promoteSeenToBaseline();
       }
     } catch (e, stackTrace) {
-      // A failed refresh must not look like "nothing new": say so.
-      widget.feed.setError(e, stackTrace);
+      // A failed refresh must not look like "nothing new": say so. A request
+      // abandoned by an account/source reset is not actionable in the new feed.
+      if (!mounted ||
+          !identical(widget.feed, feed) ||
+          generation != feed.generation) {
+        return;
+      }
+      feed.setError(e, stackTrace);
       if (mounted) {
         showSnackBar(context, icon: '🙊', message: e.toString());
       }
@@ -462,8 +519,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     setState(() => _newPostsAvailable = false);
 
     if (_scrollController.hasClients) {
-      await _scrollController.animateTo(0,
-          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      await _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -490,34 +550,68 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       // still finds these values the same way.
       final store = prefs.sharedPreferences;
       store.setDouble('${prefs.prefix}scroll.$key', _scrollController.offset);
-      store.setInt('${prefs.prefix}scroll.$key.at', DateTime.now().millisecondsSinceEpoch);
+      store.setInt(
+        '${prefs.prefix}scroll.$key.at',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      final loadedPages = _controller.value.pages?.length ?? 0;
+      if (loadedPages > 0) {
+        store.setInt('${prefs.prefix}scroll.$key.pages', loadedPages);
+      }
     });
   }
 
-  /// Jumps back to the last reading position once the first page is in place —
-  /// unless that position is old, in which case the feed opens at the top with
-  /// current content instead of yesterday's posts.
+  /// Jumps back to the last reading position once the same number of pages is
+  /// loaded — unless that position is old, in which case the feed opens at the
+  /// top with current content instead of yesterday's posts.
   void _maybeRestoreScroll() {
     final key = widget.scrollKey;
     if (_scrollRestored || key == null) return;
 
-    final items = _controller.value.items;
+    final state = _controller.value;
+    final items = state.items;
     if (items == null || items.isEmpty || !_scrollController.hasClients) return;
-    _scrollRestored = true;
 
     final prefs = PrefService.of(context, listen: false);
+    final savedPages = prefs.get<int>('scroll.$key.pages') ?? 1;
+    final loadedPages = state.pages?.length ?? 0;
+    if (loadedPages < savedPages && state.hasNextPage && state.error == null) {
+      // Restoring after only the first page would clamp a deep offset to the
+      // end of that page. Fetch the missing pages first, outside build so the
+      // pager's synchronous loading notification cannot call setState here.
+      if (!_restoreFetchScheduled && !state.isLoading) {
+        _restoreFetchScheduled = true;
+        final controller = _controller;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _restoreFetchScheduled = false;
+          if (mounted &&
+              !_scrollRestored &&
+              identical(controller, _controller)) {
+            controller.fetchNextPage();
+          }
+        });
+      }
+      return;
+    }
+    _scrollRestored = true;
+
     final savedAt = prefs.get<int>('scroll.$key.at');
     final saved = prefs.get<double>('scroll.$key') ?? 0;
     if (saved <= 0) return;
 
     if (savedAt != null) {
-      final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(savedAt));
+      final age = DateTime.now().difference(
+        DateTime.fromMillisecondsSinceEpoch(savedAt),
+      );
       if (age > _scrollRestoreMaxAge) return;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
-      final target = saved.clamp(0.0, _scrollController.position.maxScrollExtent);
+      final target = saved.clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
       if (target > 0) _scrollController.jumpTo(target);
     });
   }
@@ -536,13 +630,17 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.arrow_upward, size: 18, color: scheme.onSecondaryContainer),
+              Icon(
+                Icons.arrow_upward,
+                size: 18,
+                color: scheme.onSecondaryContainer,
+              ),
               const SizedBox(width: 6),
-              Text(L10n.of(context).new_posts,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: scheme.onSecondaryContainer)),
+              Text(
+                L10n.of(context).new_posts,
+                style: Theme.of(context).textTheme.labelLarge
+                    ?.copyWith(color: scheme.onSecondaryContainer),
+              ),
             ],
           ),
         ),
@@ -561,10 +659,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     // controller synchronously, which would setState() mid-build via our listener.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (!NetworkStatus().online.value) {
+      if (!_networkStatus.online.value) {
         // Offline: keep whatever is on screen; the listener retries later.
         _firstLoadStarted = false;
-        NetworkStatus().check();
+        _networkStatus.check();
         return;
       }
       if (widget.onRefresh == null) {
@@ -592,7 +690,11 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
 
   Widget _wrapWithRefresh(Widget child) {
     if (widget.onRefresh == null) return child;
-    return RefreshIndicator(key: _refreshKey, onRefresh: _onRefreshTriggered, child: child);
+    return RefreshIndicator(
+      key: _refreshKey,
+      onRefresh: _onRefreshTriggered,
+      child: child,
+    );
   }
 
   @override
@@ -600,15 +702,20 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
     _maybeRestoreScroll();
 
     final state = _controller.value;
-    if (!NetworkStatus().online.value && state.items == null && state.error == null) {
-      NetworkStatus().check();
+    if (!_networkStatus.online.value &&
+        state.items == null &&
+        state.error == null) {
+      _networkStatus.check();
       return _buildOffline(context);
     }
 
     final list = PagingListener<int, TweetChain>(
       controller: _controller,
       builder: (context, state, fetchNextPage) => PagedListView<int, TweetChain>(
-        padding: EdgeInsets.only(top: 4, bottom: MediaQuery.paddingOf(context).bottom),
+        padding: EdgeInsets.only(
+          top: 4,
+          bottom: MediaQuery.paddingOf(context).bottom,
+        ),
         state: state,
         fetchNextPage: fetchNextPage,
         scrollController: _scrollController,
@@ -623,8 +730,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
           // long fling keeps rolling instead of stalling on the spinner.
           invisibleItemsThreshold: 8,
           itemBuilder: (context, chain, index) => _buildChain(context, chain),
-          firstPageProgressIndicatorBuilder: (context) => const TweetListSkeleton(),
-          firstPageErrorIndicatorBuilder: (context) => NetworkStatus().online.value
+          firstPageProgressIndicatorBuilder: (context) =>
+              const TweetListSkeleton(),
+          firstPageErrorIndicatorBuilder: (context) =>
+              _networkStatus.online.value
               ? FullPageErrorWidget(
                   error: pagingErrorOf(state)?.error,
                   stackTrace: pagingErrorOf(state)?.stackTrace,
@@ -638,7 +747,8 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
             prefix: widget.newPageErrorPrefix,
             onRetry: fetchNextPage,
           ),
-          noItemsFoundIndicatorBuilder: (context) => Center(child: Text(widget.emptyMessage)),
+          noItemsFoundIndicatorBuilder: (context) =>
+              Center(child: Text(widget.emptyMessage)),
         ),
       ),
     );
@@ -647,7 +757,12 @@ class _PaginatedTweetListState extends State<PaginatedTweetList> with WidgetsBin
       children: [
         _wrapWithRefresh(list),
         if (_newPostsAvailable)
-          Positioned(top: 12, left: 0, right: 0, child: Center(child: _buildNewPostsPill())),
+          Positioned(
+            top: 12,
+            left: 0,
+            right: 0,
+            child: Center(child: _buildNewPostsPill()),
+          ),
       ],
     );
   }

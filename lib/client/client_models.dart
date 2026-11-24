@@ -57,7 +57,8 @@ class TweetWithCard extends Tweet {
         break;
       }
     }
-    tweetWithCard.text = (text ?? L10n.current.this_tweet_is_unavailable).replaceFirst(' Learn more', '');
+    tweetWithCard.text = (text ?? L10n.current.this_tweet_is_unavailable)
+        .replaceFirst(' Learn more', '');
 
     return tweetWithCard;
   }
@@ -103,9 +104,12 @@ class TweetWithCard extends Tweet {
     tweetWithCard.truncated = tweet.truncated;
     tweetWithCard.place = tweet.place;
     tweetWithCard.possiblySensitive = tweet.possiblySensitive;
-    tweetWithCard.possiblySensitiveAppealable = tweet.possiblySensitiveAppealable;
+    tweetWithCard.possiblySensitiveAppealable =
+        tweet.possiblySensitiveAppealable;
     tweetWithCard.noteText = e['noteText'];
-    tweetWithCard.noteEntities = e['noteEntities'] == null ? null : Entities.fromJson(e['noteEntities']);
+    tweetWithCard.noteEntities = e['noteEntities'] == null
+        ? null
+        : Entities.fromJson(e['noteEntities']);
 
     return tweetWithCard;
   }
@@ -132,7 +136,10 @@ class TweetWithCard extends Tweet {
     if (quotedResult is Map && quotedResult['result'] != null) {
       // tweets that limit who can reply (TweetWithVisibilityResults) are wrapped in another layer
       final inner = quotedResult['result'];
-      var quotedTweetResult = inner is Map && inner['__typename'] == 'TweetWithVisibilityResults' ? inner['tweet'] : inner;
+      var quotedTweetResult =
+          inner is Map && inner['__typename'] == 'TweetWithVisibilityResults'
+          ? inner['tweet']
+          : inner;
       if (quotedTweetResult is Map<String, dynamic>) {
         quotedStatus = _parseTweet(quotedTweetResult);
       }
@@ -163,16 +170,19 @@ class TweetWithCard extends Tweet {
     }
 
     var tweet = TweetWithCard.fromData(
-        result['legacy'],
-        noteText,
-        noteEntities,
-        user,
-        retweetedStatus,
-        quotedStatus,
-        parseIntLike(result['views'] is Map ? result['views']['count'] : null));
+      result['legacy'],
+      noteText,
+      noteEntities,
+      user,
+      retweetedStatus,
+      quotedStatus,
+      parseIntLike(result['views'] is Map ? result['views']['count'] : null),
+    );
 
     final card = result['card'];
-    if (tweet.card == null && card is Map && card['legacy'] is Map<String, dynamic>) {
+    if (tweet.card == null &&
+        card is Map &&
+        card['legacy'] is Map<String, dynamic>) {
       tweet.card = card['legacy'];
       var bindingValuesList = tweet.card!['binding_values'] as List?;
       if (bindingValuesList != null) {
@@ -190,7 +200,9 @@ class TweetWithCard extends Tweet {
       final subtitle = result['birdwatch_pivot']['subtitle'];
       // A note without a body, or in a shape this port does not know, simply
       // has no quoted status to show — it must not take the post down with it.
-      final rearranged = subtitle is Map<String, dynamic> ? TweetWithCard.rearrangeBirdwatch(subtitle) : null;
+      final rearranged = subtitle is Map<String, dynamic>
+          ? TweetWithCard.rearrangeBirdwatch(subtitle)
+          : null;
       if (rearranged != null) {
         tweet.birdwatchQuotedStatus = TweetWithCard.fromJson(rearranged);
       }
@@ -204,7 +216,9 @@ class TweetWithCard extends Tweet {
   /// missing a body or its link table is in a shape this port does not
   /// recognise, which the caller takes as "no note to show" rather than as a
   /// reason to fail the whole post.
-  static Map<String, dynamic>? rearrangeBirdwatch(Map<String, dynamic> birdwatch) {
+  static Map<String, dynamic>? rearrangeBirdwatch(
+    Map<String, dynamic> birdwatch,
+  ) {
     final text = birdwatch['text'];
     if (text is! String) return null;
 
@@ -219,7 +233,9 @@ class TweetWithCard extends Tweet {
         // A link whose span does not land inside the text cannot be drawn, so
         // it is dropped rather than trusted into a substring call.
         if (fromIndex is! int || toIndex is! int) continue;
-        if (fromIndex < 0 || toIndex > text.length || fromIndex > toIndex) continue;
+        if (fromIndex < 0 || toIndex > text.length || fromIndex > toIndex) {
+          continue;
+        }
         final url = ref is Map<String, dynamic> ? ref['url'] : null;
         if (url is! String) continue;
 
@@ -252,8 +268,12 @@ class TweetWithCard extends Tweet {
     tweet.card = e['card'];
     tweet.conversationIdStr = e['conversation_id_str'];
     tweet.createdAt = convertTwitterDateTime(e['created_at']);
-    tweet.entities = e['entities'] == null ? null : Entities.fromJson(e['entities']);
-    tweet.extendedEntities = e['extended_entities'] == null ? null : Entities.fromJson(e['extended_entities']);
+    tweet.entities = e['entities'] == null
+        ? null
+        : Entities.fromJson(e['entities']);
+    tweet.extendedEntities = e['extended_entities'] == null
+        ? null
+        : Entities.fromJson(e['extended_entities']);
     tweet.favorited = e['favorited'] as bool?;
     tweet.favoriteCount = parseIntLike(e['favorite_count']);
     tweet.viewCount = tweetViewCount;
@@ -287,8 +307,10 @@ class TweetWithCard extends Tweet {
     tweet.quotedStatus = quotedStatus;
     tweet.quotedStatusWithCard = quotedStatus;
 
-    tweet.displayTextRange =
-        (e['display_text_range'] as List<dynamic>?)?.map(parseIntLike).whereType<int>().toList();
+    tweet.displayTextRange = (e['display_text_range'] as List<dynamic>?)
+        ?.map(parseIntLike)
+        .whereType<int>()
+        .toList();
 
     // TODO
     tweet.coordinates = null;
@@ -312,13 +334,19 @@ class TweetChain {
   TweetChain({required this.id, required this.tweets, required this.isPinned});
 
   factory TweetChain.fromJson(Map<String, dynamic> e) {
-    var tweets = List.from(e['tweets']).map((e) => TweetWithCard.fromJson(e)).toList();
+    var tweets = List.from(e['tweets'])
+        .map((e) => TweetWithCard.fromJson(e))
+        .toList();
 
     return TweetChain(id: e['id'], tweets: tweets, isPinned: e['isPinned']);
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'tweets': tweets.map((e) => e.toJson()).toList(), 'isPinned': isPinned};
+    return {
+      'id': id,
+      'tweets': tweets.map((e) => e.toJson()).toList(),
+      'isPinned': isPinned,
+    };
   }
 }
 
@@ -327,8 +355,14 @@ class Follows {
   final String? cursorTop;
   final List<UserWithExtra> users;
 
-  Follows({required this.cursorBottom, required this.cursorTop, required this.users});
+  Follows({
+    required this.cursorBottom,
+    required this.cursorTop,
+    required this.users,
+  });
 }
+
+typedef UserSearchPage = ({List<UserWithExtra> users, String? nextCursor});
 
 class TweetStatus {
   // final TweetChain after;
@@ -337,10 +371,14 @@ class TweetStatus {
   final String? cursorTop;
   final List<TweetChain> chains;
 
-  TweetStatus({required this.chains, required this.cursorBottom, required this.cursorTop});
+  TweetStatus({
+    required this.chains,
+    required this.cursorBottom,
+    required this.cursorTop,
+  });
 }
 
-class TwitterError {
+class TwitterError implements Exception {
   final String uri;
   final int code;
   final String message;
@@ -352,5 +390,3 @@ class TwitterError {
     return 'TwitterError{code: $code, message: $message, url: $uri}';
   }
 }
-
-

@@ -3,12 +3,13 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/download_paths.dart';
 import 'package:quax/downloads/downloads_model.dart';
+import 'package:quax/downloads/saved_media.dart';
 import 'package:quax/downloads/video_cache.dart';
+import 'package:quax/downloads/atomic_copy.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/tweet/video_metadata.dart';
@@ -30,23 +31,26 @@ const _storageChannel = quaxMethodChannel;
 /// outlives the call that started it, and a resume arrives from the connectivity
 /// watcher, which has no BuildContext of its own. It is only ever null before
 /// the first enqueue, which [_kickWorker] treats as "nothing to do".
-Future<void>? _worker;
 BasePrefService? _workerPrefs;
 final Map<String, BuildContext?> _workerContexts = {};
 
 void _kickWorker() {
-  // A cancelled/removed waiting entry never reaches the worker, so its
-  // BuildContext would otherwise stay alive for the process lifetime. Prune
-  // before the early return too: a cancel during a running transfer has no
-  // later enqueue to trigger the cleanup.
   final queue = DownloadsModel();
-  _workerContexts.removeWhere((fileName, _) => !queue.contains(fileName));
-  _retryAfter.removeWhere((fileName, _) => !queue.contains(fileName));
-  if (_worker != null || _workerPrefs == null) return;
-  _worker = _drainQueue().whenComplete(() {
-    _worker = null;
-    _workerContexts.removeWhere((fileName, _) => !queue.contains(fileName));
-  });
+  _workerContexts.removeWhere(
+    (attemptId, _) => queue.itemForAttempt(attemptId) == null,
+  );
+  _retryAfter.removeWhere(
+    (attemptId, _) => queue.itemForAttempt(attemptId) == null,
+  );
+  if (_workerPrefs == null || queue.serviceUnavailable) return;
+  unawaited(
+    queue.runWorker(_drainQueue).whenComplete(() {
+      _workerContexts.removeWhere(
+        (attemptId, _) => queue.itemForAttempt(attemptId) == null,
+      );
+      if (queue.nextQueued != null && !queue.serviceUnavailable) _kickWorker();
+    }),
+  );
 }
 
 Future<void> _drainQueue() async {
@@ -59,12 +63,23 @@ Future<void> _drainQueue() async {
       final next = queue.nextQueued;
       if (next == null) return;
 
-      final context = _workerContexts.remove(next.fileName);
-      await _runDownload(context, Uri.parse(next.url), next.fileName, prefs: prefs, resume: true);
-      queue.clearTransient(next.fileName);
+      final context = _workerContexts.remove(next.attemptId);
+      await _runDownload(
+        context,
+        Uri.parse(next.url),
+        next.fileName,
+        prefs: prefs,
+        resume: true,
+        attemptId: next.attemptId,
+      );
+      queue.clearTransient(next.fileName, attemptId: next.attemptId);
+      if (queue.itemForAttempt(next.attemptId)?.status ==
+          DownloadStatus.paused) {
+        return;
+      }
     }
   } finally {
-    queue.notifyWorkerIdle();
+    await queue.notifyWorkerIdle();
   }
 }
 
@@ -86,7 +101,7 @@ const _maxRetryDelay = Duration(minutes: 2);
 
 final _random = Random();
 
-/// What the last failed response asked us to wait, per file name. A 503 with
+/// What the last failed response asked us to wait, per attempt. A 503 with
 /// `Retry-After` must not be retried at the app's own pace.
 final Map<String, Duration> _retryAfter = {};
 
@@ -98,7 +113,9 @@ Duration retryDelayFor(int attempt, {Duration? requested}) {
   final exponential = Duration(seconds: 2 << attempt);
   final jitter = Duration(milliseconds: _random.nextInt(1000));
   final delay = exponential + jitter;
-  final withRequest = requested != null && requested > delay ? requested : delay;
+  final withRequest = requested != null && requested > delay
+      ? requested
+      : delay;
   return withRequest > _maxRetryDelay ? _maxRetryDelay : withRequest;
 }
 
@@ -148,8 +165,10 @@ void _enqueueCache(Future<void> Function() task) {
 /// background, one clip at a time. Used when a video scrolls into view and the
 /// matching setting is on; quietly gives up on anything (metered connection,
 /// already cached or downloaded, failures) so the feed is never disturbed.
-Future<void> cacheVideoAhead(
-    {required Future<TweetVideoUrls> Function() urls, required BasePrefService prefs}) async {
+Future<void> cacheVideoAhead({
+  required Future<TweetVideoUrls> Function() urls,
+  required BasePrefService prefs,
+}) async {
   if (!(prefs.get<bool>(optionAutoCacheVideos) ?? false)) return;
   // Manual media loading means the user is watching their data deliberately.
   if (prefs.get<bool>(optionMediaDisableAutoload) ?? false) return;
@@ -173,8 +192,13 @@ Future<void> cacheVideoAhead(
       // Not queue-managed: this name is never a queue row, so a cancel hook
       // would leak for the process lifetime and the resumable temp name would
       // be reused by an unrelated later attempt.
-      final temp = await _downloadToTemp(null, Uri.parse(target), 'cache-$name',
-          targetDir: (await cache.directory()).path, queueManaged: false);
+      final temp = await _downloadToTemp(
+        null,
+        Uri.parse(target),
+        'cache-$name',
+        targetDir: (await cache.directory()).path,
+        queueManaged: false,
+      );
       if (temp == null) return;
 
       await cache.put(target, File(temp), prefs: prefs);
@@ -207,22 +231,30 @@ String _sanitized(String fileName) {
   return name;
 }
 
-bool _isVideo(String fileName) => fileName
-    .contains(RegExp(r'\.(mp4|mov|webm|mkv|m4v|avi|ts|3gp|mpeg|mpg|wmv|flv|m2ts|ogv)$', caseSensitive: false));
+bool _isVideo(String fileName) => fileName.contains(
+  RegExp(
+    r'\.(mp4|mov|webm|mkv|m4v|avi|ts|3gp|mpeg|mpg|wmv|flv|m2ts|ogv)$',
+    caseSensitive: false,
+  ),
+);
 
 /// Queues [uri] into the one-at-a-time download queue and, when its turn comes,
 /// saves the file into the hidden library (or through the system dialog before
 /// the library exists) and offers a share sheet. A transfer that is already
 /// active for the same file is left alone instead of being re-queued twice.
-Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileName,
-    {required BasePrefService prefs}) async {
+Future<void> downloadUriToPickedFile(
+  BuildContext context,
+  Uri uri,
+  String fileName, {
+  required BasePrefService prefs,
+}) async {
   final name = _sanitized(fileName);
   final queue = DownloadsModel();
   if (queue.isActive(name)) return;
 
   queue.register(name, uri.toString(), _isVideo(name));
   _workerPrefs = prefs;
-  _workerContexts[name] = context;
+  _workerContexts[queue.itemFor(name)!.attemptId] = context;
   _kickWorker();
 }
 
@@ -231,14 +263,36 @@ Future<void> downloadUriToPickedFile(BuildContext context, Uri uri, String fileN
 /// retried up to [_maxAttempts] with a growing pause, resuming from the bytes
 /// already on disk. A null [context] means nobody is watching (an automatic
 /// resume): unchanged progress and errors just stay in the queue.
-Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
-    {required BasePrefService prefs, bool resume = false}) async {
+Future<void> _runDownload(
+  BuildContext? context,
+  Uri uri,
+  String fileName, {
+  required BasePrefService prefs,
+  bool resume = false,
+  String? attemptId,
+}) async {
   final queue = DownloadsModel();
-  // Cancelled (or removed) while waiting: its turn is skipped silently.
-  if (!queue.contains(fileName) || queue.isCancelled(fileName)) return;
+  final id = attemptId ?? queue.itemFor(fileName)?.attemptId;
+  if (id == null ||
+      !queue.isAttemptCurrent(fileName, id) ||
+      queue.isCancelled(fileName, attemptId: id)) {
+    return;
+  }
+  bool current() => queue.isAttemptCurrent(fileName, id);
+  bool held() =>
+      queue.isCancelled(fileName, attemptId: id) ||
+      queue.isPaused(fileName, attemptId: id);
 
   try {
-    final targetDir = await _targetDirectory(prefs);
+    // Capture one destination root for the whole attempt. A storage move pauses
+    // and drains the worker before changing this preference.
+    final configuredRoot = prefs.get<String>(optionLibraryPath);
+    final libraryRoot = configuredRoot != null && configuredRoot.isNotEmpty
+        ? configuredRoot
+        : null;
+    final targetDir = libraryRoot ?? (await getTemporaryDirectory()).path;
+    if (!current() || held()) return;
+    if (!await queue.startRunning(fileName, attemptId: id)) return;
 
     // An auto-cached copy makes both play and download instant: nothing to
     // fetch, the queue item just promotes the file into the library.
@@ -248,95 +302,125 @@ Future<void> _runDownload(BuildContext? context, Uri uri, String fileName,
     String? tempPath = cachedPath;
     if (cachedPath == null) {
       for (var attempt = 0; attempt < _maxAttempts; attempt++) {
-        if (!queue.startRunning(fileName)) return;
+        if (attempt > 0 && !await queue.startRunning(fileName, attemptId: id)) {
+          return;
+        }
 
         // _downloadToTemp only hands the context to _showStatusError, which
         // checks it itself; a transfer must not stop because the screen that
         // started it went away.
-        // ignore: use_build_context_synchronously
-        tempPath = await _downloadToTemp(context, uri, fileName,
-            resume: resume || attempt > 0, targetDir: targetDir);
+        tempPath = await _downloadToTemp(
+          // ignore: use_build_context_synchronously
+          context,
+          uri,
+          fileName,
+          attemptId: id,
+          resume: resume || attempt > 0,
+          targetDir: targetDir,
+          destinationIsSaf: libraryRoot == null,
+        );
         if (tempPath != null) {
-          _retryAfter.remove(fileName);
+          _retryAfter.remove(id);
           break;
         }
 
-        final item = queue.itemFor(fileName);
+        final item = queue.itemForAttempt(id);
         final error = item?.error;
-        if (item == null ||
-            queue.isCancelled(fileName) ||
-            queue.isPaused(fileName) ||
-            !_isRetryable(error)) {
-          _retryAfter.remove(fileName);
+        if (item == null || held() || !_isRetryable(error)) {
+          _retryAfter.remove(id);
           return;
         }
 
-        // A Range the server keeps refusing is worthless: a resume that answers
-        // 503 will answer 503 again. The second server error starts the next
-        // attempt from byte zero, which is the shape a fresh download uses and
-        // the one an edge is most likely to serve.
         if (shouldRestartFromZero(attempt, error)) {
-          await deletePartial(fileName);
+          await deletePartial(fileName, attemptId: id);
         }
 
-        final requested = _retryAfter.remove(fileName);
+        final requested = _retryAfter.remove(id);
         if (attempt == _maxAttempts - 1) return;
-
-        await Future.delayed(retryDelayFor(attempt, requested: requested));
-        if (!queue.contains(fileName) || queue.isCancelled(fileName) || queue.isPaused(fileName)) return;
+        if (!await _waitForRetry(
+          id,
+          retryDelayFor(attempt, requested: requested),
+        )) {
+          return;
+        }
       }
     }
     if (tempPath == null) return;
-    // The row can be swiped away while the transfer finishes; do not copy an
-    // orphan into the library after that.
-    if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
+    // Re-check immediately before promotion: pause/cancel can arrive while a
+    // cached file is inspected or the response stream is closing.
+    if (!current() || held()) {
+      if (!current()) await _deleteTemp(tempPath);
+      return;
+    }
 
     var promoted = false;
-    // Set before the save, cleared once the save reports the temp is spent. A
-    // save that threw (revoked permission, card removed) used to reach the
-    // finally with this false, deleting a complete download that the retry
-    // then fetched again from byte zero — up to three times.
     var keepTemp = true;
     try {
-      // _saveToDestination returns a cancelled flag only when the reader
-      // actually dismissed the system dialog. A missing destination (the SD
-      // card was removed, there is no library and no screen to show the dialog)
-      // is a failure that must keep the entry retryable, not look like cancel.
-      // ignore: use_build_context_synchronously
-      final saved = await _saveToDestination(context,
-          file: tempPath, fileName: fileName, prefs: prefs);
-      if (saved.path != null) {
-        keepTemp = false;
-        // Only now the file exists where the library scans: mark it done first,
-        // so the done listeners see the finished entry, then celebrate.
-        queue.markDone(fileName, savedPath: saved.path);
-        // _showSuccess returns early on a dead context; the file is saved either way.
+      final saved = await _saveToDestination(
         // ignore: use_build_context_synchronously
-        _showSuccess(context, saved.path!);
+        context,
+        file: tempPath,
+        fileName: fileName,
+        libraryRoot: libraryRoot,
+        attemptId: id,
+        prefs: prefs,
+      );
+      if (saved.location.path != null || saved.location.isUri) {
+        keepTemp = false;
+        final path = saved.location.path;
+        if (path != null) {
+          await LibraryModel(prefs).registerLocalMedia(uri.toString(), path);
+        }
+        queue.markDone(
+          fileName,
+          savedPath: path,
+          savedUri: saved.location.uri,
+          attemptId: id,
+        );
+        await queue.flush();
+        // ignore: use_build_context_synchronously
+        _showSuccess(context, saved.location);
         if (cachedPath != null) {
           promoted = true;
           await cache.remove(uri.toString());
         }
       } else if (saved.cancelled) {
-        // The user cancelled the save dialog after a complete download.
         keepTemp = false;
-        queue.remove(fileName);
+        queue.remove(fileName, attemptId: id);
       } else {
-        queue.fail(fileName, error: 'save_unavailable');
-        // The bytes are complete; a retry only has to save them again.
+        queue.fail(fileName, error: 'save_unavailable', attemptId: id);
       }
     } finally {
-      // A cached file only leaves the cache once it landed in the library;
-      // a cancelled save keeps it for the next attempt.
-      if ((cachedPath == null || promoted) && !keepTemp) _deleteTemp(tempPath);
+      if ((cachedPath == null || promoted) && !keepTemp) {
+        await _deleteTemp(tempPath);
+      }
     }
   } catch (e) {
-    if (queue.isCancelled(fileName) || !queue.contains(fileName)) return;
-    queue.fail(fileName, error: _downloadError(e));
+    if (!current() || held()) return;
+    queue.fail(fileName, error: _downloadError(e), attemptId: id);
     if (context != null && context.mounted) {
       showSnackBar(context, icon: '🙊', message: e.toString());
     }
   }
+}
+
+Future<bool> _waitForRetry(String attemptId, Duration delay) async {
+  final queue = DownloadsModel();
+  final until = DateTime.now().add(delay);
+  while (DateTime.now().isBefore(until)) {
+    final item = queue.itemForAttempt(attemptId);
+    if (item == null ||
+        queue.isCancelled(item.fileName, attemptId: attemptId) ||
+        queue.isPaused(item.fileName, attemptId: attemptId)) {
+      return false;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+  return queue.itemForAttempt(attemptId) != null &&
+      !queue.isPaused(
+        queue.itemForAttempt(attemptId)!.fileName,
+        attemptId: attemptId,
+      );
 }
 
 /// True when an automatic retry can plausibly succeed. 4xx (except 408), a
@@ -365,7 +449,8 @@ int resumeOffset({
 }) {
   if (!resume || recordedBytes <= 0 || !fileExists) return 0;
   if (fileLength == recordedBytes) return recordedBytes;
-  if (fileLength > recordedBytes && fileLength - recordedBytes <= _maxLedgerLagBytes) {
+  if (fileLength > recordedBytes &&
+      fileLength - recordedBytes <= _maxLedgerLagBytes) {
     return recordedBytes;
   }
   return 0;
@@ -374,7 +459,7 @@ int resumeOffset({
 /// Re-queues a failed entry without any UI: the connectivity watcher uses it
 /// when the network comes back.
 void resumeDownload(DownloadQueueItem item, {required BasePrefService prefs}) {
-  DownloadsModel().requeue(item.fileName);
+  DownloadsModel().requeue(item.fileName, attemptId: item.attemptId);
   _workerPrefs = prefs;
   _kickWorker();
 }
@@ -383,8 +468,16 @@ void resumeDownload(DownloadQueueItem item, {required BasePrefService prefs}) {
 /// 408) and a full disk never succeed on retry.
 bool _isRetryable(String? error) {
   if (error == null || error.isEmpty) return false;
-  if (error.startsWith('HTTP') && !error.startsWith('HTTP 408') && !error.startsWith('HTTP 5')) return false;
-  if (error == 'no_space' || error == 'interrupted' || error == 'save_unavailable') return false;
+  if (error.startsWith('HTTP') &&
+      !error.startsWith('HTTP 408') &&
+      !error.startsWith('HTTP 5')) {
+    return false;
+  }
+  if (error == 'no_space' ||
+      error == 'interrupted' ||
+      error == 'save_unavailable') {
+    return false;
+  }
   return true;
 }
 
@@ -396,15 +489,25 @@ String _downloadError(Object e) {
   return e.toString();
 }
 
-Future<String> _targetDirectory(BasePrefService prefs) async {
-  final libraryPath = prefs.get<String>(optionLibraryPath);
-  if (libraryPath != null && libraryPath.isNotEmpty) return libraryPath;
-  return (await getTemporaryDirectory()).path;
+Future<bool> _sameStorageVolume(String first, String second) async {
+  if (p.equals(first, second)) return true;
+  try {
+    return await _storageChannel.invokeMethod<bool>('isSameStorageVolume', {
+          'path1': first,
+          'path2': second,
+        }) ??
+        false;
+  } on Exception {
+    // Older/native-unavailable builds conservatively assume a copy is needed.
+    return false;
+  }
 }
 
 Future<int?> _availableSpace(String path) async {
   try {
-    return await _storageChannel.invokeMethod<int>('getAvailableSpace', {'path': path});
+    return await _storageChannel.invokeMethod<int>('getAvailableSpace', {
+      'path': path,
+    });
   } on Exception {
     return null;
   }
@@ -418,7 +521,7 @@ Future<void> _deleteTemp(String? tempPath) async {
   } catch (_) {}
 }
 
-void _showSuccess(BuildContext? context, String savedPath) {
+void _showSuccess(BuildContext? context, SavedMediaLocation saved) {
   if (context == null || !context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -426,7 +529,15 @@ void _showSuccess(BuildContext? context, String savedPath) {
       action: SnackBarAction(
         label: L10n.of(context).share,
         onPressed: () async {
-          await SharePlus.instance.share(ShareParams(files: [XFile(savedPath)]));
+          final file = await shareableFileForSavedMedia(saved);
+          if (file == null) return;
+          try {
+            await SharePlus.instance.share(
+              ShareParams(files: [XFile(file.path)]),
+            );
+          } finally {
+            if (saved.isUri) await _deleteTemp(file.path);
+          }
         },
       ),
     ),
@@ -436,8 +547,11 @@ void _showSuccess(BuildContext? context, String savedPath) {
 /// Downloads [uri] right away (no queue: a share is a foreground action) and
 /// opens the share sheet with the file — the "send the meme straight to
 /// WhatsApp" shortcut.
-Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
-    {required BasePrefService prefs}) async {
+Future<void> downloadAndShare(
+  BuildContext context,
+  Uri uri,
+  String fileName,
+) async {
   final sanitizedFilename = _sanitized(fileName);
 
   String? tempPath;
@@ -445,9 +559,14 @@ Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
     final targetDir = (await getTemporaryDirectory()).path;
     // _downloadToTemp tolerates a context whose screen is gone; only the error
     // snackbar is skipped.
-    // ignore: use_build_context_synchronously
-    tempPath = await _downloadToTemp(context, uri, sanitizedFilename,
-        targetDir: targetDir, queueManaged: false);
+    tempPath = await _downloadToTemp(
+      // ignore: use_build_context_synchronously
+      context,
+      uri,
+      sanitizedFilename,
+      targetDir: targetDir,
+      queueManaged: false,
+    );
     if (tempPath == null) return;
 
     if (context.mounted) {
@@ -465,10 +584,13 @@ Future<void> downloadAndShare(BuildContext context, Uri uri, String fileName,
 void _showStatusError(BuildContext? context, Object statusCode) {
   if (context == null || !context.mounted) return;
   showSnackBar(
-      context,
-      icon: '🙊',
-      message: L10n.of(context)
-          .unable_to_save_the_media_twitter_returned_a_status_of_response_statusCode(statusCode));
+    context,
+    icon: '🙊',
+    message: L10n.of(context)
+        .unable_to_save_the_media_twitter_returned_a_status_of_response_statusCode(
+          statusCode,
+        ),
+  );
 }
 
 /// Saves the downloaded temp file to the user's destination. `cancelled` is
@@ -478,53 +600,83 @@ void _showStatusError(BuildContext? context, Object statusCode) {
 /// destination; without a configured folder the system save dialog keeps
 /// downloads usable. An existing file with the same name is never overwritten:
 /// the new copy gets a timestamp suffix.
-Future<({String? path, bool cancelled})> _saveToDestination(BuildContext? context,
-    {required String file, required String fileName, required BasePrefService prefs}) async {
-  final libraryPath = prefs.get<String>(optionLibraryPath);
-  if (libraryPath != null && libraryPath.isNotEmpty) {
-    final library = Directory(libraryPath);
+Future<({SavedMediaLocation location, bool cancelled})> _saveToDestination(
+  BuildContext? context, {
+  required String file,
+  required String fileName,
+  required String? libraryRoot,
+  required String attemptId,
+  required BasePrefService prefs,
+}) async {
+  final queue = DownloadsModel();
+  final item = queue.itemForAttempt(attemptId);
+  if (item == null ||
+      queue.isCancelled(item.fileName, attemptId: attemptId) ||
+      queue.isPaused(item.fileName, attemptId: attemptId)) {
+    return (location: const SavedMediaLocation(), cancelled: false);
+  }
+
+  if (libraryRoot != null && libraryRoot.isNotEmpty) {
+    final library = Directory(libraryRoot);
     if (await library.exists()) {
       var savedFile = p.join(library.path, fileName);
       if (await File(savedFile).exists()) {
         savedFile = p.join(
-            library.path,
-            '${p.basenameWithoutExtension(fileName)}-${DateTime.now().millisecondsSinceEpoch}'
-            '${p.extension(fileName)}');
+          library.path,
+          '${p.basenameWithoutExtension(fileName)}-${DateTime.now().millisecondsSinceEpoch}'
+          '${p.extension(fileName)}',
+        );
       }
       final source = File(file);
-      try {
-        // Same volume: this is atomic and needs no second copy. The library is
-        // often on shared storage, though, and Android's rename cannot cross
-        // filesystems, so fall back to a copy and only then drop the temp.
-        await source.rename(savedFile);
-      } on FileSystemException {
-        await source.copy(savedFile);
-        await source.delete();
+      await moveFileAtomically(
+        source,
+        File(savedFile),
+        shouldCommit: () async {
+          final current = queue.itemForAttempt(attemptId);
+          return current != null &&
+              !queue.isCancelled(item.fileName, attemptId: attemptId) &&
+              !queue.isPaused(item.fileName, attemptId: attemptId);
+        },
+      );
+      if (!LibraryModel(prefs).isHidden) {
+        try {
+          await _storageChannel.invokeMethod('scanMediaFile', {
+            'path': savedFile,
+          });
+        } catch (_) {
+          // The file is saved even when MediaStore is unavailable.
+        }
       }
-      return (path: savedFile, cancelled: false);
+      return (location: SavedMediaLocation(path: savedFile), cancelled: false);
     }
   }
 
   // The system dialog needs a live screen; an automatic resume has none.
+  // ignore: use_build_context_synchronously
   if (context == null || !context.mounted) {
-    return (path: null, cancelled: false);
+    return (location: const SavedMediaLocation(), cancelled: false);
   }
 
-  final saved = await FlutterFileDialog.saveFile(
-    params: SaveFileDialogParams(sourceFilePath: file, fileName: fileName),
-  );
-  return (path: saved, cancelled: saved == null);
+  final saved = await _storageChannel.invokeMethod<String>('saveMediaFile', {
+    'sourcePath': file,
+    'fileName': fileName,
+  });
+  final location = SavedMediaLocation.parse(saved);
+  return (location: location, cancelled: saved == null);
 }
 
 /// Queues the retry of a failed entry through the same one-at-a-time queue
 /// (first in line when the current transfer ends). When the server honours
 /// Range requests the download resumes from the bytes already on disk.
-Future<void> retryDownload(BuildContext context, DownloadQueueItem item,
-    {required BasePrefService prefs}) async {
-  DownloadsModel().requeue(item.fileName);
+Future<void> retryDownload(
+  BuildContext context,
+  DownloadQueueItem item, {
+  required BasePrefService prefs,
+}) async {
+  DownloadsModel().requeue(item.fileName, attemptId: item.attemptId);
 
   _workerPrefs = prefs;
-  _workerContexts[item.fileName] = context;
+  _workerContexts[item.attemptId] = context;
   _kickWorker();
 }
 
@@ -542,16 +694,47 @@ http.Request _rangeRequest(Uri uri, int offset, {String? validator}) {
 /// `send()` waits for the connection, TLS and the first response byte with no
 /// timeout of its own. A dead socket therefore used to pin the only queue
 /// worker until the OS gave up.
-Future<http.StreamedResponse> _send(http.Client client, Uri uri, int offset, {String? validator}) =>
-    client.send(_rangeRequest(uri, offset, validator: validator)).timeout(_responseTimeout);
+Future<http.StreamedResponse> _send(
+  http.Client client,
+  Uri uri,
+  int offset, {
+  String? validator,
+}) => client
+    .send(_rangeRequest(uri, offset, validator: validator))
+    .timeout(_responseTimeout);
 
-/// The first byte position of a 206 body, or null when the header is missing
-/// or malformed.
-int? _contentRangeStart(http.StreamedResponse response) {
-  final value = response.headers['content-range'];
-  if (value == null) return null;
-  final match = RegExp(r'bytes\s+(\d+)-').firstMatch(value);
-  return match == null ? null : int.tryParse(match.group(1)!);
+class ContentRange {
+  const ContentRange(this.start, this.end, this.total);
+
+  final int start;
+  final int end;
+  final int total;
+  int get length => end - start + 1;
+}
+
+/// Validates the whole 206 contract, not just the first number. A short or
+/// malformed range is rejected rather than appended and later reported as a
+/// complete file.
+@visibleForTesting
+ContentRange? parseContentRange(
+  String? value, {
+  required int? bodyLength,
+  bool requireCompleteRemainder = false,
+}) {
+  if (value == null || bodyLength == null) return null;
+  final match = RegExp(
+    r'^bytes\s+(\d+)-(\d+)/(\d+)$',
+    caseSensitive: false,
+  ).firstMatch(value.trim());
+  if (match == null) return null;
+  final start = int.tryParse(match.group(1)!);
+  final end = int.tryParse(match.group(2)!);
+  final total = int.tryParse(match.group(3)!);
+  if (start == null || end == null || total == null || total <= 0) return null;
+  if (start < 0 || end < start || end >= total) return null;
+  if (end - start + 1 != bodyLength) return null;
+  if (requireCompleteRemainder && end != total - 1) return null;
+  return ContentRange(start, end, total);
 }
 
 /// Test seam for the transfer path: production callers always go through the
@@ -565,9 +748,17 @@ Future<String?> debugDownloadToTemp(
   required String targetDir,
   bool queueManaged = true,
   http.Client? client,
-}) =>
-    _downloadToTemp(null, uri, fileName,
-        resume: resume, targetDir: targetDir, queueManaged: queueManaged, client: client);
+  bool destinationIsSaf = false,
+}) => _downloadToTemp(
+  null,
+  uri,
+  fileName,
+  resume: resume,
+  targetDir: targetDir,
+  queueManaged: queueManaged,
+  client: client,
+  destinationIsSaf: destinationIsSaf,
+);
 
 /// Streams the response to a temporary file while feeding the downloads queue
 /// (visible on the Downloads navbar tab) — Hentoid-style: the reader stays
@@ -578,21 +769,39 @@ Future<String?> debugDownloadToTemp(
 /// gone — means nobody is watching: the transfer still runs to completion and
 /// only the error snackbar is skipped, which is why the call sites hand it a
 /// context that may already be dead.
-Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
-    {bool resume = false,
-    required String targetDir,
-    bool queueManaged = true,
-    http.Client? client}) async {
-  final tempPath =
-      queueManaged ? await partialPathFor(fileName) : await shareTempPathFor(fileName);
+Future<String?> _downloadToTemp(
+  BuildContext? context,
+  Uri uri,
+  String fileName, {
+  bool resume = false,
+  required String targetDir,
+  bool queueManaged = true,
+  http.Client? client,
+  String? attemptId,
+  bool destinationIsSaf = false,
+}) async {
   final queue = DownloadsModel();
+  final id = queueManaged
+      ? (attemptId ?? queue.itemFor(fileName)?.attemptId)
+      : null;
+  if (queueManaged && id == null) return null;
+  final item = id == null ? null : queue.itemForAttempt(id);
+  var tempPath = queueManaged
+      ? await partialPathFor(fileName, attemptId: id)
+      : await shareTempPathFor(fileName);
+  if (queueManaged && resume && id != null && !await File(tempPath).exists()) {
+    final legacy = File(await legacyPartialPathFor(fileName));
+    if (await legacy.exists()) {
+      await moveFileAtomically(legacy, File(tempPath));
+    }
+  }
   final httpClient = client ?? http.Client();
   var keepTemp = false;
 
-  if (queueManaged) {
+  if (queueManaged && id != null) {
     queue.attachCancel(fileName, () {
       httpClient.close(); // the stream loop surfaces as a ClientException and cleans up
-    });
+    }, attemptId: id);
   }
 
   try {
@@ -603,7 +812,6 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
 
     // A save that failed after a complete transfer leaves the whole file in
     // the temp path. Do not download it again just to retry the copy.
-    final item = queueManaged ? queue.itemFor(fileName) : null;
     if (resume &&
         item != null &&
         item.totalBytes != null &&
@@ -616,7 +824,9 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
 
     var offset = resumeOffset(
       resume: resume && queueManaged,
-      recordedBytes: queueManaged ? queue.resumeOffsetFor(fileName) : 0,
+      recordedBytes: queueManaged
+          ? queue.resumeOffsetFor(fileName, attemptId: id)
+          : 0,
       fileExists: partialExists,
       fileLength: partialLength,
     );
@@ -632,6 +842,11 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     }
 
     final validator = item?.validator;
+    if (queueManaged &&
+        (queue.isCancelled(fileName, attemptId: id) ||
+            queue.isPaused(fileName, attemptId: id))) {
+      return null;
+    }
     var response = await _send(httpClient, uri, offset, validator: validator);
     if (response.statusCode == 416 && offset > 0) {
       // The partial bytes no longer match the remote file: start over clean.
@@ -640,19 +855,53 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
       response = await _send(httpClient, uri, 0);
     }
 
-    // A 206 that does not start where we asked would be appended at the wrong
-    // place. Trust the header, not the status code.
-    if (offset > 0 && response.statusCode == 206 && _contentRangeStart(response) != offset) {
-      await _deleteTemp(tempPath);
-      offset = 0;
-      response = await _send(httpClient, uri, 0);
+    ContentRange? partialRange;
+    var isPartial = response.statusCode == 206;
+    if (isPartial) {
+      partialRange = parseContentRange(
+        response.headers['content-range'],
+        bodyLength: response.contentLength,
+        requireCompleteRemainder: true,
+      );
+      if (partialRange == null || (offset == 0 && partialRange.start != 0)) {
+        if (queueManaged) {
+          queue.fail(fileName, error: 'invalid_range', attemptId: id);
+        }
+        return null;
+      }
+      // A proxy that answers a complete range from zero is stale, not corrupt:
+      // discard the partial and re-request the whole object once.
+      if (offset > 0 && partialRange.start != offset) {
+        await _deleteTemp(tempPath);
+        offset = 0;
+        response = await _send(httpClient, uri, 0);
+        isPartial = response.statusCode == 206;
+        partialRange = isPartial
+            ? parseContentRange(
+                response.headers['content-range'],
+                bodyLength: response.contentLength,
+                requireCompleteRemainder: true,
+              )
+            : null;
+        if (isPartial && (partialRange == null || partialRange.start != 0)) {
+          if (queueManaged) {
+            queue.fail(fileName, error: 'invalid_range', attemptId: id);
+          }
+          return null;
+        }
+      }
     }
 
-    final isPartial = response.statusCode == 206;
     if (response.statusCode != 200 && !isPartial) {
       final requested = parseRetryAfter(response.headers['retry-after']);
-      if (queueManaged && requested != null) _retryAfter[fileName] = requested;
-      if (queueManaged) queue.fail(fileName, error: 'HTTP ${response.statusCode}');
+      if (queueManaged && requested != null) _retryAfter[id!] = requested;
+      if (queueManaged) {
+        queue.fail(
+          fileName,
+          error: 'HTTP ${response.statusCode}',
+          attemptId: id,
+        );
+      }
       // _showStatusError checks the context itself, and the failure is recorded
       // whether or not it can be shown.
       // ignore: use_build_context_synchronously
@@ -662,33 +911,52 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
 
     final append = offset > 0 && isPartial;
     if (queueManaged) {
-      queue.setValidator(fileName,
-          etag: response.headers['etag'], lastModified: response.headers['last-modified']);
+      queue.setValidator(
+        fileName,
+        etag: response.headers['etag'],
+        lastModified: response.headers['last-modified'],
+        attemptId: id,
+      );
     }
     final contentLength = response.contentLength;
-    final totalBytes = contentLength == null
-        ? null
-        : (append ? offset + contentLength : contentLength);
+    final totalBytes = isPartial ? partialRange!.total : contentLength;
+    final remainingBytes = isPartial ? partialRange!.length : contentLength;
 
     if (totalBytes != null) {
-      // The bytes are written to the temp directory first and only then moved
-      // to the library, so both volumes need room.
-      final needed = totalBytes + _spaceMarginBytes;
-      final freeTemp = await _availableSpace(p.dirname(tempPath));
-      final freeTarget = await _availableSpace(targetDir);
-      if ((freeTemp != null && needed > freeTemp) || (freeTarget != null && needed > freeTarget)) {
+      // The temp volume only needs the bytes still to arrive on a resume. A
+      // same-volume library promotion is a rename, so its free bytes are the
+      // same ones already checked above. Cross-volume copies can need a second
+      // full-file allocation; SAF has no destination volume to check yet.
+      final neededTemp = (remainingBytes ?? totalBytes) + _spaceMarginBytes;
+      final neededTarget = totalBytes + _spaceMarginBytes;
+      final tempDir = p.dirname(tempPath);
+      final freeTemp = await _availableSpace(tempDir);
+      // SAF's destination is unknown until the user picks a URI. The temp
+      // directory says nothing about that provider's free space.
+      final sameVolume = destinationIsSaf
+          ? null
+          : await _sameStorageVolume(tempDir, targetDir);
+      final freeTarget = !destinationIsSaf && sameVolume == false
+          ? await _availableSpace(targetDir)
+          : null;
+      if ((freeTemp != null && neededTemp > freeTemp) ||
+          (freeTarget != null && neededTarget > freeTarget)) {
         if (queueManaged) {
-          queue.fail(fileName, error: 'no_space');
+          queue.fail(fileName, error: 'no_space', attemptId: id);
         } else if (context != null && context.mounted) {
           // A share has no queue entry; without this it failed in silence.
-          showSnackBar(context,
-              icon: '🙊', message: L10n.of(context).download_no_space);
+          showSnackBar(
+            context,
+            icon: '🙊',
+            message: L10n.of(context).download_no_space,
+          );
         }
         return null;
       }
     }
 
-    final sink = File(tempPath).openWrite(mode: append ? FileMode.append : FileMode.write);
+    final sink = File(tempPath)
+        .openWrite(mode: append ? FileMode.append : FileMode.write);
     var received = append ? offset : 0;
     var lastSample = DateTime.now();
     var lastReceived = 0;
@@ -699,7 +967,11 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
         // Re-check every chunk: a pause that arrived before the abort hook was
         // attached still has to stop the transfer here. A share has no queue
         // entry, so its flags must not abort an unrelated transfer.
-        if (queueManaged && (queue.isCancelled(fileName) || queue.isPaused(fileName))) break;
+        if (queueManaged &&
+            (queue.isCancelled(fileName, attemptId: id) ||
+                queue.isPaused(fileName, attemptId: id))) {
+          break;
+        }
         sink.add(chunk);
         received += chunk.length;
 
@@ -712,7 +984,15 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
           // Four updates per second are enough for a progress bar. Calling this
           // per socket chunk rebuilt the whole queue (and its badge) thousands of
           // times during one large transfer.
-          if (queueManaged) queue.progress(fileName, received, totalBytes, speed);
+          if (queueManaged) {
+            queue.progress(
+              fileName,
+              received,
+              totalBytes,
+              speed,
+              attemptId: id,
+            );
+          }
         }
       }
     } finally {
@@ -720,17 +1000,25 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
       // record the bytes that are actually on disk. A pause is exactly when
       // the ledger must match the file for the next Range request.
       await sink.close();
-      if (queueManaged && received > 0) queue.recordBytes(fileName, received, totalBytes);
+      if (queueManaged && received > 0) {
+        queue.recordBytes(fileName, received, totalBytes, attemptId: id);
+      }
     }
 
     // A pause or a cancel that arrived mid-stream (before the abort hook was
     // attached, or between chunks): the partial file stays on disk for the
     // resume, and the entry is already parked. Not a failure.
-    if (queueManaged && (queue.isCancelled(fileName) || queue.isPaused(fileName))) return null;
+    if (queueManaged &&
+        (queue.isCancelled(fileName, attemptId: id) ||
+            queue.isPaused(fileName, attemptId: id))) {
+      return null;
+    }
 
     if (totalBytes != null && received < totalBytes) {
       // Truncated transfer: keep the partial so a retry can resume it.
-      queue.fail(fileName, error: 'incomplete');
+      if (queueManaged) {
+        queue.fail(fileName, error: 'incomplete', attemptId: id);
+      }
       return null;
     }
 
@@ -738,14 +1026,13 @@ Future<String?> _downloadToTemp(BuildContext? context, Uri uri, String fileName,
     return tempPath;
   } on Exception catch (e) {
     if (!queueManaged) return null;
-    if (queue.isCancelled(fileName)) {
+    if (id != null && !queue.isAttemptCurrent(fileName, id)) {
+      await _deleteTemp(tempPath);
+    } else if (queue.isCancelled(fileName, attemptId: id)) {
       // User aborted from the queue: drop the partial file with the entry.
-      _deleteTemp(tempPath);
-    } else if (queue.isPaused(fileName)) {
-      // pause(): the entry is already parked and the partial file stays on
-      // disk, so resuming sends a Range request from where it stopped.
-    } else {
-      queue.fail(fileName, error: _downloadError(e));
+      await _deleteTemp(tempPath);
+    } else if (!queue.isPaused(fileName, attemptId: id)) {
+      queue.fail(fileName, error: _downloadError(e), attemptId: id);
     }
     return null;
   } finally {

@@ -8,17 +8,21 @@ class GifGridItem extends MediaGridItem {
     required super.aspectRatio,
     required super.mediaIndex,
     required super.media,
+    super.possiblySensitive,
   });
 
   @override
   Widget toWidget(BuildContext context) {
     return IgnorePointer(
       child: TweetVideo(
+        key: ValueKey(identity),
         metadata: TweetVideoMetadata.fromMedia(media),
         loop: true,
         alwaysPlay: true,
         disableControls: true,
         username: username,
+        tweetId: tweetId,
+        mediaIndex: mediaIndex,
       ),
     );
   }

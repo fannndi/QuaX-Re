@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:pref/pref.dart';
+import 'package:quax/client/http_client.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/profile/profile.dart' show profileTabs;
 import 'package:url_launcher/url_launcher_string.dart';
@@ -16,7 +19,9 @@ const _channel = quaxMethodChannel;
 /// otherwise reach `Activity.startActivity` intact.
 bool isLaunchableLink(String uri) {
   final parsed = Uri.tryParse(uri);
-  return parsed != null && parsed.hasScheme && (parsed.scheme == 'http' || parsed.scheme == 'https');
+  return parsed != null &&
+      parsed.hasScheme &&
+      (parsed.scheme == 'http' || parsed.scheme == 'https');
 }
 
 Future<void> openInDefaultBrowser(String url) async {
@@ -34,10 +39,13 @@ Future<void> openInDefaultBrowser(String url) async {
 Future<void> openUri(BuildContext context, String uri) async {
   if (!isLaunchableLink(uri)) return;
 
-  final embedded = PrefService.of(context).get(optionOpenLinksInEmbeddedBrowser) == true;
+  final embedded =
+      PrefService.of(context).get(optionOpenLinksInEmbeddedBrowser) == true;
   await launchUrlString(
     uri,
-    mode: embedded ? LaunchMode.inAppBrowserView : LaunchMode.externalApplication,
+    mode: embedded
+        ? LaunchMode.inAppBrowserView
+        : LaunchMode.externalApplication,
   );
 }
 
@@ -68,9 +76,29 @@ ProfileUriInfo? _parseAsProfileLink(List<String> parts) {
   // x.com/home in QuaX showed a "user not found" profile instead of the
   // browser.
   const reserved = {
-    'home', 'search', 'explore', 'notifications', 'messages', 'settings', 'compose',
-    'login', 'logout', 'i', 'intent', 'share', 'tos', 'privacy', 'about', 'jobs',
-    'help', 'download', 'signup', 'account', 'ads', 'business', 'developers',
+    'home',
+    'search',
+    'explore',
+    'notifications',
+    'messages',
+    'settings',
+    'compose',
+    'login',
+    'logout',
+    'i',
+    'intent',
+    'share',
+    'tos',
+    'privacy',
+    'about',
+    'jobs',
+    'help',
+    'download',
+    'signup',
+    'account',
+    'ads',
+    'business',
+    'developers',
   };
 
   // https://x.com/DogsTrust
@@ -80,7 +108,8 @@ ProfileUriInfo? _parseAsProfileLink(List<String> parts) {
   }
 
   const Map<String, ProfileTabs?> supportedProfileSubpaths = {
-    "with_replies": ProfileTabs.postsAndReplies, // https://x.com/DogsTrust/with_replies
+    "with_replies":
+        ProfileTabs.postsAndReplies, // https://x.com/DogsTrust/with_replies
     "media": ProfileTabs.media, // https://x.com/DogsTrust/media
     // All following sublinks are not supported by QuaX, but remain valid for an account link
     "highlights": null, // https://x.com/DogsTrust/highlights
@@ -120,19 +149,31 @@ PostUriInfo? _parseAsPostLink(List<String> parts) {
   if (parts.length < 3) return null;
 
   if (parts[1] == "status") {
-    return PostUriInfo(parts[0], parts[2], photoNumber: extractPhotoNumber(parts, 3));
+    return PostUriInfo(
+      parts[0],
+      parts[2],
+      photoNumber: extractPhotoNumber(parts, 3),
+    );
   }
 
   if (parts.length < 4) return null;
 
   if (parts[0] == "i" && parts[1] == "topics" && parts[2] == "tweet") {
-    return PostUriInfo(null, parts[3], photoNumber: extractPhotoNumber(parts, 4));
+    return PostUriInfo(
+      null,
+      parts[3],
+      photoNumber: extractPhotoNumber(parts, 4),
+    );
   }
 
   // https://x.com/i/web/status/1729 — the shape X hands out for a post opened
   // from its own "web" entry point. It carries no user name either.
   if (parts[0] == "i" && parts[1] == "web" && parts[2] == "status") {
-    return PostUriInfo(null, parts[3], photoNumber: extractPhotoNumber(parts, 4));
+    return PostUriInfo(
+      null,
+      parts[3],
+      photoNumber: extractPhotoNumber(parts, 4),
+    );
   }
 
   // The URI is not a post link
@@ -149,14 +190,47 @@ const _shortUrlTimeout = Duration(seconds: 8);
 const _maxShortUrlHops = 5;
 
 Future<String?> _resolveShortUrl(Uri shortUrl) async {
-  final request = http.Request('GET', shortUrl)
-    ..followRedirects = false;
+  final abort = Completer<void>();
+  final timer = Timer(_shortUrlTimeout, abort.complete);
+  final request = http.AbortableRequest(
+    'GET',
+    shortUrl,
+    abortTrigger: abort.future,
+  )..followRedirects = false;
 
-  final response = await request.send().timeout(_shortUrlTimeout);
-  if (response.isRedirect || response.statusCode == 301 || response.statusCode == 302) {
-    return response.headers['location'];
+  final http.StreamedResponse response;
+  try {
+    response = await quaxHttpClient.send(request);
+  } catch (_) {
+    timer.cancel();
+    rethrow;
   }
-  return response.request?.url.toString();
+
+  // Drain every body, including redirects, before opening the next hop. Without
+  // this the shared connection cannot be reused and a stalled body leaks a socket.
+  final drained = Completer<void>();
+  final subscription = response.stream.listen(
+    (_) {},
+    onDone: drained.complete,
+    onError: drained.completeError,
+    cancelOnError: true,
+  );
+  try {
+    if (response.isRedirect ||
+        response.statusCode == 301 ||
+        response.statusCode == 302) {
+      return response.headers['location'];
+    }
+    return response.request?.url.toString();
+  } finally {
+    try {
+      await drained.future.timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // The abort trigger or cancellation below owns the stalled stream.
+    }
+    await subscription.cancel();
+    timer.cancel();
+  }
 }
 
 class UnknownResult extends UriParseResult {}
@@ -165,13 +239,13 @@ class UnknownResult extends UriParseResult {}
 /// must be one of these too: a lookalike host such as x.com.evil.tld used to be
 /// parsed as an X post because only the t.co hop was checked.
 bool isXHost(String host) => const {
-      'x.com',
-      'www.x.com',
-      'mobile.x.com',
-      'twitter.com',
-      'www.twitter.com',
-      'mobile.twitter.com',
-    }.contains(host.toLowerCase());
+  'x.com',
+  'www.x.com',
+  'mobile.x.com',
+  'twitter.com',
+  'www.twitter.com',
+  'mobile.twitter.com',
+}.contains(host.toLowerCase());
 
 Future<UriParseResult> parseUri(Uri link, {int shortUrlHops = 0}) async {
   if (link.host == 't.co') {

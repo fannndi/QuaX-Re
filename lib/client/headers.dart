@@ -27,8 +27,8 @@ class TwitterHeaders {
   static DateTime? _initializedAt;
   static DateTime? _deriveDisabledUntil;
 
-  // initialize() fetches and parses x.com/home plus an ondemand script: bound
-  // it, so a hanging request cannot stall every API call for the whole session.
+  // initialize() fetches and parses x.com/home plus its signing chunks. The
+  // deadline is forwarded into every abortable HTTP request, not just the future.
   static const _initTimeout = Duration(seconds: 15);
 
   // X rotates the keys the transaction id is derived from with their deploys.
@@ -43,11 +43,14 @@ class TwitterHeaders {
 
   // A 403 means the transaction key itself is wrong, unlike the age-based 404
   // path. Force one re-derivation, then back off so a broken page cannot make
-  // every request pay for the 16-chunk initialization.
+  // every request pay for the bounded chunk-discovery walk.
   static const _forcedInvalidationCooldown = Duration(seconds: 60);
   static DateTime? _lastForcedInvalidation;
 
-  static Future<Map<String, String>?> getXClientTransactionIdHeader(Uri? uri, {String method = 'GET'}) async {
+  static Future<Map<String, String>?> getXClientTransactionIdHeader(
+    Uri? uri, {
+    String method = 'GET',
+  }) async {
     if (uri == null) {
       return null;
     }
@@ -58,12 +61,17 @@ class TwitterHeaders {
     }
 
     try {
-      _initFuture ??= ClientTransaction.initialize().timeout(_initTimeout).then((ct) {
-        _initializedAt = DateTime.now();
-        return ct;
-      });
+      _initFuture ??=
+          ClientTransaction.initialize(
+            deadline: DateTime.now().add(_initTimeout),
+          ).timeout(_initTimeout).then((ct) {
+            _initializedAt = DateTime.now();
+            return ct;
+          });
       final ct = await _initFuture!;
-      return {'x-client-transaction-id': ct.generateTransactionId(method, uri.path)};
+      return {
+        'x-client-transaction-id': ct.generateTransactionId(method, uri.path),
+      };
     } catch (e) {
       // Deriving the id reads a page X owns and reshapes whenever they deploy —
       // they have moved it outright before (the x-web migration of 2026), and
@@ -74,7 +82,9 @@ class TwitterHeaders {
       _initFuture = null;
       _initializedAt = null;
       _deriveDisabledUntil = DateTime.now().add(_deriveCooldown);
-      log.warning('No x-client-transaction-id for the next ${_deriveCooldown.inMinutes} min: $e');
+      log.warning(
+        'No x-client-transaction-id for the next ${_deriveCooldown.inMinutes} min: $e',
+      );
       return null;
     }
   }
@@ -88,7 +98,7 @@ class TwitterHeaders {
   /// the derivation has actually succeeded at least once, though: a 404 on a
   /// rotated queryId (the common cause, per the comment in `fetch()`) used to
   /// clear the back-off unconditionally, so a fundamentally broken derivation
-  /// re-attempted `ClientTransaction.initialize()` — up to 16 chunk requests —
+  /// re-attempted `ClientTransaction.initialize()` — with its bounded chunk-discovery walk —
   /// on every single 404 with no back-off at all.
   static void invalidateIfStale() {
     final at = _initializedAt;
@@ -108,7 +118,7 @@ class TwitterHeaders {
   /// Drops the cached transaction generator after a 403, which means the key
   /// itself is wrong (not merely old). Returns true when a retry is worth
   /// making; the cooldown keeps a permanently broken page from re-running the
-  /// 16-chunk derivation on every request.
+  /// bounded chunk-discovery derivation on every request.
   static bool invalidateNow() {
     final now = DateTime.now();
     final last = _lastForcedInvalidation;
@@ -130,16 +140,22 @@ class TwitterHeaders {
     _lastForcedInvalidation = null;
   }
 
-  static Future<Map<String, String>> getHeaders(Uri? uri, Map<dynamic, dynamic>? authHeader,
-      {String method = 'GET'}) async {
-    final xClientTransactionIdHeader = await getXClientTransactionIdHeader(uri, method: method);
+  static Future<Map<String, String>> getHeaders(
+    Uri? uri,
+    Map<dynamic, dynamic>? authHeader, {
+    String method = 'GET',
+  }) async {
+    final xClientTransactionIdHeader = await getXClientTransactionIdHeader(
+      uri,
+      method: method,
+    );
     return {
       ..._baseHeaders,
       // The web client marks authenticated requests with this; omitting it is
       // one more way a port looks different from the real session.
       if (authHeader != null) 'x-twitter-auth-type': 'OAuth2Session',
       if (authHeader != null) ...Map<String, String>.from(authHeader),
-      ...?xClientTransactionIdHeader
+      ...?xClientTransactionIdHeader,
     };
   }
 }
