@@ -17,6 +17,7 @@ void main() {
     test('Should accept normalized x.com/home with an optional slash or query', () {
       for (final url in [
         'https://x.com/home',
+        'https://x.com/',
         'https://x.com/home/',
         'https://x.com/home?ref=login',
         'https://x.com/home/?ref=login',

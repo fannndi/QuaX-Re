@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/client/accounts.dart';
@@ -55,19 +56,24 @@ bool isLoginCompleteUrl(String url) {
       parsed.host.toLowerCase() != 'x.com') {
     return false;
   }
-  return parsed.path.replaceFirst(RegExp(r'/+$'), '') == '/home';
+  final path = parsed.path.replaceFirst(RegExp(r'/+$'), '');
+  return path == '/home' || path.isEmpty;
 }
 
 String get loginWebViewUserAgent => userAgentHeader['user-agent']!;
 
 class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
   static const _channel = quaxMethodChannel;
+  static final log = Logger('TwitterLoginWebview');
 
-  /// The logged-in handle, then the slice of the page around it that carries
-  /// the numeric id. A window instead of the whole document: the home HTML runs
-  /// to megabytes, and the id sits right next to the handle.
+  /// The x-web build publishes the viewer identity as a small JSON object.
+  /// Older builds only expose it in the HTML, next to the first screen name.
   static const _bootstrapScript =
-      "(() => { const h = document.documentElement.outerHTML;"
+      "(() => { const data = window.__INITIAL_DATA__;"
+      " if (data && typeof data.viewerScreenName === 'string' && data.viewerScreenName) {"
+      " return JSON.stringify({viewerScreenName:data.viewerScreenName, viewerId:data.viewerId ?? null});"
+      " }"
+      " const h = document.documentElement.outerHTML;"
       " const m = h.match(/\"screen_name\":\"([^\"]+)\"/); if (!m) return '';"
       " const i = h.indexOf('\"screen_name\":\"' + m[1] + '\"');"
       " return m[1] + '|||' + h.slice(Math.max(0, i), i + 3000); })()";
@@ -142,49 +148,74 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
     });
   }
 
+  Future<({String screenName, String? userId, Map<String, String> authHeader})?>
+  _resolveSession() async {
+    for (var attempt = 0; attempt < 20; attempt++) {
+      final authHeader = await _readAuthHeader();
+      if (authHeader != null) {
+        final bootstrap = await _readBootstrapIdentity();
+        if (bootstrap.screenName.isNotEmpty) {
+          return (
+            screenName: bootstrap.screenName,
+            userId: bootstrap.userId,
+            authHeader: authHeader,
+          );
+        }
+      }
+      if (attempt < 19) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, String>?> _readAuthHeader() async {
+    final cookies = await _cookieManager.getCookies(
+      'https://x.com/i/flow/login',
+    );
+    String? csrfToken;
+    var hasAuthToken = false;
+    for (final cookie in cookies) {
+      if (cookie.name == 'ct0' && cookie.value.isNotEmpty) {
+        csrfToken = cookie.value;
+      }
+      if (cookie.name == 'auth_token' && cookie.value.isNotEmpty) {
+        hasAuthToken = true;
+      }
+    }
+    if (csrfToken == null || !hasAuthToken) return null;
+
+    const allowed = {'guest_id', 'gt', 'att', 'auth_token', 'ct0'};
+    return {
+      'Cookie': cookies
+          .where((cookie) => allowed.contains(cookie.name))
+          .map((cookie) => '${cookie.name}=${cookie.value}')
+          .join(';'),
+      'authorization': bearerToken,
+      'x-csrf-token': csrfToken,
+    };
+  }
+
+  Future<({String screenName, String? userId})> _readBootstrapIdentity() async {
+    try {
+      final raw = await _controller.runJavaScriptReturningResult(
+        _bootstrapScript,
+      );
+      return parseLoginBootstrap(_decodeJavaScriptString(raw));
+    } catch (_) {
+      return (screenName: '', userId: null);
+    }
+  }
+
   Future<void> _onUrlChange(UrlChange change) async {
     if (_completing || !isLoginCompleteUrl(change.url ?? '')) return;
     _completing = true;
 
     try {
-      final cookies = await _cookieManager.getCookies(
-        'https://x.com/i/flow/login',
-      );
-
-      // The home page embeds the logged-in handle and its numeric id in its
-      // bootstrap state; it can arrive a beat after the URL changes, so give it
-      // a few tries. The id is stored with the account: the Likes endpoint
-      // answers only for a numeric userId, never for a session token.
-      var screenName = '';
-      String? userId;
-      for (var attempt = 0; attempt < 20 && screenName.isEmpty; attempt++) {
-        if (attempt > 0) {
-          await Future<void>.delayed(const Duration(milliseconds: 500));
-        }
-        final raw = await _controller.runJavaScriptReturningResult(
-          _bootstrapScript,
-        );
-        final parsed = parseLoginBootstrap(_decodeJavaScriptString(raw));
-        screenName = parsed.screenName;
-        userId = parsed.userId;
-      }
-      if (screenName.isEmpty) {
+      final session = await _resolveSession();
+      if (session == null) {
         _completing = false;
-        return; // Leave the web view up; the login may still be settling.
-      }
-
-      // Read the cookie list rather than formatting it into one string: a
-      // regex that requires a trailing semicolon silently failed when ct0 was
-      // the last cookie, and the screen then closed without saving anything.
-      String? csrfToken;
-      for (final cookie in cookies) {
-        if (cookie.name == 'ct0' && cookie.value.isNotEmpty) {
-          csrfToken = cookie.value;
-          break;
-        }
-      }
-      if (csrfToken == null) {
-        _completing = false;
+        log.warning('Login completed without a readable X session identity');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(L10n.of(context).login_session_not_ready)),
@@ -193,27 +224,16 @@ class _TwitterLoginWebviewState extends State<TwitterLoginWebview> {
         return;
       }
 
-      final Map<String, String> authHeader = {
-        "Cookie": cookies
-            .where(
-              (cookie) =>
-                  cookie.name == "guest_id" ||
-                  cookie.name == "gt" ||
-                  cookie.name == "att" ||
-                  cookie.name == "auth_token" ||
-                  cookie.name == "ct0",
-            )
-            .map((cookie) => '${cookie.name}=${cookie.value}')
-            .join(";"),
-        "authorization": bearerToken,
-        "x-csrf-token": csrfToken,
-      };
+      // The home page publishes the viewer identity after the URL changes, so
+      // give the x-web bootstrap state a few tries. The id is stored with the
+      // account: the Likes endpoint needs a numeric userId, not a session token.
+      final csrfToken = session.authHeader['x-csrf-token']!;
 
       await saveLoggedInAccount(
         id: csrfToken,
-        screenName: screenName,
-        userId: userId,
-        authHeader: json.encode(authHeader),
+        screenName: session.screenName,
+        userId: session.userId,
+        authHeader: json.encode(session.authHeader),
       );
       // No close(): this is sqflite's shared writable handle, so closing it
       // here would pull it out from under every other writer. It is not
