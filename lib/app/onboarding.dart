@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
+import 'package:quax/app/design_tokens.dart';
 import 'package:pref/pref.dart';
 import 'package:quax/app/account_setup_step.dart';
 import 'package:quax/client/account_vault.dart';
@@ -657,16 +658,34 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final isLast = _step == _steps - 1;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.sm,
+        AppSpace.lg,
+        AppSpace.lg,
+      ),
       child: Row(
         children: [
-          if (_step > 0) TextButton(onPressed: _back, child: Text(l10n.back)),
-          const Spacer(),
-          FilledButton(
-            onPressed: _canAdvance
-                ? (isLast ? widget.onFinished : _next)
-                : null,
-            child: Text(isLast ? l10n.setup_finish : l10n.next),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _step > 0 ? _back : null,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, AppSize.buttonLarge),
+              ),
+              child: Text(l10n.back),
+            ),
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: FilledButton(
+              onPressed: _canAdvance
+                  ? (isLast ? widget.onFinished : _next)
+                  : null,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, AppSize.buttonLarge),
+              ),
+              child: Text(isLast ? l10n.setup_finish : l10n.next),
+            ),
           ),
         ],
       ),
@@ -691,24 +710,24 @@ class _StepView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(AppSpace.xl),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: theme.colorScheme.primary),
-          const SizedBox(height: 24),
+          Icon(icon, size: 56, color: theme.colorScheme.primary),
+          const SizedBox(height: AppSpace.lg),
           Text(
             title,
             style: theme.textTheme.headlineSmall,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpace.md),
           Text(
             body,
             style: theme.textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
-          if (extra != null) ...[const SizedBox(height: 24), extra!],
+          if (extra != null) ...[const SizedBox(height: AppSpace.xl), extra!],
         ],
       ),
     );

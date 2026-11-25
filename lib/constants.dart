@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:quax/app/design_tokens.dart';
 
 /// The one native bridge the fork owns. Every Dart call has to use this name;
 /// a typo in one local copy only surfaced as a runtime MissingPluginException.
@@ -68,18 +68,13 @@ const alwaysShowFullTweetContents = 'always_show_full_tweet_contents';
 const optionThemeMode = 'theme.mode';
 const optionThemeColor = 'theme.color';
 const optionThemeTrueBlack = 'theme.true_black';
-const optionThemeTrueBlackTweetCards = 'theme.true_black_tweet_cards';
 const optionShowNavigationLabels = 'theme.show_navigation_labels';
 const optionUseAbsoluteTimestamp = "option.absolute_timestamp";
 
-const themeColors = {
-  'red': Colors.red,
-  'orange': Colors.orange,
-  'yellow': Colors.yellow,
-  'green': Colors.green,
-  'blue': Colors.blue,
-  'indigo': Colors.indigo,
-};
+/// The two monochrome palettes. Graphite is a true neutral, Stone carries a
+/// slight warm cast; both keep the same surface ladder and contrast.
+const themeColors = {'graphite': AppPalette.graphiteSeed};
+const defaultThemeColor = 'graphite';
 
 const optionTweetsHideSensitive = 'tweets.hide_sensitive';
 

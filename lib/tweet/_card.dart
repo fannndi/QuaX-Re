@@ -4,6 +4,7 @@ import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
@@ -27,11 +28,16 @@ class TweetCard extends StatelessWidget {
 
   Container _createBaseCard(Widget child, BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.sm,
+        AppSpace.lg,
+        AppSpace.sm,
+      ),
       width: double.infinity,
       child: Card(
         clipBehavior: Clip.antiAlias,
-        color: Theme.of(context).colorScheme.inversePrimary,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         child: child,
       ),
     );
@@ -73,8 +79,11 @@ class TweetCard extends StatelessWidget {
       );
     }
 
+    final sourceRatio = aspectRatio ?? image['width'] / image['height'];
     return AspectRatio(
-      aspectRatio: aspectRatio ?? image['width'] / image['height'],
+      // Link previews are wide by convention; an extreme source ratio made the
+      // card taller than the post it belongs to.
+      aspectRatio: sourceRatio.clamp(1.0, 1.91).toDouble(),
       child: child,
     );
   }
@@ -85,14 +94,8 @@ class TweetCard extends StatelessWidget {
     String? description,
     String? uri,
   ) {
-    // onSurface, not Colors.white: the card's background is inversePrimary,
-    // which in a *light* scheme is a light tint of the primary. White 13px text
-    // on pale blue is about 1.2:1 — invisible. It happens to look right in dark
-    // mode, which is the mode it was clearly not written for.
-    //
-    // onSurface rather than onInversePrimary: this Flutter has no
-    // onInversePrimary role, and onSurface is the one that tracks the text
-    // colour the rest of the card uses.
+    // The card is a raised neutral surface, so the normal onSurface text role
+    // is the readable one in both light and dark themes.
     final onCard = Theme.of(context).colorScheme.onSurface;
 
     return Container(

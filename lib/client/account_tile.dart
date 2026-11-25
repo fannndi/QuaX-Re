@@ -67,7 +67,9 @@ class _AccountTileState extends State<AccountTile> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final handle = _account.screenName == null ? '?' : '@${_account.screenName}';
+    final handle = _account.screenName == null
+        ? '?'
+        : '@${_account.screenName}';
     final hasName = _account.displayName?.isNotEmpty == true;
     final expired = _account.isSessionExpired;
     final title = hasName ? _account.displayName! : handle;
@@ -81,10 +83,13 @@ class _AccountTileState extends State<AccountTile> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (hasName) Text(handle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (hasName)
+                  Text(handle, maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (expired)
-                  Text(l10n.session_expired,
-                      style: TextStyle(color: scheme.error, fontSize: 12)),
+                  Text(
+                    l10n.session_expired,
+                    style: TextStyle(color: scheme.error, fontSize: 12),
+                  ),
               ],
             )
           : null,
@@ -110,12 +115,11 @@ class _AccountTileState extends State<AccountTile> {
 
   Widget _avatar() {
     final handle = _account.screenName;
-    final initial = handle == null || handle.isEmpty ? '?' : handle[0].toUpperCase();
-    final radius = widget.dense ? 16.0 : 18.0;
-    final fallback = CircleAvatar(
-      radius: radius,
-      child: Text(initial),
-    );
+    final initial = handle == null || handle.isEmpty
+        ? '?'
+        : handle[0].toUpperCase();
+    final radius = widget.dense ? 20.0 : 24.0;
+    final fallback = CircleAvatar(radius: radius, child: Text(initial));
 
     final url = _account.avatarUrl;
     if (url == null || url.isEmpty) return fallback;

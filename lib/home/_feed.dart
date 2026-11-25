@@ -12,6 +12,7 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/_feed_shell.dart';
 import 'package:quax/group/feed_refresh_controller.dart';
 import 'package:quax/search/search.dart';
+import 'package:quax/ui/app_bars.dart';
 import 'package:quax/ui/errors.dart';
 
 typedef FeedTabTitleBuilder = String Function(BuildContext context);
@@ -30,8 +31,10 @@ final List<FeedTabOption> feedTabs = [
   FeedTabOption(FeedTab.following, (c) => L10n.of(c).following),
 ];
 
-FeedTab feedTabFromId(String? id) =>
-    FeedTab.values.firstWhere((e) => e.name == id, orElse: () => FeedTab.foryou);
+FeedTab feedTabFromId(String? id) => FeedTab.values.firstWhere(
+  (e) => e.name == id,
+  orElse: () => FeedTab.foryou,
+);
 
 class FeedScreen extends StatefulWidget {
   final ScrollController scrollController;
@@ -42,8 +45,11 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateMixin {
-  final TweetFeedController _followingFeed = TweetFeedController(mergeOnRefresh: true);
+class _FeedScreenState extends State<FeedScreen>
+    with SingleTickerProviderStateMixin {
+  final TweetFeedController _followingFeed = TweetFeedController(
+    mergeOnRefresh: true,
+  );
   final TweetFeedController _foryouFeed = TweetFeedController();
   TabController? _tabController;
   FeedRefreshController? _refreshController;
@@ -73,7 +79,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   DateTime _lastAutoRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _onHomeSelected() {
-    if (DateTime.now().difference(_lastAutoRefreshAt) < const Duration(minutes: 1)) return;
+    if (DateTime.now().difference(_lastAutoRefreshAt) <
+        const Duration(minutes: 1)) {
+      return;
+    }
     _lastAutoRefreshAt = DateTime.now();
 
     final controller = _tabController;
@@ -96,7 +105,11 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
     final handle = activeAccount.value?.handle;
     if (handle != null) {
-      showSnackBar(context, icon: '👤', message: L10n.of(context).account_switched(handle));
+      showSnackBar(
+        context,
+        icon: '👤',
+        message: L10n.of(context).account_switched(handle),
+      );
     }
   }
 
@@ -112,8 +125,14 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
   TabController _createTabController(BasePrefService prefs) {
     final stored = feedTabFromId(prefs.get<String>(optionHomeDefaultFeedTab));
-    final initialIndex = feedTabs.indexWhere((e) => e.id == stored).clamp(0, feedTabs.length - 1);
-    final controller = TabController(length: feedTabs.length, vsync: this, initialIndex: initialIndex);
+    final initialIndex = feedTabs
+        .indexWhere((e) => e.id == stored)
+        .clamp(0, feedTabs.length - 1);
+    final controller = TabController(
+      length: feedTabs.length,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
     controller.addListener(() {
       if (!controller.indexIsChanging) {
         // Straight to SharedPreferences: the tab already moved, and set()
@@ -121,7 +140,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         // three-tab PageView and every visible card on each switch.
         final id = feedTabs[controller.index].id.name;
         if (prefs is PrefServiceShared) {
-          prefs.sharedPreferences.setString('${prefs.prefix}$optionHomeDefaultFeedTab', id);
+          prefs.sharedPreferences.setString(
+            '${prefs.prefix}$optionHomeDefaultFeedTab',
+            id,
+          );
         } else {
           prefs.set<String>(optionHomeDefaultFeedTab, id);
         }
@@ -140,39 +162,53 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
     return GroupFeedShell(
       scrollController: widget.scrollController,
-      titleBuilder: (context) => TabBar(
-        controller: tabController,
-        tabs: feedTabs.map((e) => Tab(text: e.titleBuilder(context))).toList(),
-        onTap: (index) {
-          // Tapping the already-active tab refreshes that feed (X-style).
-          if (index != tabController.index || tabController.indexIsChanging) return;
-          (index == 0 ? _foryouFeed : _followingFeed).softRefresh();
-        },
-      ),
-      actionsBuilder: (context) {
-        // Home feeds are read-only: every secondary door (search, account,
-        // settings) lives in this app bar.
-        return defaultGroupActions(
-          context,
-          extra: [
+      leading: const ActiveAccountButton(),
+      titleBuilder: (context) => Text(L10n.of(context).home),
+      bottom: appBarBottom(
+        AppTabsRow(
+          tabBar: TabBar(
+            controller: tabController,
+            tabs: feedTabs
+                .map((e) => Tab(text: e.titleBuilder(context)))
+                .toList(),
+            onTap: (index) {
+              // Tapping the already-active tab refreshes that feed (X-style).
+              if (index != tabController.index ||
+                  tabController.indexIsChanging) {
+                return;
+              }
+              (index == 0 ? _foryouFeed : _followingFeed).softRefresh();
+            },
+          ),
+          actions: [
             IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () => Navigator.pushNamed(
-                context,
-                routeSearch,
-                arguments: SearchArguments(0),
-              ),
-            ),
-            // Account switching lives here, not in Settings.
-            const ActiveAccountButton(),
-            // Settings moved out of the navbar too: the gear is its only door.
-            IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              tooltip: L10n.of(context).settings,
-              onPressed: () => Navigator.pushNamed(context, routeSettings),
+              icon: const Icon(Icons.refresh),
+              tooltip: L10n.of(context).refresh,
+              onPressed: () async =>
+                  await context.read<FeedRefreshController>().refresh(),
             ),
           ],
-        );
+        ),
+      ),
+      actionsBuilder: (context) {
+        // Home feeds are read-only: every secondary door (search, settings)
+        // lives in this app bar. The account itself is the leading avatar.
+        return [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: L10n.of(context).search,
+            onPressed: () => Navigator.pushNamed(
+              context,
+              routeSearch,
+              arguments: SearchArguments(0),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: L10n.of(context).settings,
+            onPressed: () => Navigator.pushNamed(context, routeSettings),
+          ),
+        ];
       },
       bodyBuilder: (context) {
         // Keyed by the account revision: on a switch the feed widgets (and
@@ -183,8 +219,16 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         return TabBarView(
           controller: tabController,
           children: [
-            ForYouTweets(_foryouFeed, key: ValueKey('foryou.$revision'), accountId: accountId),
-            FollowingTweets(_followingFeed, key: ValueKey('following.$revision'), accountId: accountId),
+            ForYouTweets(
+              _foryouFeed,
+              key: ValueKey('foryou.$revision'),
+              accountId: accountId,
+            ),
+            FollowingTweets(
+              _followingFeed,
+              key: ValueKey('following.$revision'),
+              accountId: accountId,
+            ),
           ],
         );
       },

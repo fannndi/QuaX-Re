@@ -299,7 +299,10 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody>
 
     var banner = user.profileBannerUrl;
     var bannerImage = banner == null
-        ? Container(height: bannerHeight, color: Colors.white)
+        ? Container(
+            height: bannerHeight,
+            color: theme.colorScheme.surfaceContainerHigh,
+          )
         : GestureDetector(
             child: ExtendedImage.network(
               banner,
@@ -326,7 +329,11 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody>
     var appBarHeight =
         profileStuffTop + avatarHeight + metadataHeight + 8 + descriptionHeight;
 
-    var metadataTextStyle = const TextStyle(fontSize: 12.5);
+    final metadataTextStyle =
+        theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ) ??
+        const TextStyle(fontSize: 13);
 
     List<RichTextPart> descParts = [];
     if (user.description != null && user.description!.isNotEmpty) {
@@ -351,6 +358,9 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody>
                   pinned: true,
                   snap: false,
                   forceElevated: innerBoxIsScrolled,
+                  foregroundColor: Colors.white,
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  actionsIconTheme: const IconThemeData(color: Colors.white),
                   bottom: AppBar(
                     automaticallyImplyLeading: false,
                     backgroundColor: theme.colorScheme.surface,
@@ -391,8 +401,9 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody>
                                   ),
                           )
                           .toList(),
-                      dividerColor: Theme.of(context).colorScheme.surfaceBright
-                          .withAlpha(150),
+                      dividerColor: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.7,
+                      ),
                     ),
                   ),
                   flexibleSpace: FlexibleSpaceBar(
@@ -404,6 +415,26 @@ class _ProfileScreenBodyState extends State<ProfileScreenBody>
                           Container(
                             alignment: Alignment.topCenter,
                             child: bannerImage,
+                          ),
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: MediaQuery.paddingOf(context).top + 96,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.55),
+                                      Colors.black.withValues(alpha: 0),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                           DecoratedBox(
                             decoration: BoxDecoration(

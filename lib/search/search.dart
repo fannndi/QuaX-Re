@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/search/search_media_grid.dart';
 import 'package:quax/search/search_model.dart';
+import 'package:quax/ui/app_bars.dart';
+import 'package:quax/ui/app_states.dart';
 import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/ui/errors.dart';
@@ -122,45 +125,45 @@ class _ResultsScreenState extends State<_ResultsScreen>
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        flexibleSpace: Padding(
-          padding: EdgeInsets.fromLTRB(8, 36, 8, 8),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: L10n.of(context).back,
+          onPressed: () => Navigator.pop(context),
+        ),
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(right: AppSpace.lg),
           child: SearchBar(
             controller: _queryController,
             focusNode: _focusNode,
+            hintText: L10n.of(context).search,
             textInputAction: TextInputAction.search,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
+            leading: const Icon(Icons.search, size: AppSize.icon),
+            trailing: [
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _queryController,
+                builder: (context, value, _) {
+                  if (value.text.isEmpty) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: const Icon(Icons.close, size: AppSize.icon),
+                    tooltip: L10n.of(context).close,
+                    onPressed: _queryController.clear,
+                  );
+                },
+              ),
+            ],
           ),
         ),
+        shape: appBarBorder(context),
         bottom: TabBar(
           controller: _tabController,
+          labelPadding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
           tabs: [
-            Tab(
-              icon: Icon(
-                Icons.trending_up,
-                semanticLabel: L10n.of(context).search_top,
-              ),
-            ),
-            Tab(
-              icon: Icon(
-                Icons.access_time_outlined,
-                semanticLabel: L10n.of(context).search_latest,
-              ),
-            ),
-            Tab(icon: Icon(Icons.image, semanticLabel: L10n.of(context).media)),
-            Tab(
-              icon: Icon(
-                Icons.person_search,
-                semanticLabel: L10n.of(context).search_people,
-              ),
-            ),
+            Tab(text: L10n.of(context).search_top),
+            Tab(text: L10n.of(context).search_latest),
+            Tab(text: L10n.of(context).media),
+            Tab(text: L10n.of(context).search_people),
           ],
-          labelColor: Theme.of(context).appBarTheme.foregroundColor,
-          indicatorColor: Theme.of(context).appBarTheme.foregroundColor,
-          dividerColor: Theme.of(context).colorScheme.surfaceBright
-              .withAlpha(150),
         ),
       ),
       body: TweetContextScope(
@@ -176,6 +179,7 @@ class _ResultsScreenState extends State<_ResultsScreen>
               newPageErrorPrefix: L10n.of(context)
                   .unable_to_load_the_next_page_of_tweets,
               emptyMessage: L10n.of(context).no_results,
+              emptyIcon: Icons.search_off,
             ),
             PaginatedTweetList(
               feed: _latestTweets.feed,
@@ -186,6 +190,7 @@ class _ResultsScreenState extends State<_ResultsScreen>
               newPageErrorPrefix: L10n.of(context)
                   .unable_to_load_the_next_page_of_tweets,
               emptyMessage: L10n.of(context).no_results,
+              emptyIcon: Icons.search_off,
             ),
             SearchMediaGrid(model: _mediaResults),
             _UserSearchResultList(pagination: _userResults),
@@ -229,8 +234,10 @@ class _UserSearchResultList extends StatelessWidget {
                 prefix: L10n.of(context).unable_to_load_the_next_page_of_tweets,
                 onRetry: fetchNextPage,
               ),
-              noItemsFoundIndicatorBuilder: (context) =>
-                  Center(child: Text(L10n.of(context).no_results)),
+              noItemsFoundIndicatorBuilder: (context) => AppEmptyState(
+                message: L10n.of(context).no_results,
+                icon: Icons.search_off,
+              ),
             ),
           ),
     );

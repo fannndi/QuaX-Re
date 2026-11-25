@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
@@ -46,7 +45,11 @@ class LikedTweetTile extends StatelessWidget {
 
     var tweet = _decodeTweet(id, content);
 
-    return TweetTile(key: ValueKey(tweet.idStr!), tweet: tweet, clickable: true);
+    return TweetTile(
+      key: ValueKey(tweet.idStr!),
+      tweet: tweet,
+      clickable: true,
+    );
   }
 }
 
@@ -57,19 +60,19 @@ class LikedTweetTooLarge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              leading:
-                  Icon(Icons.error_outline, color: Colors.red.harmonizeWith(Theme.of(context).colorScheme.primary)),
-              title: Text(L10n.current.oops_something_went_wrong),
-              subtitle: Text(L10n.current.liked_tweet_too_large),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: ListTile(
+            leading: Icon(
+              Icons.error_outline,
+              color: Theme.of(context).colorScheme.error,
             ),
-          ],
+            title: Text(L10n.current.oops_something_went_wrong),
+            subtitle: Text(L10n.current.liked_tweet_too_large),
+          ),
         ),
       ),
     );

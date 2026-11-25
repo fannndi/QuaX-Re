@@ -69,7 +69,6 @@ dependencies:
 
   # Localization & Styling
   intl: ^0.20.2
-  dynamic_color: ^2.1.0
 
   # State Management & Data
   # pref 3.0.0 is published on pub.dev; the git pin existed only while the

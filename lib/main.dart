@@ -101,9 +101,8 @@ final Map<String, dynamic> _prefDefaults = {
   optionOpenLinksInEmbeddedBrowser: false,
   alwaysShowFullTweetContents: false,
   optionThemeMode: 'system',
-  optionThemeColor: 'accent',
+  optionThemeColor: defaultThemeColor,
   optionThemeTrueBlack: true,
-  optionThemeTrueBlackTweetCards: true,
   optionShowNavigationLabels: false,
   optionTweetsHideSensitive: true,
   optionLikedFirstToastShown: false,
@@ -123,6 +122,7 @@ Future<void> _startApp() async {
   );
 
   await migrateMediaQualityPrefs(prefService);
+  await migrateThemePalettePrefs(prefService);
   await migrateLibraryStoragePrefs(prefService);
 
   await _loadModels(prefService);

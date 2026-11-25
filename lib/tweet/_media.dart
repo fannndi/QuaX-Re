@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
@@ -20,6 +23,7 @@ class _TweetMediaItem extends StatefulWidget {
   final Media media;
   final String username;
   final String? tweetId;
+  final double? aspectRatioOverride;
 
   const _TweetMediaItem({
     required this.index,
@@ -28,6 +32,7 @@ class _TweetMediaItem extends StatefulWidget {
     required this.media,
     required this.username,
     this.tweetId,
+    this.aspectRatioOverride,
   });
 
   @override
@@ -95,15 +100,19 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
         inPageView: false,
         tweetId: widget.tweetId,
         mediaIndex: widget.mediaIndex,
+        aspectRatioOverride: widget.aspectRatioOverride,
       );
     } else {
       media = GestureDetector(
-        child: Container(
-          color: Colors.black26,
+        child: ColoredBox(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           child: Center(
             child: Text(
               L10n.of(context).tap_to_show_getMediaType_item_type(
                 getMediaType(context, item.type),
+              ),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -121,15 +130,24 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
 
     return Stack(
       children: [
-        Center(child: media),
+        Positioned.fill(child: media),
         Positioned(
-          right: 0,
+          top: AppSpace.sm,
+          right: AppSpace.sm,
           child: Container(
-            alignment: Alignment.topRight,
-            color: Colors.black38,
-            margin: const EdgeInsets.all(8),
-            padding: const EdgeInsets.all(8),
-            child: Text('${widget.index} / ${widget.total}'),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.sm,
+              vertical: AppSpace.xs,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.55),
+              borderRadius: AppRadius.smAll,
+            ),
+            child: Text(
+              '${widget.index} / ${widget.total}',
+              style: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(color: Colors.white),
+            ),
           ),
         ),
       ],
@@ -211,45 +229,35 @@ class _MediaMetaRowState extends State<_MediaMetaRow> {
         : '';
     if (duration.isEmpty && !_inGallery) return const SizedBox.shrink();
 
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final metaStyle = theme.textTheme.labelSmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: AppSpace.sm),
       child: Row(
         children: [
-          if (duration.isNotEmpty)
-            Text(
-              duration,
-              style: TextStyle(
-                color: scheme.onSurfaceVariant,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          if (duration.isNotEmpty && _inGallery) const SizedBox(width: 8),
+          if (duration.isNotEmpty) Text(duration, style: metaStyle),
+          if (duration.isNotEmpty && _inGallery)
+            const SizedBox(width: AppSpace.sm),
           if (_inGallery)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
+                color: scheme.surfaceContainerHigh,
+                borderRadius: AppRadius.smAll,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.download_done,
-                    size: 12,
+                    size: 14,
                     color: scheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 3),
-                  Text(
-                    L10n.of(context).label_in_gallery,
-                    style: TextStyle(
-                      color: scheme.onSurfaceVariant,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  const SizedBox(width: AppSpace.xs),
+                  Text(L10n.of(context).label_in_gallery, style: metaStyle),
                 ],
               ),
             ),
@@ -313,17 +321,26 @@ class _TweetMediaState extends State<TweetMedia> {
     return Consumer<TweetContextState>(
       builder: (context, model, child) {
         if (model.hideSensitive && (widget.sensitive ?? false)) {
-          return Card(
-            child: Center(
-              child: EmojiErrorWidget(
-                emoji: '🍆🙈🍆',
-                message: L10n.current.possibly_sensitive,
-                errorMessage: L10n.current.possibly_sensitive_tweet,
-                retryText: L10n.current.yes_please,
-                // This warning is part of a card, not a route: "Back" here used to
-                // pop the whole feed or, at the root, close the app.
-                showBackButton: false,
-                onRetry: () async => model.setHideSensitive(false),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.lg,
+              AppSpace.sm,
+              AppSpace.lg,
+              AppSpace.sm,
+            ),
+            child: Card(
+              child: Padding(
+                padding: AppSpace.card,
+                child: EmojiErrorWidget(
+                  emoji: '🍆🙈🍆',
+                  message: L10n.current.possibly_sensitive,
+                  errorMessage: L10n.current.possibly_sensitive_tweet,
+                  retryText: L10n.current.yes_please,
+                  // This warning is part of a card, not a route: "Back" here used
+                  // to pop the whole feed or, at the root, close the app.
+                  showBackButton: false,
+                  onRetry: () async => model.setHideSensitive(false),
+                ),
               ),
             ),
           );
@@ -333,55 +350,81 @@ class _TweetMediaState extends State<TweetMedia> {
             ? null
             : widget.media[_mediaIndex.clamp(0, widget.media.length - 1)];
 
+        final clampedRatio = aspectRatio.clamp(0.8, 1.91).toDouble();
+        final maxHeight = math.min(
+          MediaQuery.sizeOf(context).height * AppSize.mediaMaxViewportFraction,
+          AppSize.mediaMaxHeight,
+        );
+
         return Container(
-          margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
+          margin: const EdgeInsets.only(
+            top: AppSpace.sm,
+            left: AppSpace.lg,
+            right: AppSpace.lg,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AspectRatio(
-                aspectRatio: aspectRatio,
-                child: PageView.builder(
-                  controller: _controller,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: widget.media.length,
-                  onPageChanged: (index) {
-                    if (index == _mediaIndex) return;
-                    setState(() => _mediaIndex = index);
-                  },
-                  itemBuilder: (context, index) {
-                    var item = widget.media[index];
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final height = math.min(
+                    constraints.maxWidth / clampedRatio,
+                    maxHeight,
+                  );
+                  return SizedBox(
+                    height: height,
+                    child: ClipRRect(
+                      borderRadius: AppRadius.mdAll,
+                      child: PageView.builder(
+                        controller: _controller,
+                        scrollDirection: Axis.horizontal,
+                        itemCount: widget.media.length,
+                        onPageChanged: (index) {
+                          if (index == _mediaIndex) return;
+                          setState(() => _mediaIndex = index);
+                        },
+                        itemBuilder: (context, index) {
+                          final item = widget.media[index];
 
-                    // A video has its own tap controls and must never open the
-                    // fullscreen media viewer. Photos and GIFs still open it.
-                    final isVideo = item.type == 'video';
+                          // A video has its own tap controls and must never open
+                          // the fullscreen media viewer. Photos and GIFs still
+                          // open it.
+                          final isVideo = item.type == 'video';
 
-                    return GestureDetector(
-                      onTap: isVideo
-                          ? null
-                          : () => Navigator.push(
+                          return GestureDetector(
+                            onTap: isVideo
+                                ? null
+                                : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => TweetMediaView(
+                                        initialIndex: index,
+                                        media: widget.media,
+                                        username: widget.username,
+                                        tweetId: widget.tweetId,
+                                      ),
+                                    ),
+                                  ),
+                            onLongPress: () => showMediaActionsSheet(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => TweetMediaView(
-                                  initialIndex: index,
-                                  media: widget.media,
-                                  username: widget.username,
-                                  tweetId: widget.tweetId,
-                                ),
-                              ),
+                              item,
+                              widget.username,
                             ),
-                      onLongPress: () =>
-                          showMediaActionsSheet(context, item, widget.username),
-                      child: _TweetMediaItem(
-                        media: item,
-                        index: index + 1,
-                        mediaIndex: index,
-                        total: widget.media.length,
-                        username: widget.username,
-                        tweetId: widget.tweetId,
+                            child: _TweetMediaItem(
+                              media: item,
+                              index: index + 1,
+                              mediaIndex: index,
+                              total: widget.media.length,
+                              username: widget.username,
+                              tweetId: widget.tweetId,
+                              aspectRatioOverride: clampedRatio,
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
               if (currentMedia != null)
                 _MediaMetaRow(

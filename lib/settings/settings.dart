@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/video_cache.dart';
 import 'package:quax/generated/l10n.dart';
@@ -43,21 +44,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) setState(() => _packageInfo = info);
     });
   }
-
-  /// The reader-facing name of a theme colour, keyed by whatever the preference
-  /// stores. The raw key ("indigo") is an implementation detail, and this is the
-  /// one place that has to turn it into something a person reads.
-  String _themeColorName(BuildContext context, String id) => switch (id) {
-    'accent' => L10n.of(context).theme_color_accent,
-    'red' => L10n.of(context).theme_color_red,
-    'orange' => L10n.of(context).theme_color_orange,
-    'yellow' => L10n.of(context).theme_color_yellow,
-    'green' => L10n.of(context).theme_color_green,
-    'blue' => L10n.of(context).theme_color_blue,
-    'indigo' => L10n.of(context).theme_color_indigo,
-    // A colour with no name of its own keeps its key rather than going blank.
-    _ => id,
-  };
 
   List<DropdownMenuItem<String>> _qualityItems() => [
     DropdownMenuItem(value: 'thumb', child: Text(L10n.current.quality_low)),
@@ -108,6 +94,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             tiles: [
               PrefDropdown(
                 fullWidth: false,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.expand_more, size: 18),
+                isDense: true,
+                style: Theme.of(context).textTheme.bodyMedium,
                 title: Text(L10n.of(context).theme_mode),
                 pref: optionThemeMode,
                 items: [
@@ -125,43 +115,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              PrefDropdown(
-                fullWidth: false,
-                title: Text(L10n.of(context).theme),
-                pref: optionThemeColor,
-                items: [
-                  DropdownMenuItem(
-                    value: 'accent',
-                    child: Text(_themeColorName(context, 'accent')),
-                  ),
-                  ...themeColors.entries.map(
-                    (scheme) => DropdownMenuItem(
-                      value: scheme.key,
-                      child: Text(_themeColorName(context, scheme.key)),
-                    ),
-                  ),
-                ],
-              ),
               PrefSwitch(
                 title: Text(L10n.of(context).true_black),
                 pref: optionThemeTrueBlack,
                 subtitle: Text(
                   L10n.of(context).use_true_black_for_the_dark_mode_theme,
                 ),
-              ),
-              Builder(
-                builder: (tileContext) {
-                  final tilePrefs = PrefService.of(tileContext);
-                  return PrefSwitch(
-                    title: Text(L10n.of(context).true_black_tweet_cards),
-                    pref: optionThemeTrueBlackTweetCards,
-                    disabled:
-                        !(tilePrefs.get<bool>(optionThemeTrueBlack) ?? false),
-                    subtitle: Text(
-                      L10n.of(context).use_true_black_for_tweet_cards,
-                    ),
-                  );
-                },
               ),
               PrefSwitch(
                 title: Text(L10n.of(context).show_navigation_labels),
@@ -175,6 +134,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _LibraryFolderTile(prefs: prefs),
               PrefDropdown(
                 fullWidth: false,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.expand_more, size: 18),
+                isDense: true,
+                style: Theme.of(context).textTheme.bodyMedium,
                 title: Text(L10n.of(context).video_quality),
                 subtitle: Text(L10n.of(context).video_quality_description),
                 pref: optionMediaVideoQuality,
@@ -182,6 +145,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               PrefDropdown(
                 fullWidth: false,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.expand_more, size: 18),
+                isDense: true,
+                style: Theme.of(context).textTheme.bodyMedium,
                 title: Text(L10n.of(context).image_quality),
                 subtitle: Text(
                   L10n.of(context).save_bandwidth_using_smaller_images,
@@ -191,6 +158,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               PrefDropdown(
                 fullWidth: false,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.expand_more, size: 18),
+                isDense: true,
+                style: Theme.of(context).textTheme.bodyMedium,
                 title: Text(L10n.of(context).media_grid_columns),
                 subtitle: Text(L10n.of(context).media_grid_columns_description),
                 pref: optionMediaGridColumns,
@@ -223,6 +194,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               PrefDropdown(
                 fullWidth: false,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.expand_more, size: 18),
+                isDense: true,
+                style: Theme.of(context).textTheme.bodyMedium,
                 title: Text(L10n.of(context).video_prefetch),
                 subtitle: Text(L10n.of(context).video_prefetch_description),
                 pref: optionMediaVideoPrefetchSeconds,
@@ -272,6 +247,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               PrefDropdown(
                 fullWidth: false,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.expand_more, size: 18),
+                isDense: true,
+                style: Theme.of(context).textTheme.bodyMedium,
                 title: Text(L10n.of(context).cache_size_limit),
                 pref: optionVideoCacheLimitMb,
                 items: [
@@ -661,16 +640,24 @@ class _SettingsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
           child: Text(
             title,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.primary,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        Card(child: Column(children: tiles)),
-        const SizedBox(height: 4),
+        Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.lgAll,
+            side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          child: Column(children: tiles),
+        ),
       ],
     );
   }

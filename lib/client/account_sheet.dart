@@ -37,19 +37,25 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
   void _openManager() {
     final navigator = Navigator.of(context);
     Navigator.pop(context);
-    navigator.push(MaterialPageRoute(builder: (_) => const SettingsAccountFragment()));
+    navigator.push(
+      MaterialPageRoute(builder: (_) => const SettingsAccountFragment()),
+    );
   }
 
   void _addAccount() {
     final navigator = Navigator.of(context);
     Navigator.pop(context);
-    navigator.push(MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
+    navigator.push(
+      MaterialPageRoute(builder: (_) => const TwitterLoginWebview()),
+    );
   }
 
   void _relogin() {
     final navigator = Navigator.of(context);
     Navigator.pop(context);
-    navigator.push(MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
+    navigator.push(
+      MaterialPageRoute(builder: (_) => const TwitterLoginWebview()),
+    );
   }
 
   @override
@@ -59,7 +65,10 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
         future: _accounts,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+            return const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            );
           }
 
           final accounts = snapshot.data ?? [];
@@ -67,33 +76,33 @@ class _AccountSwitcherState extends State<_AccountSwitcher> {
           // dozen accounts overflowed instead of scrolling.
           return SingleChildScrollView(
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (accounts.isEmpty)
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (accounts.isEmpty)
+                  ListTile(
+                    leading: const Icon(Icons.no_accounts_outlined),
+                    title: Text(L10n.of(context).no_account_available_title),
+                  ),
+                for (final account in accounts)
+                  AccountTile(
+                    key: ValueKey(account.id),
+                    account: account,
+                    dense: true,
+                    onTap: account.isActive ? null : () => _switch(account),
+                    onRelogin: _relogin,
+                  ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
-                  leading: const Icon(Icons.no_accounts_outlined),
-                  title: Text(L10n.of(context).no_account_available_title),
+                  leading: const Icon(Icons.manage_accounts_outlined),
+                  title: Text(L10n.of(context).account),
+                  onTap: _openManager,
                 ),
-              for (final account in accounts)
-                AccountTile(
-                  key: ValueKey(account.id),
-                  account: account,
-                  dense: true,
-                  onTap: account.isActive ? null : () => _switch(account),
-                  onRelogin: _relogin,
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: Text(L10n.of(context).add_account),
+                  onTap: _addAccount,
                 ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.manage_accounts_outlined),
-                title: Text(L10n.of(context).account),
-                onTap: _openManager,
-              ),
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: Text(L10n.of(context).add_account),
-                onTap: _addAccount,
-              ),
-            ],
+              ],
             ),
           );
         },

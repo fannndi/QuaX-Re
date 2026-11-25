@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:provider/provider.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_badge.dart';
@@ -25,12 +26,24 @@ class NavigationPage {
 /// with Home centered like a home button. Settings and search live in the
 /// screen app bars — the app stays three tabs wide.
 final List<NavigationPage> defaultHomePages = [
-  NavigationPage('downloads', (c) => L10n.of(c).downloads,
-      const DownloadsNavBadge(child: Icon(Icons.download_outlined)),
-      const DownloadsNavBadge(child: Icon(Icons.download))),
-  NavigationPage('feed', (c) => L10n.of(c).home, const Icon(Icons.home_outlined), const Icon(Icons.home)),
-  NavigationPage('likes', (c) => L10n.of(c).likes,
-      const Icon(Icons.favorite_border_outlined), const Icon(Icons.favorite)),
+  NavigationPage(
+    'downloads',
+    (c) => L10n.of(c).downloads,
+    const DownloadsNavBadge(child: Icon(Icons.download_outlined)),
+    const DownloadsNavBadge(child: Icon(Icons.download)),
+  ),
+  NavigationPage(
+    'feed',
+    (c) => L10n.of(c).home,
+    const Icon(Icons.home_outlined),
+    const Icon(Icons.home),
+  ),
+  NavigationPage(
+    'likes',
+    (c) => L10n.of(c).likes,
+    const Icon(Icons.favorite_border_outlined),
+    const Icon(Icons.favorite),
+  ),
 ];
 
 class HomeScreen extends StatelessWidget {
@@ -54,7 +67,9 @@ class _HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<_HomeScreen> {
   // The starting nav tab is fixed; the For You / Following sub-tab is still
   // remembered in optionHomeDefaultFeedTab by _feed.dart.
-  late final int _initialPage = defaultHomePages.indexWhere((page) => page.id == 'feed');
+  late final int _initialPage = defaultHomePages.indexWhere(
+    (page) => page.id == 'feed',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -66,11 +81,12 @@ class _HomeScreenState extends State<_HomeScreen> {
         return List.generate(defaultHomePages.length, (index) {
           switch (defaultHomePages[index].id) {
             case 'feed':
-              return FeedScreen(
+              return FeedScreen(scrollController: scrollControllers[index]!);
+            case 'downloads':
+              return DownloadsTab(
+                prefs: widget.prefs,
                 scrollController: scrollControllers[index]!,
               );
-            case 'downloads':
-              return DownloadsTab(prefs: widget.prefs, scrollController: scrollControllers[index]!);
             case 'likes':
               return LikesScreen(scrollController: scrollControllers[index]!);
             default:
@@ -86,16 +102,24 @@ class ScaffoldWithBottomNavigation extends StatefulWidget {
   final List<NavigationPage> pages;
   final BasePrefService prefs;
   final int initialPage;
-  final List<Widget> Function(Map<int, ScrollController> scrollControllers) builder;
+  final List<Widget> Function(Map<int, ScrollController> scrollControllers)
+  builder;
 
-  const ScaffoldWithBottomNavigation(
-      {super.key, required this.pages, required this.prefs, required this.initialPage, required this.builder});
+  const ScaffoldWithBottomNavigation({
+    super.key,
+    required this.pages,
+    required this.prefs,
+    required this.initialPage,
+    required this.builder,
+  });
 
   @override
-  State<ScaffoldWithBottomNavigation> createState() => _ScaffoldWithBottomNavigationState();
+  State<ScaffoldWithBottomNavigation> createState() =>
+      _ScaffoldWithBottomNavigationState();
 }
 
-class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigation> {
+class _ScaffoldWithBottomNavigationState
+    extends State<ScaffoldWithBottomNavigation> {
   late PageController _pageController;
   late int _currentPage;
   final Map<int, ScrollController> _scrollControllers = {};
@@ -116,10 +140,13 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
     super.didUpdateWidget(oldWidget);
     if (widget.pages.length != oldWidget.pages.length) {
       // Dispose controllers that are no longer needed.
-      _scrollControllers.keys.where((k) => k >= widget.pages.length).toList().forEach((k) {
-        _scrollControllers[k]?.dispose();
-        _scrollControllers.remove(k);
-      });
+      _scrollControllers.keys
+          .where((k) => k >= widget.pages.length)
+          .toList()
+          .forEach((k) {
+            _scrollControllers[k]?.dispose();
+            _scrollControllers.remove(k);
+          });
       // Create controllers for new pages.
       for (int i = 0; i < widget.pages.length; i++) {
         if (!_scrollControllers.containsKey(i)) {
@@ -131,6 +158,7 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
 
   @override
   Widget build(BuildContext context) {
+    final showLabels = widget.prefs.get(optionShowNavigationLabels);
     return Scaffold(
       body: Provider<FeedRefreshController>.value(
         value: _feedRefreshController,
@@ -147,47 +175,57 @@ class _ScaffoldWithBottomNavigationState extends State<ScaffoldWithBottomNavigat
           children: widget.builder(_scrollControllers),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentPage,
-        labelBehavior: widget.prefs.get(optionShowNavigationLabels)
-            ? NavigationDestinationLabelBehavior.alwaysShow
-            : NavigationDestinationLabelBehavior.alwaysHide,
-        // No backgroundColor/indicatorColor/shadowColor/height overrides: the
-        // theme already defines a real Material 3 nav bar (surface background,
-        // a secondaryContainer pill, 68dp). Overriding all four to transparent
-        // made the bar paint nothing and left the selected tab with no visual
-        // indicator at all — the only cue was the icon glyph swap.
-        destinations: widget.pages
-            .map(
-              (page) => NavigationDestination(
-                icon: page.icon,
-                selectedIcon: page.selectedIcon,
-                label: page.titleBuilder(context),
-              ),
-            )
-            .toList(),
-        onDestinationSelected: (index) async {
-          if (index == _currentPage) {
-            final tappedId = widget.pages[index].id;
-            if (tappedId == "feed" || tappedId == "likes") {
-              final scrollController = _scrollControllers[_currentPage];
-              // A tab whose list is not mounted (the Like tab showing another
-              // sub-tab) has nothing to scroll back up.
-              if (scrollController != null && scrollController.hasClients) {
-                await scrollController.animateTo(0, duration: const Duration(seconds: 1), curve: Curves.easeInOut);
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          navigationBarTheme: Theme.of(context).navigationBarTheme
+              .copyWith(height: showLabels ? 76 : AppSize.navBar),
+        ),
+        child: NavigationBar(
+          selectedIndex: _currentPage,
+          labelBehavior: showLabels
+              ? NavigationDestinationLabelBehavior.alwaysShow
+              : NavigationDestinationLabelBehavior.alwaysHide,
+          // No backgroundColor/indicatorColor/shadowColor/height overrides: the
+          // theme already defines a real Material 3 nav bar (surface background,
+          // a surfaceContainerHighest pill, 64dp). Overriding all four to
+          // transparent made the bar paint nothing and left the selected tab with
+          // no visual indicator at all — the only cue was the icon glyph swap.
+          destinations: widget.pages
+              .map(
+                (page) => NavigationDestination(
+                  icon: page.icon,
+                  selectedIcon: page.selectedIcon,
+                  label: page.titleBuilder(context),
+                ),
+              )
+              .toList(),
+          onDestinationSelected: (index) async {
+            if (index == _currentPage) {
+              final tappedId = widget.pages[index].id;
+              if (tappedId == "feed" || tappedId == "likes") {
+                final scrollController = _scrollControllers[_currentPage];
+                // A tab whose list is not mounted (the Like tab showing another
+                // sub-tab) has nothing to scroll back up.
+                if (scrollController != null && scrollController.hasClients) {
+                  await scrollController.animateTo(
+                    0,
+                    duration: const Duration(seconds: 1),
+                    curve: Curves.easeInOut,
+                  );
+                }
+                // ...and the list itself. The outer NestedScrollView controller
+                // above only collapses the app bar; the feed's own list keeps the
+                // reader's position, which made "tap Home to go to top" do half
+                // its job. FeedRefreshController is the seam the body registered
+                // its real scroll-to-top on. Only Home has that seam: the Like
+                // tab owns its own controller, and calling this from there
+                // scrolled the hidden Home feed instead.
+                if (tappedId == "feed") _feedRefreshController.scrollToTop();
               }
-              // ...and the list itself. The outer NestedScrollView controller
-              // above only collapses the app bar; the feed's own list keeps the
-              // reader's position, which made "tap Home to go to top" do half
-              // its job. FeedRefreshController is the seam the body registered
-              // its real scroll-to-top on. Only Home has that seam: the Like
-              // tab owns its own controller, and calling this from there
-              // scrolled the hidden Home feed instead.
-              if (tappedId == "feed") _feedRefreshController.scrollToTop();
             }
-          }
-          _pageController.jumpToPage(index);
-        },
+            _pageController.jumpToPage(index);
+          },
+        ),
       ),
     );
   }

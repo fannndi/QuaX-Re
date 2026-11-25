@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/client/client.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
@@ -23,10 +24,14 @@ import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-/// Footer buttons should feel flat: no ripple and no pressed/hover background.
+/// Footer buttons should feel flat: no ripple, no pressed background, and the
+/// same 40dp visual height with a 48dp touch target in every action slot.
 const footerButtonStyle = ButtonStyle(
   overlayColor: WidgetStatePropertyAll(Colors.transparent),
   splashFactory: NoSplash.splashFactory,
+  padding: WidgetStatePropertyAll(EdgeInsets.zero),
+  minimumSize: WidgetStatePropertyAll(Size(0, 40)),
+  tapTargetSize: MaterialTapTargetSize.padded,
 );
 
 /// The body shown by a card and copied by every share action. Long notes take
@@ -132,7 +137,7 @@ class TweetTileState extends State<TweetTile>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final linkColor = Theme.of(context).colorScheme.secondary;
+    final linkColor = Theme.of(context).colorScheme.onSurface;
     if (!_isInitialized || _linkColor != linkColor) {
       _linkColor = linkColor;
       _initializeTweetParts();
@@ -187,18 +192,28 @@ class TweetTileState extends State<TweetTile>
     );
   }
 
-  IconButton _createFooterIconButton(
+  Widget _createFooterIconButton(
     IconData icon, [
     Color? color,
     double? fill,
     Function()? onPressed,
   ]) {
-    return IconButton(
-      icon: Icon(icon, fill: fill),
-      color: color ?? Theme.of(context).colorScheme.primary,
-      iconSize: 20,
-      onPressed: onPressed,
-      style: footerButtonStyle,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: SizedBox(
+        width: AppSize.touch,
+        height: AppSize.touch,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Icon(
+            icon,
+            size: AppSize.icon,
+            fill: fill,
+            color: color ?? Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ),
     );
   }
 
@@ -225,9 +240,12 @@ class TweetTileState extends State<TweetTile>
     Function()? onPressed,
   ]) {
     return TextButton.icon(
-      icon: Icon(icon, size: 20, color: color),
+      icon: Icon(icon, size: AppSize.icon, color: color),
       onPressed: onPressed,
-      label: Text(label, style: TextStyle(color: color, fontSize: 14)),
+      label: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
+      ),
       style: footerButtonStyle,
     );
   }
@@ -281,26 +299,36 @@ class TweetTileState extends State<TweetTile>
     String tweetText,
     NumberFormat numberFormat,
   ) {
-    return Container(
-      alignment: Alignment.center,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      child: Scrollbar(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _createFooterTextButton(
+    final iconColor = buttonsColor(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.xs,
+        AppSpace.lg,
+        AppSpace.md,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _createFooterTextButton(
                 Icons.mode_comment_outlined,
                 tweet.replyCount != null
                     ? numberFormat.format(tweet.replyCount)
                     : '',
-                buttonsColor(context),
+                iconColor,
                 () => onClickOpenTweet(tweet),
               ),
-              Consumer<LikedTweetModel>(
+            ),
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.center,
+              child: Consumer<LikedTweetModel>(
                 builder: (context, likedModel, child) {
-                  var isLiked = likedModel.isLiked(tweet.idStr!);
-                  var label = tweet.favoriteCount != null
+                  final isLiked = likedModel.isLiked(tweet.idStr!);
+                  final label = tweet.favoriteCount != null
                       ? numberFormat.format(tweet.favoriteCount)
                       : '';
 
@@ -309,122 +337,110 @@ class TweetTileState extends State<TweetTile>
                     label: label,
                     color: isLiked
                         ? Theme.of(context).colorScheme.primary
-                        : buttonsColor(context),
+                        : iconColor,
                     onPressed: _likeMutationInFlight
                         ? null
                         : () => _toggleLike(tweet, likedModel, isLiked),
                   );
                 },
               ),
-              _createFooterIconButton(Icons.share, buttonsColor(context), null, () async {
-                createSheetButton(title, icon, onTap) => ListTile(
-                  onTap: onTap,
-                  leading: Icon(icon),
-                  title: Text(title),
-                );
-
-                showModalBottomSheet(
-                  context: context,
-                  builder: (context) {
-                    return SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          createSheetButton(
-                            L10n.of(context).share_tweet_content,
-                            Icons.text_snippet,
-                            () async {
-                              await SharePlus.instance.share(
-                                ShareParams(text: tweetText),
-                              );
-                              if (context.mounted) Navigator.pop(context);
-                            },
-                          ),
-                          createSheetButton(
-                            L10n.of(context).share_tweet_link,
-                            Icons.link,
-                            () async {
-                              await SharePlus.instance.share(
-                                ShareParams(
-                                  text:
-                                      '$shareLinkBase/${tweet.user!.screenName}/status/${tweet.idStr}',
-                                ),
-                              );
-                              if (context.mounted) Navigator.pop(context);
-                            },
-                          ),
-                          createSheetButton(
-                            L10n.of(context).share_tweet_content_and_link,
-                            Icons.add_link,
-                            () async {
-                              await SharePlus.instance.share(
-                                ShareParams(
-                                  text:
-                                      '$tweetText\n\n$shareLinkBase/${tweet.user!.screenName}/status/${tweet.idStr}',
-                                ),
-                              );
-                              if (context.mounted) Navigator.pop(context);
-                            },
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Divider(thickness: 1.0),
-                          ),
-                          createSheetButton(
-                            L10n.of(context).cancel,
-                            Icons.close,
-                            () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              }),
-            ],
+            ),
           ),
-        ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _createFooterIconButton(
+                Icons.share,
+                iconColor,
+                null,
+                () => _showShareSheet(tweet, tweetText),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  /// The footer buttons derive their colour from the body text colour through HSL
-  /// math that runs several times per card rebuild; the mapping is fixed, so one
-  /// entry per source colour is enough.
-  final Map<Color, Color> _buttonsColors = {};
+  void _showShareSheet(TweetWithCard tweet, String tweetText) {
+    Widget sheetButton(String title, IconData icon, VoidCallback onTap) =>
+        ListTile(
+          onTap: onTap,
+          leading: Icon(icon, size: AppSize.icon),
+          title: Text(title),
+        );
 
-  Color? buttonsColor(BuildContext c) {
-    final color = Theme.of(c).textTheme.bodyMedium?.color;
-    if (color == null) return null;
-
-    return _buttonsColors.putIfAbsent(color, () {
-      final hsl = HSLColor.fromColor(color);
-      const lightnessFactorDark = 0.5;
-      const lightnessFactorLight = 4.0;
-      final adjustedLightness =
-          (hsl.lightness *
-                  (hsl.lightness > 0.5
-                      ? lightnessFactorDark
-                      : lightnessFactorLight))
-              .clamp(0.0, 1.0);
-      final adjustedSaturation = (hsl.saturation * 0.2).clamp(0.0, 1.0);
-      return hsl
-          .withLightness(adjustedLightness)
-          .withSaturation(adjustedSaturation)
-          .toColor();
-    });
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sheetButton(
+                L10n.of(sheetContext).share_tweet_content,
+                Icons.text_snippet,
+                () async {
+                  await SharePlus.instance.share(ShareParams(text: tweetText));
+                  if (sheetContext.mounted) Navigator.pop(sheetContext);
+                },
+              ),
+              sheetButton(L10n.of(sheetContext).share_tweet_link, Icons.link, () async {
+                await SharePlus.instance.share(
+                  ShareParams(
+                    text:
+                        '$shareLinkBase/${tweet.user!.screenName}/status/${tweet.idStr}',
+                  ),
+                );
+                if (sheetContext.mounted) Navigator.pop(sheetContext);
+              }),
+              sheetButton(
+                L10n.of(sheetContext).share_tweet_content_and_link,
+                Icons.add_link,
+                () async {
+                  await SharePlus.instance.share(
+                    ShareParams(
+                      text:
+                          '$tweetText\n\n$shareLinkBase/${tweet.user!.screenName}/status/${tweet.idStr}',
+                    ),
+                  );
+                  if (sheetContext.mounted) Navigator.pop(sheetContext);
+                },
+              ),
+              const Divider(indent: AppSpace.lg, endIndent: AppSpace.lg),
+              sheetButton(
+                L10n.of(sheetContext).cancel,
+                Icons.close,
+                () => Navigator.pop(sheetContext),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
+
+  Color buttonsColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
 
   Widget _buildErrorTweet(String text) {
     // create the layout of tombstones (deleted tweets) and other possible errors that we want to display as a tweet
-    return SizedBox(
-      width: double.infinity,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.sm,
+        AppSpace.lg,
+        AppSpace.sm,
+      ),
       child: Card(
-        child: Container(
-          padding: const EdgeInsets.all(16),
+        child: Padding(
+          padding: AppSpace.card,
           child: Text(
             text,
-            style: const TextStyle(fontStyle: FontStyle.italic),
+            style: TextStyle(
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),
@@ -467,7 +483,6 @@ class TweetTileState extends State<TweetTile>
     }
 
     Widget retweetBanner = Container();
-    Widget retweetSidebar = Container();
     if (this.tweet.retweetedStatusWithCard != null) {
       retweetBanner = TweetTileLeading(
         icon: Icons.repeat,
@@ -485,17 +500,11 @@ class TweetTileState extends State<TweetTile>
               this.tweet.user!.name!,
               createRelativeDate(this.tweet.createdAt!),
             ),
-            style: theme.textTheme.bodySmall,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
-      );
-
-      // A ColoredBox, not a Container with only a color: no decoration machinery
-      // for a 4dp strip. surfaceContainerHighest is the Material 3 role;
-      // secondaryHeaderColor is the deprecated Material 2 one.
-      retweetSidebar = ColoredBox(
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: const SizedBox(width: 4),
       );
     }
 
@@ -528,12 +537,15 @@ class TweetTileState extends State<TweetTile>
         children: [
           TextSpan(
             text: '${L10n.of(context).replying_to} ',
-            style: theme.textTheme.bodySmall,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           TextSpan(
             text: '@$replyTo',
-            style: theme.textTheme.bodySmall!.copyWith(
-              fontWeight: FontWeight.bold,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -611,10 +623,15 @@ class TweetTileState extends State<TweetTile>
       );
     }
 
-    var birdwatchQuoted = Container();
+    Widget birdwatchQuoted = Container();
     if (tweet.birdwatchQuotedStatus != null) {
-      birdwatchQuoted = Container(
-        margin: const EdgeInsets.all(8),
+      birdwatchQuoted = Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.lg,
+          AppSpace.sm,
+          AppSpace.lg,
+          AppSpace.sm,
+        ),
         child: TweetTile(
           clickable: false,
           tweet: tweet.birdwatchQuotedStatus!,
@@ -623,7 +640,7 @@ class TweetTileState extends State<TweetTile>
       );
     }
 
-    var quotedTweet = Container();
+    Widget quotedTweet = Container();
 
     // don't display a nested quoted tweet if we are already building a quoted tweet
     if (!isQuotedTweet && (tweet.isQuoteStatus ?? false)) {
@@ -663,11 +680,16 @@ class TweetTileState extends State<TweetTile>
       quotedTweet = Container(
         decoration: BoxDecoration(
           border: Border.all(
-            color: theme.colorScheme.surfaceBright.withAlpha(180),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.mdAll,
         ),
-        margin: const EdgeInsets.all(8),
+        margin: const EdgeInsets.fromLTRB(
+          AppSpace.lg,
+          AppSpace.sm,
+          AppSpace.lg,
+          AppSpace.sm,
+        ),
         child: quotedContent,
       );
     }
@@ -710,10 +732,10 @@ class TweetTileState extends State<TweetTile>
     }
 
     final avatar = hideAuthorInformation
-        ? const Icon(Icons.account_circle, size: 48)
-        : ClipRRect(
-            borderRadius: BorderRadius.circular(64),
-            child: UserAvatar(uri: tweet.user!.profileImageUrlHttps),
+        ? const Icon(Icons.account_circle, size: AppSize.avatar)
+        : UserAvatar(
+            uri: tweet.user!.profileImageUrlHttps,
+            size: AppSize.avatar,
           );
 
     void onTapProfile() {
@@ -733,51 +755,50 @@ class TweetTileState extends State<TweetTile>
       );
     }
 
+    final metaStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final nameStyle = theme.textTheme.titleSmall;
+
     final titleRow = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Username
         if (!hideAuthorInformation)
           Flexible(
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    tweet.user!.name!,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ),
-                if (tweet.user!.verified ?? false) const SizedBox(width: 4),
-                if (tweet.user!.verified ?? false)
-                  Icon(
-                    Icons.verified,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-              ],
+            child: Text(
+              tweet.user!.name!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: nameStyle,
             ),
+          ),
+        if (tweet.user!.verified ?? false) const SizedBox(width: AppSpace.xs),
+        if (tweet.user!.verified ?? false)
+          Icon(
+            Icons.verified,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
       ],
     );
 
     final subtitleRow = Row(
-      mainAxisAlignment: hideAuthorInformation
-          ? MainAxisAlignment.end
-          : MainAxisAlignment.spaceBetween,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Twitter name
         if (!hideAuthorInformation) ...[
           Flexible(
             child: Text(
               '@${tweet.user!.screenName!}',
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              style: metaStyle,
             ),
           ),
-          const SizedBox(width: 4),
+          if (createdAt != null) Text(' · ', style: metaStyle),
         ],
         if (createdAt != null)
           DefaultTextStyle(
-            style: theme.textTheme.bodySmall!,
+            style: metaStyle ?? const TextStyle(),
             child: Timestamp(
               timestamp: createdAt,
               absoluteTimestamp: prefs.get(optionUseAbsoluteTimestamp),
@@ -786,22 +807,31 @@ class TweetTileState extends State<TweetTile>
       ],
     );
 
-    final headerTile = ListTile(
+    final headerInfo = InkWell(
       onTap: onTapProfile,
-      title: titleRow,
-      subtitle: subtitleRow,
-      // Profile picture
-      leading: avatar,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.md,
+          AppSpace.md,
+          AppSpace.lg,
+          AppSpace.sm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            titleRow,
+            const SizedBox(height: AppSpace.xxs),
+            subtitleRow,
+          ],
+        ),
+      ),
     );
 
     final pinnedBadge = isPinned
         ? TweetTileLeading(
             icon: Icons.push_pin,
             children: [
-              TextSpan(
-                text: L10n.of(context).pinned_tweet,
-                style: theme.textTheme.bodySmall,
-              ),
+              TextSpan(text: L10n.of(context).pinned_tweet, style: metaStyle),
             ],
           )
         : null;
@@ -809,10 +839,7 @@ class TweetTileState extends State<TweetTile>
         ? TweetTileLeading(
             icon: Icons.forum,
             children: [
-              TextSpan(
-                text: L10n.of(context).thread,
-                style: theme.textTheme.bodySmall,
-              ),
+              TextSpan(text: L10n.of(context).thread, style: metaStyle),
             ],
           )
         : null;
@@ -841,30 +868,7 @@ class TweetTileState extends State<TweetTile>
             _buildThreadBody(
               theme,
               avatar,
-              InkWell(
-                onTap: onTapProfile,
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    top: 12,
-                    bottom: 12,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      DefaultTextStyle.merge(
-                        style: theme.textTheme.bodyLarge,
-                        child: titleRow,
-                      ),
-                      DefaultTextStyle.merge(
-                        style: theme.textTheme.bodyMedium,
-                        child: subtitleRow,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              headerInfo,
               bodyChildren,
               indentBody: widget.threadConnectBottom,
               onTapProfile: onTapProfile,
@@ -877,34 +881,42 @@ class TweetTileState extends State<TweetTile>
     return RepaintBoundary(
       child: Column(
         children: [
-          Card(
-            color: tweetCardColor(context),
-            child: Row(
+          ColoredBox(
+            color: theme.colorScheme.surface,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                retweetSidebar,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      retweetBanner,
-                      replyToTile,
-                      ?pinnedBadge,
-                      ?threadBadge,
-                      headerTile,
-                      ...bodyChildren,
-                    ],
-                  ),
+                retweetBanner,
+                replyToTile,
+                ?pinnedBadge,
+                ?threadBadge,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(width: AppSpace.lg),
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.md),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onTapProfile,
+                        child: avatar,
+                      ),
+                    ),
+                    Expanded(child: headerInfo),
+                  ],
                 ),
+                ...bodyChildren,
               ],
             ),
           ),
-          Divider(
-            height: 0,
-            thickness: 1,
-            color: addSeparator
-                ? theme.colorScheme.surfaceBright.withAlpha(150)
-                : Colors.transparent,
-          ),
+          if (addSeparator)
+            Divider(
+              height: 1,
+              thickness: 1,
+              indent: AppSpace.lg,
+              endIndent: AppSpace.lg,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+            ),
         ],
       ),
     );
@@ -918,9 +930,9 @@ class TweetTileState extends State<TweetTile>
     required bool indentBody,
     required VoidCallback onTapProfile,
   }) {
-    const railLeft = 16.0;
-    const topGap = 10.0;
-    const avatarSize = 48.0;
+    const railLeft = AppSpace.lg;
+    const topGap = AppSpace.md;
+    const avatarSize = AppSize.avatar;
     const lineWidth = 2.0;
     const lineX = railLeft + avatarSize / 2 - lineWidth / 2;
     const avatarCenterY = topGap + avatarSize / 2;
@@ -988,27 +1000,3 @@ class TweetTileState extends State<TweetTile>
 // Compact counters are formatted for every card on every rebuild; building the
 // formatter itself costs ICU lookups, so keep the one this app uses.
 final NumberFormat _compactNumberFormat = NumberFormat.compact(locale: 'en');
-
-// Seeded card colors are memoized: ColorScheme.fromSeed generates a whole tonal
-// palette, and without this it runs again for every card on every rebuild.
-final Map<int, Color> _tweetCardColors = {};
-
-Color? tweetCardColor(BuildContext context) {
-  final theme = Theme.of(context);
-  final prefs = PrefService.of(context, listen: false);
-  final trueBlack =
-      theme.brightness == Brightness.dark &&
-      (prefs.get<bool>(optionThemeTrueBlack) ?? false) &&
-      (prefs.get<bool>(optionThemeTrueBlackTweetCards) ?? false);
-  if (trueBlack) return Colors.black;
-
-  return _tweetCardColors.putIfAbsent(
-    Object.hash(theme.colorScheme.primary, theme.brightness),
-    () => ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: theme.colorScheme.primary,
-        brightness: theme.brightness,
-      ),
-    ).cardColor,
-  );
-}

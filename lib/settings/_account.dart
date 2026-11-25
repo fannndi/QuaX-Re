@@ -43,15 +43,21 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
   }
 
   Future<void> _relogin() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview()));
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TwitterLoginWebview()),
+    );
     _reloadAccounts();
   }
 
   void _openProfile(Account account) {
     final screenName = account.screenName;
     if (screenName == null) return;
-    Navigator.pushNamed(context, routeProfile,
-        arguments: ProfileScreenArguments.fromScreenName(screenName, 0));
+    Navigator.pushNamed(
+      context,
+      routeProfile,
+      arguments: ProfileScreenArguments.fromScreenName(screenName, 0),
+    );
   }
 
   /// Opens the X likes timeline of the active account (private data: X answers
@@ -66,10 +72,19 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
 
       final profile = await Twitter.getProfileByScreenName(screenName);
       if (!mounted) return;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileLikesScreen(user: profile.user)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProfileLikesScreen(user: profile.user),
+        ),
+      );
     } catch (_) {
       if (mounted) {
-        showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: L10n.of(context).oops_something_went_wrong,
+        );
       }
     } finally {
       if (mounted) setState(() => _openingLikes = false);
@@ -84,105 +99,134 @@ class _SettingsAccountFragment extends State<SettingsAccountFragment> {
         title: Text(L10n.current.account),
         actions: [
           IconButton(
-              icon: _openingLikes
-                  ? const SizedBox(
-                      width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.favorite_border),
-              tooltip: L10n.current.favorites,
-              onPressed: _openingLikes ? null : _openMyLikes),
+            icon: _openingLikes
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.favorite_border),
+            tooltip: L10n.current.favorites,
+            onPressed: _openingLikes ? null : _openMyLikes,
+          ),
           IconButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TwitterLoginWebview())),
-              icon: const Icon(Icons.add))
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TwitterLoginWebview()),
+            ),
+            icon: const Icon(Icons.add),
+          ),
         ],
       ),
       body: Column(
         children: [
           Expanded(
             child: FutureBuilder(
-                future: _accountsFuture,
-                builder: (BuildContext listContext, AsyncSnapshot snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const LinearProgressIndicator();
-                  }
+              future: _accountsFuture,
+              builder: (BuildContext listContext, AsyncSnapshot snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const LinearProgressIndicator();
+                }
 
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: TextButton(
-                        onPressed: _reloadAccounts,
-                        child: Text(L10n.of(context).retry),
+                if (snapshot.hasError) {
+                  return Center(
+                    child: TextButton(
+                      onPressed: _reloadAccounts,
+                      child: Text(L10n.of(context).retry),
+                    ),
+                  );
+                }
+
+                final List<Account> data = snapshot.data ?? const <Account>[];
+                if (data.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: data.length,
+                  itemBuilder: (BuildContext itemContext, int index) {
+                    final account = data[index];
+                    return Dismissible(
+                      key: ValueKey(account.id),
+                      confirmDismiss: (DismissDirection direction) async {
+                        return await showDialog<bool>(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                title: Text(
+                                  L10n.of(dialogContext).are_you_sure,
+                                ),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(L10n.of(dialogContext).delete),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      L10n.of(dialogContext)
+                                          .account_delete_local_likes,
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, false),
+                                    child: Text(L10n.of(dialogContext).cancel),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, true),
+                                    child: Text(L10n.of(dialogContext).delete),
+                                  ),
+                                ],
+                              ),
+                            ) ??
+                            false;
+                      },
+                      onDismissed: (DismissDirection direction) async {
+                        await model.deleteAccount(account.id);
+                        if (context.mounted) {
+                          await PrefService.of(
+                            context,
+                            listen: false,
+                          ).set<bool>(optionAccountVaultDirty, true);
+                        }
+                        _reloadAccounts();
+                      },
+                      child: Card(
+                        child: AccountTile(
+                          key: ValueKey(account.id),
+                          account: account,
+                          onTap: account.isActive
+                              ? null
+                              : () => _activate(account),
+                          onRelogin: _relogin,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.person_outline),
+                            onPressed: () => _openProfile(account),
+                          ),
+                        ),
                       ),
                     );
-                  }
-
-                  final List<Account> data = snapshot.data ?? const <Account>[];
-                  if (data.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-
-                  return ListView.builder(
-                      itemCount: data.length,
-                      itemBuilder: (BuildContext itemContext, int index) {
-                        final account = data[index];
-                        return Dismissible(
-                            key: ValueKey(account.id),
-                            confirmDismiss: (DismissDirection direction) async {
-                              return await showDialog<bool>(
-                                    context: context,
-                                    builder: (dialogContext) => AlertDialog(
-                                      title: Text(L10n.of(dialogContext).are_you_sure),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(L10n.of(dialogContext).delete),
-                                          const SizedBox(height: 8),
-                                          Text(L10n.of(dialogContext).account_delete_local_likes),
-                                        ],
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(dialogContext, false),
-                                          child: Text(L10n.of(dialogContext).cancel),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(dialogContext, true),
-                                          child: Text(L10n.of(dialogContext).delete),
-                                        ),
-                                      ],
-                                    ),
-                                  ) ??
-                                  false;
-                            },
-                            onDismissed: (DismissDirection direction) async {
-                              await model.deleteAccount(account.id);
-                              if (context.mounted) {
-                                await PrefService.of(context, listen: false)
-                                    .set<bool>(optionAccountVaultDirty, true);
-                              }
-                              _reloadAccounts();
-                            },
-                            child: Card(
-                                child: AccountTile(
-                              key: ValueKey(account.id),
-                              account: account,
-                              onTap: account.isActive ? null : () => _activate(account),
-                              onRelogin: _relogin,
-                              trailing: IconButton(
-                                icon: const Icon(Icons.person_outline),
-                                onPressed: () => _openProfile(account),
-                              ),
-                            )));
-                      });
-                }),
+                  },
+                );
+              },
+            ),
           ),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.lock_outline),
             title: Text(L10n.of(context).account_backup),
-            subtitle: Text(L10n.of(context).account_backup_description,
-                maxLines: 2, overflow: TextOverflow.ellipsis),
+            subtitle: Text(
+              L10n.of(context).account_backup_description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             onTap: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const AccountBackupScreen())),
+              context,
+              MaterialPageRoute(builder: (_) => const AccountBackupScreen()),
+            ),
           ),
         ],
       ),

@@ -167,7 +167,7 @@ class _StatusScreenState extends State<_StatusScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(title: Text(L10n.of(context).post)),
       body: TweetContextScope(
         child: _showingPreview
             ? _buildPreview(context)

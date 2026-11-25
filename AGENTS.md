@@ -197,9 +197,18 @@ fails. Look at existing tests to mimic the style (`flutter test` runs everything
 - Saving was removed: the tweet footer has no bookmark, and there is no Saved tab, folder picker
   or "Manage folders" control. Likes are local; X bookmarks are read from the Bookmarks endpoint.
   Do not rebuild saving from the leftover `saved_tweet` schema.
+- The UI is one monochrome design system: `lib/app/design_tokens.dart` owns the 4/8/12/16/24
+  spacing scale, the closed radius family, control sizes and the Graphite palette, and
+  `lib/app/theme.dart` builds every component from it. There is no dynamic wallpaper colour and no
+  Material colour seed; the only non-gray role is the muted error colour, and media overlays keep
+  their black/white scrims. Links are underlined `onSurface` text, not blue. The screen gutter is
+  16, buttons are 44/48 high with a 12 radius, cards use 16, sheets/dialogs 24, feed media 12.
+  Home/Likes/Downloads use a two-row app bar (identity row + tab/action row), posts are a divider
+  list rather than cards, and gallery/profile/search grids are square 1:1 with 4dp gaps. Feed
+  media clamps to 4:5–1.91:1 and stops at 60% of the viewport.
 - Scroll performance: text is measured once per card (and the spans handed to the text widget are
-  memoised, which is what lets that measurement survive a rebuild), seeded card colors and number
-  formats are memoized, RTL is detected once per tile, pagination prefetches 8 items early, and the
+  memoised, which is what lets that measurement survive a rebuild), number formats are memoized,
+  RTL is detected once per tile, pagination prefetches 8 items early, and the
   gallery decodes at tile width. Scroll offsets are written straight to `SharedPreferences` —
   through `PrefService.set()` they would notify `PrefService` (an `InheritedNotifier`) and rebuild
   every card on screen. Judge scroll smoothness on a profile/release build — debug is much slower.

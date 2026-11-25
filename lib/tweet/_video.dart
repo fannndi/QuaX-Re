@@ -42,6 +42,7 @@ class TweetVideo extends StatefulWidget {
   final bool disableControls;
   final String? tweetId;
   final int mediaIndex;
+  final double? aspectRatioOverride;
 
   const TweetVideo({
     super.key,
@@ -52,6 +53,7 @@ class TweetVideo extends StatefulWidget {
     this.disableControls = false,
     this.tweetId,
     this.mediaIndex = 0,
+    this.aspectRatioOverride,
   });
 
   // GIFs play on their own, silently and on a loop, all over the timeline.
@@ -619,6 +621,8 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
     final prefs = PrefService.of(context, listen: false);
     final prefLoop = prefs.get(optionMediaDefaultLoop);
     final prefAutoPlay = prefs.get(optionMediaDefaultAutoPlay);
+    final videoAspectRatio =
+        widget.aspectRatioOverride ?? widget.metadata.aspectRatio;
 
     final key = _poolKey;
     final alreadyCached = key != null && (_pool?.contains(key) ?? false);
@@ -630,7 +634,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
       return GestureDetector(
         onTap: () => setState(() => _userRequestedPlay = true),
         child: AspectRatio(
-          aspectRatio: widget.metadata.aspectRatio,
+          aspectRatio: videoAspectRatio,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -671,7 +675,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
         if (isLoading && !hasVideo) {
           return AspectRatio(
-            aspectRatio: widget.metadata.aspectRatio,
+            aspectRatio: videoAspectRatio,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -691,7 +695,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
 
         if (hasError && !_firstFrameRendered) {
           return AspectRatio(
-            aspectRatio: widget.metadata.aspectRatio,
+            aspectRatio: videoAspectRatio,
             // FittedBox so the error block scales down instead of overflowing in
             // short/narrow video areas (a wide clip in the feed, a grid cell...).
             child: Center(
@@ -723,7 +727,7 @@ class _TweetVideoState extends State<TweetVideo> with WidgetsBindingObserver {
         }
 
         return AspectRatio(
-          aspectRatio: widget.metadata.aspectRatio,
+          aspectRatio: videoAspectRatio,
           child: hasVideo
               ? VisibilityDetector(
                   key: _visibilityKey,

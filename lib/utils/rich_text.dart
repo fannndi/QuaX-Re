@@ -43,7 +43,11 @@ List<InlineSpan> displayRichText(List<RichTextPart> richText) {
 }
 
 // Generate all the tweet entities (mentions, hashtags, etc.) from the tweet text
-List<RichTextPart> buildRichText(BuildContext context, String rawText, Object? rawEntities) {
+List<RichTextPart> buildRichText(
+  BuildContext context,
+  String rawText,
+  Object? rawEntities,
+) {
   Runes runes = Runes(rawText);
   Iterable<int> runesAsIterable = runes.getRange(0, runes.length);
 
@@ -76,7 +80,11 @@ List<RichTextPart> buildRichText(BuildContext context, String rawText, Object? r
 }
 
 // In descriptions, the hashtags and mentions are not seen as entities, so we parse them manually
-void _handleTextParts(BuildContext context, String? text, List<RichTextPart> richTextParts) {
+void _handleTextParts(
+  BuildContext context,
+  String? text,
+  List<RichTextPart> richTextParts,
+) {
   if (text == null) return;
   List parsedText = _parseMentionsAndHashtags(context, text);
   for (var t in parsedText) {
@@ -93,36 +101,56 @@ List _parseMentionsAndHashtags(BuildContext context, String content) {
   List contentWidgets = [];
 
   // Split the string by any mentions or hashtags, and turn those into links
-  content.splitMapJoin(_mentionOrHashtag, onMatch: (match) {
-    var full = match.group(0);
-    var type = match.group(1);
-    if (type == null || full == null) {
-      return '';
-    }
+  content.splitMapJoin(
+    _mentionOrHashtag,
+    onMatch: (match) {
+      var full = match.group(0);
+      var type = match.group(1);
+      if (type == null || full == null) {
+        return '';
+      }
 
-    var onTap = () async {};
-    if (type == '#') {
-      onTap = () async {
-        Navigator.pushNamed(context, routeSearch,
-            arguments: SearchArguments(1, query: full));
-      };
-    }
-    if (type == '@') {
-      onTap = () async {
-        Navigator.pushNamed(context, routeProfile,
-            arguments:
-                ProfileScreenArguments.fromScreenName(full.substring(1), null));
-      };
-    }
-    contentWidgets.add(TextSpan(
-        text: full,
-        style: TextStyle(color: Theme.of(context).colorScheme.secondary),
-        recognizer: TapGestureRecognizer()..onTap = onTap));
-    return type;
-  }, onNonMatch: (text) {
-    contentWidgets.add(text);
-    return text;
-  });
+      var onTap = () async {};
+      if (type == '#') {
+        onTap = () async {
+          Navigator.pushNamed(
+            context,
+            routeSearch,
+            arguments: SearchArguments(1, query: full),
+          );
+        };
+      }
+      if (type == '@') {
+        onTap = () async {
+          Navigator.pushNamed(
+            context,
+            routeProfile,
+            arguments: ProfileScreenArguments.fromScreenName(
+              full.substring(1),
+              null,
+            ),
+          );
+        };
+      }
+      final linkColor = Theme.of(context).colorScheme.onSurface;
+      contentWidgets.add(
+        TextSpan(
+          text: full,
+          style: TextStyle(
+            color: linkColor,
+            decoration: TextDecoration.underline,
+            decorationColor: linkColor.withValues(alpha: 0.5),
+          ),
+          recognizer: TapGestureRecognizer()..onTap = onTap,
+        ),
+      );
+      return type;
+    },
+    onNonMatch: (text) {
+      contentWidgets.add(text);
+      return text;
+    },
+  );
 
   return contentWidgets;
 }
@@ -139,14 +167,15 @@ String? _convertRunesToText(Iterable<int> runes, int start, [int? end]) {
 List<Entity> _parseEntities(BuildContext context, dynamic newEntities) {
   List<Entity> entities = [];
   if (newEntities == null) return entities;
+  final linkColor = Theme.of(context).colorScheme.onSurface;
 
-  if (newEntities is Map<String, dynamic>){
+  if (newEntities is Map<String, dynamic>) {
     // try using newEntities as a raw json object
     newEntities = Entities.fromJson(newEntities);
   }
 
-  if (newEntities is! Entities && newEntities is! UserEntityUrl){
-      return entities;
+  if (newEntities is! Entities && newEntities is! UserEntityUrl) {
+    return entities;
   }
 
   // in tweets all entities types can be present (Entities object)
@@ -157,34 +186,52 @@ List<Entity> _parseEntities(BuildContext context, dynamic newEntities) {
     }
 
     for (Hashtag hashtag in newEntities.hashtags ?? []) {
-      entities.add(HashtagEntity(
+      entities.add(
+        HashtagEntity(
           hashtag,
-          () => Navigator.pushNamed(context, routeSearch,
-              arguments: SearchArguments(1,
-                  query: '#${hashtag.text}'))));
+          () => Navigator.pushNamed(
+            context,
+            routeSearch,
+            arguments: SearchArguments(1, query: '#${hashtag.text}'),
+          ),
+          linkColor,
+        ),
+      );
     }
 
     for (UserMention mention in newEntities.userMentions ?? []) {
-      entities.add(UserMentionEntity(
+      entities.add(
+        UserMentionEntity(
           mention,
-          () => Navigator.pushNamed(context, routeProfile,
-              arguments:
-                  ProfileScreenArguments(mention.idStr, mention.screenName, null))));
+          () => Navigator.pushNamed(
+            context,
+            routeProfile,
+            arguments: ProfileScreenArguments(
+              mention.idStr,
+              mention.screenName,
+              null,
+            ),
+          ),
+          linkColor,
+        ),
+      );
     }
   }
 
   for (Url url in newEntities.urls ?? []) {
-    entities.add(UrlEntity(url, () async {
-      String? uri = url.expandedUrl;
-      if (uri == null ||
-          (uri.length > 33 &&
-              uri.substring(0, 33) == 'https://twitter.com/i/web/status/') ||
-          (uri.length > 27 &&
-              uri.substring(0, 27) == 'https://x.com/i/web/status/')) {
-        return;
-      }
-      await openUri(context, uri);
-    }));
+    entities.add(
+      UrlEntity(url, () async {
+        String? uri = url.expandedUrl;
+        if (uri == null ||
+            (uri.length > 33 &&
+                uri.substring(0, 33) == 'https://twitter.com/i/web/status/') ||
+            (uri.length > 27 &&
+                uri.substring(0, 27) == 'https://x.com/i/web/status/')) {
+          return;
+        }
+        await openUri(context, uri);
+      }, linkColor),
+    );
   }
 
   entities.sort((a, b) => a.getEntityStart().compareTo(b.getEntityStart()));

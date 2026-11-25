@@ -2,7 +2,6 @@ import 'package:quax/app/privacy_shield.dart';
 import 'package:quax/app/theme.dart';
 import 'package:quax/app/default_page.dart';
 
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -28,7 +27,7 @@ class _FritterAppState extends State<FritterApp> {
   static final log = Logger('_MyAppState');
 
   String _themeMode = 'system';
-  String _themeColor = 'accent';
+  String _themeColor = defaultThemeColor;
   bool _disableAnimations = false;
   bool _trueBlack = true;
   bool _isSecure = false;
@@ -55,7 +54,10 @@ class _FritterAppState extends State<FritterApp> {
       prefs.addKeyListener(optionThemeMode, _onThemeModeChanged);
       prefs.addKeyListener(optionThemeColor, _onThemeColorChanged);
       prefs.addKeyListener(optionDisableScreenshots, _onScreenshotsChanged);
-      prefs.addKeyListener(optionDisableAnimations, _onDisableAnimationsChanged);
+      prefs.addKeyListener(
+        optionDisableAnimations,
+        _onDisableAnimationsChanged,
+      );
       prefs.addKeyListener(optionTextScaleFactor, _onTextChangedScale);
     }
 
@@ -78,14 +80,17 @@ class _FritterAppState extends State<FritterApp> {
     prefs.removeKeyListener(optionThemeMode, _onThemeModeChanged);
     prefs.removeKeyListener(optionThemeColor, _onThemeColorChanged);
     prefs.removeKeyListener(optionDisableScreenshots, _onScreenshotsChanged);
-    prefs.removeKeyListener(optionDisableAnimations, _onDisableAnimationsChanged);
+    prefs.removeKeyListener(
+      optionDisableAnimations,
+      _onDisableAnimationsChanged,
+    );
     prefs.removeKeyListener(optionTextScaleFactor, _onTextChangedScale);
   }
 
   void _readPreferences(BasePrefService prefs) {
     _themeMode = prefs.get(optionThemeMode);
     final color = prefs.get<String>(optionThemeColor);
-    _themeColor = themeColors.containsKey(color) ? color! : 'accent';
+    _themeColor = themeColors.containsKey(color) ? color! : defaultThemeColor;
     _trueBlack = prefs.get(optionThemeTrueBlack);
     _disableAnimations = prefs.get(optionDisableAnimations);
     _isSecure = prefs.get(optionDisableScreenshots);
@@ -98,22 +103,27 @@ class _FritterAppState extends State<FritterApp> {
     setState(() => read(prefs));
   }
 
-  void _onTrueBlackChanged() => _onPreferenceChanged((p) => _trueBlack = p.get(optionThemeTrueBlack));
+  void _onTrueBlackChanged() =>
+      _onPreferenceChanged((p) => _trueBlack = p.get(optionThemeTrueBlack));
 
-  void _onThemeModeChanged() => _onPreferenceChanged((p) => _themeMode = p.get(optionThemeMode));
+  void _onThemeModeChanged() =>
+      _onPreferenceChanged((p) => _themeMode = p.get(optionThemeMode));
 
   void _onThemeColorChanged() => _onPreferenceChanged((p) {
-        final color = p.get<String>(optionThemeColor);
-        _themeColor = themeColors.containsKey(color) ? color! : 'accent';
-      });
+    final color = p.get<String>(optionThemeColor);
+    _themeColor = themeColors.containsKey(color) ? color! : defaultThemeColor;
+  });
 
-  void _onScreenshotsChanged() => _onPreferenceChanged((p) => _isSecure = p.get(optionDisableScreenshots));
+  void _onScreenshotsChanged() =>
+      _onPreferenceChanged((p) => _isSecure = p.get(optionDisableScreenshots));
 
-  void _onDisableAnimationsChanged() =>
-      _onPreferenceChanged((p) => _disableAnimations = p.get(optionDisableAnimations));
+  void _onDisableAnimationsChanged() => _onPreferenceChanged(
+    (p) => _disableAnimations = p.get(optionDisableAnimations),
+  );
 
-  void _onTextChangedScale() =>
-      _onPreferenceChanged((p) => _textScaleFactor = p.get<double?>(optionTextScaleFactor) ?? 1.0);
+  void _onTextChangedScale() => _onPreferenceChanged(
+    (p) => _textScaleFactor = p.get<double?>(optionTextScaleFactor) ?? 1.0,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -134,82 +144,82 @@ class _FritterAppState extends State<FritterApp> {
         break;
     }
 
-    final darkMode = themeMode == ThemeMode.dark ||
+    final darkMode =
+        themeMode == ThemeMode.dark ||
         (themeMode == ThemeMode.system &&
             MediaQuery.platformBrightnessOf(context) == Brightness.dark);
     // Dark icons on a black status bar are invisible. Pick the icon brightness
     // from the theme that is actually active instead of always using .dark.
-    final systemOverlayStyle = (darkMode ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
-        .copyWith(systemNavigationBarColor: Colors.transparent);
+    final systemOverlayStyle =
+        (darkMode ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: darkMode
+                  ? Colors.black
+                  : const Color(0xFFFAFAF8),
+              systemNavigationBarIconBrightness: darkMode
+                  ? Brightness.light
+                  : Brightness.dark,
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarContrastEnforced: false,
+            );
     SystemChrome.setSystemUIOverlayStyle(systemOverlayStyle);
-    return DynamicColorBuilder(builder: (lightDynamic, darkDynamic) {
-          return MaterialApp(
-              localizationsDelegates: const [
-                    L10n.delegate,
-                    ...GlobalMaterialLocalizations.delegates,
-                  ],
-                  supportedLocales: L10n.delegate.supportedLocales,
-                  locale: const Locale('en'),
-                  title: 'QuaX-Re',
-                  theme: buildAppTheme(
-                    colorScheme: _themeColor == 'accent'
-                        ? lightDynamic ??
-                            ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.light)
-                        : ColorScheme.fromSeed(
-                            seedColor: (themeColors[_themeColor] ?? themeColors['accent'] ?? Colors.blue)
-                                .harmonizeWith(lightDynamic?.primary ?? Colors.transparent),
-                            brightness: Brightness.light),
-                    trueBlack: _trueBlack,
-                    disableAnimations: _disableAnimations,
-                  ),
-                  darkTheme: buildAppTheme(
-                    colorScheme: (_themeColor == 'accent'
-                            ? darkDynamic
-                            : ColorScheme.fromSeed(
-                                seedColor: (themeColors[_themeColor] ?? themeColors['accent'] ?? Colors.blue)
-                                    .harmonizeWith(darkDynamic?.primary ?? Colors.transparent),
-                                brightness: Brightness.dark)) ??
-                        ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
-                    trueBlack: _trueBlack,
-                    disableAnimations: _disableAnimations,
-                  ),
-                  themeMode: themeMode,
-                  initialRoute: '/',
-                  routes: {
-                    routeHome: (context) => const DefaultPage(),
-                    routeProfile: (context) => const ProfileScreen(),
-                    routeSearch: (context) => const ResultsScreen(),
-                    routeSettings: (context) => const SettingsScreen(),
-                    routeStatus: (context) => const StatusScreen(),
-                  },
-                  builder: (context, child) {
-                    // Replace the default red screen of death with a slightly friendlier one
-                    ErrorWidget.builder = (FlutterErrorDetails details) => FullPageErrorWidget(
-                          error: details.exception,
-                          stackTrace: details.stack,
-                          prefix: L10n.of(context).something_broke_in_fritter,
-                        );
+    final seedColor =
+        themeColors[_themeColor] ?? themeColors[defaultThemeColor]!;
+    return MaterialApp(
+      localizationsDelegates: const [
+        L10n.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
+      supportedLocales: L10n.delegate.supportedLocales,
+      locale: const Locale('en'),
+      title: 'QuaX-Re',
+      theme: buildAppTheme(
+        brightness: Brightness.light,
+        seedColor: seedColor,
+        trueBlack: _trueBlack,
+        disableAnimations: _disableAnimations,
+      ),
+      darkTheme: buildAppTheme(
+        brightness: Brightness.dark,
+        seedColor: seedColor,
+        trueBlack: _trueBlack,
+        disableAnimations: _disableAnimations,
+      ),
+      themeMode: themeMode,
+      initialRoute: '/',
+      routes: {
+        routeHome: (context) => const DefaultPage(),
+        routeProfile: (context) => const ProfileScreen(),
+        routeSearch: (context) => const ResultsScreen(),
+        routeSettings: (context) => const SettingsScreen(),
+        routeStatus: (context) => const StatusScreen(),
+      },
+      builder: (context, child) {
+        // Replace the default red screen of death with a slightly friendlier one
+        ErrorWidget.builder = (FlutterErrorDetails details) =>
+            FullPageErrorWidget(
+              error: details.exception,
+              stackTrace: details.stack,
+              prefix: L10n.of(context).something_broke_in_fritter,
+            );
 
-                    // The text-scale override belongs here, below the
-                    // MediaQuery MaterialApp installs: reading it in build()
-                    // made the whole app rebuild for every keyboard inset
-                    // change.
-                    final systemScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-                    return MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        textScaler: TextScaler.linear(_textScaleFactor * systemScaleFactor),
-                      ),
-                      child: PrivacyShield(
-                        child: SecureContentScope(
-                          enabled: _isSecure,
-                          child: child ?? Container(),
-                        ),
-                      ),
-                    );
-                  },
-                );
-        });
+        // The text-scale override belongs here, below the MediaQuery
+        // MaterialApp installs: reading it in build() made the whole app
+        // rebuild for every keyboard inset change.
+        final systemScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(_textScaleFactor * systemScaleFactor),
+          ),
+          child: PrivacyShield(
+            child: SecureContentScope(
+              enabled: _isSecure,
+              child: child ?? Container(),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
-
-

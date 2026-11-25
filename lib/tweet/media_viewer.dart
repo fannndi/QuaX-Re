@@ -1,6 +1,7 @@
 import 'package:async_button_builder/async_button_builder.dart';
 import 'package:dart_twitter_api/twitter_api.dart';
 import 'package:extended_image/extended_image.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
@@ -46,6 +47,7 @@ Media createMediaFromUrl(String? url) {
 
 class _TweetMediaViewState extends State<TweetMediaView> {
   late Media _media;
+  late int _index = widget.initialIndex;
   late final ExtendedPageController _pageController;
 
   @override
@@ -85,57 +87,79 @@ class _TweetMediaViewState extends State<TweetMediaView> {
       }
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        actions: [
-          if (downloadUri != null && downloadFileName != null) ...[
-            AsyncButtonBuilder(
-              child: const Icon(Icons.download),
-              builder: (context, child, callback, buttonState) {
-                return IconButton(onPressed: callback, icon: child);
-              },
-              onPressed: () async {
-                await downloadUriToPickedFile(
-                  context,
-                  downloadUri,
-                  downloadFileName,
-                  prefs: prefs,
-                );
-              },
-            ),
-            AsyncButtonBuilder(
-              showSuccess: false,
-              builder: (context, child, callback, buttonState) {
-                return IconButton(onPressed: callback, icon: child);
-              },
-              onPressed: () async {
-                await downloadAndShare(context, downloadUri, downloadFileName);
-              },
-              child: const Icon(Icons.share),
-            ),
-          ],
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
-      body: ExtendedImageGesturePageView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: widget.media.length,
-        itemBuilder: (BuildContext context, int index) {
-          var item = widget.media[index];
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+          systemOverlayStyle: SystemUiOverlayStyle.light,
+          title: widget.media.length <= 1
+              ? null
+              : Text(
+                  '${_index + 1} / ${widget.media.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+          actions: [
+            if (downloadUri != null && downloadFileName != null) ...[
+              AsyncButtonBuilder(
+                child: const Icon(Icons.download),
+                builder: (context, child, callback, buttonState) {
+                  return IconButton(onPressed: callback, icon: child);
+                },
+                onPressed: () async {
+                  await downloadUriToPickedFile(
+                    context,
+                    downloadUri,
+                    downloadFileName,
+                    prefs: prefs,
+                  );
+                },
+              ),
+              AsyncButtonBuilder(
+                showSuccess: false,
+                builder: (context, child, callback, buttonState) {
+                  return IconButton(onPressed: callback, icon: child);
+                },
+                onPressed: () async {
+                  await downloadAndShare(
+                    context,
+                    downloadUri,
+                    downloadFileName,
+                  );
+                },
+                child: const Icon(Icons.share),
+              ),
+            ],
+          ],
+        ),
+        body: ExtendedImageGesturePageView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: widget.media.length,
+          itemBuilder: (BuildContext context, int index) {
+            var item = widget.media[index];
 
-          return TweetMediaThing(
-            item: item,
-            username: widget.username,
-            size: size,
-            pullToClose: true,
-            inPageView: true,
-            tweetId: widget.tweetId,
-            mediaIndex: index,
-          );
-        },
-        controller: _pageController,
-        onPageChanged: (index) => setState(() {
-          _media = widget.media[index];
-        }),
+            return TweetMediaThing(
+              item: item,
+              username: widget.username,
+              size: size,
+              pullToClose: true,
+              inPageView: true,
+              tweetId: widget.tweetId,
+              mediaIndex: index,
+            );
+          },
+          controller: _pageController,
+          onPageChanged: (index) => setState(() {
+            _index = index;
+            _media = widget.media[index];
+          }),
+        ),
       ),
     );
   }
@@ -149,6 +173,7 @@ class TweetMediaThing extends StatelessWidget {
   final bool inPageView;
   final String? tweetId;
   final int mediaIndex;
+  final double? aspectRatioOverride;
 
   const TweetMediaThing({
     super.key,
@@ -159,6 +184,7 @@ class TweetMediaThing extends StatelessWidget {
     required this.inPageView,
     this.tweetId,
     this.mediaIndex = 0,
+    this.aspectRatioOverride,
   });
 
   @override
@@ -174,6 +200,7 @@ class TweetMediaThing extends StatelessWidget {
         disableControls: true,
         tweetId: tweetId,
         mediaIndex: mediaIndex,
+        aspectRatioOverride: inPageView ? null : aspectRatioOverride,
       );
     } else if (item.type == 'video') {
       media = TweetVideo(
@@ -183,12 +210,13 @@ class TweetMediaThing extends StatelessWidget {
         username: username,
         tweetId: tweetId,
         mediaIndex: mediaIndex,
+        aspectRatioOverride: inPageView ? null : aspectRatioOverride,
       );
     } else if (item.type == 'photo') {
       media = TweetPhoto(
         size: size,
         uri: item.mediaUrlHttps!,
-        fit: BoxFit.contain,
+        fit: inPageView ? BoxFit.contain : BoxFit.cover,
         pullToClose: pullToClose,
         inPageView: inPageView,
         // The feed copy only ever shows at viewport width; the fullscreen

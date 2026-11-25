@@ -1,6 +1,7 @@
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/client/accounts.dart';
 import 'package:quax/client/active_account_button.dart';
 import 'package:quax/client/client.dart';
@@ -10,6 +11,8 @@ import 'package:quax/likes/liked_tweet_model.dart';
 import 'package:quax/likes/liked_tweet_tile.dart';
 import 'package:quax/profile/_feed.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
+import 'package:quax/ui/app_bars.dart';
+import 'package:quax/ui/app_states.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/ui/skeletons.dart';
 import 'package:quax/user.dart';
@@ -45,29 +48,37 @@ class _LikesScreenState extends State<LikesScreen>
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(text: L10n.of(context).local),
-              Tab(text: L10n.of(context).likes),
-              Tab(text: L10n.of(context).bookmarks),
-            ],
-          ),
-          actions: [
-            AnimatedBuilder(
-              animation: _tabController,
-              builder: (context, _) => switch (_tabController.index) {
-                0 => IconButton(
-                  icon: const Icon(Icons.refresh),
-                  tooltip: L10n.of(context).refresh,
-                  onPressed: () =>
-                      context.read<LikedTweetModel>().refreshLikedTweets(),
+          leading: const ActiveAccountButton(),
+          title: Text(L10n.of(context).likes),
+          shape: appBarBorder(context),
+          bottom: appBarBottom(
+            AppTabsRow(
+              tabBar: TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: L10n.of(context).local),
+                  Tab(text: L10n.of(context).likes),
+                  Tab(text: L10n.of(context).bookmarks),
+                ],
+              ),
+              actions: [
+                AnimatedBuilder(
+                  animation: _tabController,
+                  builder: (context, _) => switch (_tabController.index) {
+                    0 => IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: L10n.of(context).refresh,
+                      onPressed: () =>
+                          context.read<LikedTweetModel>().refreshLikedTweets(),
+                    ),
+                    // Keep the slot so the tab row does not jump when the
+                    // refresh action is available.
+                    _ => const SizedBox(width: AppSize.touch),
+                  },
                 ),
-                _ => const SizedBox.shrink(),
-              },
+              ],
             ),
-            const ActiveAccountButton(),
-          ],
+          ),
         ),
         body: TabBarView(
           controller: _tabController,
@@ -169,8 +180,9 @@ class _LoadMoreLikesState extends State<_LoadMoreLikes> {
 
 class _EmptyLikes extends StatelessWidget {
   final String message;
+  final IconData icon;
 
-  const _EmptyLikes({required this.message});
+  const _EmptyLikes({required this.message, this.icon = Icons.favorite_border});
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +191,7 @@ class _EmptyLikes extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Center(child: Text(message)),
+          child: AppEmptyState(message: message, icon: icon),
         ),
       ),
     );
@@ -392,6 +404,7 @@ class _ActiveAccountFeedState extends State<_ActiveAccountFeed>
         if (user == null) {
           return _EmptyLikes(
             message: L10n.of(context).no_account_available_title,
+            icon: Icons.person_off_outlined,
           );
         }
 

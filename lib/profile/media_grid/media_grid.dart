@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/profile/media_grid/gif_playback_gate.dart';
@@ -11,6 +12,7 @@ import 'package:quax/profile/media_grid/media_grid_items/media_grid_item.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/status.dart';
 import 'package:quax/tweet/_video_overlays.dart';
+import 'package:quax/ui/app_states.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/ui/skeletons.dart';
 import 'package:quax/utils/paging.dart';
@@ -67,13 +69,16 @@ class _MediaGridState extends State<MediaGrid>
       child: PagingListener<int, MediaGridItem>(
         controller: widget.controller,
         builder: (context, state, fetchNextPage) =>
-            PagedMasonryGridView<int, MediaGridItem>.count(
+            PagedGridView<int, MediaGridItem>(
               state: state,
               fetchNextPage: fetchNextPage,
-              padding: const EdgeInsets.all(2),
-              crossAxisCount: columns,
-              mainAxisSpacing: 2,
-              crossAxisSpacing: 2,
+              padding: const EdgeInsets.all(AppSpace.lg),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisSpacing: AppSpace.xs,
+                crossAxisSpacing: AppSpace.xs,
+                childAspectRatio: 1,
+              ),
               addAutomaticKeepAlives: false,
               builderDelegate: PagedChildBuilderDelegate<MediaGridItem>(
                 // Like the tweet feeds: fetch the next page while there is still a
@@ -99,8 +104,10 @@ class _MediaGridState extends State<MediaGrid>
                   prefix: widget.newPageErrorPrefix,
                   onRetry: fetchNextPage,
                 ),
-                noItemsFoundIndicatorBuilder: (context) =>
-                    Center(child: Text(widget.emptyMessage)),
+                noItemsFoundIndicatorBuilder: (context) => AppEmptyState(
+                  message: widget.emptyMessage,
+                  icon: Icons.photo_library_outlined,
+                ),
               ),
             ),
       ),
@@ -232,10 +239,7 @@ class _MediaGridTileState extends State<_MediaGridTile> {
       );
     }
 
-    return AspectRatio(
-      aspectRatio: item.aspectRatio,
-      child: ClipRRect(borderRadius: BorderRadius.circular(8), child: body),
-    );
+    return ClipRRect(borderRadius: AppRadius.smAll, child: body);
   }
 }
 

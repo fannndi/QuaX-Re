@@ -4,6 +4,7 @@ import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 import 'package:pref/pref.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/client/active_account_button.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_model.dart';
@@ -11,6 +12,8 @@ import 'package:quax/generated/l10n.dart';
 import 'package:quax/library/library_model.dart';
 import 'package:quax/library/library_screen.dart';
 import 'package:quax/library/library_storage_sheet.dart';
+import 'package:quax/ui/app_bars.dart';
+import 'package:quax/ui/app_states.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/utils/downloads.dart';
 
@@ -204,17 +207,18 @@ class _DownloadsTabState extends State<DownloadsTab>
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        leading: _selectionActive
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: L10n.of(context).close,
+                onPressed: () => setState(_selected.clear),
+              )
+            : const ActiveAccountButton(),
         title: _selectionActive
             ? Text('${_selected.length}')
-            : TabBar(
-                controller: _tabController,
-                tabs: [
-                  Tab(text: L10n.of(context).queue),
-                  Tab(text: L10n.of(context).gallery),
-                ],
-              ),
+            : Text(L10n.of(context).downloads),
+        shape: appBarBorder(context),
         actions: [
-          if (!_selectionActive) const ActiveAccountButton(),
           ScopedBuilder<DownloadsModel, List<DownloadQueueItem>>(
             store: _queue,
             onError: (_, e) => Center(child: Text(e.toString())),
@@ -225,6 +229,17 @@ class _DownloadsTabState extends State<DownloadsTab>
             ),
           ),
         ],
+        bottom: _selectionActive
+            ? null
+            : appBarBottom(
+                TabBar(
+                  controller: _tabController,
+                  tabs: [
+                    Tab(text: L10n.of(context).queue),
+                    Tab(text: L10n.of(context).gallery),
+                  ],
+                ),
+              ),
       ),
       body: TabBarView(
         controller: _tabController,
@@ -341,7 +356,12 @@ class _GalleryTabState extends State<_GalleryTab> {
     return Column(
       children: [
         Card(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          margin: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            AppSpace.sm,
+            AppSpace.lg,
+            AppSpace.xs,
+          ),
           child: hidden
               ? Row(
                   children: [
@@ -420,21 +440,10 @@ class _QueueList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (queue.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.download_for_offline_outlined, size: 48),
-            const SizedBox(height: 12),
-            Text(
-              L10n.of(context).downloads_empty,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ],
-        ),
+      return AppEmptyState(
+        message: L10n.of(context).downloads_empty,
+        icon: Icons.download_for_offline_outlined,
       );
     }
 
@@ -455,7 +464,12 @@ class _QueueList extends StatelessWidget {
           background: Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 28),
-            margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            margin: const EdgeInsets.fromLTRB(
+              AppSpace.lg,
+              AppSpace.xs,
+              AppSpace.lg,
+              AppSpace.xs,
+            ),
             decoration: BoxDecoration(
               color: scheme.errorContainer,
               borderRadius: BorderRadius.circular(16),
@@ -491,7 +505,12 @@ class _QueueList extends StatelessWidget {
                   Positioned.fill(
                     child: IgnorePointer(
                       child: Container(
-                        margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                        margin: const EdgeInsets.fromLTRB(
+                          AppSpace.lg,
+                          AppSpace.xs,
+                          AppSpace.lg,
+                          AppSpace.xs,
+                        ),
                         decoration: BoxDecoration(
                           color: scheme.primary.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(16),
@@ -528,8 +547,8 @@ class _TypeAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: 42,
-      height: 42,
+      width: AppSize.avatar,
+      height: AppSize.avatar,
       decoration: BoxDecoration(
         color: (color ?? theme.colorScheme.primary).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
@@ -554,9 +573,19 @@ class _QueuedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.xs,
+        AppSpace.lg,
+        AppSpace.xs,
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.lg,
+          AppSpace.md,
+          AppSpace.sm,
+          AppSpace.md,
+        ),
         child: Row(
           children: [
             if (dragIndex != null)
@@ -569,7 +598,7 @@ class _QueuedCard extends StatelessWidget {
                 ),
               ),
             _TypeAvatar(item: item, color: theme.colorScheme.tertiary),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,13 +660,23 @@ class _RunningCard extends StatelessWidget {
         : (item.receivedBytes / item.totalBytes!).clamp(0.0, 1.0);
 
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.xs,
+        AppSpace.lg,
+        AppSpace.xs,
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.lg,
+          AppSpace.md,
+          AppSpace.sm,
+          AppSpace.md,
+        ),
         child: Row(
           children: [
             _TypeAvatar(item: item),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -690,13 +729,23 @@ class _PausedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.xs,
+        AppSpace.lg,
+        AppSpace.xs,
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.lg,
+          AppSpace.md,
+          AppSpace.sm,
+          AppSpace.md,
+        ),
         child: Row(
           children: [
             _TypeAvatar(item: item, color: theme.colorScheme.tertiary),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -760,13 +809,23 @@ class _ErrorCard extends StatelessWidget {
     final message = _message(context);
 
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.xs,
+        AppSpace.lg,
+        AppSpace.xs,
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.lg,
+          AppSpace.md,
+          AppSpace.sm,
+          AppSpace.md,
+        ),
         child: Row(
           children: [
             _TypeAvatar(item: item, color: theme.colorScheme.error),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,20 +931,38 @@ class _DoneCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.xs,
+        AppSpace.lg,
+        AppSpace.xs,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _open(context),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            AppSpace.md,
+            AppSpace.sm,
+            AppSpace.md,
+          ),
           child: Row(
             children: [
-              Icon(
-                Icons.check_circle_outline,
-                color: Colors.green.shade400,
-                size: 32,
+              Container(
+                width: AppSize.avatar,
+                height: AppSize.avatar,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHigh,
+                  borderRadius: AppRadius.mdAll,
+                ),
+                child: Icon(
+                  Icons.check,
+                  color: theme.colorScheme.onSurface,
+                  size: AppSize.icon,
+                ),
               ),
-              const SizedBox(width: 18),
+              const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

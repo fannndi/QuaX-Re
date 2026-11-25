@@ -8,6 +8,7 @@ import 'package:quax/client/client.dart';
 import 'package:quax/generated/l10n.dart';
 import 'package:quax/group/feed_refresh_controller.dart';
 import 'package:quax/tweet/conversation.dart';
+import 'package:quax/ui/app_states.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/ui/skeletons.dart';
 import 'package:quax/utils/network_status.dart';
@@ -187,6 +188,7 @@ class PaginatedTweetList extends StatefulWidget {
   final String firstPageErrorPrefix;
   final String newPageErrorPrefix;
   final String emptyMessage;
+  final IconData emptyIcon;
   // Remembers the scroll offset across app restarts, per feed.
   final String? scrollKey;
   // Identifies this body in the shared FeedRefreshController. Home keeps both
@@ -201,6 +203,7 @@ class PaginatedTweetList extends StatefulWidget {
     required this.firstPageErrorPrefix,
     required this.newPageErrorPrefix,
     required this.emptyMessage,
+    this.emptyIcon = Icons.inbox_outlined,
     this.onRefresh,
     this.scrollKey,
     this.feedId,
@@ -740,8 +743,10 @@ class _PaginatedTweetListState extends State<PaginatedTweetList>
             prefix: widget.newPageErrorPrefix,
             onRetry: fetchNextPage,
           ),
-          noItemsFoundIndicatorBuilder: (context) =>
-              Center(child: Text(widget.emptyMessage)),
+          noItemsFoundIndicatorBuilder: (context) => AppEmptyState(
+            message: widget.emptyMessage,
+            icon: widget.emptyIcon,
+          ),
         ),
       ),
     );

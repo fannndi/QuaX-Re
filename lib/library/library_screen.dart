@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_triple/flutter_triple.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pref/pref.dart';
+import 'package:quax/app/design_tokens.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/generated/l10n.dart';
@@ -34,7 +35,8 @@ class LibraryScreen extends StatefulWidget {
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveClientMixin<LibraryScreen> {
+class _LibraryScreenState extends State<LibraryScreen>
+    with AutomaticKeepAliveClientMixin<LibraryScreen> {
   late final LibraryModel _model = LibraryModel(widget.prefs);
   late final DownloadsModel _queue = DownloadsModel();
   late final String _listenerKey = 'LibraryScreen-${identityHashCode(this)}';
@@ -80,11 +82,17 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     _queue.addDoneListener(_listenerKey, _onDownloadDone);
   }
 
-  static _LibrarySort _sortFromName(String? name) => _LibrarySort.values
-      .firstWhere((sort) => sort.name == name, orElse: () => _LibrarySort.newest);
+  static _LibrarySort _sortFromName(String? name) =>
+      _LibrarySort.values.firstWhere(
+        (sort) => sort.name == name,
+        orElse: () => _LibrarySort.newest,
+      );
 
-  static _LibraryFilter _filterFromName(String? name) => _LibraryFilter.values
-      .firstWhere((filter) => filter.name == name, orElse: () => _LibraryFilter.all);
+  static _LibraryFilter _filterFromName(String? name) =>
+      _LibraryFilter.values.firstWhere(
+        (filter) => filter.name == name,
+        orElse: () => _LibraryFilter.all,
+      );
 
   void _onDownloadDone() {
     _refreshTimer?.cancel();
@@ -116,7 +124,9 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     await _model.refresh();
     // An empty configured library is exactly the case where the reader may
     // have an older folder on the card; offer it instead of an empty grid.
-    if (_model.state.isEmpty && !_existingScanned) await _findExistingLibraries();
+    if (_model.state.isEmpty && !_existingScanned) {
+      await _findExistingLibraries();
+    }
   }
 
   Future<void> _findExistingLibraries() async {
@@ -172,8 +182,11 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     final volume = await pickLibraryVolume(context, _volumes);
     if (volume == null) {
       if (mounted && _volumes.isEmpty) {
-        showSnackBar(context,
-            icon: '🙊', message: L10n.of(context).library_storage_unavailable_body);
+        showSnackBar(
+          context,
+          icon: '🙊',
+          message: L10n.of(context).library_storage_unavailable_body,
+        );
       }
       return;
     }
@@ -189,8 +202,11 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
       return;
     }
     if (error.value == 'storage_permission_needed') {
-      showSnackBar(context,
-          icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+      showSnackBar(
+        context,
+        icon: '🔒',
+        message: L10n.of(context).library_storage_permission_needed,
+      );
     } else if (error.value != null) {
       showSnackBar(context, icon: '🙊', message: error.value!);
     }
@@ -225,14 +241,18 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(L10n.of(context).library_setup_title),
-          content: Text(L10n.of(dialogContext).library_storage_permission_needed),
+          content: Text(
+            L10n.of(dialogContext).library_storage_permission_needed,
+          ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(L10n.of(dialogContext).retry)),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(L10n.of(dialogContext).retry),
+            ),
             TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(L10n.of(dialogContext).close)),
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(L10n.of(dialogContext).close),
+            ),
           ],
         ),
       );
@@ -282,10 +302,16 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
           children: [
             Row(
               children: [
-                Icon(Icons.folder_special_outlined, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.folder_special_outlined,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(l10n.library_existing_found, style: theme.textTheme.titleMedium),
+                  child: Text(
+                    l10n.library_existing_found,
+                    style: theme.textTheme.titleMedium,
+                  ),
                 ),
               ],
             ),
@@ -295,10 +321,21 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
-                    candidate.isHidden ? Icons.shield_outlined : Icons.folder_outlined),
+                  candidate.isHidden
+                      ? Icons.shield_outlined
+                      : Icons.folder_outlined,
+                ),
                 title: Text(
-                    l10n.library_stats(candidate.mediaCount, formatBytes(candidate.bytes))),
-                subtitle: Text(candidate.path, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  l10n.library_stats(
+                    candidate.mediaCount,
+                    formatBytes(candidate.bytes),
+                  ),
+                ),
+                subtitle: Text(
+                  candidate.path,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 onTap: () => _adoptExisting(candidate),
                 trailing: const Icon(Icons.chevron_right),
               ),
@@ -325,10 +362,17 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
       padding: const EdgeInsets.all(24),
       children: [
         _buildExistingLibraries(context),
-        Icon(Icons.video_library_outlined, size: 48, color: theme.colorScheme.primary),
+        Icon(
+          Icons.video_library_outlined,
+          size: 48,
+          color: theme.colorScheme.primary,
+        ),
         const SizedBox(height: 16),
-        Text(l10n.library_setup_title,
-            textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+        Text(
+          l10n.library_setup_title,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Text(l10n.library_setup_description, textAlign: TextAlign.center),
         const SizedBox(height: 24),
@@ -345,8 +389,10 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
                   subtitle: Text(l10n.library_storage_hidden_description),
                 ),
                 if (_volumes.isEmpty)
-                  Text(l10n.library_storage_unavailable_body,
-                      style: TextStyle(color: theme.colorScheme.error))
+                  Text(
+                    l10n.library_storage_unavailable_body,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  )
                 else
                   Wrap(
                     spacing: 8,
@@ -354,7 +400,11 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
                     children: [
                       for (final volume in _volumes)
                         ChoiceChip(
-                          avatar: Icon(volume.isPrimary ? Icons.phone_android : Icons.sd_card_outlined),
+                          avatar: Icon(
+                            volume.isPrimary
+                                ? Icons.phone_android
+                                : Icons.sd_card_outlined,
+                          ),
                           label: Text(libraryVolumeLabel(l10n, volume)),
                           selected: _volume == volume,
                           onSelected: (_) => setState(() => _volume = volume),
@@ -406,17 +456,37 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.sd_card_alert_outlined, size: 48, color: theme.colorScheme.error),
+            Icon(
+              Icons.sd_card_alert_outlined,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
             const SizedBox(height: 16),
-            Text(l10n.library_storage_unavailable, style: theme.textTheme.titleMedium),
+            Text(
+              l10n.library_storage_unavailable,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text(l10n.library_storage_unavailable_body, textAlign: TextAlign.center),
+            Text(
+              l10n.library_storage_unavailable_body,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
-            Wrap(
-              spacing: 8,
+            Row(
               children: [
-                FilledButton(onPressed: _configureOrLoad, child: Text(l10n.retry)),
-                OutlinedButton(onPressed: _manageStorage, child: Text(l10n.library_storage_change)),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _manageStorage,
+                    child: Text(l10n.library_storage_change),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _configureOrLoad,
+                    child: Text(l10n.retry),
+                  ),
+                ),
               ],
             ),
           ],
@@ -438,8 +508,8 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
             child: entries.isEmpty
                 ? _buildEmptyLibrary(context)
                 : visible.isEmpty
-                    ? _buildNoResults(context)
-                    : _buildGrid(context, visible),
+                ? _buildNoResults(context)
+                : _buildGrid(context, visible),
           ),
         ),
       ],
@@ -460,12 +530,22 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
           Text(l10n.library_existing_scanning, textAlign: TextAlign.center),
         ],
         const SizedBox(height: 48),
-        Icon(Icons.collections_outlined, size: 48, color: theme.colorScheme.primary),
+        Icon(
+          Icons.collections_outlined,
+          size: 48,
+          color: theme.colorScheme.primary,
+        ),
         const SizedBox(height: 16),
-        Text(l10n.library_is_empty, textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+        Text(
+          l10n.library_is_empty,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Text(
-          _model.isHidden ? l10n.library_empty_hidden_body : l10n.library_empty_visible_body,
+          _model.isHidden
+              ? l10n.library_empty_hidden_body
+              : l10n.library_empty_visible_body,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
@@ -490,7 +570,11 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
         const SizedBox(height: 48),
         Icon(Icons.search_off, size: 48, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
-        Text(l10n.library_no_results, textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+        Text(
+          l10n.library_no_results,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium,
+        ),
         const SizedBox(height: 24),
         Center(
           child: OutlinedButton(
@@ -526,7 +610,9 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
       case _LibrarySort.oldest:
         list.sort((a, b) => a.modified.compareTo(b.modified));
       case _LibrarySort.name:
-        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        list.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
       case _LibrarySort.size:
         list.sort((a, b) => b.size.compareTo(a.size));
     }
@@ -572,12 +658,17 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
   /// the toolbar the reader is looking at; drop it instead of acting on it
   /// invisibly.
   void _pruneSelection() {
-    final visible = _visibleEntries(_model.state).map((entry) => entry.file.path).toSet();
+    final visible = _visibleEntries(_model.state)
+        .map((entry) => entry.file.path)
+        .toSet();
     _selected.retainWhere(visible.contains);
   }
 
   Widget _buildToolbar(
-      BuildContext context, List<LibraryEntry> entries, List<LibraryEntry> visible) {
+    BuildContext context,
+    List<LibraryEntry> entries,
+    List<LibraryEntry> visible,
+  ) {
     if (_selectionActive) return _buildSelectionBar(context);
 
     final l10n = L10n.of(context);
@@ -590,65 +681,107 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: _setQuery,
-                  decoration: InputDecoration(
-                    hintText: l10n.search,
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _query.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.close),
-                            tooltip: l10n.close,
-                            onPressed: () {
-                              _searchController.clear();
-                              _setQuery('');
-                            },
-                          ),
-                    isDense: true,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            AppSpace.sm,
+            AppSpace.lg,
+            0,
+          ),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _setQuery,
+            decoration: InputDecoration(
+              hintText: l10n.search,
+              prefixIcon: const Icon(Icons.search, size: AppSize.icon),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_query.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.close, size: AppSize.icon),
+                      tooltip: l10n.close,
+                      onPressed: () {
+                        _searchController.clear();
+                        _setQuery('');
+                      },
+                    ),
+                  PopupMenuButton<_LibrarySort>(
+                    icon: const Icon(Icons.sort, size: AppSize.icon),
+                    tooltip: l10n.sort,
+                    initialValue: _sort,
+                    onSelected: _setSort,
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: _LibrarySort.newest,
+                        child: Text(l10n.newest),
+                      ),
+                      PopupMenuItem(
+                        value: _LibrarySort.oldest,
+                        child: Text(l10n.oldest),
+                      ),
+                      PopupMenuItem(
+                        value: _LibrarySort.name,
+                        child: Text(l10n.name),
+                      ),
+                      PopupMenuItem(
+                        value: _LibrarySort.size,
+                        child: Text(l10n.size),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                tooltip: l10n.refresh,
-                onPressed: _configureOrLoad,
-              ),
-              PopupMenuButton<_LibrarySort>(
-                icon: const Icon(Icons.sort),
-                tooltip: l10n.sort,
-                initialValue: _sort,
-                onSelected: _setSort,
-                itemBuilder: (context) => [
-                  PopupMenuItem(value: _LibrarySort.newest, child: Text(l10n.newest)),
-                  PopupMenuItem(value: _LibrarySort.oldest, child: Text(l10n.oldest)),
-                  PopupMenuItem(value: _LibrarySort.name, child: Text(l10n.name)),
-                  PopupMenuItem(value: _LibrarySort.size, child: Text(l10n.size)),
                 ],
               ),
-            ],
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 44,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.lg,
+              vertical: AppSpace.xs,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _filterChip(
+                    l10n.library_filter_all,
+                    entries.length,
+                    _LibraryFilter.all,
+                  ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: _filterChip(
+                    l10n.library_filter_photos,
+                    photos,
+                    _LibraryFilter.photos,
+                  ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: _filterChip(
+                    l10n.library_filter_videos,
+                    videos,
+                    _LibraryFilter.videos,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _filterChip(l10n.library_filter_all, entries.length, _LibraryFilter.all),
-              _filterChip(l10n.library_filter_photos, photos, _LibraryFilter.photos),
-              _filterChip(l10n.library_filter_videos, videos, _LibraryFilter.videos),
-              Text(
-                l10n.library_stats(visible.length, formatBytes(bytes)),
-                style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor),
-              ),
-            ],
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            0,
+            AppSpace.lg,
+            AppSpace.xs,
+          ),
+          child: Text(
+            l10n.library_stats(visible.length, formatBytes(bytes)),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -659,6 +792,7 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     return FilterChip(
       label: Text('$label $count'),
       selected: _filter == filter,
+      showCheckmark: false,
       onSelected: (_) => _setFilter(filter),
     );
   }
@@ -668,7 +802,8 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
   Widget _buildSelectionBar(BuildContext context) {
     final l10n = L10n.of(context);
     final visible = _visibleEntries(_model.state);
-    final allSelected = visible.isNotEmpty && _selected.length == visible.length;
+    final allSelected =
+        visible.isNotEmpty && _selected.length == visible.length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
@@ -680,7 +815,10 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
             onPressed: () => setState(_selected.clear),
           ),
           Expanded(
-            child: Text('${_selected.length}', style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              '${_selected.length}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           IconButton(
             icon: Icon(allSelected ? Icons.deselect : Icons.select_all),
@@ -771,7 +909,9 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     );
     if (confirmed != true || !mounted) return;
 
-    final entries = _model.state.where((entry) => _selected.contains(entry.file.path)).toList();
+    final entries = _model.state
+        .where((entry) => _selected.contains(entry.file.path))
+        .toList();
     for (final entry in entries) {
       await _model.deleteEntry(entry);
     }
@@ -780,7 +920,9 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
   }
 
   Future<void> _exportSelected() async {
-    final entries = _model.state.where((entry) => _selected.contains(entry.file.path)).toList();
+    final entries = _model.state
+        .where((entry) => _selected.contains(entry.file.path))
+        .toList();
     if (entries.isEmpty) return;
 
     final l10n = L10n.of(context);
@@ -788,8 +930,11 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     if (picked == null || !mounted) return;
     if (!await _model.ensureStorageAccess()) {
       if (mounted) {
-        showSnackBar(context,
-            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+        showSnackBar(
+          context,
+          icon: '🔒',
+          message: L10n.of(context).library_storage_permission_needed,
+        );
       }
       return;
     }
@@ -805,16 +950,24 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     } else if (result.error != null) {
       showSnackBar(context, icon: '🙊', message: l10n.library_move_failed);
     } else if (result.failed > 0) {
-      showSnackBar(context,
-          icon: '⚠️', message: l10n.library_export_partial(result.copied, result.failed));
+      showSnackBar(
+        context,
+        icon: '⚠️',
+        message: l10n.library_export_partial(result.copied, result.failed),
+      );
     } else {
-      showSnackBar(context,
-          icon: '✅', message: l10n.library_export_done(result.copied, result.path!));
+      showSnackBar(
+        context,
+        icon: '✅',
+        message: l10n.library_export_done(result.copied, result.path!),
+      );
     }
   }
 
   void _showInfoSelected() {
-    final entry = _model.state.where((entry) => _selected.contains(entry.file.path)).firstOrNull;
+    final entry = _model.state
+        .where((entry) => _selected.contains(entry.file.path))
+        .firstOrNull;
     if (entry != null) _showInfo(entry);
   }
 
@@ -834,18 +987,33 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(entry.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium),
+                Text(
+                  entry.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 _infoRow(sheetContext, l10n.size, formatBytes(entry.size)),
-                _infoRow(sheetContext, l10n.library_type,
-                    entry.isVideo ? l10n.library_filter_videos : l10n.library_filter_photos),
-                _infoRow(sheetContext, l10n.library_date,
-                    absoluteDateFormat.format(entry.modified.toLocal())),
-                _infoRow(sheetContext, l10n.library,
-                    hidden ? l10n.library_storage_hidden : l10n.library_storage_visible),
+                _infoRow(
+                  sheetContext,
+                  l10n.library_type,
+                  entry.isVideo
+                      ? l10n.library_filter_videos
+                      : l10n.library_filter_photos,
+                ),
+                _infoRow(
+                  sheetContext,
+                  l10n.library_date,
+                  absoluteDateFormat.format(entry.modified.toLocal()),
+                ),
+                _infoRow(
+                  sheetContext,
+                  l10n.library,
+                  hidden
+                      ? l10n.library_storage_hidden
+                      : l10n.library_storage_visible,
+                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -889,7 +1057,12 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
         children: [
           SizedBox(
             width: 96,
-            child: Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.hintColor,
+              ),
+            ),
           ),
           Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
@@ -899,23 +1072,40 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
 
   Widget _buildGrid(BuildContext context, List<LibraryEntry> entries) {
     final theme = Theme.of(context);
-    final radius = BorderRadius.circular(12);
+    final radius = AppRadius.smAll;
     // The same column preference the profile media grid honours: a reader who
     // sets five columns there should not get three in the library.
-    final columns = PrefService.of(context, listen: false).get<int>(optionMediaGridColumns) ?? 3;
+    final columns =
+        PrefService.of(
+          context,
+          listen: false,
+        ).get<int>(optionMediaGridColumns) ??
+        3;
     // Three columns of downloaded media: a 4000px photo decoded whole for a
     // ~120pt tile is ~48MB of bitmap the tile cannot show, and the gallery can
     // hold thousands of files. Same treatment the search grid already gives it.
-    final decodeWidth =
-        decodeWidthFor(context, MediaQuery.sizeOf(context).width / columns, maxWidth: 1080);
+    final decodeWidth = decodeWidthFor(
+      context,
+      MediaQuery.sizeOf(context).width / columns,
+      maxWidth: 1080,
+    );
 
     return Stack(
       children: [
         GridView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            AppSpace.sm,
+            AppSpace.lg,
+            88,
+          ),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns, mainAxisSpacing: 6, crossAxisSpacing: 6),
+            crossAxisCount: columns,
+            mainAxisSpacing: AppSpace.xs,
+            crossAxisSpacing: AppSpace.xs,
+            childAspectRatio: 1,
+          ),
           itemCount: entries.length,
           itemBuilder: (context, index) {
             final entry = entries[index];
@@ -927,16 +1117,22 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
                       final thumbPath = snapshot.data;
                       if (thumbPath == null) {
                         return Container(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            child: const Center(child: Icon(Icons.play_circle_outline)));
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          child: const Center(
+                            child: Icon(Icons.play_circle_outline),
+                          ),
+                        );
                       }
                       return ExtendedImage.file(
                         File(thumbPath),
                         fit: BoxFit.cover,
                         cacheWidth: decodeWidth,
                         loadStateChanged: (state) {
-                          if (state.extendedImageLoadState == LoadState.failed) {
-                            return const Center(child: Icon(Icons.play_circle_outline));
+                          if (state.extendedImageLoadState ==
+                              LoadState.failed) {
+                            return const Center(
+                              child: Icon(Icons.play_circle_outline),
+                            );
                           }
                           return null;
                         },
@@ -959,7 +1155,9 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
               label: entry.name,
               button: true,
               child: GestureDetector(
-                onTap: () => _selectionActive ? _toggleSelection(entry) : _openEntry(entry),
+                onTap: () => _selectionActive
+                    ? _toggleSelection(entry)
+                    : _openEntry(entry),
                 onLongPress: () => _toggleSelection(entry),
                 child: ClipRRect(
                   borderRadius: radius,
@@ -980,19 +1178,29 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
                               color: Colors.black.withValues(alpha: 0.55),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.play_arrow, size: 16, color: Colors.white),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              size: 16,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       if (selected)
                         Positioned.fill(
                           child: ColoredBox(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.35)),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.35,
+                            ),
+                          ),
                         ),
                       if (selected)
                         Positioned(
                           top: 4,
                           right: 4,
-                          child: Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                          child: Icon(
+                            Icons.check_circle,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
                     ],
                   ),
@@ -1002,12 +1210,12 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
           },
         ),
         Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
+          right: AppSpace.lg,
+          bottom: AppSpace.lg,
+          child: FloatingActionButton.small(
+            tooltip: L10n.of(context).library_import_existing,
             onPressed: _importing ? null : _importExisting,
-            icon: const Icon(Icons.folder_copy_outlined),
-            label: Text(L10n.of(context).library_import_existing),
+            child: const Icon(Icons.folder_copy_outlined),
           ),
         ),
       ],
@@ -1017,12 +1225,18 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
   Future<void> _openEntry(LibraryEntry entry) async {
     final ok = await _model.openExternally(entry.file.path);
     if (!ok && mounted) {
-      showSnackBar(context, icon: '🙊', message: L10n.of(context).oops_something_went_wrong);
+      showSnackBar(
+        context,
+        icon: '🙊',
+        message: L10n.of(context).oops_something_went_wrong,
+      );
     }
   }
 
   Future<void> _shareEntry(LibraryEntry entry) async {
-    await SharePlus.instance.share(ShareParams(files: [XFile(entry.file.path)]));
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(entry.file.path)]),
+    );
   }
 
   Future<void> _importExisting() async {
@@ -1030,8 +1244,11 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     final l10n = L10n.of(context);
     if (!await _model.ensureStorageAccess()) {
       if (mounted) {
-        showSnackBar(context,
-            icon: '🔒', message: L10n.of(context).library_storage_permission_needed);
+        showSnackBar(
+          context,
+          icon: '🔒',
+          message: L10n.of(context).library_storage_permission_needed,
+        );
       }
       return;
     }
@@ -1076,7 +1293,3 @@ class _LibraryScreenState extends State<LibraryScreen> with AutomaticKeepAliveCl
     await _model.refresh();
   }
 }
-
-
-
-

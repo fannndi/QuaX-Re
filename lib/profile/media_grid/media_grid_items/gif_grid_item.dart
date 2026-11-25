@@ -23,6 +23,7 @@ class GifGridItem extends MediaGridItem {
         username: username,
         tweetId: tweetId,
         mediaIndex: mediaIndex,
+        aspectRatioOverride: 1,
       ),
     );
   }
