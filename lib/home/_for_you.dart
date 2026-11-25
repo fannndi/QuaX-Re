@@ -9,7 +9,6 @@ import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/tweet/tweet_load_counter.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/image_prefetch.dart';
-import 'package:quax/utils/tweet_freshness_index.dart';
 
 /// The For You feed has no author to filter by, but [PaginatedTweetList] takes
 /// a username it uses for per-account state. A constant, not a fake
@@ -61,7 +60,6 @@ class _ForYouTweetsState extends State<ForYouTweets>
         'QuaX foryou entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}',
       );
     }
-    TweetFreshnessIndex().note(result.chains.map((chain) => chain.id));
     if (mounted) {
       // Warm the pictures just below the viewport.
       unawaited(prefetchChainImages(context, result.chains));

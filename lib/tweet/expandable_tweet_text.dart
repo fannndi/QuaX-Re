@@ -22,7 +22,7 @@ class ExpandableTweetTextState extends State<ExpandableTweetText> {
 
   // Answering "does this overflow?" with a throwaway TextPainter is the most
   // expensive part of building a card, and the feed rebuilds its tiles often
-  // (freshness tags, consumers, scroll-driven rebuilds). The answer only
+  // (consumers, scroll-driven rebuilds). The answer only
   // depends on the text, the width, the text scale and the direction, so it is
   // measured once and reused until one of those changes.
   double? _measuredAtWidth;

@@ -21,6 +21,7 @@ class TweetWithCard extends Tweet {
   bool? isTombstone;
   TweetWithCard? birdwatchQuotedStatus; // Community notes
   int? viewCount;
+  bool? bookmarked;
 
   TweetWithCard();
 
@@ -33,6 +34,7 @@ class TweetWithCard extends Tweet {
     json['retweetedStatusWithCard'] = retweetedStatusWithCard?.toJson();
     json['isTombstone'] = isTombstone;
     json['viewCount'] = viewCount;
+    json['bookmarked'] = bookmarked;
     json['noteText'] = noteText;
     json['noteEntities'] = noteEntities?.toJson();
 
@@ -75,6 +77,7 @@ class TweetWithCard extends Tweet {
     tweetWithCard.extendedEntities = tweet.extendedEntities;
     tweetWithCard.favorited = tweet.favorited;
     tweetWithCard.favoriteCount = tweet.favoriteCount;
+    tweetWithCard.bookmarked = e['bookmarked'] as bool?;
     tweetWithCard.fullText = tweet.fullText;
     tweetWithCard.idStr = tweet.idStr;
     tweetWithCard.inReplyToScreenName = tweet.inReplyToScreenName;
@@ -276,6 +279,7 @@ class TweetWithCard extends Tweet {
         : Entities.fromJson(e['extended_entities']);
     tweet.favorited = e['favorited'] as bool?;
     tweet.favoriteCount = parseIntLike(e['favorite_count']);
+    tweet.bookmarked = e['bookmarked'] as bool?;
     tweet.viewCount = tweetViewCount;
     tweet.fullText = e['full_text'] as String?;
     tweet.idStr = e['id_str'] as String?;

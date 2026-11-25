@@ -18,8 +18,8 @@ void main() {
       final applied = controller.applyFirstPage(page([], null));
 
       expect(applied, isFalse,
-          reason: 'An empty first page changed nothing, so the caller should not close the '
-              'freshness round');
+          reason: 'An empty first page changed nothing, so the caller should not '
+              'treat it as a refresh that replaced the loaded items');
       expect(controller.items?.map((chain) => chain.id), ['1', '2'],
           reason: 'The "latest" feed answers empty when nothing recent happened; wiping the '
               'visible tweets for that reads as a broken tab');

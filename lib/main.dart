@@ -22,7 +22,6 @@ import 'package:quax/tweet/_video.dart';
 import 'package:quax/utils/crash_log.dart';
 import 'package:quax/utils/image_decode.dart';
 import 'package:quax/utils/network_status.dart';
-import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:pref/pref.dart';
@@ -128,13 +127,16 @@ Future<void> _startApp() async {
 
   await _loadModels(prefService);
 
+  final likedTweets = LikedTweetModel();
+  unawaited(likedTweets.loadLikedIds());
+
   runApp(
     PrefService(
       service: prefService,
       child: MultiProvider(
         providers: [
           Provider(create: (context) => VideoControllerPool(maxSize: 2)),
-          Provider(create: (context) => LikedTweetModel()),
+          Provider<LikedTweetModel>.value(value: likedTweets),
           ChangeNotifierProvider(
             create: (_) =>
                 VideoContextState(prefService.get(optionMediaDefaultMute)),
@@ -172,8 +174,6 @@ Future<void> _loadModels(BasePrefService prefService) async {
   // can serve a clip that a previous, larger limit left behind.
   await VideoCache().load();
   await VideoCache().enforceLimit(prefService);
-  // Snapshot of previously seen tweets, for the New/Old labels.
-  unawaited(TweetFreshnessIndex().load());
   // A killed likes import can leave its plaintext export in the cache.
   unawaited(LikesVault.cleanupStaleImports());
   // Which login the app talks to: the app bar shows it and the feeds key

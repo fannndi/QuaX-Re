@@ -374,4 +374,29 @@ void main() {
       reason: 'A failed page must reset its loading guard so the retry can run',
     );
   });
+
+  test('Should load every local like id without loading tweet bodies', () async {
+    await addAccount('a', 'local-a', active: true);
+    await seedLikes(120, 'local-a');
+    await setActiveAccount('a');
+    final model = LikedTweetModel();
+    addTearDown(model.destroy);
+
+    await model.loadLikedIds();
+
+    expect(
+      model.state,
+      isEmpty,
+      reason:
+          'The feed only needs the id index; reading full tweet bodies at '
+          'startup would restore the memory cost the paged tab removed',
+    );
+    expect(
+      model.isLiked('t0') && model.isLiked('t119'),
+      isTrue,
+      reason:
+          'A badge must cover likes beyond the first page, or older likes look '
+          'unliked until the Local tab loads them',
+    );
+  });
 }

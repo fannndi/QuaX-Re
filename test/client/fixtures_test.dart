@@ -272,6 +272,13 @@ void main() {
           isNotNull,
           reason: 'A bookmarks page should expose a bottom cursor, or the next page is unreachable',
         );
+        expect(
+          tweets.any((tweet) => tweet.bookmarked == true),
+          isTrue,
+          reason:
+              'The bookmarks timeline carries the viewer bookmark flag; dropping '
+              'it leaves every Saved badge hidden on this screen',
+        );
         expectEveryTweetHasAnAuthor(tweets, fixture);
       });
     }
@@ -293,6 +300,13 @@ void main() {
           status.cursorBottom,
           isNotNull,
           reason: 'A likes page should expose a bottom cursor, or the next page is unreachable',
+        );
+        expect(
+          tweets.any((tweet) => tweet.favorited == true),
+          isTrue,
+          reason:
+              'The likes timeline marks the viewer like; dropping the flag hides '
+              'the online-liked badge on the account Likes tab',
         );
         expectEveryTweetHasAnAuthor(tweets, fixture);
       });

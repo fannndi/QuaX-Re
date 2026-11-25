@@ -12,7 +12,6 @@ import 'package:quax/ui/errors.dart';
 import 'package:quax/ui/skeletons.dart';
 import 'package:quax/utils/network_status.dart';
 import 'package:quax/utils/paging.dart';
-import 'package:quax/utils/tweet_freshness_index.dart';
 
 typedef TweetPageResult = ({List<TweetChain> chains, String? nextCursor});
 typedef TweetPageLoader = Future<TweetPageResult> Function(String? cursor);
@@ -472,13 +471,7 @@ class _PaginatedTweetListState extends State<PaginatedTweetList>
         return;
       }
 
-      final applied = feed.applyFirstPage(result);
-      // A reload closes the freshness round: what just loaded becomes Old and
-      // only arrivals after this point read as New. An empty page changed
-      // nothing, so the round stays open.
-      if (applied) {
-        TweetFreshnessIndex().promoteSeenToBaseline();
-      }
+      feed.applyFirstPage(result);
     } catch (e, stackTrace) {
       // A failed refresh must not look like "nothing new": say so. A request
       // abandoned by an account/source reset is not actionable in the new feed.

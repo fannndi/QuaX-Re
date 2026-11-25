@@ -9,6 +9,7 @@ import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/downloads_model.dart';
 import 'package:quax/library/library_model.dart';
+import 'package:quax/library/library_presence.dart';
 
 /// The import is the one destructive thing the library does: it copies a file
 /// out of the reader's folder and then deletes the original. Getting that order
@@ -25,6 +26,7 @@ void main() {
     library = await Directory.systemTemp.createTemp('quax-import-library-');
     queueSupport = await Directory.systemTemp.createTemp('quax-queue-support-');
     DownloadsModel.debugDirectoryOverride = queueSupport;
+    LibraryPresence.resetForTesting();
     LibraryModel.debugNameIndexBuilds = 0;
     LibraryModel.debugExternalDirectories = null;
     LibraryModel.debugStorageAccess = null;
@@ -39,6 +41,7 @@ void main() {
     await DownloadsModel().flush();
     DownloadsModel().resetForTests();
     DownloadsModel.debugDirectoryOverride = null;
+    LibraryPresence.resetForTesting();
     LibraryModel.debugExternalDirectories = null;
     LibraryModel.debugStorageAccess = null;
     LibraryModel.debugGalleryVisibility = null;
@@ -936,6 +939,47 @@ void main() {
             'https://video.twimg.com/clip.mp4?tag=1',
           ),
           p.normalize(legacy.path),
+        );
+      },
+    );
+  });
+
+  group('feed library presence', () {
+    test(
+      'Should refresh the cached answer after a download and deletion',
+      () async {
+        final clip = File('${library.path}/clip.jpg')
+          ..writeAsStringSync('media');
+        final model = modelWith();
+        const url = 'https://pbs.twimg.com/media/clip.jpg:orig';
+
+        Future<bool> present() => LibraryPresence.contains(
+          root: model.libraryPath,
+          url: url,
+          lookup: () => model.localPathFor(url),
+        );
+
+        expect(
+          await present(),
+          isFalse,
+          reason: 'A media URL that has never been downloaded must not claim gallery presence',
+        );
+        expect(await model.registerLocalMedia(url, clip.path), isTrue);
+        expect(
+          await present(),
+          isTrue,
+          reason:
+              'Registering the exact download URL must make the feed badge appear '
+              'without a restart',
+        );
+
+        await model.deleteEntry(LibraryEntry(clip, false));
+        expect(
+          await present(),
+          isFalse,
+          reason:
+              'Deleting the file must invalidate the cached true, or the feed '
+              'keeps advertising media the gallery no longer has',
         );
       },
     );

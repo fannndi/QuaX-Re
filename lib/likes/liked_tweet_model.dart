@@ -52,6 +52,44 @@ class LikedTweetModel extends Store<List<LikedTweet>> {
 
   bool isLiked(String id) => _likedIds.contains(id);
 
+  /// Loads only the owner rows of the active account. The feed asks
+  /// [isLiked] on every visible card, so the badge must be truthful before the
+  /// Local tab has ever been opened; reading the tweet bodies here would pull
+  /// a page of large JSON the feed does not display.
+  Future<void> loadLikedIds() async {
+    final localId = activeAccount.value?.localId;
+    _localId = localId;
+    if (localId == null) {
+      _likedIds = const {};
+      if (!_disposed) update(state, force: true);
+      return;
+    }
+
+    final epoch = _epoch;
+    final mutation = _mutation;
+    try {
+      final ids = await _readLikedIds(localId);
+      if (_disposed || epoch != _epoch || mutation != _mutation) return;
+      _likedIds = ids;
+      update(state, force: true);
+    } catch (e) {
+      if (_disposed || epoch != _epoch) return;
+      log.fine('Unable to load the local like ids', e);
+    }
+  }
+
+  Future<Set<String>> _readLikedIds(String localId) {
+    return Repository.read((db) async {
+      final rows = await db.query(
+        tableAccountLike,
+        columns: [columnTweetId],
+        where: '$columnAccountLocalId = ?',
+        whereArgs: [localId],
+      );
+      return rows.map((row) => row[columnTweetId] as String).toSet();
+    });
+  }
+
   // Triple 2.1 copyWith treats null as "keep the old error", so _clearError()
   // cannot clear a failed refresh. Propagating an error event with a fresh
   // Triple is the supported Store hook that also updates selectError.

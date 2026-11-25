@@ -27,6 +27,27 @@ void main() {
     });
   });
 
+  group('TweetWithCard viewer flags', () {
+    test('Should keep liked and bookmarked through the feed cache', () {
+      final tweet = TweetWithCard()
+        ..idStr = '1'
+        ..fullText = 'hello'
+        ..favorited = true
+        ..bookmarked = true;
+
+      final restored = throughTheCache(
+        TweetChain(id: '1', tweets: [tweet], isPinned: false),
+      ).tweets.single;
+
+      expect(restored.favorited, isTrue,
+          reason: 'The status rail reads this flag; losing it in the cache hides the '
+              'online-like badge after reopening the app');
+      expect(restored.bookmarked, isTrue,
+          reason: 'The Saved badge must survive the same JSON cache round-trip as the '
+              'rest of the post');
+    });
+  });
+
   group('TweetWithCard.tombstone()', () {
     test('Should show the reason X gave, not the generic fallback', () {
       final tombstone = TweetWithCard.tombstone({

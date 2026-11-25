@@ -8,7 +8,6 @@ import 'package:quax/tweet/paginated_tweet_list.dart';
 import 'package:quax/tweet/tweet_context_scope.dart';
 import 'package:quax/tweet/tweet_load_counter.dart';
 import 'package:quax/utils/image_prefetch.dart';
-import 'package:quax/utils/tweet_freshness_index.dart';
 
 class FollowingTweets extends StatefulWidget {
   final TweetFeedController feed;
@@ -45,7 +44,6 @@ class _FollowingTweetsState extends State<FollowingTweets>
         'QuaX following entries=${result.chains.length} cursor=${result.cursorBottom ?? '-'}',
       );
     }
-    TweetFreshnessIndex().note(result.chains.map((chain) => chain.id));
     if (mounted) {
       // Warm the pictures just below the viewport.
       unawaited(prefetchChainImages(context, result.chains));

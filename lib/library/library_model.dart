@@ -12,6 +12,7 @@ import 'package:pref/pref.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/downloads/atomic_copy.dart';
 import 'package:quax/downloads/downloads_model.dart';
+import 'package:quax/library/library_presence.dart';
 import 'package:quax/utils/atomic_file.dart';
 import 'package:quax/utils/lru_cache.dart';
 
@@ -620,6 +621,9 @@ class LibraryModel extends Store<List<LibraryEntry>> {
     } catch (_) {
       // Already gone: the refresh settles the list either way.
     }
+    // A cached true would keep the feed badge up after the reader deleted the
+    // file, so invalidate even when the delete itself found nothing to remove.
+    LibraryPresence.invalidate();
   }
 
   /// Opens a library file through the system player/viewer. No in-app player:
@@ -777,6 +781,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
           ],
         }),
       );
+      LibraryPresence.invalidate();
       return true;
     } catch (_) {
       if (old == null) {
@@ -967,6 +972,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       await _pinVaultRoot(volume);
       _invalidateNameIndexAt(root.path);
       update([]);
+      LibraryPresence.invalidate();
       return true;
     } on Exception catch (e) {
       error?.value = e.toString();
@@ -1213,6 +1219,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       );
     }
     update([]);
+    LibraryPresence.invalidate();
 
     if (mode == LibraryStorageMode.visible && visible) {
       try {
@@ -1436,6 +1443,7 @@ class LibraryModel extends Store<List<LibraryEntry>> {
       }
       _invalidateNameIndexAt(root.path);
       update([]);
+      LibraryPresence.invalidate();
 
       if (visible) {
         // A picked folder can already hold media: index it right away, so the

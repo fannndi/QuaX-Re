@@ -8,13 +8,13 @@ import 'package:quax/likes/liked_tweet_model.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/tweet/_like_button.dart';
 import 'package:quax/tweet/_tweet_leading.dart';
+import 'package:quax/tweet/_tweet_status_rail.dart';
 import 'package:quax/status.dart';
 import 'package:quax/tweet/expandable_tweet_text.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:quax/tweet/_card.dart';
 import 'package:quax/tweet/_media.dart';
 import 'package:quax/ui/dates.dart';
-import 'package:quax/utils/tweet_freshness_index.dart';
 import 'package:quax/user.dart';
 import 'package:quax/utils/rich_text.dart';
 import 'package:intl/intl.dart';
@@ -381,50 +381,10 @@ class TweetTileState extends State<TweetTile>
                   },
                 );
               }),
-              _freshnessLabel(),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  /// A small New/Old tag: New means the post first appeared after this app
-  /// launch, Old means it was already there when the app was last open — the
-  /// quickest way to see whether a feed is actually refreshing.
-  Widget _freshnessLabel() {
-    return AnimatedBuilder(
-      animation: TweetFreshnessIndex().revision,
-      builder: (context, _) {
-        final id = tweet.idStr;
-        if (id == null || !TweetFreshnessIndex().isLoaded) {
-          return const SizedBox.shrink();
-        }
-
-        final isNew = TweetFreshnessIndex().isNew(id);
-        final scheme = Theme.of(context).colorScheme;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: isNew
-                  ? scheme.primaryContainer
-                  : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              isNew ? L10n.of(context).label_new : L10n.of(context).label_old,
-              style: TextStyle(
-                fontSize: 11,
-                color: isNew
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -863,6 +823,7 @@ class TweetTileState extends State<TweetTile>
       quotedTweet,
       TweetCard(tweet: tweet, card: tweet.card),
       birdwatchQuoted,
+      TweetStatusRail(tweet: tweet),
       footerBar,
     ];
 

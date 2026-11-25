@@ -3,10 +3,12 @@ import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:quax/constants.dart';
 import 'package:quax/generated/l10n.dart';
+import 'package:quax/library/library_model.dart';
+import 'package:quax/library/library_presence.dart';
 import 'package:quax/profile/profile.dart';
 import 'package:quax/tweet/media_actions.dart';
 import 'package:quax/tweet/media_viewer.dart';
-import 'package:quax/tweet/_video_overlays.dart';
+import 'package:quax/tweet/video_metadata.dart';
 import 'package:quax/ui/errors.dart';
 import 'package:pref/pref.dart';
 import 'package:provider/provider.dart';
@@ -135,6 +137,128 @@ class _TweetMediaItemState extends State<_TweetMediaItem> {
   }
 }
 
+/// The quiet line under a media box: the total clip length on the left, and a
+/// local-library marker when the exact download URL already has a file.
+class _MediaMetaRow extends StatefulWidget {
+  final Media media;
+
+  const _MediaMetaRow({super.key, required this.media});
+
+  @override
+  State<_MediaMetaRow> createState() => _MediaMetaRowState();
+}
+
+class _MediaMetaRowState extends State<_MediaMetaRow> {
+  LibraryModel? _library;
+  String? _url;
+  String _root = '';
+  bool _inGallery = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    LibraryPresence.revision.addListener(_onLibraryChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshPresence();
+  }
+
+  @override
+  void dispose() {
+    LibraryPresence.revision.removeListener(_onLibraryChanged);
+    super.dispose();
+  }
+
+  void _onLibraryChanged() => _refreshPresence(force: true);
+
+  void _refreshPresence({bool force = false}) {
+    final prefs = PrefService.of(context, listen: false);
+    final root = prefs.get<String>(optionLibraryPath) ?? '';
+    final url = downloadableMediaUri(
+      widget.media,
+      tweetMedia: true,
+    )?.toString();
+    if (!force && url == _url && root == _root) return;
+
+    _url = url;
+    _root = root;
+    _library = LibraryModel(prefs);
+    final generation = ++_generation;
+
+    if (url == null || url.isEmpty || root.isEmpty) {
+      if (_inGallery) setState(() => _inGallery = false);
+      return;
+    }
+
+    LibraryPresence.contains(
+      root: root,
+      url: url,
+      lookup: () => _library!.localPathFor(url),
+    ).then((present) {
+      if (!mounted || generation != _generation) return;
+      if (present != _inGallery) setState(() => _inGallery = present);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = widget.media.type == 'video'
+        ? formatVideoDuration(widget.media.videoInfo?.durationMillis)
+        : '';
+    if (duration.isEmpty && !_inGallery) return const SizedBox.shrink();
+
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          if (duration.isNotEmpty)
+            Text(
+              duration,
+              style: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          if (duration.isNotEmpty && _inGallery) const SizedBox(width: 8),
+          if (_inGallery)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.download_done,
+                    size: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    L10n.of(context).label_in_gallery,
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class TweetMedia extends StatefulWidget {
   final bool? sensitive;
   final List<Media> media;
@@ -158,11 +282,16 @@ class TweetMedia extends StatefulWidget {
 
 class _TweetMediaState extends State<TweetMedia> {
   late final PageController _controller;
+  late int _mediaIndex;
 
   @override
   void initState() {
     super.initState();
-    _controller = PageController(initialPage: widget.initialMediaIndex);
+    _mediaIndex = widget.initialMediaIndex.clamp(
+      0,
+      widget.media.isEmpty ? 0 : widget.media.length - 1,
+    );
+    _controller = PageController(initialPage: _mediaIndex);
   }
 
   @override
@@ -200,40 +329,49 @@ class _TweetMediaState extends State<TweetMedia> {
           );
         }
 
+        final currentMedia = widget.media.isEmpty
+            ? null
+            : widget.media[_mediaIndex.clamp(0, widget.media.length - 1)];
+
         return Container(
           margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
-          child: AspectRatio(
-            aspectRatio: aspectRatio,
-            child: PageView.builder(
-              controller: _controller,
-              scrollDirection: Axis.horizontal,
-              itemCount: widget.media.length,
-              itemBuilder: (context, index) {
-                var item = widget.media[index];
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AspectRatio(
+                aspectRatio: aspectRatio,
+                child: PageView.builder(
+                  controller: _controller,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.media.length,
+                  onPageChanged: (index) {
+                    if (index == _mediaIndex) return;
+                    setState(() => _mediaIndex = index);
+                  },
+                  itemBuilder: (context, index) {
+                    var item = widget.media[index];
 
-                // A video has its own tap controls and must never open the
-                // fullscreen media viewer. Photos and GIFs still open it.
-                final isVideo = item.type == 'video';
+                    // A video has its own tap controls and must never open the
+                    // fullscreen media viewer. Photos and GIFs still open it.
+                    final isVideo = item.type == 'video';
 
-                return GestureDetector(
-                  onTap: isVideo
-                      ? null
-                      : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TweetMediaView(
-                              initialIndex: index,
-                              media: widget.media,
-                              username: widget.username,
-                              tweetId: widget.tweetId,
+                    return GestureDetector(
+                      onTap: isVideo
+                          ? null
+                          : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TweetMediaView(
+                                  initialIndex: index,
+                                  media: widget.media,
+                                  username: widget.username,
+                                  tweetId: widget.tweetId,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                  onLongPress: () =>
-                      showMediaActionsSheet(context, item, widget.username),
-                  child: Stack(
-                    children: [
-                      _TweetMediaItem(
+                      onLongPress: () =>
+                          showMediaActionsSheet(context, item, widget.username),
+                      child: _TweetMediaItem(
                         media: item,
                         index: index + 1,
                         mediaIndex: index,
@@ -241,20 +379,16 @@ class _TweetMediaState extends State<TweetMedia> {
                         username: widget.username,
                         tweetId: widget.tweetId,
                       ),
-                      // Every video carries its length, exactly like the X app.
-                      if (isVideo)
-                        Positioned(
-                          left: 6,
-                          bottom: 6,
-                          child: VideoDurationBadge(
-                            durationMillis: item.videoInfo?.durationMillis,
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+              ),
+              if (currentMedia != null)
+                _MediaMetaRow(
+                  key: ValueKey('${widget.tweetId}:$_mediaIndex'),
+                  media: currentMedia,
+                ),
+            ],
           ),
         );
       },
